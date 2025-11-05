@@ -1,26 +1,158 @@
 @import "tailwindcss";
 
+/* ============================================
+   SHIFTCALI THEME TOKENS
+   ============================================ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Backgrounds */
+  --bg: #f5f7fb;
+  --bg-soft: #f9fbff;
+  --card: rgba(255, 255, 255, 0.92);
+  --card-subtle: rgba(255, 255, 255, 0.8);
+  --border-subtle: rgba(255, 255, 255, 0.7);
+
+  /* Text */
+  --text-main: #0f172a;   /* slate-900 */
+  --text-soft: #475569;   /* slate-600 */
+  --text-muted: #94a3b8;  /* slate-400 */
+
+  /* Accents */
+  --accent-blue: #0ea5e9;    /* sky-500 */
+  --accent-indigo: #4f46e5;  /* indigo-600 */
+  --accent-violet: #8b5cf6;  /* violet-500 */
+
+  /* Effects */
+  --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.08);
+  --ring-bg: #e2e8f0;       /* rings track */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+html.dark {
+  /* Backgrounds */
+  --bg: #020617;             /* very deep navy */
+  --bg-soft: #0b1120;        /* slightly lighter */
+  --card: rgba(15, 23, 42, 0.96);      /* dark glass card */
+  --card-subtle: rgba(15, 23, 42, 0.9);
+  --border-subtle: rgba(148, 163, 184, 0.28);
+
+  /* Text */
+  --text-main: #e5edff;
+  --text-soft: #cbd5f5;
+  --text-muted: #64748b;
+
+  /* Accents */
+  --accent-blue: #38bdf8;
+  --accent-indigo: #6366f1;
+  --accent-violet: #a855f7;
+
+  /* Effects */
+  --shadow-soft: 0 14px 35px rgba(0, 0, 0, 0.55);
+  --ring-bg: #1e293b;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ============================================
+   SMOOTH THEME TRANSITIONS
+   ============================================ */
+
+body {
+  background: radial-gradient(circle at top, var(--bg-soft), var(--bg));
+  color: var(--text-main);
+  transition: background 300ms ease, color 300ms ease;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+}
+
+.theme-transition * {
+  transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease,
+    box-shadow 220ms ease, transform 220ms ease;
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.safe-top    { padding-top: env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Hide horizontal scrollbar but keep scroll behaviour */
+.scrollbar-none {
+  -ms-overflow-style: none;  /* IE/Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;             /* Chrome/Safari */
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@keyframes coachPulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes typing {
+  0%, 60%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+.animate-typing {
+  animation: typing 1.4s ease-in-out infinite;
+}
+
+/* Toggle switch styles */
+.toggle-switch {
+  background-color: var(--ring-bg);
+}
+
+.toggle-switch:has(input:checked) {
+  background-color: var(--accent-blue);
+}
+
+.toggle-switch input:checked + div {
+  transform: translateX(1rem);
 }
