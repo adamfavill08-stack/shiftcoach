@@ -23,6 +23,10 @@ export type CalorieResult = {
   shiftFactor: number
   meals: MealSlot[]
   macros: MacroTargets
+  hydrationIntake: {
+    water_ml: number
+    caffeine_mg: number
+  }
 }
 
 const clamp = (n: number, min: number, max: number) => Math.min(Math.max(n, min), max)
@@ -60,7 +64,9 @@ export async function calculateAdjustedCalories(supabase: any, userId: string): 
     .limit(1)
     .maybeSingle()
 
-  const rhythmScore: number | null = rhythmRow?.total_score ?? null
+  const rhythmScoreRaw: number | null = rhythmRow?.total_score ?? null
+  const rhythmScore =
+    rhythmScoreRaw != null && rhythmScoreRaw <= 10 ? rhythmScoreRaw * 10 : rhythmScoreRaw
   let rhythmFactor = 1
   if (rhythmScore != null) {
     if (rhythmScore >= 80) rhythmFactor = 1.0
@@ -225,6 +231,26 @@ export async function calculateAdjustedCalories(supabase: any, userId: string): 
     sleepHoursLast24h,
   )
 
+  const { data: waterToday } = await supabase
+    .from('water_logs')
+    .select('ml,ts')
+    .eq('user_id', userId)
+    .gte('ts', twentyFourHoursAgo.toISOString())
+  const totalWaterMl = (waterToday ?? []).reduce(
+    (sum: number, row: any) => sum + (row.ml ?? 0),
+    0,
+  )
+
+  const { data: caffeineToday } = await supabase
+    .from('caffeine_logs')
+    .select('mg,ts')
+    .eq('user_id', userId)
+    .gte('ts', twentyFourHoursAgo.toISOString())
+  const totalCaffeineMg = (caffeineToday ?? []).reduce(
+    (sum: number, row: any) => sum + (row.mg ?? 0),
+    0,
+  )
+
   return {
     baseCalories,
     adjustedCalories,
@@ -236,6 +262,10 @@ export async function calculateAdjustedCalories(supabase: any, userId: string): 
     shiftFactor,
     meals,
     macros,
+    hydrationIntake: {
+      water_ml: totalWaterMl,
+      caffeine_mg: totalCaffeineMg,
+    },
   }
 }
 

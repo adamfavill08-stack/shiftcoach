@@ -1,8 +1,7 @@
-import { supabase } from '@/lib/supabase'
+import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 
 export async function GET() {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return new Response('Unauthorized', { status: 401 })
+  const { supabase } = await getServerSupabaseAndUserId()
 
   const end = new Date(); end.setUTCHours(0,0,0,0);  // today 00:00 UTC
   const start = new Date(end); start.setUTCDate(end.getUTCDate() - 6)

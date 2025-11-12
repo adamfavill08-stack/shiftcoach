@@ -1,21 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getTodayMacroIntake } from '@/lib/nutrition/getTodayMacroIntake'
 
 export async function POST(req: NextRequest) {
-  const supabase = createRouteHandlerClient({ cookies: () => req.cookies })
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError) {
-    console.error('[/api/meals/log] auth error:', authError)
-  }
-
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { supabase, userId } = await getServerSupabaseAndUserId()
 
   try {
     const body = await req.json().catch(() => ({}))
@@ -36,7 +24,7 @@ export async function POST(req: NextRequest) {
     const today = new Date().toISOString().slice(0, 10)
 
     const { error } = await supabase.from('meal_logs').insert({
-      user_id: user.id,
+      user_id: userId,
       date: today,
       slot_id: slotId,
       slot_label: slotLabel,

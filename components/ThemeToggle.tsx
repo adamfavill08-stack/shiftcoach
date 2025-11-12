@@ -1,18 +1,29 @@
-'use client'
+"use client";
 
-import { useTheme } from '@/components/ThemeProvider'
+import { useTheme } from "next-themes";
+import { Moon, Sun } from "lucide-react";
 
 export function ThemeToggle() {
-  const { resolved, toggle } = useTheme()
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+
+  const handleToggle = () => {
+    setTheme(isDark ? "light" : "dark");
+  };
+
   return (
     <button
-      onClick={toggle}
+      type="button"
+      onClick={handleToggle}
+      className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 text-slate-700 dark:text-slate-100 hover:scale-105 transition"
       aria-label="Toggle dark mode"
-      className="px-3 py-1.5 rounded-xl border text-sm hover:bg-slate-50 dark:hover:bg-slate-800
-                 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
     >
-      {resolved === 'dark' ? '☀️ Light' : '🌙 Dark'}
+      {isDark ? (
+        <Sun className="h-4 w-4" />
+      ) : (
+        <Moon className="h-4 w-4" />
+      )}
     </button>
-  )
+  );
 }
 

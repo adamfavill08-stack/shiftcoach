@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import OpenAI from 'openai'
+import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { openai } from '@/lib/openaiClient'
 import { calculateAdjustedCalories } from '@/lib/nutrition/calculateAdjustedCalories'
 
 function pickHeroMeal(meals: any[], shiftType: 'day'|'night'|'off'|'other') {
@@ -39,17 +39,13 @@ function computeHealthScore(params: { rhythmScore: number|null; sleepHours: numb
 }
 
 export async function GET(req: NextRequest) {
-  const supabase = createRouteHandlerClient({ cookies: () => req.cookies })
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { supabase, userId } = await getServerSupabaseAndUserId()
 
   const today = new Date().toISOString().slice(0,10)
 
   try {
     // Fetch daily nutrition to get meals and factors
-    const calc = await calculateAdjustedCalories(supabase as any, user.id)
+    const calc = await calculateAdjustedCalories(supabase as any, userId)
     const hero = pickHeroMeal(calc.meals, calc.shiftType)
     if (!hero) return NextResponse.json({ error: 'No meals planned' }, { status: 200 })
 
@@ -79,7 +75,7 @@ export async function GET(req: NextRequest) {
     const { data: cached } = await supabase
       .from('meal_hero_images')
       .select('image_url, prompt')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('date', today)
       .maybeSingle()
 
@@ -90,13 +86,13 @@ export async function GET(req: NextRequest) {
       const prompt = `High quality food photography of a healthy ${hero.label.toLowerCase()} for a shift worker, balanced protein, complex carbs and colorful vegetables, clean white plate, soft daylight, overhead shot, minimal background.`
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
       // Stable seed from user+date+meal
-      const seed = Array.from(`${user.id}-${today}-${hero.id}`).reduce((a,c)=> (a*31 + c.charCodeAt(0)) % 1_000_000, 0)
+      const seed = Array.from(`${userId}-${today}-${hero.id}`).reduce((a,c)=> (a*31 + c.charCodeAt(0)) % 1_000_000, 0)
       try {
         const img = await openai.images.generate({
           model: 'gpt-image-1',
           prompt,
           size: '1024x1024',
-          user: user.id,
+          user: userId,
           // @ts-ignore seed supported by provider
           seed,
         })
@@ -111,7 +107,7 @@ export async function GET(req: NextRequest) {
       if (imageUrl) {
         await supabase
           .from('meal_hero_images')
-          .upsert({ user_id: user.id, date: today, meal_id: hero.id, image_url: imageUrl, prompt: promptUsed }, { onConflict: 'user_id,date' })
+          .upsert({ user_id: userId, date: today, meal_id: hero.id, image_url: imageUrl, prompt: promptUsed }, { onConflict: 'user_id,date' })
       }
     }
 

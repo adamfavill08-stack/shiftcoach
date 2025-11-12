@@ -1,21 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
-  const supabase = createRouteHandlerClient({ cookies: () => req.cookies })
+  const { supabase, userId } = await getServerSupabaseAndUserId()
 
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const body = await req.json().catch(() => ({}))
     const { startTime, endTime, quality, naps } = body
 
@@ -55,6 +47,8 @@ export async function PUT(
     // Sanitize naps (>= 0, default 0)
     const napsValue = naps != null ? Math.max(0, Math.round(naps)) : 0
 
+    const { id } = await context.params
+
     const { data: updated, error } = await supabase
       .from('sleep_logs')
       .update({
@@ -65,8 +59,8 @@ export async function PUT(
         quality: qualityValue,
         naps: napsValue,
       })
-      .eq('id', params.id)
-      .eq('user_id', user.id)
+      .eq('id', id)
+      .eq('user_id', userId)
       .select()
       .maybeSingle()
 
@@ -98,22 +92,9 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = createRouteHandlerClient({ cookies: () => req.cookies })
+  const { supabase, userId } = await getServerSupabaseAndUserId()
 
   try {
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError) {
-      console.error('[/api/sleep/log/:id DELETE] auth error:', authError)
-    }
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     // Next 16: params is a Promise
     const { id } = await params
 
@@ -132,7 +113,7 @@ export async function DELETE(
       .from('sleep_logs')
       .delete()
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
 
     if (error) {
       console.error('[/api/sleep/log/:id DELETE] delete error:', error)

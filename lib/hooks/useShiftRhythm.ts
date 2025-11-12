@@ -6,6 +6,9 @@ type ShiftRhythmScore = {
   regularity_score: number
   shift_pattern_score: number
   recovery_score: number
+  nutrition_score: number | null
+  activity_score: number | null
+  meal_timing_score: number | null
   total_score: number
 }
 
@@ -30,7 +33,6 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
       if (now - lastFetchRef.current < 5000) return // throttle within 5s
       inFlightRef.current = true
       lastFetchRef.current = now
-      console.log('[useShiftRhythm] fetching score...')
       setLoading(true)
       setError(null)
       
@@ -60,10 +62,10 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
       
       setScore(newScore)
       
-      // Check for significant score change (>10 points) compared to yesterday
+      // Check for significant score change (>1 point on 0-10 scale) compared to yesterday
       if (newScore && yesterdayScore !== null) {
         const change = newScore.total_score - yesterdayScore
-        if (Math.abs(change) > 10 && onScoreChange) {
+        if (Math.abs(change) > 1 && onScoreChange) {
           // Only trigger once per score update
           const scoreId = `${newScore.date}-${newScore.total_score}-${change > 0 ? 'up' : 'down'}`
           const lastChangeId = previousScoreIdRef.current
@@ -90,8 +92,7 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
       if (!isCancelled) await fetchScore()
     }
     run()
-    const interval = setInterval(() => { if (!isCancelled) fetchScore() }, 5 * 60 * 1000)
-    return () => { isCancelled = true; clearInterval(interval) }
+    return () => { isCancelled = true }
   }, [])
 
   const total = score?.total_score ?? null

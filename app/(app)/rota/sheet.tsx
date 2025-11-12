@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { upsertShift, type Shift } from '@/lib/shifts'
-import { supabase } from '@/lib/supabase'
+import { type Shift } from '@/lib/shifts'
 
 type Props = {
   dateISO: string
@@ -41,8 +40,6 @@ export function ShiftSheet({ dateISO, initial, onClose }: Props) {
 
   async function save() {
     setSaving(true); setErr(null)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setErr('Not signed in'); setSaving(false); return }
 
     // OFF/AL/SICK have no start/end
     const isOffLike = label === 'OFF' || status === 'ANNUAL_LEAVE' || status === 'SICK'
@@ -66,16 +63,26 @@ export function ShiftSheet({ dateISO, initial, onClose }: Props) {
       : null
 
     try {
-      await upsertShift({
-        user_id: user.id,
-        date: dateISO,
-        label,
-        status,
-        start_ts,
-        end_ts: endA,
-        segments,
-        notes
+      const res = await fetch('/api/shifts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: dateISO,
+          label,
+          status,
+          start_ts,
+          end_ts: endA,
+          segments,
+          notes
+        })
       })
+
+      const json = await res.json()
+      
+      if (!res.ok) {
+        throw new Error(json.error || json.detail || 'Save failed')
+      }
+
       onClose()
     } catch (e:any) {
       setErr(e.message ?? 'Save failed')

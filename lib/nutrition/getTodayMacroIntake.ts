@@ -6,25 +6,43 @@ export type MacroIntake = {
 }
 
 export async function getTodayMacroIntake(supabase: any, userId: string): Promise<MacroIntake> {
-  const today = new Date().toISOString().slice(0, 10)
+  const startOfDay = new Date()
+  startOfDay.setHours(0, 0, 0, 0)
+  const endOfDay = new Date(startOfDay)
+  endOfDay.setDate(endOfDay.getDate() + 1)
 
-  const { data, error } = await supabase
+  let response = await supabase
     .from('meal_logs')
-    .select('protein_g, carbs_g, fat_g, sat_fat_g, calories')
+    .select('protein_g, carbs_g, fat_g, sat_fat_g, logged_at')
     .eq('user_id', userId)
-    .eq('date', today)
+    .gte('logged_at', startOfDay.toISOString())
+    .lt('logged_at', endOfDay.toISOString())
 
-  if (error) {
-    console.error('[getTodayMacroIntake] error:', error)
-    return { protein_g: 0, carbs_g: 0, fat_g: 0 }
+  if (response.error) {
+    const err = response.error
+    if (err.code === '42703' || err.message?.includes('logged_at')) {
+      console.warn('[getTodayMacroIntake] logged_at column missing, falling back to created_at')
+      response = await supabase
+        .from('meal_logs')
+        .select('protein_g, carbs_g, fat_g, sat_fat_g, created_at')
+        .eq('user_id', userId)
+        .gte('created_at', startOfDay.toISOString())
+        .lt('created_at', endOfDay.toISOString())
+    }
   }
 
-  const totals = (data ?? []).reduce(
+  if (response.error) {
+    console.error('[getTodayMacroIntake] error:', response.error)
+    return { protein_g: 0, carbs_g: 0, fat_g: 0, sat_fat_g: 0 }
+  }
+
+  const data = response.data ?? []
+
+  const totals = data.reduce(
     (acc: MacroIntake, row: any) => {
       acc.protein_g += row?.protein_g ?? 0
       acc.carbs_g += row?.carbs_g ?? 0
       acc.fat_g += row?.fat_g ?? 0
-      // optional if column exists
       acc.sat_fat_g = (acc.sat_fat_g ?? 0) + (row?.sat_fat_g ?? 0)
       return acc
     },

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { OpenAI } from 'openai'
+import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 import { getWeeklyMetrics } from '@/lib/data/getWeeklyMetrics'
 import { generateWeeklySummary } from '@/lib/coach/generateWeeklySummary'
 import { getBehaviorSummary } from '@/lib/data/getBehaviorSummary'
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
   try {
     // TODO: In production, use service-role Supabase client with SUPABASE_SERVICE_ROLE_KEY
     // For now, using route handler client (will work if called with proper auth)
-    const supabase = createRouteHandlerClient({ cookies: () => req.cookies })
+    const { supabase } = await getServerSupabaseAndUserId()
 
     // Optional: Check for a secret header to protect this endpoint
     const secret = req.headers.get('x-weekly-summary-secret')

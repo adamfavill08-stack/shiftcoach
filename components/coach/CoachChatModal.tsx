@@ -72,7 +72,7 @@ export function CoachChatModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-40 backdrop-blur-sm flex items-end justify-center px-3 pb-4 md:items-center md:pb-0"
+      className="fixed inset-0 z-50 backdrop-blur-sm flex items-end justify-center px-3 pb-4 md:items-center md:pb-0"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
     >
       {/* Ambient glow */}

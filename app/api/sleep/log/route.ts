@@ -1,32 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 
 export async function POST(req: NextRequest) {
-  // Use cookies from the incoming request instead of next/headers
-  const supabase = createRouteHandlerClient({ cookies: () => req.cookies })
+  const { supabase, userId } = await getServerSupabaseAndUserId()
 
   try {
-    // Authenticate user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError) {
-      console.error('[/api/sleep/log] auth error:', authError)
-      return NextResponse.json(
-        { error: 'Authentication failed', message: 'Please sign in to log sleep.' },
-        { status: 401 }
-      )
-    }
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Please sign in to log sleep.' },
-        { status: 401 }
-      )
-    }
-
     // Parse request body
     const body = await req.json().catch(() => ({}))
     const { startTime, endTime, quality, naps } = body
@@ -76,7 +54,7 @@ export async function POST(req: NextRequest) {
     const { data: inserted, error: insertError } = await supabase
       .from('sleep_logs')
       .insert({
-        user_id: user.id,
+        user_id: userId,
         date,
         start_ts: startDate.toISOString(),
         end_ts: endDate.toISOString(),

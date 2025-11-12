@@ -1,8 +1,8 @@
-import { supabaseServer } from '@/lib/supabase'
-import { DEV_USER_ID } from '@/lib/dev-user'
+import { NextRequest } from 'next/server'
+import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 
-export async function GET() {
-  const userId = DEV_USER_ID
+export async function GET(req: NextRequest) {
+  const { supabase, userId } = await getServerSupabaseAndUserId()
   const now = new Date()
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0))
   const end   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0))
@@ -10,21 +10,21 @@ export async function GET() {
   const endISO   = end.toISOString()
 
   // Sum water & caffeine today (UTC-aware)
-  const { data: water } = await supabaseServer
+  const { data: water } = await supabase
     .from('water_logs')
     .select('ml')
     .gte('ts', startISO).lt('ts', endISO)
     .eq('user_id', userId)
   const water_ml = (water || []).reduce((a, r:any) => a + r.ml, 0)
 
-  const { data: caf } = await supabaseServer
+  const { data: caf } = await supabase
     .from('caffeine_logs')
     .select('mg')
     .gte('ts', startISO).lt('ts', endISO)
     .eq('user_id', userId)
   const caffeine_mg = (caf || []).reduce((a, r:any) => a + r.mg, 0)
 
-  const { data: mood } = await supabaseServer
+  const { data: mood } = await supabase
     .from('mood_logs')
     .select('mood,focus,ts')
     .gte('ts', startISO).lt('ts', endISO)

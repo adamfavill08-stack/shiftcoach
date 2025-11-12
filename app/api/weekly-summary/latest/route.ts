@@ -1,28 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 
 /**
  * GET /api/weekly-summary/latest
- * 
+ *
  * Returns the latest weekly summary for the authenticated user
  */
 export async function GET(req: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies: () => req.cookies })
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ summary: null }, { status: 200 })
-    }
+    const { supabase, userId } = await getServerSupabaseAndUserId()
 
     const { data, error } = await supabase
       .from('weekly_summaries')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('week_start', { ascending: false })
       .limit(1)
       .maybeSingle()

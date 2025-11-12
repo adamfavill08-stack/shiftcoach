@@ -1,32 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 import { getCoachingState } from '@/lib/coach/getCoachingState'
 import { getUserMetrics } from '@/lib/data/getUserMetrics'
 
 /**
  * POST /api/coach/check-red
- * 
+ *
  * Checks if user is in RED state and sends proactive message if needed
  * This should be called periodically (e.g., daily cron or when metrics update)
  */
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies: () => req.cookies })
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Authentication failed' },
-        { status: 401 }
-      )
-    }
+    const { supabase, userId } = await getServerSupabaseAndUserId()
 
     // Fetch user metrics
-    const metrics = await getUserMetrics(user.id, supabase)
+    const metrics = await getUserMetrics(userId, supabase)
 
     // Compute coaching state (normalize shift type to lowercase)
     const shiftTypeNormalized = metrics.shiftType
@@ -50,7 +38,7 @@ export async function POST(req: NextRequest) {
       const { data: existingMessages } = await supabase
         .from('ai_messages')
         .select('id')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('role', 'assistant')
         .gte('created_at', `${today}T00:00:00Z`)
         .like('content', '%I\'ve noticed your sleep and recovery%')
@@ -61,7 +49,7 @@ export async function POST(req: NextRequest) {
         const { data: existingConvos } = await supabase
           .from('ai_conversations')
           .select('id')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .eq('is_active', true)
           .limit(1)
 
@@ -71,7 +59,7 @@ export async function POST(req: NextRequest) {
           const { data: newConvo } = await supabase
             .from('ai_conversations')
             .insert({
-              user_id: user.id,
+              user_id: userId,
               title: 'ShiftCali coaching',
               is_active: true,
             })
@@ -84,7 +72,7 @@ export async function POST(req: NextRequest) {
         if (conversationId) {
           // Send proactive message
           await supabase.from('ai_messages').insert({
-            user_id: user.id,
+            user_id: userId,
             conversation_id: conversationId,
             role: 'assistant',
             content:

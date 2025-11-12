@@ -1,13 +1,14 @@
-import { supabaseServer } from '@/lib/supabase'
-import { DEV_USER_ID } from '@/lib/dev-user'
+import { NextRequest } from 'next/server'
+import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 
-export async function POST(req: Request) {
-  const { ml } = await req.json().catch(() => ({}))
-  if (!ml) return new Response(JSON.stringify({ ok:false, error:'ml required' }), { status: 400 })
+export async function POST(req: NextRequest) {
+  const { supabase, userId } = await getServerSupabaseAndUserId()
+  const { ml } = await req.json().catch(() => ({} as Record<string, unknown>))
+  if (!ml) return new Response(JSON.stringify({ ok: false, error: 'ml required' }), { status: 400 })
 
-  const { error: insErr } = await supabaseServer
+  const { error: insErr } = await supabase
     .from('water_logs')
-    .insert({ user_id: DEV_USER_ID, ml })
+    .insert({ user_id: userId, ml })
 
   if (insErr) {
     return new Response(JSON.stringify({ ok:false, error: insErr.message }), { status: 500 })
@@ -18,10 +19,10 @@ export async function POST(req: Request) {
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
   const end   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()+1))
 
-  const { data, error } = await supabaseServer
+  const { data, error } = await supabase
     .from('water_logs').select('ml')
     .gte('ts', start.toISOString()).lt('ts', end.toISOString())
-    .eq('user_id', DEV_USER_ID)
+    .eq('user_id', userId)
 
   if (error) {
     return new Response(JSON.stringify({ ok:false, error: error.message }), { status: 500 })

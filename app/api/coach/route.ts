@@ -1,34 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 import { openai } from '@/lib/openaiClient'
 import { SHIFT_CALI_COACH_SYSTEM_PROMPT } from '@/lib/coach/systemPrompt'
 import { getCoachingState } from '@/lib/coach/getCoachingState'
 import { classifyGoalFeedback } from '@/lib/coach/classifyGoalFeedback'
 
+function isRateLimitError(err: any) {
+  if (!err) return false
+  if (err.status === 429) return true
+  const message = typeof err.message === 'string' ? err.message : ''
+  if (message.includes('Rate limit')) return true
+  const code = err?.error?.code || err?.code
+  return code === 'rate_limit_exceeded'
+}
+
 export async function POST(req: NextRequest) {
   try {
-    // ✅ Use cookies from the incoming request, not global
-    const supabase = createRouteHandlerClient({ cookies: () => req.cookies })
+    const { supabase, userId } = await getServerSupabaseAndUserId()
 
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser()
+    console.log('[/api/coach] User authenticated:', userId)
 
-    if (error) {
-      console.error('[/api/coach] Supabase auth error:', error)
-    }
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Authentication failed' },
-        { status: 401 }
-      )
-    }
-
-    console.log('[/api/coach] User authenticated:', user.id)
-
-    // ✅ From here down, use user.id for all conversation logic
+    // ✅ From here down, use userId for all conversation logic
 
     const body = await req.json().catch(() => null)
     const message = body?.message as string | undefined
@@ -42,7 +34,7 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('[/api/coach] Received message:', message)
-    console.log('[/api/coach] User:', user.id)
+    console.log('[/api/coach] User:', userId)
 
     // Check for goal feedback sentiment
     const feedbackSentiment = classifyGoalFeedback(message)
@@ -56,7 +48,7 @@ export async function POST(req: NextRequest) {
       const { data: latestGoals } = await supabase
         .from('weekly_goals')
         .select('week_start')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('week_start', { ascending: false })
         .limit(1)
         .maybeSingle()
@@ -66,7 +58,7 @@ export async function POST(req: NextRequest) {
 
         // Log feedback
         await supabase.from('weekly_goal_feedback').insert({
-          user_id: user.id,
+          user_id: userId,
           week_start: weekStart,
           sentiment: feedbackSentiment,
           reflection: message.slice(0, 2000), // Limit reflection length
@@ -92,7 +84,7 @@ Respond in a way that matches this category, using the rules in your system prom
 
     // Fetch user metrics for personalized context
     const { getUserMetrics } = await import('@/lib/data/getUserMetrics')
-    const metrics = await getUserMetrics(user.id, supabase)
+    const metrics = await getUserMetrics(userId, supabase)
     console.log('[/api/coach] User metrics:', metrics)
 
     // Compute coaching state (normalize shift type to lowercase)
@@ -145,7 +137,7 @@ ${coachingState.summary}
     const { data: existingConvos, error: convosError } = await supabase
       .from('ai_conversations')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -171,7 +163,7 @@ ${coachingState.summary}
       const { data, error } = await supabase
         .from('ai_conversations')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           title: 'ShiftCali coaching',
           is_active: true,
         })
@@ -189,7 +181,7 @@ ${coachingState.summary}
     const { data: pastMessages, error: messagesError } = await supabase
       .from('ai_messages')
       .select('role, content, created_at')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('conversation_id', conversation.id)
       .order('created_at', { ascending: true })
       .limit(30)
@@ -248,7 +240,7 @@ Respond in a way that is explicitly tailored for this state:
 
     // 5) Save new user message to DB
     const { error: userMsgError } = await supabase.from('ai_messages').insert({
-      user_id: user.id,
+      user_id: userId,
       conversation_id: conversation.id,
       role: 'user',
       content: message,
@@ -272,17 +264,34 @@ Respond in a way that is explicitly tailored for this state:
     } catch (openaiError) {
       console.error('[/api/coach] OpenAI API error:', openaiError)
       const errorMessage = openaiError instanceof Error ? openaiError.message : 'OpenAI API error'
-      
-      // Check if it's an API key error
+
+      if (isRateLimitError(openaiError)) {
+        const fallbackReply =
+          coachingState.status === 'red'
+            ? "I'm hitting my limit right now, but keep things gentle: prioritise rest, hydration, and regular meals for this shift. I'll be ready with more ideas in a little while."
+            : 'I need a brief reset due to high usage. Give me a few minutes and try again—meanwhile, keep your routine steady and stay hydrated.'
+
+        if (conversation) {
+          await supabase.from('ai_messages').insert({
+            user_id: userId,
+            conversation_id: conversation.id,
+            role: 'assistant',
+            content: fallbackReply,
+          }).catch((err) => console.warn('Failed to store fallback reply:', err))
+        }
+
+        return NextResponse.json({ reply: fallbackReply, rateLimited: true })
+      }
+
       if (errorMessage.includes('OPENAI_API_KEY') || errorMessage.includes('api key')) {
-        return NextResponse.json({ 
-          error: 'OpenAI API key not configured', 
+        return NextResponse.json({
+          error: 'OpenAI API key not configured',
           message: 'Please add OPENAI_API_KEY to your .env.local file and restart the server.',
         }, { status: 500 })
       }
-      
-      return NextResponse.json({ 
-        error: 'OpenAI API error', 
+
+      return NextResponse.json({
+        error: 'OpenAI API error',
         message: errorMessage,
       }, { status: 500 })
     }
@@ -292,7 +301,7 @@ Respond in a way that is explicitly tailored for this state:
 
     // 7) Save assistant reply
     const { error: assistantMsgError } = await supabase.from('ai_messages').insert({
-      user_id: user.id,
+      user_id: userId,
       conversation_id: conversation.id,
       role: 'assistant',
       content: reply,

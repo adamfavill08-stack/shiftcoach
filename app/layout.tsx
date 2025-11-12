@@ -4,7 +4,6 @@ import { AuthProvider } from '@/components/AuthProvider'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { QuickAddProvider } from '@/lib/quickAddContext'
 import { QuickAddSheet } from '@/components/quick-add/QuickAddSheet'
-import { BottomNav } from '@/components/ui/BottomNav'
 
 export const metadata: Metadata = {
   title: 'ShiftCali',
@@ -27,7 +26,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <AuthProvider>
               <QuickAddProvider>
                 {children}
-                <BottomNav />
                 <QuickAddSheet />
               </QuickAddProvider>
             </AuthProvider>

@@ -1,79 +1,88 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import clsx from 'clsx'
-import { Home, BarChart3, Settings as SettingsIcon, CalendarDays, Plus } from 'lucide-react'
+import { usePathname } from 'next/navigation'
+import { Home, BarChart2, Calendar, Settings } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useQuickAdd } from '@/lib/quickAddContext'
 
-const tabs = [
-  { href: '/dashboard', label: 'Home', icon: '🏠' },
-  { href: '/rota',      label: 'Rota', icon: '📅' },
-  { href: '/meals',     label: 'Meals',icon: '🍽️' },
-  { href: '/progress',  label: 'Progress', icon: '📈' },
-  { href: '/settings',  label: 'Settings', icon: '⚙️' },
+const navItems = [
+  { href: '/dashboard', label: 'Home', icon: Home },
+  { href: '/progress', label: 'Progress', icon: BarChart2 },
+  { href: '/rota', label: 'Rota', icon: Calendar },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
-function NavItem({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
+export default function BottomNav() {
   const pathname = usePathname()
-  const router = useRouter()
-  const isActive = pathname === href || pathname?.startsWith(href)
-  return (
-    <button
-      type="button"
-      onClick={() => router.push(href)}
-      className="flex flex-col items-center gap-0.5 text-xs"
-    >
-      <span
-        className={clsx(
-          'flex h-6 w-6 items-center justify-center',
-          isActive ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-500'
-        )}
-      >
-        {icon}
-      </span>
-      <span
-        className={clsx(
-          'text-[10px] font-medium tracking-wide',
-          isActive ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-500'
-        )}
-      >
-        {label}
-      </span>
-    </button>
-  )
-}
-
-export function BottomNav() {
   const { open } = useQuickAdd()
+
+  // Only show on dashboard
+  if (pathname !== '/dashboard') return null
+
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-40">
-      <div className="mx-auto max-w-md mb-1 rounded-t-3xl bg-white/95 dark:bg-[#0d0d0d]/95 border-t border-neutral-200/70 dark:border-neutral-800 shadow-[0_-10px_30px_rgba(15,23,42,0.12)] backdrop-blur">
-        <div className="relative flex items-center justify-between w-full px-10 pt-6 pb-5">
-          {/* Left group */}
-          <div className="flex items-center gap-10">
-            <NavItem href="/dashboard" icon={<Home className="h-5 w-5" />} label="Home" />
-            <NavItem href="/progress" icon={<BarChart3 className="h-5 w-5" />} label="Progress" />
-          </div>
+    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center">
+      {/* Nav pill */}
+      <div
+        className={cn(
+          'pointer-events-auto',
+          // layout
+          'mx-4 w-full max-w-md rounded-full px-8 py-3',
+          'flex items-center justify-between gap-6',
+          // light mode
+          'bg-white/90 text-slate-600 shadow-[0_10px_40px_rgba(15,23,42,0.15)]',
+          // dark mode
+          'dark:bg-slate-900/90 dark:text-slate-300 dark:shadow-[0_10px_40px_rgba(0,0,0,0.7)]',
+          // glass
+          'backdrop-blur-xl border border-white/60 dark:border-slate-700/80'
+        )}
+      >
+        {navItems.map((item) => {
+          const Icon = item.icon
+          const active = pathname === item.href
 
-          {/* Right group */}
-          <div className="flex items-center gap-10">
-            <NavItem href="/rota" icon={<CalendarDays className="h-5 w-5" />} label="Rota" />
-            <NavItem href="/settings" icon={<SettingsIcon className="h-5 w-5" />} label="Settings" />
-          </div>
-
-          {/* Center floating + */}
-          <button
-            type="button"
-            onClick={open}
-            className="absolute -top-7 left-1/2 -translate-x-1/2 flex items-center justify-center h-14 w-14 rounded-full bg-neutral-900 text-white shadow-[0_4px_16px_rgba(0,0,0,0.25)] hover:scale-105 active:scale-95 transition-transform border border-white/10"
-            aria-label="Quick add"
-          >
-            <Plus className="h-7 w-7" strokeWidth={2.4} />
-          </button>
-        </div>
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'flex flex-1 flex-col items-center justify-center text-xs font-medium transition-all',
+                'gap-1',
+                active
+                  ? 'text-sky-500 dark:text-sky-400'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-100'
+              )}
+            >
+              <Icon
+                className={cn(
+                  'h-5 w-5 transition-colors',
+                  active
+                    ? 'stroke-sky-500 dark:stroke-sky-400'
+                    : 'stroke-slate-500 dark:stroke-slate-400'
+                )}
+              />
+              <span>{item.label}</span>
+            </Link>
+          )
+        })}
       </div>
-    </nav>
+
+      {/* Floating + button */}
+      <button
+        type="button"
+        onClick={open}
+        className={cn(
+          'pointer-events-auto',
+          'absolute -top-6 left-1/2 -translate-x-1/2',
+          'flex h-14 w-14 items-center justify-center rounded-full',
+          'bg-black text-white shadow-[0_14px_40px_rgba(0,0,0,0.6)]',
+          'dark:bg-white dark:text-black',
+          'transition-transform hover:scale-105 active:scale-95'
+        )}
+        aria-label="Quick add"
+      >
+        <span className="text-2xl leading-none">+</span>
+      </button>
+    </div>
   )
 }
-

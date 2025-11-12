@@ -1,37 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 
 export async function GET(req: NextRequest) {
-  // Use cookies from the incoming request instead of next/headers
-  const supabase = createRouteHandlerClient({ cookies: () => req.cookies })
+  const { supabase, userId } = await getServerSupabaseAndUserId()
 
   try {
-    // Authenticate user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError) {
-      console.error('[/api/sleep/recent] auth error:', authError)
-      return NextResponse.json(
-        { error: 'Authentication failed' },
-        { status: 401 }
-      )
-    }
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
     // Get most recent sleep log
     const { data, error } = await supabase
       .from('sleep_logs')
       .select('id, date, start_ts, end_ts, sleep_hours, quality, naps')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('start_ts', { ascending: false })
       .limit(1)
       .maybeSingle()

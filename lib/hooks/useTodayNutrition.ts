@@ -21,13 +21,19 @@ type TodayNutrition = {
     protein_g: number
     carbs_g: number
     fat_g: number
+    sat_fat_g?: number
   }
   consumedMacros: {
     protein_g: number
     carbs_g: number
     fat_g: number
+    sat_fat_g?: number
   }
   hydrationTargets?: {
+    water_ml: number
+    caffeine_mg: number
+  }
+  hydrationIntake?: {
     water_ml: number
     caffeine_mg: number
   }

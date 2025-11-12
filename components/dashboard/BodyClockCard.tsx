@@ -4,11 +4,16 @@ import Link from 'next/link'
 
 import { useMemo } from 'react'
 
-type BodyClockCardProps = { score?: number | null; loading?: boolean }
+type BodyClockCardProps = { 
+  score?: number | null
+  loading?: boolean
+  error?: string | null
+  onRetry?: () => void
+}
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n))
 
-const BodyClockCard: React.FC<BodyClockCardProps> = ({ score = null, loading = false }) => {
+const BodyClockCard: React.FC<BodyClockCardProps> = ({ score = null, loading = false, error = null, onRetry }) => {
   const value = score !== null ? clamp(Math.round(score), 0, 100) : null
 
   // Ring geometry
@@ -19,8 +24,20 @@ const BodyClockCard: React.FC<BodyClockCardProps> = ({ score = null, loading = f
   const dash = useMemo(() => value !== null ? (value / 100) * c : 0, [value, c])
   const angle = useMemo(() => value !== null ? (value / 100) * 360 : 0, [value])
 
+  const handleClick = (e: React.MouseEvent) => {
+    if (error && onRetry) {
+      e.preventDefault()
+      e.stopPropagation()
+      onRetry()
+    }
+  }
+
   return (
-    <Link href="/shift-rhythm" className="block">
+    <Link 
+      href="/shift-rhythm" 
+      className="block"
+      onClick={handleClick}
+    >
       <section
         className="relative rounded-3xl backdrop-blur-2xl border flex flex-col items-center justify-center px-6 py-8 text-center cursor-pointer transition-transform duration-150 hover:scale-[1.01] active:scale-[0.99]"
         style={{
@@ -120,7 +137,19 @@ const BodyClockCard: React.FC<BodyClockCardProps> = ({ score = null, loading = f
               <div className="text-6xl font-bold animate-pulse" style={{ color: 'var(--text-muted)' }}>
                 --
               </div>
-              <div className="mt-2 text-sm" style={{ color: 'var(--text-muted)' }}>Calculating...</div>
+              <div className="mt-2 text-sm animate-pulse" style={{ color: 'var(--text-muted)' }}>Calculating...</div>
+            </>
+          ) : error ? (
+            <>
+              <div className="text-6xl font-bold" style={{ color: 'var(--text-muted)' }}>--</div>
+              <div className="mt-2 text-xs text-center px-4" style={{ color: 'var(--text-muted)' }}>
+                {error}
+              </div>
+              {onRetry && (
+                <div className="mt-1 text-[10px] opacity-60" style={{ color: 'var(--text-muted)' }}>
+                  Tap to retry
+                </div>
+              )}
             </>
           ) : value !== null ? (
             <>

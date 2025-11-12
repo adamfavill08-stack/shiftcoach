@@ -1,12 +1,19 @@
 import { computeToday } from '@/lib/engine'
-import { supabase } from '@/lib/supabase'
-import { getMyProfile } from '@/lib/profile'
+import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 
 export async function GET() {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return new Response('Unauthorized', { status: 401 })
+  const { supabase, userId } = await getServerSupabaseAndUserId()
 
-  const profile = await getMyProfile()
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error) {
+    console.error('[/api/engine/today] profile fetch error:', error)
+  }
+
   if (!profile) return new Response('Profile not found', { status: 404 })
 
   const out = await computeToday(profile)

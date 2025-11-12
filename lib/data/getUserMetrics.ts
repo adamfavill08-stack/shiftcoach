@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { computeToday } from '@/lib/engine'
 import { isoLocalDate } from '@/lib/shifts'
 import type { Profile } from '@/lib/profile'
 
@@ -53,25 +52,28 @@ export async function getUserMetrics(
 
     const profile = profileData as Profile
 
-    // Compute engine output (gives us body clock, recovery, adjusted calories)
-    // Note: computeToday uses client-side Supabase, but it should work in server context
-    // as long as the profile has the user_id set correctly
-    let bodyClockScore: number | null = null
-    let recoveryScore: number | null = null
-    let adjustedCalories: number | null = null
+    // Get today's shift rhythm score (includes body clock and recovery)
+    const todayISO = isoLocalDate(new Date())
+    
+    const { data: rhythmScore } = await supabase
+      .from('shift_rhythm_scores')
+      .select('total_score, recovery_score')
+      .eq('user_id', userId)
+      .eq('date', todayISO)
+      .maybeSingle()
 
-    try {
-      // Ensure profile has user_id for computeToday
-      if (profile.user_id === userId) {
-        const engineOutput = await computeToday(profile)
-        bodyClockScore = engineOutput.rhythm_score
-        recoveryScore = engineOutput.recovery_score
-        adjustedCalories = engineOutput.adjusted_kcal
-      }
-    } catch (engineError) {
-      console.error('[/api/coach] Error computing engine:', engineError)
-      // Continue with null values - engine computation is optional
-    }
+    const bodyClockScore = rhythmScore?.total_score ?? null
+    const recoveryScore = rhythmScore?.recovery_score ?? null
+    
+    // Get adjusted calories from daily_metrics if available
+    const { data: dailyMetrics } = await supabase
+      .from('daily_metrics')
+      .select('adjusted_kcal')
+      .eq('user_id', userId)
+      .eq('date', todayISO)
+      .maybeSingle()
+    
+    const adjustedCalories = dailyMetrics?.adjusted_kcal ?? null
 
     // Get latest sleep (last 24 hours)
     const now = new Date()
@@ -91,8 +93,7 @@ export async function getUserMetrics(
       sleepHoursLast24 = Math.round((totalMinutes / 60) * 10) / 10 // Round to 1 decimal
     }
 
-    // Get today's shift
-    const todayISO = isoLocalDate(new Date())
+    // Get today's shift (reuse todayISO defined above)
     const { data: todayShift } = await supabase
       .from('shifts')
       .select('label, start_ts, end_ts')

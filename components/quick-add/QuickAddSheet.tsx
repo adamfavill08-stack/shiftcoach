@@ -16,7 +16,6 @@ type QuickAction = {
 export function QuickAddSheet() {
   const { isOpen, close } = useQuickAdd();
   const router = useRouter();
-  console.log('QuickAddSheet visible:', isOpen)
 
   const go = (path: string) => {
     close();
