@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
             .from('ai_conversations')
             .insert({
               user_id: userId,
-              title: 'ShiftCali coaching',
+              title: 'Shift Coach coaching',
               is_active: true,
             })
             .select('id')

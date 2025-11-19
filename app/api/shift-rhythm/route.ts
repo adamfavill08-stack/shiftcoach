@@ -44,7 +44,7 @@ async function buildShiftRhythmInputs(supabase: SupabaseClient, userId: string) 
         .eq('user_id', userId)
         .gte('date', sevenDaysAgo.toISOString().slice(0, 10))
         .lte('date', todayIso),
-      getTodayMacroIntake(supabase, userId),
+      getTodayMacroIntake(userId, supabase),
       getHydrationAndCaffeineTargets(supabase, userId),
       getTodayHydrationIntake(supabase, userId),
       calculateAdjustedCalories(supabase, userId),
@@ -75,7 +75,7 @@ async function buildShiftRhythmInputs(supabase: SupabaseClient, userId: string) 
   const sevenDaysAgoStart = new Date(sevenDaysAgo)
   sevenDaysAgoStart.setHours(0, 0, 0, 0)
 
-  let mealQuery = await supabase
+  let mealQuery: any = await supabase
     .from('meal_logs')
     .select('calories,slot_label,logged_at')
     .eq('user_id', userId)
@@ -102,11 +102,11 @@ async function buildShiftRhythmInputs(supabase: SupabaseClient, userId: string) 
   }
 
   const consumedCalories = mealRows
-    .filter((row) => getMealDate(row) === todayIso)
+    .filter((row: any) => getMealDate(row) === todayIso)
     .reduce((sum: number, row: any) => sum + (row.calories ?? 0), 0)
 
   const mealTimingActual = mealRows
-    .filter((row) => getMealDate(row) === todayIso)
+    .filter((row: any) => getMealDate(row) === todayIso)
     .map((row: any) => ({
       slot: row.slot_label ?? 'meal',
       timestamp: row.logged_at ?? row.created_at ?? `${todayIso}T12:00:00Z`,
@@ -117,10 +117,10 @@ async function buildShiftRhythmInputs(supabase: SupabaseClient, userId: string) 
     consumedCalories,
     calorieTarget: adjustedCalories.adjustedCalories,
     macros: {
-      protein: { target: adjustedCalories.macros.protein_g, consumed: macroTargets.protein_g },
-      carbs: { target: adjustedCalories.macros.carbs_g, consumed: macroTargets.carbs_g },
-      fat: { target: adjustedCalories.macros.fat_g, consumed: macroTargets.fat_g },
-      satFat: { limit: adjustedCalories.macros.sat_fat_g, consumed: macroTargets.sat_fat_g },
+      protein: { target: adjustedCalories.macros.protein_g, consumed: macroTargets.protein ?? null },
+      carbs: { target: adjustedCalories.macros.carbs_g, consumed: macroTargets.carbs ?? null },
+      fat: { target: adjustedCalories.macros.fat_g, consumed: macroTargets.fat ?? null },
+      satFat: { limit: adjustedCalories.macros.sat_fat_g, consumed: null },
     },
     hydration: {
       water: {
@@ -202,6 +202,10 @@ export async function GET(req: NextRequest) {
   try {
     const today = new Date().toISOString().slice(0, 10)
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+    
+    // Check for force recalculation parameter
+    const searchParams = req.nextUrl.searchParams
+    const forceRecalculate = searchParams.get('force') === 'true'
 
     // Try to get today's score and yesterday's score for comparison
     const [{ data: existing, error: fetchErr }, { data: yesterdayScore }] = await Promise.all([
@@ -229,7 +233,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    let score = existing
+    let score = existing && !forceRecalculate
       ? {
           date: existing.date,
           sleep_score: existing.sleep_score ?? 0,
@@ -243,8 +247,8 @@ export async function GET(req: NextRequest) {
         }
       : null
 
-    // If no score, calculate and store it
-    if (!score) {
+    // If no score or force recalculation, calculate and store it
+    if (!score || forceRecalculate) {
       console.log('[/api/shift-rhythm] No score for today, calculating…')
 
       try {

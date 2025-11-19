@@ -20,7 +20,7 @@ export default function Home() {
 
   return (
     <main className="p-10 text-gray-900 space-y-4">
-      <h1 className="text-3xl font-bold">ShiftCali — Supabase Connectivity Check</h1>
+      <h1 className="text-3xl font-bold">Shift Coach — Supabase Connectivity Check</h1>
       {result === 'loading' && <p>Checking Supabase…</p>}
       {result === 'ok' && (
         <>

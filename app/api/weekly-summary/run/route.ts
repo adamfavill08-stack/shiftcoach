@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
             conversation_id: convo.id,
             role: 'assistant',
             content:
-              "Here's your weekly ShiftCali summary:\n\n" + summaryText,
+              "Here's your weekly Shift Coach summary:\n\n" + summaryText,
           })
 
           // Insert goals message

@@ -1,4 +1,4 @@
--- AI Coach tables for ShiftCali
+-- AI Coach tables for Shift Coach
 -- Run this in Supabase SQL Editor
 
 -- 1. Create ai_conversations table

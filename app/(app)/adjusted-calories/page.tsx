@@ -110,7 +110,7 @@ export default function AdjustedCaloriesPage() {
             <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>What are Adjusted Calories?</p>
           </div>
           <p className="text-sm leading-relaxed" style={{ color: 'var(--text-main)' }}>
-            Instead of a fixed calorie number, ShiftCali adjusts your daily target based on your shifts, sleep and recent patterns. On tougher runs of nights or low sleep, we nudge your target and timing so your plan fits real life—not a perfect schedule.
+            Instead of a fixed calorie number, Shift Coach adjusts your daily target based on your shifts, sleep and recent patterns. On tougher runs of nights or low sleep, we nudge your target and timing so your plan fits real life—not a perfect schedule.
           </p>
         </section>
 
@@ -145,7 +145,7 @@ export default function AdjustedCaloriesPage() {
         >
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">📊</span>
-            <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>How ShiftCali adjusts your calories</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>How Shift Coach adjusts your calories</p>
           </div>
           <ul className="list-disc list-inside text-sm space-y-1.5" style={{ color: 'var(--text-main)' }}>
             <li><span className="font-semibold">Base target:</span> age, weight, height, sex and goal.</li>

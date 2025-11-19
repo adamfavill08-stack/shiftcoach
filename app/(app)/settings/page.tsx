@@ -70,7 +70,7 @@ export default function SettingsPage() {
               className="text-xs"
               style={{ color: 'var(--text-soft)' }}
             >
-              Tune ShiftCali to your routine.
+              Tune Shift Coach to your routine.
             </p>
           </div>
         </header>
@@ -128,7 +128,7 @@ export default function SettingsPage() {
         {/* Shifts & schedule */}
         <SettingsCard
           title="Shifts & schedule"
-          subtitle="Help ShiftCali understand how you work."
+          subtitle="Help Shift Coach understand how you work."
         >
           <SettingsRow
             label="Default shift pattern"
@@ -160,7 +160,7 @@ export default function SettingsPage() {
           />
           <SettingsRow
             label="Default wake reminder"
-            description="Nudge to log wake time if ShiftCali can't detect it."
+            description="Nudge to log wake time if Shift Coach can't detect it."
             right={
               <select
                 className="rounded-full border px-3 py-1 text-xs"
@@ -181,7 +181,7 @@ export default function SettingsPage() {
         {/* Notifications & AI Coach */}
         <SettingsCard
           title="Notifications & AI Coach"
-          subtitle="Choose how much ShiftCali nudges you."
+          subtitle="Choose how much Shift Coach nudges you."
         >
           <SettingsRow
             label="Low mood / focus alerts"
@@ -289,7 +289,7 @@ export default function SettingsPage() {
         {/* Appearance */}
         <SettingsCard
           title="Appearance"
-          subtitle="How ShiftCali looks and feels."
+          subtitle="How Shift Coach looks and feels."
         >
           <SettingsRow
             label="Theme"
@@ -325,7 +325,7 @@ export default function SettingsPage() {
         >
           <SettingsRow
             label="Export my data"
-            description="Download your ShiftCali data as CSV."
+            description="Download your Shift Coach data as CSV."
             right={
               <button className="text-xs font-medium hover:opacity-80 transition-opacity" style={{ color: 'var(--accent-blue)' }}>
                 Export
@@ -369,14 +369,14 @@ export default function SettingsPage() {
           </div>
           <div className="pt-2 mt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
             <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-              ShiftCali is not a medical device. Always follow your workplace safety
+              Shift Coach is not a medical device. Always follow your workplace safety
               rules and local medical guidance.
             </p>
           </div>
         </SettingsCard>
 
         <p className="mt-2 text-[11px] text-center" style={{ color: 'var(--text-muted)' }}>
-          ShiftCali v1.0 · Need help? <span style={{ color: 'var(--accent-blue)' }}>Contact support</span>
+          Shift Coach v1.0 · Need help? <span style={{ color: 'var(--accent-blue)' }}>Contact support</span>
         </p>
       </div>
     </main>

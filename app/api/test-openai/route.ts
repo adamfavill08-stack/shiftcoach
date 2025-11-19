@@ -35,7 +35,7 @@ export async function GET() {
       messages: [
         {
           role: 'user',
-          content: 'Say "Hello, ShiftCali!" if you can read this.',
+          content: 'Say "Hello, Shift Coach!" if you can read this.',
         },
       ],
       max_tokens: 10,

@@ -9,12 +9,12 @@ import { supabase } from '@/lib/supabase'
 import { useShiftRhythm } from '@/lib/hooks/useShiftRhythm'
 import { DashboardPager } from '@/components/dashboard/DashboardPager'
 import DashboardHeader from '@/components/dashboard/DashboardHeader'
-import { SleepPage } from '@/components/dashboard/pages/SleepPage'
-import { ShiftRhythmCard } from '@/components/dashboard/ShiftRhythmCard'
+import SleepPage from '@/components/dashboard/pages/SleepPage'
+import ShiftRhythmCard from '@/components/dashboard/ShiftRhythmCard'
 import { ActivitySummary, SleepSummary } from '@/components/dashboard/types'
-import { MealTimingCoachPage } from '@/components/dashboard/pages/MealTimingCoachPage'
-import RotaOverviewPage from '@/components/dashboard/pages/RotaOverviewPage'
+import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 const ActivityAndStepsPage = dynamic(() => import('@/components/dashboard/pages/ActivityAndStepsPage'), { ssr: false })
+const AdjustedCaloriesPage = dynamic(() => import('@/components/dashboard/pages/AdjustedCaloriesPage'), { ssr: false })
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -23,9 +23,11 @@ export default function DashboardPage() {
 
   const [sleepSummary, setSleepSummary] = useState<SleepSummary | null>(null)
   const [activitySummary, setActivitySummary] = useState<ActivitySummary | null>(null)
+  const [circadian, setCircadian] = useState<CircadianOutput | null>(null)
 
   const {
     total: totalScore,
+    refetch: refetchShiftRhythm,
   } = useShiftRhythm()
 
   const loadUser = useCallback(async () => {
@@ -143,6 +145,22 @@ export default function DashboardPage() {
     setActivitySummary(json.activity ?? null)
   }, [])
 
+  const fetchCircadian = useCallback(async () => {
+    try {
+      const res = await fetch('/api/circadian/calculate', { cache: 'no-store' })
+      if (!res.ok) {
+        console.error('[dashboard] circadian fetch failed', res.status)
+        setCircadian(null)
+        return
+      }
+      const json = await res.json()
+      setCircadian(json.circadian ?? null)
+    } catch (err: any) {
+      console.error('[dashboard] circadian fetch error', err)
+      setCircadian(null)
+    }
+  }, [])
+
   useEffect(() => {
     ;(async () => {
       const uid = await loadUser()
@@ -151,10 +169,53 @@ export default function DashboardPage() {
       await Promise.all([
         fetchSleep(uid),
         fetchActivity(),
+        fetchCircadian(),
       ])
       setLoading(false)
     })()
-  }, [loadUser, fetchSleep, fetchActivity])
+  }, [loadUser, fetchSleep, fetchActivity, fetchCircadian])
+
+  // Refetch sleep and circadian data when window gains focus and there's a refresh flag
+  useEffect(() => {
+    const handleFocus = () => {
+      const sleepRefresh = typeof window !== 'undefined' ? localStorage.getItem('sleepRefresh') : null
+      if (sleepRefresh && userId) {
+        // Clear the flag
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('sleepRefresh')
+        }
+        // Refetch sleep, circadian, and shift rhythm data
+        void fetchSleep(userId)
+        void fetchCircadian()
+        void refetchShiftRhythm() // Refresh shift rhythm score
+      }
+    }
+
+    // Check immediately in case we just navigated here
+    handleFocus()
+
+    // Also listen for focus events
+    window.addEventListener('focus', handleFocus)
+    
+    // Listen for custom sleep refresh event (for same-window updates)
+    const handleSleepRefresh = () => {
+      if (userId) {
+        void fetchSleep(userId)
+        void fetchCircadian()
+        // Force recalculation of shift rhythm score since sleep data changed
+        // Call with a small delay to ensure sleep data is saved first
+        setTimeout(() => {
+          void refetchShiftRhythm(true) // Force recalculation
+        }, 500)
+      }
+    }
+    window.addEventListener('sleep-refreshed', handleSleepRefresh)
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('sleep-refreshed', handleSleepRefresh)
+    }
+  }, [userId, fetchSleep, fetchCircadian, refetchShiftRhythm])
 
   const pages = useMemo(
     () => [
@@ -164,6 +225,7 @@ export default function DashboardPage() {
         content: (
           <ShiftRhythmCard
             score={totalScore != null ? totalScore * 10 : undefined}
+            circadian={circadian}
           />
         ),
       },
@@ -173,22 +235,17 @@ export default function DashboardPage() {
         content: <SleepPage />,
       },
       {
-        id: 'nutrition',
-        label: 'Calories & Meal Timing',
-        content: <MealTimingCoachPage />,
+        id: 'calories',
+        label: 'Calories',
+        content: <AdjustedCaloriesPage />,
       },
       {
         id: 'activity',
         label: 'Activity',
         content: <ActivityAndStepsPage />,
       },
-      {
-        id: 'rota',
-        label: 'Rota',
-        content: <RotaOverviewPage />,
-      },
     ],
-    [totalScore]
+    [totalScore, circadian]
   )
 
   if (loading) {
@@ -200,12 +257,16 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 pb-6 dark:bg-slate-950">
-      <div className="mx-auto max-w-md pb-4">
-        <DashboardHeader />
-        <DashboardPager pages={pages} />
+    <div className="bg-[#F5F5F7] min-h-screen flex justify-center">
+      <div className="w-full max-w-md">
+        <main className="min-h-screen pb-6">
+          <div id="phone-root" className="pb-4 relative">
+            <DashboardHeader />
+            <DashboardPager pages={pages} />
+          </div>
+        </main>
       </div>
-    </main>
+    </div>
   )
 }
 

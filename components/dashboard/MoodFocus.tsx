@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from 'react'
+import { Smile, Brain, Info } from 'lucide-react'
 
 type InfoKind = 'mood' | 'focus'
 
@@ -58,19 +59,45 @@ export function MoodFocus({
   useMemo(() => { try { localStorage.setItem('mf-low', isLow ? '1' : '0') } catch {} }, [isLow])
   return (
     <section
-      className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-      style={{
-        backgroundColor: 'var(--card)',
-        borderColor: 'var(--border-subtle)',
-        boxShadow: 'var(--shadow-soft)',
-      }}
+      className={[
+        "relative overflow-hidden rounded-[28px]",
+        "bg-white/90 backdrop-blur-2xl",
+        "border border-white/90",
+        "shadow-[0_24px_60px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.5)]",
+        "px-7 py-6",
+        "flex flex-col gap-5",
+      ].join(" ")}
     >
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>Mood & Focus</p>
-        <p className="text-xs" style={{ color: 'var(--text-soft)' }}>Today</p>
+      {/* Ultra-premium gradient overlay with multiple layers */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 via-white/85 to-white/70" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 via-transparent to-purple-50/20" />
+      
+      {/* Enhanced inner glow */}
+      <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/60" />
+      <div className="pointer-events-none absolute inset-[1px] rounded-[27px] ring-1 ring-white/30" />
+      
+      {/* Ambient glow effect */}
+      <div className="pointer-events-none absolute -inset-1 bg-gradient-to-br from-blue-100/30 via-purple-100/20 to-transparent blur-xl opacity-50" />
+      
+      <div className="relative z-10 space-y-5">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
+              Mood & Focus
+            </h2>
+            <p className="text-[12px] text-slate-500 leading-relaxed mt-0.5">
+              Today
+            </p>
+          </div>
+        </div>
+        
+        {/* Sliders */}
+        <div className="space-y-4">
+          <SliderRow label="Mood" iconType="mood" value={mood} onChange={v => onChange?.(v, focus)} onInfo={()=>setActiveInfo('mood')} />
+          <SliderRow label="Focus" iconType="focus" value={focus} onChange={v => onChange?.(mood, v)} onInfo={()=>setActiveInfo('focus')} />
+        </div>
       </div>
-      <SliderRow label="Mood" emoji="🙂" value={mood} onChange={v => onChange?.(v, focus)} onInfo={()=>setActiveInfo('mood')} />
-      <SliderRow label="Focus" emoji="🎯" value={focus} onChange={v => onChange?.(mood, v)} onInfo={()=>setActiveInfo('focus')} />
 
       {activeInfo && (
         <div
@@ -93,8 +120,14 @@ export function MoodFocus({
               return (
                 <>
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{activeInfo === 'mood' ? '😊' : '🎯'}</span>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-sky-100 to-indigo-100 border border-sky-200/60 shadow-sm">
+                        {activeInfo === 'mood' ? (
+                          <Smile className="h-5 w-5 text-sky-600" strokeWidth={2} />
+                        ) : (
+                          <Brain className="h-5 w-5 text-indigo-600" strokeWidth={2} />
+                        )}
+                      </div>
                       <div className="flex flex-col">
                         <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>{content.title}</p>
                         <p className="text-xs" style={{ color: 'var(--text-soft)' }}>{activeInfo === 'mood' ? 'Mood' : 'Focus'} · {score}/5 today</p>
@@ -136,7 +169,7 @@ export function MoodFocus({
                   >
                     Talk to AI Coach
                   </button>
-                  <p className="mt-2 text-[10px]" style={{ color: 'var(--text-muted)' }}>ShiftCali is here to support you, but this isn't a crisis service. If you feel at risk, please contact local emergency or mental health services.</p>
+                  <p className="mt-2 text-[10px]" style={{ color: 'var(--text-muted)' }}>Shift Coach is here to support you, but this isn't a crisis service. If you feel at risk, please contact local emergency or mental health services.</p>
                 </>
               )
             })()}
@@ -147,27 +180,36 @@ export function MoodFocus({
   )
 }
 
-function SliderRow({ label, emoji, value, onChange, onInfo }: { label: string; emoji: string; value: number; onChange: (v: number) => void; onInfo: ()=>void }) {
+function SliderRow({ label, iconType, value, onChange, onInfo }: { label: string; iconType: 'mood' | 'focus'; value: number; onChange: (v: number) => void; onInfo: ()=>void }) {
   const percentage = ((value - 1) / 4) * 100 // Scale 1-5 to 0-100%
 
   return (
-    <div className="flex items-center gap-3 transition-all">
+    <div className="flex items-center gap-4 transition-all">
       {/* Left */}
-      <div className="w-[26%] flex items-center gap-2">
-        <span className="text-xl">{emoji}</span>
-        <span className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>{label}</span>
+      <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200/60 shadow-sm">
+          {iconType === 'mood' ? (
+            <Smile className="h-5 w-5 text-slate-700" strokeWidth={2.5} />
+          ) : (
+            <Brain className="h-5 w-5 text-slate-700" strokeWidth={2.5} />
+          )}
+        </div>
+        <span className="text-[13px] font-semibold tracking-tight text-slate-900">{label}</span>
       </div>
 
       {/* Center – slider */}
-      <div className="flex-1">
-        <div className="relative h-2">
+      <div className="flex-1 min-w-0">
+        <div className="relative h-3">
           {/* Track background */}
-          <div
-            className="absolute inset-0 h-2 w-full rounded-full"
-            style={{ backgroundColor: 'var(--ring-bg)' }}
-          >
+          <div className="relative h-3 w-full rounded-full bg-gradient-to-r from-slate-100/90 to-slate-100/60 overflow-hidden border border-slate-200/50 shadow-inner">
             {/* Filled gradient */}
-            <div className="h-2 rounded-full bg-gradient-to-r from-[#ec5fff] via-[#a855f7] to-[#22d3ee] transition-all duration-200" style={{ width: `${percentage}%` }} />
+            <div 
+              className="h-full rounded-full bg-gradient-to-r from-purple-500 via-indigo-500 to-sky-400 transition-all duration-200 shadow-[0_2px_4px_rgba(139,92,246,0.3)]" 
+              style={{ width: `${percentage}%` }}
+            >
+              {/* Gradient shine overlay */}
+              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+            </div>
           </div>
 
           {/* Invisible but functional range */}
@@ -178,53 +220,40 @@ function SliderRow({ label, emoji, value, onChange, onInfo }: { label: string; e
             step={1}
             value={value}
             onChange={(e) => onChange(Number(e.target.value))}
-            className="absolute inset-0 w-full h-4 -top-1 cursor-pointer z-20 opacity-0 outline-none"
+            className="absolute inset-0 w-full h-4 -top-0.5 cursor-pointer z-20 opacity-0 outline-none"
             style={{ WebkitAppearance: 'none', appearance: 'none', background: 'transparent' }}
           />
 
-          {/* Thumb */}
+          {/* Premium thumb */}
           <div
-            className="absolute top-1/2 -translate-y-1/2 h-4 w-4 rounded-full border-2 border-white bg-sky-400 shadow-[0_0_0_4px_rgba(56,189,248,0.25)] transition-all duration-150 pointer-events-none z-30"
-            style={{ left: `calc(${percentage}% - 8px)` }}
-          />
+            className="absolute top-1/2 -translate-y-1/2 h-5 w-5 rounded-full border-2 border-white bg-gradient-to-br from-sky-400 to-indigo-500 shadow-[0_0_0_4px_rgba(56,189,248,0.25),0_2px_8px_rgba(99,102,241,0.3)] transition-all duration-150 pointer-events-none z-30"
+            style={{ left: `calc(${percentage}% - 10px)` }}
+          >
+            {/* Thumb inner glow */}
+            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/40 via-transparent to-transparent" />
+          </div>
         </div>
         {/* Optional low/high labels */}
-        <div className="flex justify-between mt-0.5 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+        <div className="flex justify-between mt-1.5 text-[10px] text-slate-500 font-medium">
           <span>Low</span>
           <span>High</span>
         </div>
       </div>
 
       {/* Right – score pill + info */}
-      <div className="w-[22%] flex items-center justify-end gap-1">
+      <div className="flex items-center gap-2 flex-shrink-0">
         <span
-          className="inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium"
-          style={{
-            backgroundColor: 'var(--card-subtle)',
-            color: 'var(--text-soft)',
-          }}
+          className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200/60 shadow-sm text-slate-700"
         >
           {value}/5
         </span>
         <button
           type="button"
           onClick={onInfo}
-          className="h-6 w-6 flex items-center justify-center rounded-full text-[11px] transition"
-          style={{
-            backgroundColor: 'var(--card-subtle)',
-            color: 'var(--text-soft)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--ring-bg)'
-            e.currentTarget.style.color = 'var(--text-main)'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--card-subtle)'
-            e.currentTarget.style.color = 'var(--text-soft)'
-          }}
+          className="h-7 w-7 flex items-center justify-center rounded-lg bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200/60 shadow-sm text-slate-500 hover:text-slate-700 hover:bg-gradient-to-br hover:from-blue-50 hover:to-indigo-50 hover:border-blue-200/60 transition-all duration-200 hover:scale-105 active:scale-95"
           aria-label={`${label} help`}
         >
-          i
+          <Info className="h-3.5 w-3.5" strokeWidth={2.5} />
         </button>
       </div>
     </div>

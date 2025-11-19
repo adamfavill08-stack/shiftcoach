@@ -6,7 +6,7 @@ import { QuickAddProvider } from '@/lib/quickAddContext'
 import { QuickAddSheet } from '@/components/quick-add/QuickAddSheet'
 
 export const metadata: Metadata = {
-  title: 'ShiftCali',
+  title: 'Shift Coach',
   description: 'The only health app for shift workers.',
 }
 

@@ -1,7 +1,8 @@
 "use client"
 
 import { ReactNode, useEffect, useState } from 'react'
-import { Bell, MessageCircle } from 'lucide-react'
+import { Bell } from 'lucide-react'
+import Image from 'next/image'
 import { CoachChatModal } from '@/components/coach/CoachChatModal'
 import { useCoachState } from '@/lib/hooks/useCoachState'
 import { useCoachingState } from '@/lib/hooks/useCoachingState'
@@ -65,7 +66,7 @@ export function Header({ title, right }: { title?: string; right?: ReactNode }) 
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full bg-gradient-to-r from-pink-500 to-purple-500" />
-              <span className="font-semibold text-lg" style={{ color: 'var(--text-main)' }}>ShiftCali</span>
+              <span className="font-semibold text-lg" style={{ color: 'var(--text-main)' }}>Shift Coach</span>
             </div>
             {/* Coaching state pill */}
             {coachingState && (
@@ -106,17 +107,22 @@ export function Header({ title, right }: { title?: string; right?: ReactNode }) 
             <button
               type="button"
               onClick={openCoach}
-              className="relative p-2 rounded-full border backdrop-blur-xl transition-all hover:scale-105 active:scale-95"
+              className="relative p-2.5 rounded-full border backdrop-blur-xl transition-all hover:scale-105 active:scale-95"
               style={{
                 backgroundColor: 'var(--card)',
                 borderColor: 'var(--border-subtle)',
               }}
               aria-label="Chat with Coach"
             >
-              <MessageCircle
-                className="w-5 h-5"
-                style={{ color: 'var(--text-main)' }}
-                strokeWidth={2}
+              <Image
+                src="/shiftcoach-bubble.svg"
+                alt="Shift Coach"
+                width={24}
+                height={24}
+                className="w-6 h-6"
+                style={{
+                  filter: 'brightness(0) saturate(100%) invert(27%) sepia(51%) saturate(2878%) hue-rotate(195deg) brightness(96%) contrast(89%)',
+                }}
               />
               {hasUnread && (
                 <>

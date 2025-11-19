@@ -120,7 +120,7 @@ export default function ShiftRhythmPage() {
           </ul>
         </section>
 
-        {/* What ShiftCali looks at */}
+        {/* What Shift Coach looks at */}
         <section
           className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-2"
           style={{
@@ -131,7 +131,7 @@ export default function ShiftRhythmPage() {
         >
           <div className="flex items-center gap-2">
             <span className="text-xl">🧾</span>
-            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>What ShiftCali tracks to calculate it</h3>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>What Shift Coach tracks to calculate it</h3>
           </div>
           <ul className="text-sm list-disc pl-5 space-y-1.5" style={{ color: 'var(--text-main)' }}>
             <li><span className="font-semibold">Sleep length &amp; timing</span> – how many hours you get and what time your main sleep starts.</li>
@@ -162,7 +162,7 @@ export default function ShiftRhythmPage() {
               <span className="font-semibold">Protect post-night sleep.</span> Dark room, eye mask, cool temperature and phone away – treat it like a night's sleep, not a nap.
             </li>
             <li>
-              <span className="font-semibold">Use caffeine early, not late.</span> ShiftCali shows your caffeine cut-off. Try to keep most caffeine in the first half of your shift.
+              <span className="font-semibold">Use caffeine early, not late.</span> Shift Coach shows your caffeine cut-off. Try to keep most caffeine in the first half of your shift.
             </li>
             <li>
               <span className="font-semibold">Time meals around your shift rhythm.</span> Steady protein-based meals in your alert window, lighter snacks near "biological night".

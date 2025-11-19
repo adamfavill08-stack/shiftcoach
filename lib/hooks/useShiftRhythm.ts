@@ -26,17 +26,18 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
   const inFlightRef = useRef(false)
   const lastFetchRef = useRef(0)
 
-  const fetchScore = async () => {
+  const fetchScore = async (force = false) => {
     try {
       const now = Date.now()
-      if (inFlightRef.current) return
-      if (now - lastFetchRef.current < 5000) return // throttle within 5s
+      if (inFlightRef.current && !force) return
+      if (now - lastFetchRef.current < 5000 && !force) return // throttle within 5s (unless forced)
       inFlightRef.current = true
       lastFetchRef.current = now
       setLoading(true)
       setError(null)
       
-      const res = await fetch('/api/shift-rhythm')
+      const url = force ? '/api/shift-rhythm?force=true' : '/api/shift-rhythm'
+      const res = await fetch(url)
 
       if (!res.ok) {
         // If 500, log warning but don't crash
@@ -97,6 +98,8 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
 
   const total = score?.total_score ?? null
 
-  return { score, total, loading, error, refetch: fetchScore }
+  const refetch = (force = false) => fetchScore(force)
+
+  return { score, total, loading, error, refetch }
 }
 

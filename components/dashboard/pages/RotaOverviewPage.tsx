@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { CalendarPlus, Plus, Edit2, Trash2, X } from 'lucide-react'
+import { CalendarPlus, Plus, Edit2, Trash2, X, ChevronLeft, Search } from 'lucide-react'
 import { buildMonthFromPattern } from '@/lib/data/buildRotaMonth'
 import { useRotaMonth } from '@/lib/hooks/useRotaMonth'
 
@@ -33,6 +33,7 @@ export default function RotaOverviewPage() {
   const [selectedBlock, setSelectedBlock] = useState<{ type: 'event' | 'shift', eventId?: string, date: string, label: string } | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
 
   const month = cursorDate.getMonth()
@@ -230,6 +231,27 @@ export default function RotaOverviewPage() {
     <div className="flex flex-1 justify-center bg-slate-50">
       <div className="relative flex h-full w-full max-w-md flex-col px-4 py-4">
         <div className="flex flex-1 flex-col min-h-0">
+          {/* Header with back button and search */}
+          <div className="mb-4 flex items-center gap-3 flex-shrink-0">
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 shadow-sm border border-slate-200/60 hover:bg-white transition-all hover:scale-105 active:scale-95"
+              aria-label="Back to dashboard"
+            >
+              <ChevronLeft className="h-5 w-5 text-slate-700" strokeWidth={2} />
+            </button>
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" strokeWidth={2} />
+              <input
+                type="text"
+                placeholder="Search shifts and events..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 rounded-full bg-white/90 border border-slate-200/60 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400/50 shadow-sm transition-all"
+              />
+            </div>
+          </div>
+          
           <div className="mb-3 flex items-center justify-between flex-shrink-0">
             <button
               type="button"

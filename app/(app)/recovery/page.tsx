@@ -129,7 +129,7 @@ export default function RecoveryPage() {
         >
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">📊</span>
-            <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>How ShiftCali calculates your score</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>How Shift Coach calculates your score</p>
           </div>
           <ul className="list-disc list-inside text-sm space-y-1.5" style={{ color: 'var(--text-main)' }}>
             <li>Sleep: hours, quality and how your sleep aligns to your schedule.</li>

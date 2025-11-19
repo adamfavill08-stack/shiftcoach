@@ -61,7 +61,7 @@ export default function BingeRiskPage() {
             <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>What is binge risk?</p>
           </div>
           <p className="text-sm leading-relaxed" style={{ color: 'var(--text-main)' }}>
-            Binge Risk in ShiftCali is an estimate of how likely you are to have
+            Binge Risk in Shift Coach is an estimate of how likely you are to have
             <span className="font-semibold"> big cravings, mindless snacking or a full-on binge</span>
             in the next day or two, based on your sleep, shift pattern and recent habits.
           </p>
@@ -125,7 +125,7 @@ export default function BingeRiskPage() {
           </ul>
         </section>
 
-        {/* How ShiftCali helps */}
+        {/* How Shift Coach helps */}
         <section
           className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
           style={{
@@ -136,7 +136,7 @@ export default function BingeRiskPage() {
         >
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">📋</span>
-            <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>How ShiftCali helps you combat it</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>How Shift Coach helps you combat it</p>
           </div>
           <ul className="text-sm list-disc list-inside space-y-2" style={{ color: 'var(--text-main)' }}>
             <li><span className="font-semibold">Keeps sleep on track:</span> the app nudges you towards enough sleep and better timing for your shifts.</li>

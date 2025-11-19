@@ -4,10 +4,6 @@ import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useActivityToday } from '@/lib/hooks/useActivityToday'
 
-function clsx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(' ')
-}
-
 function formatMinutes(total?: number | null) {
   if (!total || total <= 0) return '—'
   const hours = Math.floor(total / 60)
@@ -22,75 +18,56 @@ function percentage(value: number, target: number) {
   return Math.max(0, Math.min(100, Math.round(pct)))
 }
 
-function GradientDial({ value, max, labelTop, subLabel }: { value: number; max: number; labelTop?: string; subLabel?: string }) {
+function CircularGauge({ value, max, label, subLabel, color = 'emerald' }: { 
+  value: number; 
+  max: number; 
+  label: string; 
+  subLabel?: string;
+  color?: 'emerald' | 'blue';
+}) {
   const pct = percentage(value, max)
-  const radius = 96
+  const radius = 42
   const circumference = 2 * Math.PI * radius
   const strokeLength = (pct / 100) * circumference
+  
+  const strokeColor = color === 'emerald' 
+    ? '#10b981' 
+    : '#3b82f6'
 
   return (
-    <div className="relative h-[260px] w-[260px] mx-auto">
-      <svg viewBox="0 0 240 240" className="h-full w-full">
-        <defs>
-          <linearGradient id="stepsGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#3bb2ff" />
-            <stop offset="50%" stopColor="#5f7aff" />
-            <stop offset="100%" stopColor="#ff5ca8" />
-          </linearGradient>
-          <filter id="dialShadow" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="0" dy="6" stdDeviation="8" floodColor="#000" floodOpacity="0.1" />
-          </filter>
-        </defs>
-        <circle cx="120" cy="120" r={radius} stroke="rgba(15,23,42,0.08)" strokeWidth="14" fill="none" />
-        <g transform="rotate(-90 120 120)">
-          <circle
-            cx="120"
-            cy="120"
-            r={radius}
-            stroke="url(#stepsGradient)"
-            strokeWidth="14"
-            strokeLinecap="round"
-            fill="none"
-            strokeDasharray={`${strokeLength} ${circumference - strokeLength}`}
-            filter="url(#dialShadow)"
-          />
-        </g>
+    <div className="relative h-28 w-28 flex-shrink-0 mx-auto">
+      <svg viewBox="0 0 100 100" className="h-full w-full transform -rotate-90">
+        {/* Background circle */}
+        <circle
+          cx="50"
+          cy="50"
+          r={radius}
+          stroke="rgba(15,23,42,0.08)"
+          strokeWidth="7"
+          fill="none"
+        />
+        {/* Progress circle */}
+        <circle
+          cx="50"
+          cy="50"
+          r={radius}
+          stroke={strokeColor}
+          strokeWidth="7"
+          fill="none"
+          strokeDasharray={`${strokeLength} ${circumference - strokeLength}`}
+          strokeLinecap="round"
+          style={{
+            filter: `drop-shadow(0 2px 4px ${strokeColor}40)`,
+          }}
+        />
       </svg>
-
-      {labelTop && (
-        <div
-          className="absolute left-1/2 -translate-x-1/2 -top-3 rounded-full px-3 py-1 text-[11px] font-medium"
-          style={{ background: 'var(--card-subtle)', border: '1px solid var(--border-subtle)', color: 'var(--text-soft)' }}
-        >
-          {labelTop}
-        </div>
-      )}
-
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <div className="text-4xl font-semibold tracking-tight" style={{ color: 'var(--text-main)' }}>
-          {Intl.NumberFormat().format(value)}
-        </div>
-        <div className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
-          of {Intl.NumberFormat().format(max)} steps
-        </div>
+        <div className="text-[17px] font-bold tracking-[-0.01em] text-slate-900 leading-none">{value}</div>
         {subLabel && (
-          <div className="mt-1 text-xs font-medium" style={{ color: 'var(--text-soft)' }}>
-            {subLabel}
-          </div>
+          <div className="text-[10px] text-slate-500 mt-1 leading-tight">({subLabel})</div>
         )}
       </div>
     </div>
-  )
-}
-
-function MacroChip({ label, value }: { label: string; value: string }) {
-  return (
-    <span
-      className="rounded-full px-3 py-1.5 text-[12px]"
-      style={{ background: 'var(--card-subtle)', border: '1px solid var(--border-subtle)', color: 'var(--text-soft)' }}
-    >
-      {label}: {value}
-    </span>
   )
 }
 
@@ -98,138 +75,325 @@ export default function ActivityAndStepsPage() {
   const router = useRouter()
   const { data, loading } = useActivityToday()
 
-  const steps = loading ? 0 : Math.max(0, data.steps ?? 0)
-  const target = Math.max(1, data.stepTarget ?? 9000)
-  const subLabel = data.activeMinutes ? `${data.activeMinutes} active min · ${data.intensity ?? 'light'}` : undefined
-
-  const recoveryBadge = useMemo(() => {
-    const signal = data.recoverySignal ?? 'AMBER'
-    const tone =
-      signal === 'GREEN' ? 'bg-emerald-50 text-emerald-600'
-      : signal === 'RED' ? 'bg-rose-50 text-rose-600'
-      : 'bg-amber-50 text-amber-600'
-    return <span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-semibold', tone)}>{signal}</span>
-  }, [data])
-
-  const wearableChip = useMemo(() => {
-    const text = data.source ? `Synced · ${data.source.toUpperCase()}` : 'Connect wearable'
-    return (
-      <button
-        onClick={() => router.push('/settings')}
-        className="rounded-full px-2.5 py-1 text-[11px] font-medium"
-        style={{ background: 'var(--card-subtle)', border: '1px solid var(--border-subtle)', color: 'var(--text-soft)' }}
-      >
-        {text}
-      </button>
-    )
-  }, [data.source, router])
-
-  const timeline = data.timeline ?? []
-
+  const activeMinutes = loading ? 0 : Math.max(0, data.activeMinutes ?? 0)
+  const targetMinutes = 30 // Daily target
+  const activePct = percentage(activeMinutes, targetMinutes)
+  
+  // Intensity breakdown (mock data - replace with real data)
+  const intensityBreakdown = {
+    light: { minutes: 0, target: 10 },
+    moderate: { minutes: 0, target: 15 },
+    vigorous: { minutes: 0, target: 5 },
+  }
+  
+  // Movement consistency (mock data - replace with real data)
+  const movementConsistency = 76
+  
+  // Recovery and Activity scores (mock data - replace with real data)
+  const recoveryScore = 82
+  const activityScore = 36
+  
   const coachMessage = useMemo(() => {
     if (data.nextCoachMessage) return data.nextCoachMessage
-    if (steps < target - 1500) {
-      return 'You’re a little under target. A 15–20 min easy walk before your shift would balance today nicely.'
-    }
-    if (steps > target * 1.4 && data.recoverySignal !== 'GREEN') {
-      return 'You’ve pushed hard on limited recovery. Keep the rest of the day gentle to avoid tomorrow’s crash.'
+    if (activeMinutes < targetMinutes - 10) {
+      return "You're below your activity target—add a short walk before your shift to balance today better."
     }
     return 'Nice pacing so far. Keep movement light in your wind-down window to support better sleep.'
-  }, [data.nextCoachMessage, data.recoverySignal, steps, target])
+  }, [data.nextCoachMessage, activeMinutes, targetMinutes])
+
+  const shiftPlan = useMemo(() => {
+    const shiftType = data.shiftType?.toLowerCase() || 'night'
+    if (shiftType === 'night') {
+      return {
+        title: 'Night shift plan',
+        activities: [
+          '10 min pre-shift walk',
+          'Mid-shift stretch break',
+          'Post-shift wind-down walk'
+        ],
+        intensity: 'Moderate'
+      }
+    }
+    return {
+      title: 'Day shift plan',
+      activities: [
+        'Morning walk',
+        'Lunch break movement',
+        'Evening recovery walk'
+      ],
+      intensity: 'Moderate'
+    }
+  }, [data.shiftType])
 
   return (
-    <div className="min-h-full w-full">
-      <div className="mx-auto flex w-full max-w-[760px] flex-col gap-6 px-4 pb-24">
+    <div className="min-h-full w-full bg-slate-50">
+      <div className="mx-auto flex w-full max-w-[760px] flex-col gap-6 px-4 pb-24 pt-6">
+        
+        {/* INTENSITY BREAKDOWN Card */}
         <section
-          className="rounded-3xl border border-slate-200 bg-white/95 px-6 py-7 shadow-[0_20px_40px_rgba(15,23,42,0.06)] backdrop-blur"
+          className={[
+            "relative overflow-hidden rounded-[28px]",
+            "bg-white/90 backdrop-blur-2xl",
+            "border border-white/90",
+            "shadow-[0_24px_60px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.5)]",
+            "px-7 py-6",
+          ].join(" ")}
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold tracking-[0.24em] text-slate-400">ACTIVITY & STEPS</h2>
-              {recoveryBadge}
-            </div>
-            {wearableChip}
-          </div>
+          {/* Ultra-premium gradient overlay */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 via-white/85 to-white/70" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 via-transparent to-purple-50/20" />
+          <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/60" />
+          <div className="pointer-events-none absolute inset-[1px] rounded-[27px] ring-1 ring-white/30" />
+          <div className="pointer-events-none absolute -inset-1 bg-gradient-to-br from-blue-100/30 via-purple-100/20 to-transparent blur-xl opacity-50" />
 
-          <div className="mt-4">
-            <GradientDial
-              value={steps}
-              max={target}
-              labelTop={data.shiftType ? `${data.shiftType} shift` : undefined}
-              subLabel={subLabel}
-            />
-          </div>
-
-          <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200/70 bg-white/70 p-4">
-              <div className="text-[11px] text-slate-400">Today</div>
-              <div className="mt-1 text-lg font-semibold text-slate-900">{Intl.NumberFormat().format(steps)} steps</div>
-              <div className="text-[11px] text-slate-500">Active {formatMinutes(data.activeMinutes)}</div>
+          <div className="relative z-10 space-y-5">
+            <div className="space-y-1">
+              <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
+                INTENSITY BREAKDOWN
+              </h2>
             </div>
-            <div className="rounded-2xl border border-slate-200/70 bg-white/70 p-4">
-              <div className="text-[11px] text-slate-400">Shift context</div>
-              <div className="mt-1 text-lg font-semibold text-slate-900">{data.shiftType ? `${data.shiftType} shift` : '—'}</div>
-              <div className="text-[11px] text-slate-500">Target {Intl.NumberFormat().format(target)}</div>
-            </div>
-            <div className="rounded-2xl border border-slate-200/70 bg-white/70 p-4">
-              <div className="text-[11px] text-slate-400">Recovery</div>
-              <div className="mt-1 text-lg font-semibold text-slate-900">{data.recoverySignal ?? 'AMBER'}</div>
-              <div className="text-[11px] text-slate-500">Energy score {data.energyScore ?? '—'}/10</div>
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <div className="text-[11px] font-medium text-slate-400">Activity timeline</div>
-            <div className="mt-2 rounded-2xl border border-slate-200/70 bg-white/70 p-4">
-              <div className="flex h-7 items-end gap-1">
-                {timeline.map((slot, index) => (
-                  <div
-                    key={`${slot.hour}-${index}`}
-                    className="flex-1 rounded-md"
-                    style={{
-                      height: slot.level === 3 ? 24 : slot.level === 2 ? 18 : slot.level === 1 ? 12 : 6,
-                      background:
-                        slot.level > 0
-                          ? 'linear-gradient(90deg,#3bb2ff,#5f7aff)'
-                          : 'rgba(148,163,184,0.35)',
-                    }}
-                  />
-                ))}
+            
+            <div className="flex items-start justify-between gap-6">
+              <div className="flex-1 space-y-1">
+                <h1 className="text-[17px] font-bold tracking-[-0.01em] text-slate-900">
+                  {activeMinutes} Active Minutes
+                </h1>
+                <p className="text-[12px] text-slate-500 leading-relaxed">
+                  {activePct}% of daily target
+                </p>
+                
+                <div className="mt-4 space-y-3">
+                  {[
+                    { label: 'Light', minutes: intensityBreakdown.light.minutes, target: intensityBreakdown.light.target },
+                    { label: 'Moderate', minutes: intensityBreakdown.moderate.minutes, target: intensityBreakdown.moderate.target },
+                    { label: 'Vigorous', minutes: intensityBreakdown.vigorous.minutes, target: intensityBreakdown.vigorous.target },
+                  ].map((item) => {
+                    const pct = percentage(item.minutes, item.target)
+                    return (
+                      <div key={item.label} className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[12px] text-slate-500">{item.label}</span>
+                          <span className="text-[12px] text-slate-500">{item.minutes}/{item.target} min</span>
+                        </div>
+                        <div className="relative h-2 w-full rounded-full bg-slate-100/80 border border-slate-200/50 shadow-inner overflow-hidden">
+                          <div 
+                            className="h-full rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 transition-all duration-200"
+                            style={{ width: `${Math.min(pct, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-              <div className="mt-2 flex justify-between text-[11px] text-slate-400">
-                <span>Wake</span>
-                <span>Mid</span>
-                <span>Wind-down</span>
+              
+              <div className="flex-shrink-0">
+                <CircularGauge 
+                  value={activePct} 
+                  max={100} 
+                  label="% of daily"
+                  subLabel=""
+                />
               </div>
-              <p className="mt-2 text-[11px] text-slate-500">
-                {data.mostActiveWindow
-                  ? `Most active: ${data.mostActiveWindow.start}–${data.mostActiveWindow.end}`
-                  : 'Most active window not detected yet.'}
-              </p>
             </div>
-          </div>
-
-          <div className="mt-6 flex flex-wrap gap-2">
-            <MacroChip label="Longest sit" value={formatMinutes(data.sitLongest)} />
-            <MacroChip label="Stand reminders" value={`${data.standHits ?? 0}/12`} />
-            <MacroChip label="Floors" value={data.floors != null ? String(data.floors) : '—'} />
-          </div>
-
-          <div className="mt-6 flex items-start gap-3 rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3">
-            <div className="text-xl">💡</div>
-            <p className="text-sm leading-relaxed text-slate-600">{coachMessage}</p>
           </div>
         </section>
 
-        <div className="pb-2">
-          <button
-            type="button"
-            onClick={() => router.push('/activity/log')}
-            className="w-full rounded-full bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 active:scale-[0.98]"
-          >
-            Log activity
-          </button>
-        </div>
+        {/* AI SHIFT COACH Recommendation Card */}
+        <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-7 py-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
+          <div className="relative z-10 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 border border-white/30">
+                <span className="text-[11px] font-bold text-white">AI</span>
+              </div>
+              <h2 className="text-[13px] font-bold tracking-[0.15em] text-white/90 uppercase">
+                AI SHIFT COACH
+              </h2>
+            </div>
+            <p className="text-[12px] text-white/90 leading-relaxed">
+              {coachMessage}
+            </p>
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('open-coach-chat'))}
+              className="text-[12px] text-white underline underline-offset-4 decoration-white/60 hover:decoration-white transition-colors"
+            >
+              View analysis
+            </button>
+          </div>
+        </section>
+
+        {/* MOVEMENT CONSISTENCY Card */}
+        <section
+          className={[
+            "relative overflow-hidden rounded-[28px]",
+            "bg-white/90 backdrop-blur-2xl",
+            "border border-white/90",
+            "shadow-[0_24px_60px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.5)]",
+            "px-7 py-6",
+          ].join(" ")}
+        >
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 via-white/85 to-white/70" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 via-transparent to-purple-50/20" />
+          <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/60" />
+          <div className="pointer-events-none absolute inset-[1px] rounded-[27px] ring-1 ring-white/30" />
+          <div className="pointer-events-none absolute -inset-1 bg-gradient-to-br from-blue-100/30 via-purple-100/20 to-transparent blur-xl opacity-50" />
+
+          <div className="relative z-10 space-y-4">
+            <div className="space-y-1">
+              <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
+                MOVEMENT CONSISTENCY
+              </h2>
+            </div>
+            <div className="space-y-1">
+              <h1 className="text-[17px] font-bold tracking-[-0.01em] text-slate-900">
+                {movementConsistency}
+              </h1>
+              <p className="text-[12px] text-slate-500 leading-relaxed">
+                This week
+              </p>
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-2">
+              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => (
+                <span key={idx} className="text-[13px] font-semibold tracking-tight text-slate-900 flex-1 text-center">
+                  {day}
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* TODAY'S SHIFT MOVEMENT PLAN Card */}
+        <section
+          className={[
+            "relative overflow-hidden rounded-[28px]",
+            "bg-white/90 backdrop-blur-2xl",
+            "border border-white/90",
+            "shadow-[0_24px_60px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.5)]",
+            "px-7 py-6",
+          ].join(" ")}
+        >
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 via-white/85 to-white/70" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 via-transparent to-purple-50/20" />
+          <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/60" />
+          <div className="pointer-events-none absolute inset-[1px] rounded-[27px] ring-1 ring-white/30" />
+          <div className="pointer-events-none absolute -inset-1 bg-gradient-to-br from-blue-100/30 via-purple-100/20 to-transparent blur-xl opacity-50" />
+
+          <div className="relative z-10 space-y-4">
+            <div className="space-y-1">
+              <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
+                TODAY'S SHIFT MOVEMENT PLAN
+              </h2>
+            </div>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 space-y-2">
+                <h3 className="text-[13px] font-semibold tracking-tight text-slate-900">
+                  {shiftPlan.title}
+                </h3>
+                <ul className="space-y-1.5">
+                  {shiftPlan.activities.map((activity, idx) => (
+                    <li key={idx} className="text-[12px] text-slate-500 leading-relaxed">
+                      • {activity}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="text-[13px] font-semibold tracking-tight text-slate-900 flex-shrink-0">
+                {shiftPlan.intensity}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Recovery & activity Card */}
+        <section
+          className={[
+            "relative overflow-hidden rounded-[28px]",
+            "bg-white/90 backdrop-blur-2xl",
+            "border border-white/90",
+            "shadow-[0_24px_60px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.5)]",
+            "px-7 py-6",
+          ].join(" ")}
+        >
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 via-white/85 to-white/70" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 via-transparent to-purple-50/20" />
+          <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/60" />
+          <div className="pointer-events-none absolute inset-[1px] rounded-[27px] ring-1 ring-white/30" />
+          <div className="pointer-events-none absolute -inset-1 bg-gradient-to-br from-blue-100/30 via-purple-100/20 to-transparent blur-xl opacity-50" />
+
+          <div className="relative z-10 space-y-6">
+            <div className="space-y-1">
+              <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
+                RECOVERY & ACTIVITY
+              </h2>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-8">
+              {/* Recovery */}
+              <div className="flex flex-col items-center text-center space-y-4">
+                <CircularGauge 
+                  value={recoveryScore} 
+                  max={100} 
+                  label="Recovery"
+                  subLabel="High"
+                  color="emerald"
+                />
+                <div className="space-y-2 w-full">
+                  <h3 className="text-[13px] font-semibold tracking-tight text-slate-900">
+                    Recovery
+                  </h3>
+                  <p className="text-[12px] text-slate-500 leading-relaxed">
+                    Your body is well-rested and restored. Strong deep/REM balance and consistent sleep boosted your readiness today.
+                  </p>
+                </div>
+              </div>
+              
+              {/* Activity */}
+              <div className="flex flex-col items-center text-center space-y-4">
+                <CircularGauge 
+                  value={activityScore} 
+                  max={100} 
+                  label="Activity"
+                  subLabel="Low-Moderate"
+                  color="blue"
+                />
+                <div className="space-y-2 w-full">
+                  <h3 className="text-[13px] font-semibold tracking-tight text-slate-900">
+                    Activity
+                  </h3>
+                  <p className="text-[12px] text-slate-500 leading-relaxed">
+                    You've accumulated a small amount of strain so far. Your body still has plenty of capacity left for movement or training.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Today's Recommendation Card */}
+        <section
+          className={[
+            "relative overflow-hidden rounded-[28px]",
+            "bg-white/90 backdrop-blur-2xl",
+            "border border-white/90",
+            "shadow-[0_24px_60px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.5)]",
+            "px-7 py-6",
+          ].join(" ")}
+        >
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 via-white/85 to-white/70" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 via-transparent to-purple-50/20" />
+          <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/60" />
+          <div className="pointer-events-none absolute inset-[1px] rounded-[27px] ring-1 ring-white/30" />
+          <div className="pointer-events-none absolute -inset-1 bg-gradient-to-br from-blue-100/30 via-purple-100/20 to-transparent blur-xl opacity-50" />
+
+          <div className="relative z-10 space-y-3">
+            <h3 className="text-[13px] font-semibold tracking-tight text-slate-900">
+              Today's Recommendation
+            </h3>
+            <p className="text-[12px] text-slate-500 leading-relaxed">
+              Because your recovery is high and your activity load is still low, you're in an ideal window for moderate training – such as a structured workout, long walk.
+            </p>
+          </div>
+        </section>
       </div>
     </div>
   )

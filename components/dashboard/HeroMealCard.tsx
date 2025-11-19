@@ -52,7 +52,7 @@ export default function HeroMealCard() {
       <div className="relative h-48 w-full overflow-hidden rounded-t-3xl">
         <Image
           src={fallbackImage}
-          alt={heroMeal?.label ?? 'Healthy ShiftCali meal'}
+          alt={heroMeal?.label ?? 'Healthy Shift Coach meal'}
           fill
           priority
           className="object-cover"
@@ -65,7 +65,7 @@ export default function HeroMealCard() {
               {timeLabel || '12:30 PM'}
             </span>
             <h3 className="mt-1 text-lg font-semibold text-white leading-tight">
-              {heroMeal.label || 'ShiftCali Power Bowl'}
+              {heroMeal.label || 'Shift Coach Power Bowl'}
             </h3>
           </div>
           <button
