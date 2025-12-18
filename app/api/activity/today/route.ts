@@ -275,7 +275,7 @@ export async function GET(req: NextRequest) {
     // Get shifts for the last 7 days to determine shift types
     const { data: weeklyShifts } = await supabase
       .from('shifts')
-      .select('date, label')
+      .select('date, label, start_ts')
       .eq('user_id', userId)
       .gte('date', sevenDaysAgoISO)
       .lte('date', today)
