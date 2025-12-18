@@ -77,9 +77,20 @@ export async function GET(req: NextRequest) {
     const steps = activityLog?.steps ?? 0
     const activityContext = `${steps.toLocaleString()} steps so far today`
 
-    // Format shift label
-    const shiftStartTime = todayShift?.start_ts ? new Date(todayShift.start_ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
-    const shiftEndTime = todayShift?.end_ts ? new Date(todayShift.end_ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+    // Format shift label for display
+    const shiftStartTime = todayShift?.start_ts
+      ? new Date(todayShift.start_ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : ''
+    const shiftEndTime = todayShift?.end_ts
+      ? new Date(todayShift.end_ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : ''
+
+    const rawShiftLabel = todayShift?.label ?? (shiftType ? String(shiftType) : null)
+    const shiftLabel =
+      rawShiftLabel
+        ? rawShiftLabel.charAt(0).toUpperCase() + rawShiftLabel.slice(1).toLowerCase()
+        : 'Off'
+
     const shiftLabelFormatted = todayShift
       ? `${shiftLabel} shift${shiftStartTime && shiftEndTime ? ` · ${shiftStartTime}–${shiftEndTime}` : ''}`
       : 'Off day'
