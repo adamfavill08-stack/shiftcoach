@@ -54,6 +54,29 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             `,
           }}
         />
+        {/* Provide a minimal Capacitor shim so native wrappers that call
+            Capacitor.triggerEvent (e.g. appLoaded) don't crash when the web
+            app is served remotely without the full Capacitor JS bundle. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  if (typeof window !== 'undefined' && typeof (window as any).Capacitor === 'undefined') {
+                    (window as any).Capacitor = {
+                      triggerEvent: function () {
+                        // no-op shim for native bridge signals
+                      },
+                    };
+                  }
+                } catch (e) {
+                  // If anything goes wrong here, fail silently to avoid
+                  // blocking the app from rendering.
+                }
+              })();
+            `,
+          }}
+        />
         {/* Suppress AuthSessionMissingError before React loads */}
         <script
           dangerouslySetInnerHTML={{
