@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { OpenAI } from 'openai'
 import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 import { getWeeklyMetrics } from '@/lib/data/getWeeklyMetrics'
 import { generateWeeklySummary } from '@/lib/coach/generateWeeklySummary'
