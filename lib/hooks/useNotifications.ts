@@ -132,12 +132,8 @@ export function useNotifications() {
             })()
 
             const inMorningWindow = hours >= 5 && hours < 12
-            const inEveningWindow = hours >= 17 && hours < 22
 
-            const shouldShow =
-              lastShown !== todayKey &&
-              ((dailyReminderSetting === 'morning' && inMorningWindow) ||
-                (dailyReminderSetting === 'evening' && inEveningWindow))
+            const shouldShow = lastShown !== todayKey && inMorningWindow
 
             if (shouldShow) {
               // Fetch today's shift to personalise the message
@@ -168,15 +164,9 @@ export function useNotifications() {
                   ? shiftLabel.charAt(0).toUpperCase() + shiftLabel.slice(1).toLowerCase()
                   : 'today'
 
-              const title =
-                dailyReminderSetting === 'morning'
-                  ? 'Morning check‑in'
-                  : 'Evening check‑in'
+              const title = 'Morning check‑in'
 
-              const message =
-                dailyReminderSetting === 'morning'
-                  ? `Log last night’s sleep and review your ${niceShift} shift plan.`
-                  : `Review today’s sleep and ${niceShift} shift, and check what to adjust for tomorrow.`
+              const message = `Log last night’s sleep and review your ${niceShift} shift plan.`
 
               dailyNotifications.push({
                 id: `daily-checkin-${todayKey}-${dailyReminderSetting}`,
