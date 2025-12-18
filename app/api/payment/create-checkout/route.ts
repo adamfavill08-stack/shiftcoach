@@ -2,7 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 import Stripe from 'stripe'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+let stripe: Stripe | null = null
+
+function getStripeClient(): Stripe | null {
+  if (!stripe) {
+    const secret = process.env.STRIPE_SECRET_KEY
+    if (!secret) {
+      console.warn(
+        '[api/payment/create-checkout] STRIPE_SECRET_KEY is not set. Payments are disabled in this environment.',
+      )
+      return null
+    }
+    stripe = new Stripe(secret)
+  }
+  return stripe
+}
 
 /**
  * POST /api/payment/create-checkout
@@ -10,6 +24,17 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
  */
 export async function POST(req: NextRequest) {
   try {
+    const stripe = getStripeClient()
+    if (!stripe) {
+      return NextResponse.json(
+        {
+          error:
+            'Payments are temporarily unavailable. Please contact support or try again later.',
+        },
+        { status: 503 },
+      )
+    }
+
     const { supabase, userId } = await getServerSupabaseAndUserId()
     
     if (!userId) {
