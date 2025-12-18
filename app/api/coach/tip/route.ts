@@ -18,8 +18,23 @@ export async function GET(req: NextRequest) {
   try {
     const { supabase, userId } = await getServerSupabaseAndUserId()
 
+    if (!userId) {
+      console.error('[/api/coach/tip] No userId found')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { getUserMetrics } = await import('@/lib/data/getUserMetrics')
-    const metrics = await getUserMetrics(userId, supabase)
+    let metrics
+    try {
+      metrics = await getUserMetrics(userId, supabase)
+    } catch (metricsError: any) {
+      console.error('[/api/coach/tip] Error fetching user metrics:', metricsError)
+      // Return a fallback tip if metrics fail
+      return NextResponse.json({
+        tip: 'Keep your sleep schedule consistent to maintain your body clock rhythm.',
+        error: 'Could not fetch user metrics',
+      }, { status: 200 }) // Return 200 with fallback instead of 500
+    }
 
     const shiftTypeNormalized = metrics.shiftType
       ? (metrics.shiftType.toLowerCase() as 'day' | 'night' | 'late' | 'off')
@@ -116,8 +131,23 @@ Prioritise safety, realistic energy management, cravings control, and sleep prot
     const tip = chatRes.choices[0]?.message?.content?.trim() || 'No tip available right now.'
 
     return NextResponse.json({ tip, coachingState, metrics }, { status: 200 })
-  } catch (err) {
-    console.error('[/api/coach/tip] error:', err)
-    return NextResponse.json({ error: 'Failed to generate tip' }, { status: 500 })
+  } catch (err: any) {
+    console.error('[/api/coach/tip] FATAL ERROR:', {
+      name: err?.name,
+      message: err?.message,
+      stack: err?.stack,
+    })
+    
+    // Return a fallback tip instead of 500 error
+    // This ensures the UI always has something to show
+    const fallbackTip = 'Keep your sleep schedule consistent to maintain your body clock rhythm.'
+    return NextResponse.json(
+      { 
+        tip: fallbackTip,
+        error: 'Failed to generate personalized tip',
+        fallback: true,
+      },
+      { status: 200 } // Return 200 with fallback instead of 500
+    )
   }
 }

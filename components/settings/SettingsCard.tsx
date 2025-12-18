@@ -5,7 +5,7 @@ import React from 'react'
 export function SettingsCard({ title, subtitle, children }:{ title:string; subtitle?:string; children: React.ReactNode }){
   return (
     <section
-      className="rounded-3xl backdrop-blur-2xl px-5 py-4 flex flex-col gap-3"
+      className="rounded-2xl backdrop-blur-2xl px-4 py-3 flex flex-col gap-2.5"
       style={{
         backgroundColor: 'var(--card)',
         borderColor: 'var(--border-subtle)',
@@ -26,10 +26,10 @@ export function SettingsCard({ title, subtitle, children }:{ title:string; subti
 
 export function SettingsRow({ label, description, right }:{ label:string; description?:string; right?:React.ReactNode }){
   return (
-    <div className="flex items-center justify-between gap-3 py-2">
+    <div className="flex items-center justify-between gap-3 py-1.5">
       <div className="flex-1">
-        <p className="text-sm" style={{ color: 'var(--text-main)' }}>{label}</p>
-        {description && (<p className="text-xs mt-0.5" style={{ color: 'var(--text-soft)' }}>{description}</p>)}
+        <p className="text-[13px] font-medium" style={{ color: 'var(--text-main)' }}>{label}</p>
+        {description && (<p className="text-[11px] mt-0.5" style={{ color: 'var(--text-soft)' }}>{description}</p>)}
       </div>
       {right}
     </div>

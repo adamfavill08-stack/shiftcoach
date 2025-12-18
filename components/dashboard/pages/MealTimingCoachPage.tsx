@@ -84,8 +84,8 @@ export function MealTimingCoachPage() {
   const shiftLabel = timing?.shiftLabel ?? 'Night shift · 19:00–07:00'
   const lastMealTime = timing?.lastMeal?.time ?? fallbackCoachData.lastMealTime ?? '—'
   const lastMealDescription = timing?.lastMeal?.description ?? 'Logged meal'
-  const timeSinceLastMeal = timing?.timeSinceLastMeal ?? fallbackCoachData.timeSinceLastMeal ?? '—'
-  const nextWindowLabel = timing?.nextWindowLabel ?? recommendedWindows[0]?.timeRange ?? '—'
+  const timeSinceLastMeal = (timing as any)?.timeSinceLastMeal ?? fallbackCoachData.timeSinceLastMeal ?? '—'
+  const nextWindowLabel = (timing as any)?.nextWindowLabel ?? recommendedWindows[0]?.timeRange ?? '—'
 
   const nextMealLabel = timing?.nextMealLabel ?? 'Next meal'
   const nextMealTime = timing?.nextMealTime ?? '14:30'
@@ -281,15 +281,6 @@ export function MealTimingCoachPage() {
           </div>
         </section>
 
-        <div className="pb-2">
-          <button
-            type="button"
-            onClick={() => router.push('/nutrition/log')}
-            className="w-full rounded-full bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 active:scale-[0.98]"
-          >
-            Log meal
-          </button>
-        </div>
       </div>
     </div>
   )

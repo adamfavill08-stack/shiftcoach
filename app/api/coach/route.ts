@@ -87,6 +87,15 @@ Respond in a way that matches this category, using the rules in your system prom
     const metrics = await getUserMetrics(userId, supabase)
     console.log('[/api/coach] User metrics:', metrics)
 
+    // Fetch profile name for more personal responses
+    const { data: profileRow } = await supabase
+      .from('profiles')
+      .select('name')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    const displayName = (profileRow?.name as string | null)?.trim() || null
+
     // Compute coaching state (normalize shift type to lowercase)
     const shiftTypeNormalized = metrics.shiftType
       ? (metrics.shiftType.toLowerCase() as 'day' | 'night' | 'late' | 'off')
@@ -202,11 +211,17 @@ ${coachingState.summary}
     // 3) Build messages for OpenAI with personalized context
     const messages: { role: 'system' | 'assistant' | 'user'; content: string }[] = []
 
-    // Combine system prompt with user context, coaching state, and goal feedback
+    // Combine system prompt with user context, coaching state, goal feedback, and name
+    const nameContext = displayName
+      ? `The user's preferred name is "${displayName}". Greet them using this name naturally in your replies (for example "Hey ${displayName}," or "${displayName}, here’s what I’d suggest"). Do not invent or change their name.`
+      : 'The user has not set a preferred name yet, so keep greetings warm but generic.'
+
     const fullSystemPrompt = `
 ${SHIFT_CALI_COACH_SYSTEM_PROMPT}
 
 Additional important context:
+
+${nameContext}
 
 ${stateContext}
 
@@ -272,12 +287,16 @@ Respond in a way that is explicitly tailored for this state:
             : 'I need a brief reset due to high usage. Give me a few minutes and try again—meanwhile, keep your routine steady and stay hydrated.'
 
         if (conversation) {
-          await supabase.from('ai_messages').insert({
-            user_id: userId,
-            conversation_id: conversation.id,
-            role: 'assistant',
-            content: fallbackReply,
-          }).catch((err) => console.warn('Failed to store fallback reply:', err))
+          try {
+            await supabase.from('ai_messages').insert({
+              user_id: userId,
+              conversation_id: conversation.id,
+              role: 'assistant',
+              content: fallbackReply,
+            })
+          } catch (err) {
+            console.warn('Failed to store fallback reply:', err)
+          }
         }
 
         return NextResponse.json({ reply: fallbackReply, rateLimited: true })

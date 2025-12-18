@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
+import { inferShiftPattern } from '@/lib/rota/inferShiftPattern'
 
 export const dynamic = 'force-dynamic'
 
@@ -90,7 +91,43 @@ export async function POST(req: NextRequest) {
 
     console.log('[api/rota/pattern] saved pattern', data)
 
-    return NextResponse.json({ success: true, pattern: data }, { status: 200 })
+    // Auto-update shift_pattern in profiles based on the pattern
+    if (patternSlots && Array.isArray(patternSlots) && patternSlots.length > 0) {
+      try {
+        console.log('[api/rota/pattern] patternSlots received:', patternSlots)
+        const inferredPattern = inferShiftPattern(patternSlots as any)
+        console.log('[api/rota/pattern] inferred pattern:', inferredPattern)
+        
+        const { data: updateData, error: profileUpdateError } = await supabase
+          .from('profiles')
+          .update({ shift_pattern: inferredPattern })
+          .eq('user_id', userId)
+          .select()
+
+        if (profileUpdateError) {
+          console.error('[api/rota/pattern] failed to update shift_pattern in profile:', {
+            error: profileUpdateError,
+            userId,
+            inferredPattern,
+          })
+          // Don't fail the request if profile update fails
+        } else {
+          console.log('[api/rota/pattern] successfully auto-updated shift_pattern to:', inferredPattern, 'for user:', userId)
+          // Note: The client-side code will dispatch 'rota-saved' event after this response
+        }
+      } catch (inferError) {
+        console.error('[api/rota/pattern] error inferring or updating shift_pattern:', inferError)
+        // Don't fail the request
+      }
+    } else {
+      console.warn('[api/rota/pattern] patternSlots missing or invalid:', patternSlots)
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      pattern: data,
+      shift_pattern_updated: patternSlots && Array.isArray(patternSlots) && patternSlots.length > 0
+    }, { status: 200 })
   } catch (err: any) {
     console.error('[api/rota/pattern] fatal POST error', {
       name: err?.name,

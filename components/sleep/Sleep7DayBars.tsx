@@ -4,11 +4,17 @@ import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Pencil, Trash2, Clock, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { SleepEditModal } from './SleepEditModal'
+import { DeleteSleepConfirmModal } from './DeleteSleepConfirmModal'
 
 type SleepDay = {
   date: string
   totalMinutes: number
   totalSleepHours: number
+  shift?: {
+    label: string
+    type?: string | null
+  } | null
 }
 
 type SleepSession = {
@@ -33,6 +39,8 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
   const [loadingSessions, setLoadingSessions] = useState(false)
   const [editingSession, setEditingSession] = useState<SleepSession | null>(null)
   const [addingSession, setAddingSession] = useState(false)
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [mounted, setMounted] = useState(false)
   const router = useRouter()
 
@@ -43,13 +51,16 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
   const fetch7Days = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await fetch(`/api/sleep/7days?t=${Date.now()}`, {
+      const url = `/api/sleep/7days?t=${Date.now()}`
+      console.log('[Sleep7DayBars] Fetching from:', url)
+      const res = await fetch(url, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache',
         }
       })
+      console.log('[Sleep7DayBars] Response status:', res.status, res.statusText)
       
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
@@ -60,6 +71,9 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
       
       const data = (await res.json()) as { days: SleepDay[] }
       console.log('[Sleep7DayBars] API response:', data)
+      console.log('[Sleep7DayBars] Days array:', data.days)
+      console.log('[Sleep7DayBars] Days count:', data.days?.length)
+      console.log('[Sleep7DayBars] Has sleep data:', data.days?.some((d) => d.totalSleepHours > 0))
       
       if (!data.days || !Array.isArray(data.days)) {
         console.error('[Sleep7DayBars] Invalid response format:', data)
@@ -67,7 +81,10 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
         return
       }
       
-      setDays(data.days || [])
+      // Ensure we have exactly 7 days, even if some are empty
+      const daysArray = data.days || []
+      console.log('[Sleep7DayBars] Setting days:', daysArray)
+      setDays(daysArray)
     } catch (err) {
       console.error('[Sleep7DayBars] Error fetching:', err)
       setDays([])
@@ -148,15 +165,20 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
   useEffect(() => {
     fetch7Days()
     
+    let refreshTimeout: NodeJS.Timeout | null = null
     const handleRefresh = () => {
-      setTimeout(() => {
+      if (refreshTimeout) clearTimeout(refreshTimeout)
+      refreshTimeout = setTimeout(() => {
         fetch7Days()
         onRefresh?.()
-      }, 500)
+      }, 300)
     }
     
     window.addEventListener('sleep-refreshed', handleRefresh)
-    return () => window.removeEventListener('sleep-refreshed', handleRefresh)
+    return () => {
+      if (refreshTimeout) clearTimeout(refreshTimeout)
+      window.removeEventListener('sleep-refreshed', handleRefresh)
+    }
   }, [fetch7Days, onRefresh])
 
   const handleDayClick = (date: string) => {
@@ -171,21 +193,37 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
     setSessions([])
   }
 
-  const handleDelete = async (sessionId: string) => {
-    if (!confirm('Delete this sleep entry? This will update your body clock and sleep stats.')) {
-      return
-    }
+  const handleDeleteClick = (sessionId: string) => {
+    setDeletingSessionId(sessionId)
+  }
 
+  const handleDeleteConfirm = async () => {
+    if (!deletingSessionId) return
+
+    setIsDeleting(true)
     try {
-      const res = await fetch(`/api/sleep/sessions/${sessionId}`, {
+      console.log('[Sleep7DayBars] Deleting session:', deletingSessionId)
+      
+      const res = await fetch(`/api/sleep/sessions/${deletingSessionId}`, {
         method: 'DELETE',
       })
 
       if (!res.ok) {
-        const data = await res.json()
-        alert(data.error || 'Failed to delete session')
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
+        console.error('[Sleep7DayBars] Failed to delete session:', res.status, errorData)
+        
+        // Show error but don't use alert - could use a toast instead
+        alert(errorData.error || 'Failed to delete session')
+        setIsDeleting(false)
+        setDeletingSessionId(null)
         return
       }
+
+      const data = await res.json()
+      console.log('[Sleep7DayBars] Delete successful:', data)
+
+      // Close modal
+      setDeletingSessionId(null)
 
       // Refresh data
       if (selectedDate) {
@@ -207,7 +245,14 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
     } catch (err) {
       console.error('[Sleep7DayBars] Delete error:', err)
       alert('Failed to delete session')
+    } finally {
+      setIsDeleting(false)
     }
+  }
+
+  const handleDeleteCancel = () => {
+    setDeletingSessionId(null)
+    setIsDeleting(false)
   }
 
   const handleSaveSession = async (sessionData: {
@@ -389,6 +434,21 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
                       </div>
                     </div>
 
+                    {/* Shift indicator */}
+                    {day.shift && (
+                      <div className="flex items-center justify-center w-full mt-0.5">
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider shadow-sm ${
+                          day.shift.type === 'night' ? 'bg-slate-800 text-white'
+                          : day.shift.type === 'morning' ? 'bg-blue-100 text-blue-700 border border-blue-200/60'
+                          : day.shift.type === 'afternoon' ? 'bg-indigo-100 text-indigo-700 border border-indigo-200/60'
+                          : day.shift.type === 'day' ? 'bg-sky-100 text-sky-700 border border-sky-200/60'
+                          : 'bg-slate-100 text-slate-600 border border-slate-200/60'
+                        }`}>
+                          {day.shift.label === 'OFF' ? 'OFF' : day.shift.type?.charAt(0).toUpperCase() || day.shift.label?.charAt(0) || '?'}
+                        </span>
+                      </div>
+                    )}
+
                     {/* Duration */}
                     <div className="flex flex-col items-center gap-0 w-full">
                       {hasSleep ? (
@@ -417,7 +477,7 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
           loadingSessions={loadingSessions}
           onClose={handleCloseModal}
           onEdit={(session) => setEditingSession(session)}
-          onDelete={handleDelete}
+          onDelete={handleDeleteClick}
           onAdd={() => setAddingSession(true)}
           onRefresh={() => {
             if (selectedDate) {
@@ -429,15 +489,42 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
       )}
 
       {/* Edit/Add Session Modal */}
-      {mounted && (editingSession || addingSession) && (
-        <SessionFormModal
+      {mounted && editingSession && (
+        <SleepEditModal
+          open={true}
           session={editingSession}
-          date={selectedDate || ''}
           onClose={() => {
             setEditingSession(null)
+          }}
+          onSuccess={() => {
+            if (selectedDate) {
+              fetchSessionsForDate(selectedDate)
+            }
+            fetch7Days()
+            if (onRefresh) {
+              onRefresh()
+            }
+          }}
+        />
+      )}
+      {mounted && addingSession && (
+        <SessionFormModal
+          session={null}
+          date={selectedDate || ''}
+          onClose={() => {
             setAddingSession(false)
           }}
           onSave={handleSaveSession}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {mounted && deletingSessionId && (
+        <DeleteSleepConfirmModal
+          open={!!deletingSessionId}
+          onClose={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          loading={isDeleting}
         />
       )}
     </>

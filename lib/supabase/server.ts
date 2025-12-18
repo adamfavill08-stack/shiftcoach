@@ -5,8 +5,6 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 const DEV_FALLBACK_USER = '333dd216-62fb-49a0-916e-304b84673310' // <- your dev id
 
 export async function getServerSupabaseAndUserId() {
-  console.log('[getServerSupabaseAndUserId] called')
-  
   // In serverless environments (Vercel), cookie-based auth with @supabase/ssr fails
   // due to Next.js 16 compatibility issues. Skip it entirely and use service role client.
   if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
@@ -50,27 +48,45 @@ export async function getServerSupabaseAndUserId() {
       }
     )
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    let user = null
+    let authError = null
     
-    if (authError) {
-      console.warn('[supabase/server] Auth error:', authError)
+    try {
+      const authResult = await supabase.auth.getUser()
+      user = authResult.data?.user ?? null
+      authError = authResult.error ?? null
+    } catch (err: any) {
+      // Catch AuthSessionMissingError and other auth errors silently
+      // This is expected in serverless/development environments
+      if (err?.name === 'AuthSessionMissingError' || 
+          err?.message?.includes('Auth session missing') ||
+          err?.__isAuthError) {
+        // Expected error - silently use fallback
+        authError = err
+      } else {
+        // Unexpected error - log it
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[supabase/server] Unexpected auth error:', err?.message)
+        }
+        authError = err
+      }
     }
-
+    
     const userId = user?.id ?? DEV_FALLBACK_USER
     const isDevFallback = !user?.id
-    
-    if (!user) {
-      console.warn('[supabase/server] No auth session, using dev fallback user id:', userId, 'Auth session missing!')
-    }
 
     return { supabase, userId, isDevFallback }
   } catch (error: any) {
     // If cookie-based auth fails (common in serverless), use service role client
-    console.error('[supabase/server] Cookie-based auth failed, using service role client:', {
-      name: error?.name,
-      message: error?.message,
-      stack: error?.stack,
-    })
+    // This is expected in serverless environments - only log if it's not the expected error
+    if (process.env.NODE_ENV === 'development') {
+      // Only log unexpected errors, not the common "Auth session missing" error
+      if (!error?.message?.includes('Auth session missing') && 
+          !error?.message?.includes('cookies') &&
+          !error?.name?.includes('AuthSessionMissingError')) {
+        console.warn('[supabase/server] Cookie-based auth failed, using service role client:', error?.message)
+      }
+    }
     
     try {
       const { supabaseServer } = await import('@/lib/supabase-server')

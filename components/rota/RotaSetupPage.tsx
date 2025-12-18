@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import { CalendarDays, Upload, Settings, Wand2 } from 'lucide-react'
+import { CalendarDays, ChevronDown } from 'lucide-react'
 import {
   DEFAULT_SHIFT_COLORS,
   getActiveShiftColors,
@@ -12,7 +12,6 @@ import {
 } from '@/lib/data/shiftColors'
 import { applyRotaPattern } from '@/lib/rota/applyPattern'
 import { PATTERN_SEQUENCES, getPatternCycle } from '@/lib/rota/patternCatalog'
-import AddActionFab from '@/components/rota/AddActionFab'
 import ShiftPatternSet, { type ShiftPatternSummary } from '@/components/rota/ShiftPatternSet'
 import {
   PATTERNS_BY_LENGTH as SHARED_PATTERNS_BY_LENGTH,
@@ -21,12 +20,7 @@ import {
   type ShiftPattern as PresetBase,
 } from '@/lib/rota/patternPresets'
 
-const TABS = [
-  { id: 'presets', label: 'Presets', icon: Wand2 },
-  { id: 'custom', label: 'Custom pattern', icon: Settings },
-  { id: 'import', label: 'Import / photo', icon: Upload },
-  { id: 'labels', label: 'Colors & labels', icon: CalendarDays },
-] as const
+type SetupStep = 1 | 2 | 3
 
 type ColorPreset = {
   id: string
@@ -60,6 +54,11 @@ type PatternAlignment = {
   patternId?: string
 }
 
+type PreviewPatternState = {
+  slots: ShiftSlot[]
+  alignment: PatternAlignment
+}
+
 type PatternSummary = {
   id: string
   name: string
@@ -67,8 +66,6 @@ type PatternSummary = {
   lengthLabel?: string
   startDate?: string
 }
-
-type TabId = (typeof TABS)[number]['id']
 
 type CalendarDay = {
   date: string
@@ -157,7 +154,7 @@ const PRESET_PATTERNS_BY_LENGTH: Record<ShiftLength, PresetPattern[]> = Object.f
       slots: getPatternSlots(pattern.id),
     })),
   ]),
-)
+) as Record<ShiftLength, PresetPattern[]>
 
 const PRESET_MAP: Record<string, PresetPattern> = Object.fromEntries(
   Object.values(PRESET_PATTERNS_BY_LENGTH)
@@ -174,10 +171,9 @@ export function RotaSetupPage() {
   const todayISO = useMemo(() => today.toISOString().slice(0, 10), [today])
 
   const [currentMonthDate, setCurrentMonthDate] = useState<Date>(() => startOfMonth(today))
-  const [activeTab, setActiveTab] = useState<TabId>('presets')
+  const [currentStep, setCurrentStep] = useState<SetupStep>(1)
   const [activePattern, setActivePattern] = useState<PresetPattern | null>(null)
   const [selectedPattern, setSelectedPattern] = useState<PresetPattern | null>(null)
-  const [showColorModal, setShowColorModal] = useState(false)
   const [shiftColors, setShiftColors] = useState<ShiftColorConfig>(DEFAULT_SHIFT_COLORS)
   const [days, setDays] = useState<CalendarDay[]>([])
   const [patternSlots, setPatternSlots] = useState<ShiftSlot[]>([])
@@ -186,21 +182,40 @@ export function RotaSetupPage() {
     startSlotIndex: 0,
     patternId: undefined,
   })
+  const [previewPattern, setPreviewPattern] = useState<PreviewPatternState | null>(null)
   const [storedPattern, setStoredPattern] = useState<StoredPattern | null>(null)
   const [activePatternSummary, setActivePatternSummary] = useState<PatternSummary | null>(null)
   const [isEditingPattern, setIsEditingPattern] = useState(false)
-  const [showHolidayPlaceholder, setShowHolidayPlaceholder] = useState(false)
-  const [showTaskPlaceholder, setShowTaskPlaceholder] = useState(false)
+
+  // Inline configuration state for the guided flow (Step 2)
+  const [configStartDate, setConfigStartDate] = useState<string>(todayISO)
+  const [configStartSlotIndex, setConfigStartSlotIndex] = useState<number>(0)
+  const [configDayColor, setConfigDayColor] = useState<string>(DEFAULT_SHIFT_COLORS.day)
+  const [configNightColor, setConfigNightColor] = useState<string>(DEFAULT_SHIFT_COLORS.night)
+  const [configCustomColor, setConfigCustomColor] = useState<string>(
+    DEFAULT_SHIFT_COLORS.other ?? DEFAULT_SHIFT_COLORS.custom ?? '#FACC15',
+  )
 
   const loadMonthDays = useCallback(
     async (targetDate: Date) => {
       const base = generateMonthDays(targetDate)
 
       try {
-        const {
-          data: { user },
-          error,
-        } = await supabase.auth.getUser()
+        let user = null
+        let error = null
+        try {
+          const result = await supabase.auth.getUser()
+          user = result.data?.user ?? null
+          error = result.error ?? null
+        } catch (authErr: any) {
+          // Handle auth session errors gracefully
+          if (authErr?.message?.includes('session') || authErr?.message?.includes('Auth session missing')) {
+            console.warn('[RotaSetup] Auth session not ready, using base calendar')
+            setDays(base)
+            return
+          }
+          throw authErr
+        }
 
         if (error || !user) {
           setDays(base)
@@ -276,15 +291,30 @@ export function RotaSetupPage() {
 
   const loadStoredPattern = useCallback(async () => {
     try {
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser()
+      let user = null
+      let error = null
+      try {
+        const result = await supabase.auth.getUser()
+        user = result.data?.user ?? null
+        error = result.error ?? null
+      } catch (authErr: any) {
+        // Handle auth session errors gracefully
+        if (authErr?.message?.includes('session') || authErr?.message?.includes('Auth session missing')) {
+          console.warn('[RotaSetup] Auth session not ready for loadStoredPattern')
+          setStoredPattern(null)
+          setActivePatternSummary(null)
+          setIsEditingPattern(false)
+          return
+        }
+        throw authErr
+      }
 
       if (error || !user) {
         setStoredPattern(null)
         setActivePatternSummary(null)
         setIsEditingPattern(false)
+        setPreviewPattern(null)
+        setCurrentStep(1)
         return
       }
 
@@ -303,6 +333,8 @@ export function RotaSetupPage() {
         setStoredPattern(null)
         setActivePatternSummary(null)
         setIsEditingPattern(false)
+        setPreviewPattern(null)
+        setCurrentStep(1)
         return
       }
 
@@ -310,6 +342,8 @@ export function RotaSetupPage() {
         setStoredPattern(null)
         setActivePatternSummary(null)
         setIsEditingPattern(false)
+        setPreviewPattern(null)
+        setCurrentStep(1)
         return
       }
 
@@ -319,6 +353,9 @@ export function RotaSetupPage() {
       }
 
       setShiftColors(mergedColors)
+      setConfigDayColor(mergedColors.day ?? DEFAULT_SHIFT_COLORS.day)
+      setConfigNightColor(mergedColors.night ?? DEFAULT_SHIFT_COLORS.night)
+      setConfigCustomColor(mergedColors.other ?? mergedColors.custom ?? '#FACC15')
 
       const startDate = data.start_date ?? todayISO
       const startSlotIndex = data.start_slot_index ?? 0
@@ -331,6 +368,8 @@ export function RotaSetupPage() {
       })
 
       setPatternAlignment({ startDate, startSlotIndex, patternId: data.pattern_id ?? undefined })
+      setConfigStartDate(startDate)
+      setConfigStartSlotIndex(startSlotIndex)
 
       const patternDef = PRESET_MAP[data.pattern_id]
       if (patternDef) {
@@ -345,6 +384,7 @@ export function RotaSetupPage() {
           startDate,
         })
         setIsEditingPattern(false)
+        setCurrentStep(3)
       } else {
         setActivePatternSummary({
           id: data.pattern_id,
@@ -352,12 +392,31 @@ export function RotaSetupPage() {
           startDate,
         })
         setSelectedPattern(null)
+        setCurrentStep(2)
+      }
+
+      const resolvedSlots =
+        patternDef?.slots?.length
+          ? patternDef.slots.map((slot) => ({ ...slot }))
+          : data.pattern_id
+          ? getPatternSlots(data.pattern_id)
+          : []
+
+      if (resolvedSlots.length) {
+        setPreviewPattern({
+          slots: resolvedSlots,
+          alignment: { startDate, startSlotIndex, patternId: data.pattern_id ?? undefined },
+        })
+      } else {
+        setPreviewPattern(null)
       }
     } catch (err) {
       console.error('[RotaSetup] loadStoredPattern fatal error', err)
       setStoredPattern(null)
       setActivePatternSummary(null)
       setIsEditingPattern(false)
+      setPreviewPattern(null)
+      setCurrentStep(1)
     }
   }, [supabase, todayISO])
 
@@ -384,10 +443,20 @@ export function RotaSetupPage() {
   useEffect(() => {
     const loadColors = async () => {
       try {
-        const {
-          data: { user },
-          error,
-        } = await supabase.auth.getUser()
+        let user = null
+        let error = null
+        try {
+          const result = await supabase.auth.getUser()
+          user = result.data?.user ?? null
+          error = result.error ?? null
+        } catch (authErr: any) {
+          // Handle auth session errors gracefully
+          if (authErr?.message?.includes('session') || authErr?.message?.includes('Auth session missing')) {
+            console.warn('[RotaSetup] Auth session not ready for loadColors')
+            return
+          }
+          throw authErr
+        }
 
         if (error || !user) {
           console.error('[RotaSetup] loadColors auth error', error)
@@ -434,9 +503,6 @@ export function RotaSetupPage() {
         }
 
         const diffDays = Math.floor((currentTime - startTime) / msPerDay)
-        if (diffDays < 0) {
-          return { ...day, shiftType: null }
-        }
         const len = slots.length
         const slotIndex = ((alignment.startSlotIndex + diffDays) % len + len) % len
         return { ...day, shiftType: slots[slotIndex].type }
@@ -456,32 +522,56 @@ export function RotaSetupPage() {
     }
     applyPatternToCalendar(slots, alignment)
     setPatternAlignment(alignment)
+    setConfigStartDate(alignment.startDate)
+    setConfigStartSlotIndex(alignment.startSlotIndex)
     const resolvedPattern = PRESET_MAP[pattern.id] ?? pattern
     setActivePattern(resolvedPattern)
     setSelectedPattern(resolvedPattern)
     setIsEditingPattern(true)
+    setPreviewPattern(null)
+    setCurrentStep(2)
 
     try {
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser()
+      let user = null
+      let authError = null
+      try {
+        const result = await supabase.auth.getUser()
+        user = result.data?.user ?? null
+        authError = result.error ?? null
+      } catch (authErr: any) {
+        // Handle auth session errors gracefully
+        if (authErr?.message?.includes('session') || authErr?.message?.includes('Auth session missing')) {
+          console.warn('[RotaSetup] Auth session not ready for handlePresetClick, using defaults')
+          setShiftColors(DEFAULT_SHIFT_COLORS)
+          setConfigDayColor(DEFAULT_SHIFT_COLORS.day)
+          setConfigNightColor(DEFAULT_SHIFT_COLORS.night)
+          setConfigCustomColor(DEFAULT_SHIFT_COLORS.other ?? DEFAULT_SHIFT_COLORS.custom ?? '#FACC15')
+          return
+        }
+        throw authErr
+      }
 
       if (authError || !user) {
         console.error('[RotaSetup] no user for color prefs', authError)
         setShiftColors(DEFAULT_SHIFT_COLORS)
-        setShowColorModal(true)
+        setConfigDayColor(DEFAULT_SHIFT_COLORS.day)
+        setConfigNightColor(DEFAULT_SHIFT_COLORS.night)
+        setConfigCustomColor(DEFAULT_SHIFT_COLORS.other ?? DEFAULT_SHIFT_COLORS.custom ?? '#FACC15')
         return
       }
 
       const colors = await getActiveShiftColors(supabase, user.id)
       setShiftColors(colors)
+      setConfigDayColor(colors.day ?? DEFAULT_SHIFT_COLORS.day)
+      setConfigNightColor(colors.night ?? DEFAULT_SHIFT_COLORS.night)
+      setConfigCustomColor(colors.other ?? colors.custom ?? '#FACC15')
     } catch (err) {
       console.error('[RotaSetup] failed to load color prefs', err)
       setShiftColors(DEFAULT_SHIFT_COLORS)
+      setConfigDayColor(DEFAULT_SHIFT_COLORS.day)
+      setConfigNightColor(DEFAULT_SHIFT_COLORS.night)
+      setConfigCustomColor(DEFAULT_SHIFT_COLORS.other ?? DEFAULT_SHIFT_COLORS.custom ?? '#FACC15')
     }
-
-    setShowColorModal(true)
   }
 
   const handleSaveColors = async (payload: {
@@ -495,10 +585,20 @@ export function RotaSetupPage() {
     const selectedPatternId = activePattern?.id ?? storedPattern?.patternId
 
     try {
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser()
+      let user = null
+      let error = null
+      try {
+        const result = await supabase.auth.getUser()
+        user = result.data?.user ?? null
+        error = result.error ?? null
+      } catch (authErr: any) {
+        // Handle auth session errors gracefully
+        if (authErr?.message?.includes('session') || authErr?.message?.includes('Auth session missing')) {
+          console.warn('[RotaSetup] Auth session not ready for handleSaveColors')
+          return
+        }
+        throw authErr
+      }
 
       if (error || !user) {
         console.error('[RotaSetup] failed to save color prefs: no user', error)
@@ -565,24 +665,38 @@ export function RotaSetupPage() {
     setPatternSlots(modalSlots)
     const alignment: PatternAlignment = { startDate, startSlotIndex, patternId: selectedPatternId ?? patternAlignment.patternId }
     setPatternAlignment(alignment)
+    setPreviewPattern({
+      slots: modalSlots.map((slot) => ({ ...slot })),
+      alignment,
+    })
     applyPatternToCalendar(modalSlots, alignment)
     await loadMonthDays(currentMonthDate)
     await loadStoredPattern()
-    setShowColorModal(false)
     setIsEditingPattern(false)
+    setCurrentStep(3)
   }
 
   const handleSaveRotaAndReturn = async () => {
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
+      try {
+        let user = null
+        let userError = null
+        try {
+          const result = await supabase.auth.getUser()
+          user = result.data?.user ?? null
+          userError = result.error ?? null
+        } catch (authErr: any) {
+          // Handle auth session errors gracefully
+          if (authErr?.message?.includes('session') || authErr?.message?.includes('Auth session missing')) {
+            console.warn('[RotaSetup] Auth session not ready for handleSaveRotaAndReturn')
+            return
+          }
+          throw authErr
+        }
 
-      if (userError || !user) {
-        console.error('[RotaEditor] save: auth error', userError)
-        return
-      }
+        if (userError || !user) {
+          console.error('[RotaEditor] save: auth error', userError)
+          return
+        }
 
       // TODO: Persist `days` to Supabase. Example placeholder:
       // const payload = days.map((day) => ({
@@ -665,16 +779,6 @@ export function RotaSetupPage() {
     })
   }
 
-  const handleAddTask = () => {
-    setShowTaskPlaceholder(true)
-    setShowHolidayPlaceholder(false)
-  }
-
-  const handleAddEvent = () => {
-    setShowHolidayPlaceholder(true)
-    setShowTaskPlaceholder(false)
-  }
-
   return (
     <div className="w-full px-4 pb-6 pt-4 md:px-6">
       <div
@@ -685,7 +789,7 @@ export function RotaSetupPage() {
           <section className="space-y-4">
             <header className="flex items-center justify-between">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.25em] text-slate-400">Shift rota</p>
+                <p className="text-[11px] uppercase tracking-[0.25em] text-slate-400">Preview</p>
                 <h1 className="text-lg font-semibold text-slate-900">Monthly overview</h1>
               </div>
             </header>
@@ -741,13 +845,6 @@ export function RotaSetupPage() {
                   )
                 })}
               </div>
-
-              <div className="mt-4 flex flex-wrap gap-3 text-[10px] text-slate-500">
-                <LegendDot color={shiftColors.day} label="Day shift" />
-                <LegendDot color={shiftColors.night} label="Night shift" />
-                <LegendDot color={shiftColors.off} label="Off / rest" />
-                <LegendDot color={shiftColors.other} label="Custom tag" />
-              </div>
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
@@ -770,137 +867,156 @@ export function RotaSetupPage() {
           </section>
 
           <section className="space-y-4 md:pl-2">
-            {activePatternSummary && !isEditingPattern && (
-              <PatternSummaryCard
-                summary={activePatternSummary}
-                onEdit={() => {
-                  setIsEditingPattern(true)
-                  setActiveTab('presets')
-                  if (activePatternSummary.id) {
-                    const preset = PRESET_MAP[activePatternSummary.id]
-                    if (preset) {
-                      setActivePattern(preset)
-                      setPatternSlots(getPatternSlots(preset.id))
+            {/* Guided step indicator */}
+            <div className="flex items-center justify-between rounded-full bg-slate-50/80 px-3 py-2 text-[11px] font-medium text-slate-500">
+              <div className="flex items-center gap-2">
+                <span
+                  className={[
+                    'inline-flex h-6 items-center rounded-full px-3 transition-all',
+                    currentStep === 1 ? 'bg-slate-900 text-white shadow-sm' : 'bg-transparent text-slate-500',
+                  ].join(' ')}
+                >
+                  1 · Pattern
+                </span>
+                <span
+                  className={[
+                    'inline-flex h-6 items-center rounded-full px-3 transition-all',
+                    currentStep === 2 ? 'bg-slate-900 text-white shadow-sm' : 'bg-transparent text-slate-500',
+                  ].join(' ')}
+                >
+                  2 · Colours
+                </span>
+                <span
+                  className={[
+                    'inline-flex h-6 items-center rounded-full px-3 transition-all',
+                    currentStep === 3 ? 'bg-slate-900 text-white shadow-sm' : 'bg-transparent text-slate-500',
+                  ].join(' ')}
+                >
+                  3 · Review
+                </span>
+              </div>
+              {activePatternSummary && !isEditingPattern && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditingPattern(true)
+                    setCurrentStep(1)
+                    if (activePatternSummary.id) {
+                      const preset = PRESET_MAP[activePatternSummary.id]
+                      if (preset) {
+                        setActivePattern(preset)
+                        setPatternSlots(getPatternSlots(preset.id))
+                      }
                     }
-                  }
-                }}
-                onAddHoliday={handleAddEvent}
-              />
-            )}
+                  }}
+                  className="text-[11px] font-medium text-sky-600 hover:text-sky-700"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
 
-            {showHolidayPlaceholder && (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-white/90 p-4 text-xs text-slate-500 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <p>
-                    Holiday / event planning is coming soon. For now, continue using presets to keep your rota in sync.
+            <div className="rounded-[24px] border border-slate-100 bg-white/95 p-4 shadow-sm shadow-slate-100">
+              {currentStep === 1 && (
+                <PresetsContent
+                  onApplyPattern={handlePresetClick}
+                  currentMonthDate={currentMonthDate}
+                  previewPattern={previewPattern}
+                  shiftColors={shiftColors}
+                />
+              )}
+
+              {currentStep === 2 && (
+                <InlineColorAndStartStep
+                  pattern={activePattern}
+                  startDate={configStartDate}
+                  startSlotIndex={configStartSlotIndex}
+                  dayColor={configDayColor}
+                  nightColor={configNightColor}
+                  customColor={configCustomColor}
+                  onStartDateChange={setConfigStartDate}
+                  onStartSlotIndexChange={setConfigStartSlotIndex}
+                  onDayColorChange={setConfigDayColor}
+                  onNightColorChange={setConfigNightColor}
+                  onCustomColorChange={setConfigCustomColor}
+                  onSave={async () => {
+                    if (!activePattern && !storedPattern?.patternId) return
+                    const effectivePatternId = activePattern?.id ?? storedPattern?.patternId!
+                    const slots =
+                      activePattern?.slots?.length && activePattern.slots.length > 0
+                        ? activePattern.slots
+                        : getPatternSlots(effectivePatternId)
+
+                    const colorConfig: ShiftColorConfig = {
+                      day: configDayColor,
+                      night: configNightColor,
+                      off: 'transparent',
+                      other: configCustomColor,
+                      custom: configCustomColor,
+                    }
+
+                    await handleSaveColors({
+                      colors: colorConfig,
+                      startDate: configStartDate,
+                      startSlotIndex: configStartSlotIndex,
+                      patternSlots: slots,
+                    })
+                  }}
+                  slots={patternSlots.length ? patternSlots : activePattern?.slots ?? []}
+                />
+              )}
+
+              {currentStep === 3 && activePatternSummary && (
+                <div className="space-y-4">
+                  <PatternSummaryCard
+                    summary={activePatternSummary}
+                    onEdit={() => {
+                      setIsEditingPattern(true)
+                      setCurrentStep(1)
+                      if (activePatternSummary.id) {
+                        const preset = PRESET_MAP[activePatternSummary.id]
+                        if (preset) {
+                          setActivePattern(preset)
+                          setPatternSlots(getPatternSlots(preset.id))
+                        }
+                      }
+                    }}
+                  />
+                  <p className="text-xs text-slate-500">
+                    Your rota is applied across the next year. You can always come back here to adjust it as your
+                    shifts change.
                   </p>
                   <button
                     type="button"
-                    onClick={() => setShowHolidayPlaceholder(false)}
-                    className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-600 hover:bg-slate-200"
+                    onClick={handleSaveRotaAndReturn}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-slate-500/30 transition-all hover:bg-slate-800 active:scale-[0.98]"
                   >
-                    Close
+                    <CalendarDays className="h-4 w-4" />
+                    Continue to rota
                   </button>
                 </div>
-              </div>
-            )}
-
-            {showTaskPlaceholder && (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-white/90 p-4 text-xs text-slate-500 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <p>
-                    Task scheduling will arrive soon. Use the coach or your notes in the meantime to track key actions.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setShowTaskPlaceholder(false)}
-                    className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-600 hover:bg-slate-200"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {(!activePatternSummary || isEditingPattern) && (
-              <>
-                <div className="flex justify-center">
-                  <div
-                    className="inline-flex items-center gap-2 rounded-full px-2 py-1"
-                    style={{ backdropFilter: 'blur(14px)' }}
-                  >
-                    {TABS.map(({ id, icon: Icon }) => {
-                      const active = id === activeTab
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => setActiveTab(id)}
-                          className={[
-                            'relative flex items-center justify-center rounded-full p-3 transition-all duration-200',
-                            active
-                              ? 'bg-gradient-to-r from-sky-500 to-indigo-500 text-white shadow-[0_4px_12px_rgba(56,189,248,0.45)] scale-110'
-                              : 'text-slate-400 hover:text-slate-700',
-                          ].join(' ')}
-                          style={{ minWidth: '46px', minHeight: '46px' }}
-                        >
-                          <Icon
-                            className={
-                              'h-5 w-5 transition-transform ' + (active ? 'scale-110 opacity-100' : 'opacity-70')
-                            }
-                          />
-                          {active && (
-                            <span className="absolute -bottom-1 left-1/2 h-1 w-3 -translate-x-1/2 rounded-full bg-sky-300 blur-[4px]" />
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <div className="rounded-[24px] border border-slate-100 bg-white/95 p-4 shadow-sm shadow-slate-100">
-                  {activeTab === 'presets' && <PresetsContent onApplyPattern={handlePresetClick} />}
-                  {activeTab === 'custom' && <CustomContent />}
-                  {activeTab === 'import' && <ImportContent />}
-                  {activeTab === 'labels' && <LabelsContent />}
-                </div>
-              </>
-            )}
+              )}
+            </div>
           </section>
         </div>
       </div>
 
-      {showColorModal && selectedPattern && (
-        <ShiftColorModal
-          open={showColorModal}
-          pattern={selectedPattern}
-          initialColors={shiftColors}
-          initialStartDate={patternAlignment.startDate || todayISO}
-          initialSlotIndex={patternAlignment.startSlotIndex}
-          patternSlots={patternSlots}
-          onClose={() => setShowColorModal(false)}
-          onSave={handleSaveColors}
-        />
-      )}
-
-      <AddActionFab onAddTask={handleAddTask} onAddEvent={handleAddEvent} />
     </div>
   )
 }
 
-function LegendDot({ color, label }: { color: string; label: string }) {
-  return (
-    <div className="flex items-center gap-1">
-      <span
-        className="h-2.5 w-2.5 rounded-full"
-        style={{ backgroundColor: color }}
-      />
-      <span>{label}</span>
-    </div>
-  )
-}
 
-function PresetsContent({ onApplyPattern }: { onApplyPattern: (pattern: PresetPattern) => void }) {
+function PresetsContent({
+  onApplyPattern,
+  currentMonthDate,
+  previewPattern,
+  shiftColors,
+}: {
+  onApplyPattern: (pattern: PresetPattern) => void
+  currentMonthDate: Date
+  previewPattern: PreviewPatternState | null
+  shiftColors: ShiftColorConfig
+}) {
   const [selectedLength, setSelectedLength] = useState<ShiftLength>('12h')
   const patterns = PRESET_PATTERNS_BY_LENGTH[selectedLength] ?? []
   const [highlightedId, setHighlightedId] = useState<string>(() => patterns[0]?.id ?? '')
@@ -919,8 +1035,177 @@ function PresetsContent({ onApplyPattern }: { onApplyPattern: (pattern: PresetPa
     patterns.find((pattern) => pattern.id === highlightedId) ?? patterns[0]
   const description = getPatternDescription(activePattern?.id)
 
+  const weekdayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+  const monthLabel = useMemo(
+    () =>
+      currentMonthDate.toLocaleString('en-GB', {
+        month: 'long',
+        year: 'numeric',
+      }),
+    [currentMonthDate],
+  )
+
+  const baseWeeks = useMemo(() => {
+    const year = currentMonthDate.getFullYear()
+    const month = currentMonthDate.getMonth()
+    const firstDay = new Date(year, month, 1)
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const startWeekday = (firstDay.getDay() + 6) % 7
+
+    const cells: Array<{ dayNumber: number; shiftType: ShiftSlotType | null } | null> = []
+    for (let i = 0; i < startWeekday; i++) {
+      cells.push(null)
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      cells.push({ dayNumber: day, shiftType: null })
+    }
+
+    while (cells.length % 7 !== 0) {
+      cells.push(null)
+    }
+
+    const weeks: Array<Array<{ dayNumber: number; shiftType: ShiftSlotType | null } | null>> = []
+    for (let i = 0; i < cells.length; i += 7) {
+      weeks.push(cells.slice(i, i + 7))
+    }
+
+    return weeks
+  }, [currentMonthDate])
+
+  const previewWeeks = useMemo(() => {
+    if (!previewPattern?.slots?.length || !previewPattern.alignment?.startDate) return []
+
+    const year = currentMonthDate.getFullYear()
+    const month = currentMonthDate.getMonth()
+    const firstDay = new Date(year, month, 1)
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const startWeekday = (firstDay.getDay() + 6) % 7
+    const msPerDay = 24 * 60 * 60 * 1000
+    const startTime = new Date(previewPattern.alignment.startDate + 'T00:00:00').getTime()
+    const slots = previewPattern.slots
+
+    const cells: Array<{ dayNumber: number; shiftType: ShiftSlotType | null } | null> = []
+    for (let i = 0; i < startWeekday; i++) {
+      cells.push(null)
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      const currentTime = new Date(iso + 'T00:00:00').getTime()
+
+      if (Number.isNaN(startTime) || Number.isNaN(currentTime) || !slots.length) {
+        cells.push({ dayNumber: day, shiftType: null })
+        continue
+      }
+
+      const diffDays = Math.floor((currentTime - startTime) / msPerDay)
+      const len = slots.length
+      const slotIndex = ((previewPattern.alignment.startSlotIndex + diffDays) % len + len) % len
+      cells.push({
+        dayNumber: day,
+        shiftType: slots[slotIndex]?.type ?? null,
+      })
+    }
+
+    while (cells.length % 7 !== 0) {
+      cells.push(null)
+    }
+
+    const weeks: Array<Array<{ dayNumber: number; shiftType: ShiftSlotType | null } | null>> = []
+    for (let i = 0; i < cells.length; i += 7) {
+      weeks.push(cells.slice(i, i + 7))
+    }
+
+    return weeks
+  }, [currentMonthDate, previewPattern])
+
+  const weeksToRender =
+    previewPattern && previewWeeks.length > 0 ? previewWeeks : baseWeeks
+
+  const getColorForShiftType = (type: ShiftSlotType | null): string => {
+    if (!type || type === 'off') return 'transparent'
+    if (type === 'day') return shiftColors.day
+    if (type === 'night') return shiftColors.night
+    return shiftColors.other ?? '#CBD5F5'
+  }
+
+  const getLabelForShiftType = (type: ShiftSlotType | null): string => {
+    if (!type) return ''
+    if (type === 'day') return 'Day shift'
+    if (type === 'night') return 'Night shift'
+    if (type === 'off') return 'Rest day'
+    return 'Custom'
+  }
+
   return (
     <div className="space-y-4">
+      {/* Visual Calendar Preview - Moved to top */}
+      <div className="rounded-[28px] bg-gradient-to-br from-white to-slate-50/70 p-5 -mx-4 w-[calc(100%+2rem)]">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">Preview</p>
+            <h3 className="text-sm font-semibold text-slate-900">{monthLabel}</h3>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-7 gap-1.5 mb-1.5">
+          {weekdayLabels.map((label, idx) => (
+            <div key={`weekday-${idx}`} className="text-center">
+              <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wide antialiased">
+                {label}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="space-y-1">
+          {weeksToRender.map((week, weekIdx) => (
+            <div key={`preview-week-${weekIdx}`} className="grid grid-cols-7 gap-1.5">
+              {week.map((day, dayIdx) => {
+                if (!day || !day.dayNumber) {
+                  return <div key={`empty-${weekIdx}-${dayIdx}`} className="h-10" />
+                }
+
+                const shiftColor = getColorForShiftType(day.shiftType)
+                const hasShift = !!previewPattern && !!day.shiftType && day.shiftType !== 'off'
+                const isOffDay = previewPattern && day.shiftType === 'off'
+
+                return (
+                  <div key={`cell-${weekIdx}-${dayIdx}`} className="flex items-center justify-center">
+                    <div
+                      className={[
+                        'flex h-9 w-9 items-center justify-center rounded-2xl text-xs font-semibold transition-all',
+                        hasShift
+                          ? 'text-white shadow-sm shadow-slate-400/30'
+                          : isOffDay
+                          ? 'text-slate-400 bg-white border border-dashed border-slate-200'
+                          : 'text-slate-900 bg-white border border-slate-200',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      style={hasShift ? { backgroundColor: shiftColor } : undefined}
+                    >
+                      {String(day.dayNumber).padStart(2, '0')}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ))}
+        </div>
+
+          {previewPattern?.slots?.length ? (
+            <p className="mt-2 text-[10px] text-slate-500 text-center">
+              Pattern repeats every {previewPattern.slots.length} days
+            </p>
+          ) : (
+            <p className="mt-2 text-[10px] text-slate-400 text-center">
+              Select a pattern and save colours to highlight your shifts.
+            </p>
+          )}
+        </div>
+
       <div>
         <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Shift pattern presets</h2>
         <p className="mt-1 text-sm text-slate-500">
@@ -928,54 +1213,59 @@ function PresetsContent({ onApplyPattern }: { onApplyPattern: (pattern: PresetPa
         </p>
       </div>
 
-      <div className="inline-flex rounded-full bg-slate-50 p-1 shadow-[0_4px_20px_rgba(15,23,42,0.04)]">
-        {SHIFT_LENGTHS.map((len) => {
-          const active = len === selectedLength
-          return (
-            <button
-              key={len}
-              type="button"
-              onClick={() => setSelectedLength(len)}
-              className={[
-                'relative rounded-full px-4 py-1.5 text-xs font-medium transition-all',
-                active
-                  ? 'bg-gradient-to-r from-sky-500 to-indigo-500 text-white shadow-[0_6px_16px_rgba(56,189,248,0.45)]'
-                  : 'text-slate-500 hover:text-slate-800',
-              ].join(' ')}
-            >
-              {len} shifts
-            </button>
-          )
-        })}
+      <div className="relative">
+        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+          Shift Length
+        </label>
+        <div className="relative">
+          <select
+            value={selectedLength}
+            onChange={(e) => setSelectedLength(e.target.value as ShiftLength)}
+            className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 py-3 pr-10 text-sm font-semibold text-slate-900 shadow-sm transition-all focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
+          >
+            {SHIFT_LENGTHS.map((len) => (
+              <option key={len} value={len}>
+                {len} shifts
+              </option>
+            ))}
+          </select>
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+            <ChevronDown className="h-5 w-5 text-slate-400" strokeWidth={2} />
+          </div>
+        </div>
       </div>
 
-      <div className="space-y-2">
-        {patterns.map((pattern) => {
-          const isActive = pattern.id === activePattern?.id
-          return (
-            <button
-              key={pattern.id}
-              type="button"
-              onClick={() => {
-                setHighlightedId(pattern.id)
-                onApplyPattern(pattern)
-              }}
-              className={[
-                'w-full rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition-all',
-                isActive
-                  ? 'border-sky-400/70 bg-sky-50 text-slate-900 shadow-sm'
-                  : 'border-slate-100 bg-white/95 text-slate-700 hover:border-sky-200 hover:shadow-md',
-              ].join(' ')}
-            >
-              {pattern.label}
-            </button>
-          )
-        })}
+      <div className="relative">
+        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+          Pattern Preset
+        </label>
+        <div className="relative">
+          <select
+            value={highlightedId}
+            onChange={(e) => {
+              const selectedPattern = patterns.find((p) => p.id === e.target.value)
+              if (selectedPattern) {
+                setHighlightedId(selectedPattern.id)
+                onApplyPattern(selectedPattern)
+              }
+            }}
+            className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 py-3 pr-10 text-sm font-semibold text-slate-900 shadow-sm transition-all focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
+          >
+            {patterns.map((pattern) => (
+              <option key={pattern.id} value={pattern.id}>
+                {pattern.label}
+              </option>
+            ))}
+          </select>
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+            <ChevronDown className="h-5 w-5 text-slate-400" strokeWidth={2} />
+          </div>
+        </div>
       </div>
 
       <p className="text-xs text-slate-400">{description}</p>
       <p className="text-[11px] text-slate-400">
-        Tap a pattern to apply it. You&apos;ll still be able to tweak single days and colours later.
+        Select a pattern to apply it. You&apos;ll still be able to tweak single days and colours later.
       </p>
     </div>
   )
@@ -984,11 +1274,9 @@ function PresetsContent({ onApplyPattern }: { onApplyPattern: (pattern: PresetPa
 function PatternSummaryCard({
   summary,
   onEdit,
-  onAddHoliday,
 }: {
   summary: PatternSummary
   onEdit: () => void
-  onAddHoliday: () => void
 }) {
   const patternLabel =
     summary.name || summary.cycleDescription || summary.lengthLabel || summary.id || 'Shift pattern set'
@@ -997,23 +1285,170 @@ function PatternSummaryCard({
     <div className="mt-4 px-3">
       <div className="flex w-full flex-col items-center gap-3 rounded-2xl border border-slate-100 bg-white/90 px-4 py-3 text-center shadow-sm">
         <p className="w-full truncate text-xs font-medium tracking-wide text-slate-800">{patternLabel}</p>
-        <div className="flex w-full gap-2">
-          <button
-            type="button"
-            onClick={onEdit}
-            className="flex-1 rounded-xl bg-sky-50 py-2 text-xs font-medium text-sky-600 transition-all active:scale-[0.98]"
+        <button
+          type="button"
+          onClick={onEdit}
+          className="w-full rounded-xl bg-sky-50 py-2 text-xs font-medium text-sky-600 transition-all active:scale-[0.98]"
+        >
+          Edit pattern
+        </button>
+      </div>
+    </div>
+  )
+}
+
+type InlineColorAndStartStepProps = {
+  pattern: PresetPattern | null
+  startDate: string
+  startSlotIndex: number
+  dayColor: string
+  nightColor: string
+  customColor: string
+  onStartDateChange: (value: string) => void
+  onStartSlotIndexChange: (index: number) => void
+  onDayColorChange: (value: string) => void
+  onNightColorChange: (value: string) => void
+  onCustomColorChange: (value: string) => void
+  onSave: () => Promise<void>
+  slots: ShiftSlot[]
+}
+
+function InlineColorAndStartStep({
+  pattern,
+  startDate,
+  startSlotIndex,
+  dayColor,
+  nightColor,
+  customColor,
+  onStartDateChange,
+  onStartSlotIndexChange,
+  onDayColorChange,
+  onNightColorChange,
+  onCustomColorChange,
+  onSave,
+  slots,
+}: InlineColorAndStartStepProps) {
+  const effectiveSlots = slots.length ? slots : getPatternSlots(pattern?.id ?? 'default')
+
+  const slotOptions = useMemo(() => {
+    return effectiveSlots.map((slot, index) => {
+      const occurrenceIndex =
+        effectiveSlots.slice(0, index + 1).filter((s) => s.type === slot.type).length
+
+      const ordinal = (n: number) => {
+        if (n === 1) return '1st'
+        if (n === 2) return '2nd'
+        if (n === 3) return '3rd'
+        return `${n}th`
+      }
+
+      const baseLabel =
+        slot.type === 'day'
+          ? 'Day shift'
+          : slot.type === 'night'
+          ? 'Night shift'
+          : slot.type === 'off'
+          ? 'Off / rest'
+          : 'Other / custom'
+
+      const label = `${ordinal(occurrenceIndex)} ${baseLabel.toLowerCase()}`
+
+      return {
+        value: index,
+        type: slot.type,
+        index,
+        label,
+      }
+    })
+  }, [effectiveSlots])
+
+  const handleSaveClick = async () => {
+    await onSave()
+  }
+
+  const renderColorRow = (
+    label: string,
+    color: string,
+    setColor: (value: string) => void,
+  ) => (
+    <div className="flex items-center justify-between gap-3 sm:gap-4" key={label}>
+      <span className="text-sm font-medium text-slate-900 sm:text-sm">{label}</span>
+      <div className="flex items-center gap-2 sm:gap-3">
+        <span
+          className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white shadow-inner ring-1 ring-slate-200 sm:h-6 sm:w-6 sm:ring-2"
+          style={{ backgroundColor: color }}
+        />
+        <div className="relative">
+          <select
+            className="min-w-[110px] appearance-none rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-900 shadow-sm transition focus:border-sky-200 focus:outline-none focus:ring-2 focus:ring-sky-300/60 hover:shadow-md sm:min-w-[120px]"
+            value={color}
+            onChange={(event) => setColor(event.target.value)}
           >
-            Edit pattern
-          </button>
-          <button
-            type="button"
-            onClick={onAddHoliday}
-            className="flex-1 rounded-xl border border-slate-200 bg-slate-50 py-2 text-xs font-medium text-slate-700 transition-all active:scale-[0.98]"
-          >
-            Add holidays / events
-          </button>
+            {COLOR_PRESETS.map((preset) => (
+              <option key={preset.id} value={preset.value}>
+                {preset.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
+    </div>
+  )
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+          Colours & timing
+        </h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Choose how your day, night and custom shifts should look, and where this pattern should start.
+        </p>
+      </div>
+
+      <div className="space-y-3 rounded-2xl bg-slate-50/70 p-3">
+        <div>
+          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.16em] text-slate-500">
+            Pattern start date
+          </label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => onStartDateChange(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.16em] text-slate-500">
+            First shift in the pattern
+          </label>
+          <select
+            value={startSlotIndex}
+            onChange={(e) => onStartSlotIndexChange(Number(e.target.value))}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
+          >
+            {slotOptions.map((opt) => (
+              <option key={opt.index} value={opt.index}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {renderColorRow('Day shift colour', dayColor, onDayColorChange)}
+        {renderColorRow('Night shift colour', nightColor, onNightColorChange)}
+        {renderColorRow('Custom / other', customColor, onCustomColorChange)}
+      </div>
+
+      <button
+        type="button"
+        onClick={handleSaveClick}
+        className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-slate-500/30 transition-all hover:bg-slate-800 active:scale-[0.98]"
+      >
+        Save colours & continue
+      </button>
     </div>
   )
 }
@@ -1080,7 +1515,6 @@ function ShiftColorModal(props: {
   const [startDate, setStartDate] = useState<string>(initialStartDate || todayIso)
   const [dayShiftColor, setDayShiftColor] = useState<string>(initialColors.day ?? '#2563EB')
   const [nightShiftColor, setNightShiftColor] = useState<string>(initialColors.night ?? '#EF4444')
-  const [offColor, setOffColor] = useState<string>(initialColors.off ?? '#22C55E')
   const [customColor, setCustomColor] = useState<string>(initialColors.other ?? initialColors.custom ?? '#FACC15')
   const modalRef = useRef<HTMLDivElement>(null)
   const firstFieldRef = useRef<HTMLSelectElement | null>(null)
@@ -1088,7 +1522,6 @@ function ShiftColorModal(props: {
   useEffect(() => {
     setDayShiftColor(initialColors.day ?? '#2563EB')
     setNightShiftColor(initialColors.night ?? '#EF4444')
-    setOffColor(initialColors.off ?? '#22C55E')
     setCustomColor(initialColors.other ?? initialColors.custom ?? '#FACC15')
   }, [initialColors])
 
@@ -1152,7 +1585,7 @@ function ShiftColorModal(props: {
     const colorConfig: ShiftColorConfig = {
       day: dayShiftColor,
       night: nightShiftColor,
-      off: offColor,
+      off: 'transparent', // Days off are always transparent (no color)
       other: customColor,
       custom: customColor,
     }
@@ -1259,7 +1692,6 @@ function ShiftColorModal(props: {
         <div className="mt-3 space-y-3 sm:mt-5 sm:space-y-4">
           {renderColorRow('Day shift', dayShiftColor, setDayShiftColor)}
           {renderColorRow('Night shift', nightShiftColor, setNightShiftColor)}
-          {renderColorRow('Days off', offColor, setOffColor)}
         </div>
 
         <div className="mt-5 space-y-1.5 sm:mt-7 sm:space-y-2">

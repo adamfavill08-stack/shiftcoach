@@ -1,64 +1,171 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 import { calculateAdjustedCalories } from '@/lib/nutrition/calculateAdjustedCalories'
+import { getTodayMealSchedule } from '@/lib/nutrition/getTodayMealSchedule'
+import { isoLocalDate } from '@/lib/shifts'
 
 export async function GET(req: NextRequest) {
-  const { supabase, userId } = await getServerSupabaseAndUserId()
-
-  const startOfDay = new Date()
-  startOfDay.setHours(0, 0, 0, 0)
-  const endOfDay = new Date(startOfDay)
-  endOfDay.setDate(endOfDay.getDate() + 1)
-
   try {
+    const { supabase, userId } = await getServerSupabaseAndUserId()
+
+    // Get adjusted calories and meal plan
     const adjusted = await calculateAdjustedCalories(supabase, userId)
 
-    let mealQuery = await supabase
-      .from('meal_logs')
-      .select('slot_label,logged_at')
+    // Get today's shift
+    const today = isoLocalDate(new Date())
+    const { data: todayShift } = await supabase
+      .from('shifts')
+      .select('label, start_ts, end_ts')
       .eq('user_id', userId)
-      .gte('logged_at', startOfDay.toISOString())
-      .lt('logged_at', endOfDay.toISOString())
+      .eq('date', today)
+      .maybeSingle()
 
-    if (mealQuery.error) {
-      const err = mealQuery.error
-      if (err.code === '42703' || err.message?.includes('logged_at')) {
-        console.warn('[/api/meal-timing/today] meal_logs.logged_at missing, falling back to created_at')
-        mealQuery = await supabase
-          .from('meal_logs')
-          .select('slot_label,created_at')
-          .eq('user_id', userId)
-          .gte('created_at', startOfDay.toISOString())
-          .lt('created_at', endOfDay.toISOString())
+    // Determine shift type using shared utility
+    const { toShiftType, toActivityShiftType } = await import('@/lib/shifts/toShiftType')
+    const standardType = toShiftType(todayShift?.label, todayShift?.start_ts)
+    const shiftType = toActivityShiftType(standardType)
+
+    // Get wake time from latest sleep or estimate
+    const { data: latestSleep } = await supabase
+      .from('sleep_logs')
+      .select('end_ts')
+      .eq('user_id', userId)
+      .order('end_ts', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const wakeTime = latestSleep?.end_ts ? new Date(latestSleep.end_ts) : new Date()
+    // If no sleep logged, estimate wake time based on shift
+    if (!latestSleep) {
+      if (shiftType === 'night') {
+        wakeTime.setHours(8, 30, 0, 0) // Typical post-night-shift wake
+      } else {
+        wakeTime.setHours(7, 0, 0, 0) // Typical morning wake
       }
     }
 
-    const mealLogs = mealQuery.data ?? []
+    // Get meal schedule
+    const mealSchedule = getTodayMealSchedule({
+      adjustedCalories: adjusted.adjustedCalories,
+      shiftType,
+      shiftStart: todayShift?.start_ts ? new Date(todayShift.start_ts) : undefined,
+      shiftEnd: todayShift?.end_ts ? new Date(todayShift.end_ts) : undefined,
+      wakeTime,
+    })
 
-    return NextResponse.json(
-      {
-        meals: {
-          shiftType: adjusted.shiftType,
-          recommended: adjusted.meals,
-          actual: mealLogs.map((row: any) => ({
-            slot: row.slot_label,
-            timestamp: row.logged_at ?? row.created_at ?? startOfDay.toISOString(),
-          })),
-        },
+    // Get sleep hours last 24h
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    const { data: sleepLogs } = await supabase
+      .from('sleep_logs')
+      .select('sleep_hours')
+      .eq('user_id', userId)
+      .gte('start_ts', twentyFourHoursAgo.toISOString())
+
+    const sleepHoursLast24h = sleepLogs?.reduce((sum, s) => sum + (s.sleep_hours ?? 0), 0) ?? 0
+    const sleepContext = `${Math.round(sleepHoursLast24h * 10) / 10}h sleep in last 24h`
+
+    // Get steps (from activity_logs or daily_metrics)
+    const { data: activityLog } = await supabase
+      .from('activity_logs')
+      .select('steps')
+      .eq('user_id', userId)
+      .gte('ts', new Date(today + 'T00:00:00').toISOString())
+      .order('ts', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const steps = activityLog?.steps ?? 0
+    const activityContext = `${steps.toLocaleString()} steps so far today`
+
+    // Format shift label
+    const shiftStartTime = todayShift?.start_ts ? new Date(todayShift.start_ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+    const shiftEndTime = todayShift?.end_ts ? new Date(todayShift.end_ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+    const shiftLabelFormatted = todayShift
+      ? `${shiftLabel} shift${shiftStartTime && shiftEndTime ? ` · ${shiftStartTime}–${shiftEndTime}` : ''}`
+      : 'Off day'
+
+    // Find next meal
+    const now = new Date()
+    const upcomingMeals = mealSchedule.filter(m => m.time > now).sort((a, b) => a.time.getTime() - b.time.getTime())
+    const nextMeal = upcomingMeals[0] || mealSchedule[0]
+
+    // Build recommended windows
+    const recommendedWindows = mealSchedule.map((meal, index) => ({
+      id: meal.id,
+      label: meal.label,
+      timeRange: meal.windowLabel,
+      focus: meal.hint,
+    }))
+
+    // Build meals array (for visualization)
+    const meals = mealSchedule.map((meal, index) => {
+      const mealTime = meal.time
+      const dayStart = new Date(now)
+      dayStart.setHours(0, 0, 0, 0)
+      const dayEnd = new Date(dayStart)
+      dayEnd.setDate(dayEnd.getDate() + 1)
+      
+      // Position on 24h timeline (0-1)
+      const position = ((mealTime.getTime() - dayStart.getTime()) / (dayEnd.getTime() - dayStart.getTime())) % 1
+      
+      // Check if meal is in its recommended window (simplified - always true for recommended meals)
+      const inWindow = true
+
+      return {
+        id: meal.id,
+        label: meal.label,
+        time: mealTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        position: Math.max(0, Math.min(1, position)),
+        inWindow,
+      }
+    })
+
+    // Determine status
+    let status: 'onTrack' | 'slightlyLate' | 'veryLate' = 'onTrack'
+    if (nextMeal) {
+      const minutesUntilNext = (nextMeal.time.getTime() - now.getTime()) / (1000 * 60)
+      if (minutesUntilNext < -60) status = 'veryLate'
+      else if (minutesUntilNext < -15) status = 'slightlyLate'
+    }
+
+    // Calculate macros for next meal (distribute from total)
+    const totalMacros = adjusted.macros
+    const mealsCount = mealSchedule.length
+    const nextMealMacros = {
+      protein: Math.round(totalMacros.protein_g / mealsCount),
+      carbs: Math.round(totalMacros.carbs_g / mealsCount),
+      fats: Math.round(totalMacros.fat_g / mealsCount),
+    }
+
+    // Build response
+    const response = {
+      nextMealLabel: nextMeal?.label || 'Next meal',
+      nextMealTime: nextMeal?.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '—',
+      nextMealType: nextMeal?.hint || 'Balanced meal',
+      nextMealMacros,
+      shiftLabel: shiftLabelFormatted,
+      lastMeal: {
+        time: '—',
+        description: 'No meals logged yet',
       },
-      { status: 200 },
-    )
+      sleepContext,
+      activityContext,
+      coach: {
+        recommendedWindows,
+        meals,
+        tips: [],
+        status,
+      },
+    }
+
+    return NextResponse.json(response, { status: 200 })
   } catch (err: any) {
     console.error('[/api/meal-timing/today] error:', err)
     return NextResponse.json(
       {
-        meals: {
-          shiftType: 'off',
-          recommended: [],
-          actual: [],
-        },
+        error: err?.message || 'Failed to fetch meal timing',
       },
-      { status: 200 },
+      { status: 500 },
     )
   }
 }

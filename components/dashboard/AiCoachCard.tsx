@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { MessageCircle } from 'lucide-react'
-import { CoachChatModal } from '@/components/coach/CoachChatModal'
+import { CoachChatModal } from '@/components/modals/CoachChatModal'
 
 export function AiCoachCard({
   headline,

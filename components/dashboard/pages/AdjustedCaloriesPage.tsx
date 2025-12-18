@@ -1,6 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { Info, X } from "lucide-react";
+import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition";
 
 /* ---------------------------------------------------
    Inline monoline icons – bigger and clearly semantic
@@ -175,6 +177,31 @@ const IconCookie = () => (
   </svg>
 );
 
+/** Emoji-style icons for clearer meal semantics */
+const IconBreakfast = () => (
+  <span className="text-[15px]" aria-hidden="true">
+    🍳
+  </span>
+);
+
+const IconLunchEmoji = () => (
+  <span className="text-[15px]" aria-hidden="true">
+    🥪
+  </span>
+);
+
+const IconSnackEmoji = () => (
+  <span className="text-[15px]" aria-hidden="true">
+    🍎
+  </span>
+);
+
+const IconDinnerEmoji = () => (
+  <span className="text-[15px]" aria-hidden="true">
+    🍽️
+  </span>
+);
+
 /** Clock with slash – cut-off */
 const IconCutoffClock = () => (
   <svg
@@ -230,11 +257,257 @@ const macroTargets: MacroTarget[] = [
 ];
 
 const mealTimes: MealTime[] = [
-  { label: "Breakfast", time: "11:30 am", Icon: IconSunrise },
-  { label: "Main meal", time: "6:00 pm",  Icon: IconPlate },
-  { label: "Snack",     time: "2:00 am",  Icon: IconCookie },
-  { label: "Cut-off",   time: "4:00 am",  Icon: IconCutoffClock },
+  { label: "Breakfast", time: "11:30 am", Icon: IconBreakfast },
+  { label: "Lunch",     time: "1:00 pm",  Icon: IconLunchEmoji },
+  { label: "Snack",     time: "4:00 pm",  Icon: IconSnackEmoji },
+  { label: "Cut-off",   time: "9:00 pm",  Icon: IconCutoffClock },
 ];
+
+/* ---------------------------------------------------
+   Enhanced Macro Targets Card Component
+   --------------------------------------------------- */
+
+type MealBreakdown = {
+  label: string
+  protein_g: number
+  carbs_g: number
+  fat_g: number
+  calories: number
+  timestamp: string
+}
+
+function EnhancedMacroTargetsCard({ 
+  macroTargetsData, 
+  consumedMacros,
+  shiftType,
+  mealTimesData
+}: { 
+  macroTargetsData: MacroTarget[]
+  consumedMacros?: { protein_g: number; carbs_g: number; fat_g: number }
+  shiftType?: 'day' | 'night' | 'off' | 'other'
+  mealTimesData: MealTime[]
+}) {
+  const [mealsBreakdown, setMealsBreakdown] = useState<MealBreakdown[]>([])
+  const [showBreakdown, setShowBreakdown] = useState(false)
+  const [optimisticMacros, setOptimisticMacros] = useState<{ protein_g: number; carbs_g: number; fat_g: number } | null>(null)
+
+  // Fetch meal breakdown
+  useEffect(() => {
+    const fetchBreakdown = async () => {
+      try {
+        // Meal logging removed - no breakdown available
+        const res = { ok: true, json: async () => ({ meals: [] }) } as Response
+        if (res.ok) {
+          const json = await res.json()
+          setMealsBreakdown(json.meals || [])
+        }
+      } catch (err) {
+        console.error('[EnhancedMacroTargetsCard] Failed to fetch breakdown:', err)
+      }
+    }
+    fetchBreakdown()
+
+    // Meal logging removed - no event listeners needed
+  }, [consumedMacros])
+
+  // Use optimistic macros if available
+  const displayMacros = optimisticMacros || consumedMacros || { protein_g: 0, carbs_g: 0, fat_g: 0 }
+
+  // Get smart suggestions
+  const getSuggestion = (label: string, consumed: number, target: number, remaining: number): string | null => {
+    const percentage = target > 0 ? (consumed / target) * 100 : 0
+    
+    if (percentage >= 100) {
+      return null // Target met
+    } else if (percentage >= 80) {
+      return `Almost there! Add ${Math.round(remaining)}g ${label.toLowerCase()} to hit your target.`
+    } else if (percentage >= 50) {
+      return `You're ${Math.round(percentage)}% there. Focus on ${label.toLowerCase()} in your next meal.`
+    } else if (percentage > 0) {
+      return `Add ${Math.round(remaining)}g ${label.toLowerCase()} to reach your target.`
+    } else {
+      return `Recommended ${label.toLowerCase()} intake: ${Math.round(target)}g today`
+    }
+  }
+
+  // Get color based on progress
+  const getProgressColor = (percentage: number): string => {
+    if (percentage >= 100) return 'bg-emerald-500' // Green - target met
+    if (percentage >= 80) return 'bg-emerald-400' // Light green - close
+    if (percentage >= 50) return 'bg-amber-400' // Amber - halfway
+    if (percentage > 0) return 'bg-amber-300' // Light amber - started
+    return 'bg-slate-200' // Gray - not started
+  }
+
+  // Get bar class with color coding
+  const getBarClass = (label: string, percentage: number): string => {
+    const baseClass = label === 'Carbs' ? 'bg-sky-300' :
+                     label === 'Protein' ? 'bg-emerald-300' :
+                     'bg-amber-300'
+    const colorClass = getProgressColor(percentage)
+    return percentage >= 100 ? colorClass : baseClass
+  }
+
+  return (
+    <Card>
+      {/* Macro targets */}
+      <div className="mb-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-[13px] font-semibold tracking-tight text-slate-900">
+            Macro targets
+          </h2>
+          <button
+            onClick={() => setShowBreakdown(!showBreakdown)}
+            className="text-[11px] text-slate-500 hover:text-slate-700 transition-colors"
+          >
+            {showBreakdown ? 'Hide' : 'Show'} breakdown
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {macroTargetsData.map(({ label, grams, Icon, barClass }) => {
+            // Get consumed amount for this macro
+            const consumed = label === 'Carbs' ? displayMacros.carbs_g :
+                            label === 'Protein' ? displayMacros.protein_g :
+                            displayMacros.fat_g
+            const progress = grams > 0 ? Math.min(consumed / grams, 1.2) : 0
+            const percentage = grams > 0 ? (consumed / grams) * 100 : 0
+            const remaining = Math.max(0, grams - consumed)
+            const suggestion = getSuggestion(label, consumed, grams, remaining)
+            
+            return (
+              <div key={label} className="space-y-1">
+                <div className="flex items-center justify-between text-[13px]">
+                  <div className="flex items-center gap-2.5 text-slate-600">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-50 border border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+                      <Icon />
+                    </div>
+                    <span className="font-medium">{label}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {consumed > 0 && (
+                      <span className="text-[11px] text-slate-500">
+                        {Math.round(consumed)} / 
+                      </span>
+                    )}
+                    <span className="font-semibold text-slate-900">
+                      {grams} g
+                    </span>
+                    {percentage > 0 && (
+                      <span className="text-[10px] text-slate-400">
+                        ({Math.round(percentage)}%)
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Contextual information */}
+                {suggestion && (
+                  <p className="text-[10px] text-slate-500 leading-tight">
+                    {suggestion}
+                  </p>
+                )}
+                {percentage >= 100 && (
+                  <p className="text-[10px] text-emerald-600 font-medium leading-tight">
+                    ✓ Target met!
+                  </p>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Smart suggestion based on overall progress */}
+        {(() => {
+          const proteinPct = macroTargetsData.find(m => m.label === 'Protein') 
+            ? (displayMacros.protein_g / macroTargetsData.find(m => m.label === 'Protein')!.grams) * 100 : 0
+          const carbsPct = macroTargetsData.find(m => m.label === 'Carbs')
+            ? (displayMacros.carbs_g / macroTargetsData.find(m => m.label === 'Carbs')!.grams) * 100 : 0
+          const fatPct = macroTargetsData.find(m => m.label === 'Fat')
+            ? (displayMacros.fat_g / macroTargetsData.find(m => m.label === 'Fat')!.grams) * 100 : 0
+
+          const lowestPct = Math.min(proteinPct, carbsPct, fatPct)
+          const lowestMacro = lowestPct === proteinPct ? 'Protein' : lowestPct === carbsPct ? 'Carbs' : 'Fat'
+          
+          if (lowestPct < 50 && displayMacros.protein_g + displayMacros.carbs_g + displayMacros.fat_g > 0) {
+            return (
+              <div className="mt-3 rounded-lg bg-slate-50/80 border border-slate-200/60 p-2.5">
+                <p className="text-[11px] font-medium text-slate-700 mb-1">
+                  💡 Focus on {lowestMacro.toLowerCase()}
+                </p>
+                <p className="text-[10px] text-slate-600 leading-relaxed">
+                  {shiftType === 'night' 
+                    ? `Night shift tip: Prioritize protein to maintain energy and prevent muscle loss during long shifts.`
+                    : `Add more ${lowestMacro.toLowerCase()} to balance your macros.`}
+                </p>
+              </div>
+            )
+          }
+          return null
+        })()}
+
+        {/* Meal breakdown */}
+        {showBreakdown && mealsBreakdown.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-white/80">
+            <h3 className="text-xs font-semibold text-slate-900 mb-2">
+              Breakdown by meal
+            </h3>
+            <div className="space-y-2">
+              {mealsBreakdown.map((meal, idx) => (
+                <div key={idx} className="text-[11px] text-slate-600">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-medium text-slate-700">{meal.label}</span>
+                    <span className="text-slate-500">{meal.calories} kcal</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                    <span>P: {Math.round(meal.protein_g)}g</span>
+                    <span>C: {Math.round(meal.carbs_g)}g</span>
+                    <span>F: {Math.round(meal.fat_g)}g</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Divider */}
+      <div className="h-px bg-white/80" />
+
+      {/* Meal times */}
+      <div className="pt-3">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-[13px] font-semibold tracking-tight text-slate-900">
+            Meal times
+          </h2>
+          <span className="text-[11px] text-slate-500">
+            {shiftType === 'night' ? "Tonight's shift" :
+             shiftType === 'day' ? "Today's shift" :
+             shiftType === 'off' ? "For your off day" :
+             "Your schedule"}
+          </span>
+        </div>
+
+        <div className="divide-y divide-white/80 text-[13px]">
+          {mealTimesData.map(({ label, time, Icon }) => (
+            <div
+              key={label}
+              className="flex items-center justify-between py-2 first:pt-0 last:pb-0"
+            >
+              <div className="flex items-center gap-2.5 text-slate-600">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-50 border border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+                  <Icon />
+                </div>
+                <span className="font-medium">{label}</span>
+              </div>
+              <span className="font-semibold text-slate-900">{time}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
+  )
+}
 
 /* ---------------------------------------------------
    Small reusable components
@@ -306,14 +579,409 @@ function RiskChip({
    ENERGY CURVE CARD
    --------------------------------------------------- */
 
-function EnergyCurveCard() {
+type EnergyPoint = {
+  hour: number; // 0-23
+  energy: number; // 0-100
+};
+
+/**
+ * Calculate energy levels throughout a 24-hour day
+ * Handles edge cases: missing shift data, no sleep data, off days
+ */
+function calculateEnergyLevels(
+  shiftType?: 'day' | 'night' | 'off' | 'other',
+  shiftStart?: string | null,
+  shiftEnd?: string | null,
+  sleepData?: { start: string; end: string; durationHours: number | null } | null,
+  biologicalNight?: { start: number; end: number } | null,
+  sleepDebt?: number
+): EnergyPoint[] {
+  const points: EnergyPoint[] = [];
+  const bioNight = biologicalNight || { start: 23, end: 7 };
+  
+  // Edge case: If no shift type, default to 'day' worker pattern
+  const effectiveShiftType = shiftType || 'day';
+  
+  // Get shift hours if available
+  let shiftStartHour: number | null = null;
+  let shiftEndHour: number | null = null;
+  if (shiftStart && shiftEnd) {
+    const start = new Date(shiftStart);
+    const end = new Date(shiftEnd);
+    shiftStartHour = start.getHours() + start.getMinutes() / 60;
+    shiftEndHour = end.getHours() + end.getMinutes() / 60;
+    // Handle shifts that cross midnight
+    if (shiftEndHour < shiftStartHour) {
+      shiftEndHour += 24;
+    }
+  }
+  
+  // Get sleep hours if available
+  let sleepStartHour: number | null = null;
+  let sleepEndHour: number | null = null;
+  if (sleepData?.start && sleepData?.end) {
+    const start = new Date(sleepData.start);
+    const end = new Date(sleepData.end);
+    sleepStartHour = start.getHours() + start.getMinutes() / 60;
+    sleepEndHour = end.getHours() + end.getMinutes() / 60;
+    // Handle sleep that crosses midnight
+    if (sleepEndHour < sleepStartHour) {
+      sleepEndHour += 24;
+    }
+  }
+  
+  // Sleep debt penalty (reduces all energy levels)
+  const sleepDebtPenalty = sleepDebt ? Math.min(sleepDebt * 5, 30) : 0; // Max 30% reduction
+  
+  // Calculate energy for each hour (0-23)
+  for (let hour = 0; hour < 24; hour++) {
+    let energy = 50; // Base energy level
+    
+    // 1. Circadian rhythm (natural peaks and troughs)
+    // Peak energy: 10am-2pm (hours 10-14)
+    // Low energy: 2am-6am (hours 2-6) - biological night
+    if (hour >= 10 && hour <= 14) {
+      energy += 25; // Peak circadian energy
+    } else if (hour >= 2 && hour <= 6) {
+      energy -= 20; // Circadian low
+    } else if (hour >= 6 && hour < 10) {
+      energy += 10; // Morning rise
+    } else if (hour > 14 && hour <= 18) {
+      energy += 5; // Afternoon moderate
+    } else if (hour > 18 && hour < 22) {
+      energy -= 5; // Evening decline
+    } else {
+      energy -= 15; // Late night decline
+    }
+    
+    // 2. Biological night impact (even if awake)
+    const isInBiologicalNight = (hour >= bioNight.start || hour < bioNight.end);
+    if (isInBiologicalNight) {
+      energy -= 15; // Reduced energy during biological night
+    }
+    
+    // 3. Shift timing impact
+    if (effectiveShiftType === 'night') {
+      if (shiftStartHour !== null && shiftEndHour !== null) {
+        // For night shift with timing, energy should be higher during shift hours
+        const hour24 = hour < shiftStartHour ? hour + 24 : hour;
+        if (hour24 >= shiftStartHour && hour24 < shiftEndHour) {
+          energy += 20; // Boost during shift hours
+          // But still penalize if in biological night
+          if (isInBiologicalNight) {
+            energy -= 10; // Partial penalty
+          }
+        } else {
+          // Off-shift hours for night workers
+          energy -= 10;
+        }
+      } else {
+        // Night shift without timing: assume typical night shift pattern (6pm-6am)
+        if (hour >= 18 || hour < 6) {
+          energy += 15; // Boost during assumed shift hours
+          if (isInBiologicalNight) {
+            energy -= 10; // Partial penalty
+          }
+        } else {
+          energy -= 10; // Lower during assumed off-shift
+        }
+      }
+    } else if (effectiveShiftType === 'day') {
+      if (shiftStartHour !== null && shiftEndHour !== null) {
+        // For day shift with timing, energy should align with natural circadian rhythm
+        const hour24 = hour < shiftStartHour ? hour + 24 : hour;
+        if (hour24 >= shiftStartHour && hour24 < shiftEndHour) {
+          energy += 15; // Boost during shift
+        }
+      } else {
+        // Day shift without timing: assume typical day shift (7am-3pm)
+        if (hour >= 7 && hour < 15) {
+          energy += 15; // Boost during assumed shift hours
+        }
+      }
+    } else if (effectiveShiftType === 'off') {
+      // Off days: more aligned with natural rhythm, but lower overall
+      energy -= 5;
+    } else {
+      // Unknown shift type: use default day worker pattern
+      // Already handled by circadian rhythm above
+    }
+    
+    // 4. Sleep timing impact (if we know when they slept)
+    if (sleepStartHour !== null && sleepEndHour !== null) {
+      const hoursSinceSleep = hour >= sleepEndHour 
+        ? hour - sleepEndHour 
+        : (24 - sleepEndHour) + hour;
+      
+      // Energy decreases over wake time
+      if (hoursSinceSleep < 2) {
+        energy += 10; // Fresh after sleep
+      } else if (hoursSinceSleep < 8) {
+        energy += 5; // Still good
+      } else if (hoursSinceSleep < 12) {
+        energy -= 5; // Getting tired
+      } else {
+        energy -= 15; // Very tired
+      }
+    }
+    
+    // 5. Apply sleep debt penalty
+    energy -= sleepDebtPenalty;
+    
+    // Clamp energy to 0-100 range
+    energy = Math.max(0, Math.min(100, energy));
+    
+    points.push({ hour, energy });
+  }
+  
+  return points;
+}
+
+/**
+ * Convert energy points to SVG path coordinates
+ */
+function generateSVGPath(points: EnergyPoint[], width: number = 180, height: number = 40): string {
+  if (points.length === 0) return '';
+  
+  // Map energy (0-100) to Y coordinate (0 = top, 100 = bottom)
+  // We want higher energy = higher on screen (lower Y value)
+  const mapY = (energy: number) => {
+    const padding = 4; // Padding from edges
+    const usableHeight = height - (padding * 2);
+    // Invert: high energy (100) = low Y (top), low energy (0) = high Y (bottom)
+    return padding + (usableHeight * (1 - energy / 100));
+  };
+  
+  // Map hour (0-23) to X coordinate
+  const mapX = (hour: number) => {
+    const padding = 4;
+    const usableWidth = width - (padding * 2);
+    return padding + (usableWidth * (hour / 23));
+  };
+  
+  // Generate smooth curve using cubic bezier
+  let path = '';
+  
+  for (let i = 0; i < points.length; i++) {
+    const point = points[i];
+    const x = mapX(point.hour);
+    const y = mapY(point.energy);
+    
+    if (i === 0) {
+      path += `M ${x} ${y}`;
+    } else {
+      const prevPoint = points[i - 1];
+      const prevX = mapX(prevPoint.hour);
+      const prevY = mapY(prevPoint.energy);
+      
+      // Control points for smooth curve
+      const cp1x = prevX + (x - prevX) * 0.5;
+      const cp1y = prevY;
+      const cp2x = prevX + (x - prevX) * 0.5;
+      const cp2y = y;
+      
+      path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x} ${y}`;
+    }
+  }
+  
+  return path;
+}
+
+/**
+ * Get simple time range labels based on energy levels
+ */
+function getEnergyLabels(points: EnergyPoint[]): { good: string; low: string; avoid: string } {
+  if (points.length === 0) {
+    return { good: 'Peak', low: 'Low', avoid: 'Avoid' };
+  }
+  
+  // Find hours with energy > 70 (good), 40-70 (low), < 40 (avoid)
+  const goodHours: number[] = [];
+  const lowHours: number[] = [];
+  const avoidHours: number[] = [];
+  
+  points.forEach(({ hour, energy }) => {
+    if (energy >= 70) goodHours.push(hour);
+    else if (energy >= 40) lowHours.push(hour);
+    else avoidHours.push(hour);
+  });
+  
+  // Simple format: just show the main range, not all ranges
+  const formatSimple = (hours: number[]): string => {
+    if (hours.length === 0) return '—';
+    
+    const sorted = [...hours].sort((a, b) => a - b);
+    
+    // Find the longest consecutive range
+    let longestStart = sorted[0];
+    let longestEnd = sorted[0];
+    let currentStart = sorted[0];
+    let currentEnd = sorted[0];
+    let longestLength = 1;
+    let currentLength = 1;
+    
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i] === currentEnd + 1) {
+        currentEnd = sorted[i];
+        currentLength++;
+      } else {
+        if (currentLength > longestLength) {
+          longestStart = currentStart;
+          longestEnd = currentEnd;
+          longestLength = currentLength;
+        }
+        currentStart = sorted[i];
+        currentEnd = sorted[i];
+        currentLength = 1;
+      }
+    }
+    
+    // Check final range
+    if (currentLength > longestLength) {
+      longestStart = currentStart;
+      longestEnd = currentEnd;
+    }
+    
+    // Format simply
+    if (longestStart === longestEnd) {
+      return `${longestStart}:00`;
+    } else {
+      return `${longestStart}-${longestEnd}`;
+    }
+  };
+  
+  return {
+    good: formatSimple(goodHours) || 'Peak',
+    low: formatSimple(lowHours) || 'Low',
+    avoid: formatSimple(avoidHours) || 'Avoid',
+  };
+}
+
+/**
+ * Convert hour to X coordinate in SVG
+ */
+function hourToX(hour: number, width: number = 180): number {
+  const padding = 4;
+  const usableWidth = width - (padding * 2);
+  return padding + (usableWidth * (hour / 23));
+}
+
+function EnergyCurveCard({
+  shiftType,
+  shiftStart,
+  shiftEnd,
+  sleepData,
+  circadian,
+  meals,
+  sleepDebt,
+  biologicalNight,
+  energyPoints,
+  currentHour,
+  sleepHours,
+  adjustedCalories,
+}: {
+  shiftType?: 'day' | 'night' | 'off' | 'other';
+  shiftStart?: string | null;
+  shiftEnd?: string | null;
+  sleepData?: { start: string; end: string; durationHours: number | null } | null;
+  circadian?: any;
+  meals?: Array<{ suggestedTime: string; label: string }>;
+  sleepDebt?: number;
+  biologicalNight?: { start: number; end: number } | null;
+  energyPoints: EnergyPoint[];
+  currentHour: number;
+  sleepHours?: number | null;
+  adjustedCalories?: number;
+}) {
+  // Generate SVG path
+  const svgPath = React.useMemo(() => {
+    return generateSVGPath(energyPoints);
+  }, [energyPoints]);
+  
+  // Get dynamic labels
+  const labels = React.useMemo(() => {
+    return getEnergyLabels(energyPoints);
+  }, [energyPoints]);
+  
+  // Generate tip
+  const generateTip = () => {
+    const tips: string[] = [];
+    
+    // Get current energy level
+    const currentEnergy = energyPoints && currentHour !== undefined
+      ? (energyPoints.find(p => Math.abs(p.hour - currentHour) < 0.5) || energyPoints[Math.floor(currentHour)])?.energy
+      : null;
+    
+    // Tip 1: Energy-based tip
+    if (currentEnergy !== null) {
+      if (currentEnergy >= 70) {
+        tips.push("Your energy is high right now - great time for your main meal or a workout.");
+      } else if (currentEnergy >= 40) {
+        tips.push("Energy is moderate - have a light snack to maintain focus.");
+      } else {
+        tips.push("Energy is low - avoid heavy meals and consider a quick rest if possible.");
+      }
+    }
+    
+    // Tip 2: Sleep debt tip
+    if (sleepDebt && sleepDebt > 2) {
+      tips.push(`You're ${sleepDebt.toFixed(1)}h short on sleep - prioritize rest and lighter meals today.`);
+    } else if (sleepDebt && sleepDebt > 0) {
+      tips.push(`Slightly short on sleep - keep meals balanced and avoid late-night eating.`);
+    }
+    
+    // Tip 3: Shift-specific tip
+    if (shiftType === 'night') {
+      if (sleepHours != null && sleepHours < 6) {
+        tips.push(`With only ${sleepHours.toFixed(1)}h sleep, eat your biggest meal 2-3 hours before shift starts.`);
+      } else {
+        tips.push("On night shift: eat largest meal before work, keep meals light after midnight.");
+      }
+    } else if (shiftType === 'day') {
+      if (sleepHours != null && sleepHours < 6) {
+        tips.push(`With only ${sleepHours.toFixed(1)}h sleep, start with a protein-rich breakfast to boost energy.`);
+      } else {
+        tips.push("On day shift: maintain regular meal timing with balanced breakfast and lunch.");
+      }
+    } else if (shiftType === 'off') {
+      tips.push("On your off day: use regular meal timing to help reset your body clock.");
+    }
+    
+    // Tip 4: Meal timing based on energy curve
+    if (energyPoints && energyPoints.length > 0) {
+      // Find next high energy period
+      const nextHighEnergy = energyPoints.find(p => 
+        p.hour > (currentHour || 0) && p.energy >= 70
+      );
+      
+      if (nextHighEnergy) {
+        const nextHour = Math.round(nextHighEnergy.hour);
+        tips.push(`Plan your main meal around ${nextHour}:00 when your energy peaks.`);
+      }
+    }
+    
+    // Fallback tip
+    if (tips.length === 0) {
+      tips.push(`Your ${adjustedCalories?.toLocaleString() || 'daily'} kcal target is adjusted for your shift pattern and sleep.`);
+    }
+    
+    return tips[0]; // Return first tip
+  };
+
+  const tip = generateTip();
+  
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <h2 className="text-[13px] font-semibold tracking-tight text-slate-900">
         Energy curve
       </h2>
 
-      {/* curved gradient line */}
+      {/* Explanation */}
+      <p className="text-xs text-slate-600 leading-relaxed">
+        This curve shows your predicted energy levels throughout the day based on your shift pattern, sleep, and circadian rhythm. The red dot shows where you are right now.
+      </p>
+
+      {/* Simple energy curve */}
       <div className="mt-1">
         <svg
           viewBox="0 0 180 40"
@@ -328,60 +996,181 @@ function EnergyCurveCard() {
               x2="100%"
               y2="0%"
             >
-              <stop offset="0%" stopColor="#22c55e" />       {/* green – good */}
-              <stop offset="45%" stopColor="#facc15" />      {/* yellow – low */}
-              <stop offset="100%" stopColor="#fb923c" />     {/* orange – avoid */}
+              <stop offset="0%" stopColor="#22c55e" />
+              <stop offset="45%" stopColor="#facc15" />
+              <stop offset="100%" stopColor="#fb923c" />
             </linearGradient>
           </defs>
 
-          {/* smooth wave - wider curve */}
-          <path
-            d="M4 26 C 30 10, 55 10, 80 20 S 135 32, 176 28"
-            fill="none"
-            stroke="url(#energyCurveGradient)"
-            strokeWidth="3.5"
-            strokeLinecap="round"
-          />
+          {/* Dynamic energy curve */}
+          {svgPath && (
+            <path
+              d={svgPath}
+              fill="none"
+              stroke="url(#energyCurveGradient)"
+              strokeWidth="3.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
+
+          {/* Simple current time indicator */}
+          <g>
+            <line
+              x1={hourToX(currentHour)}
+              y1="0"
+              x2={hourToX(currentHour)}
+              y2="40"
+              stroke="#ef4444"
+              strokeWidth="2"
+              opacity="0.6"
+            />
+            {(() => {
+              const currentPoint = energyPoints.find(p => Math.abs(p.hour - currentHour) < 0.5) || energyPoints[Math.floor(currentHour)];
+              if (currentPoint) {
+                const y = 4 + (36 * (1 - currentPoint.energy / 100));
+                return (
+                  <circle
+                    cx={hourToX(currentHour)}
+                    cy={y}
+                    r="3.5"
+                    fill="#ef4444"
+                    stroke="white"
+                    strokeWidth="1.5"
+                  />
+                );
+              }
+              return null;
+            })()}
+          </g>
         </svg>
       </div>
 
-      {/* labels under the curve */}
-      <div className="flex justify-between text-[12px] font-medium">
-        <span className="text-emerald-500">Good</span>
-        <span className="text-amber-500">Low</span>
-        <span className="text-orange-500">Avoid</span>
+      {/* Simple labels */}
+      <div className="flex justify-between text-[11px] font-medium">
+        <span className="text-emerald-500">{labels.good}</span>
+        <span className="text-amber-500">{labels.low}</span>
+        <span className="text-orange-500">{labels.avoid}</span>
+      </div>
+
+      {/* Tip section */}
+      <div className="pt-2 border-t border-slate-200/60">
+        <p className="text-xs font-medium text-slate-700 mb-1.5">Tip</p>
+        <p className="text-xs text-slate-600 leading-relaxed">
+          {tip}
+        </p>
       </div>
     </div>
   );
 }
 
-function ShiftCoachCard() {
+function ShiftCoachCard({ 
+  sleepHours, 
+  shiftType, 
+  adjustedCalories,
+  energyPoints,
+  currentHour,
+  sleepDebt,
+}: { 
+  sleepHours: number | null;
+  shiftType: 'day' | 'night' | 'off' | 'other';
+  adjustedCalories: number;
+  energyPoints?: EnergyPoint[];
+  currentHour?: number;
+  sleepDebt?: number;
+}) {
+  const generateTips = () => {
+    const tips: string[] = [];
+    
+    // Get current energy level
+    const currentEnergy = energyPoints && currentHour !== undefined
+      ? (energyPoints.find(p => Math.abs(p.hour - currentHour) < 0.5) || energyPoints[Math.floor(currentHour)])?.energy
+      : null;
+    
+    // Tip 1: Energy-based tip
+    if (currentEnergy !== null) {
+      if (currentEnergy >= 70) {
+        tips.push("Your energy is high right now - great time for your main meal or a workout.");
+      } else if (currentEnergy >= 40) {
+        tips.push("Energy is moderate - have a light snack to maintain focus.");
+      } else {
+        tips.push("Energy is low - avoid heavy meals and consider a quick rest if possible.");
+      }
+    }
+    
+    // Tip 2: Sleep debt tip
+    if (sleepDebt && sleepDebt > 2) {
+      tips.push(`You're ${sleepDebt.toFixed(1)}h short on sleep - prioritize rest and lighter meals today.`);
+    } else if (sleepDebt && sleepDebt > 0) {
+      tips.push(`Slightly short on sleep - keep meals balanced and avoid late-night eating.`);
+    }
+    
+    // Tip 3: Shift-specific tip
+    if (shiftType === 'night') {
+      if (sleepHours != null && sleepHours < 6) {
+        tips.push(`With only ${sleepHours.toFixed(1)}h sleep, eat your biggest meal 2-3 hours before shift starts.`);
+      } else {
+        tips.push("On night shift: eat largest meal before work, keep meals light after midnight.");
+      }
+    } else if (shiftType === 'day') {
+      if (sleepHours != null && sleepHours < 6) {
+        tips.push(`With only ${sleepHours.toFixed(1)}h sleep, start with a protein-rich breakfast to boost energy.`);
+      } else {
+        tips.push("On day shift: maintain regular meal timing with balanced breakfast and lunch.");
+      }
+    } else if (shiftType === 'off') {
+      tips.push("On your off day: use regular meal timing to help reset your body clock.");
+    }
+    
+    // Tip 4: Meal timing based on energy curve
+    if (energyPoints && energyPoints.length > 0) {
+      // Find next high energy period
+      const nextHighEnergy = energyPoints.find(p => 
+        p.hour > (currentHour || 0) && p.energy >= 70
+      );
+      
+      if (nextHighEnergy) {
+        const nextHour = Math.round(nextHighEnergy.hour);
+        tips.push(`Plan your main meal around ${nextHour}:00 when your energy peaks.`);
+      }
+    }
+    
+    // Fallback tip
+    if (tips.length === 0) {
+      tips.push(`Your ${adjustedCalories.toLocaleString()} kcal target is adjusted for your shift pattern and sleep.`);
+    }
+    
+    return tips.slice(0, 2); // Return top 2 tips
+  };
+
+  const tips = generateTips();
+
   return (
     <div className="space-y-3">
       <h2 className="text-[13px] font-semibold tracking-tight text-slate-900">
         Shift coach
       </h2>
 
-      {/* avatar + header content */}
+      {/* avatar */}
       <div className="flex items-center gap-3">
         {/* AI avatar */}
-        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-indigo-100 text-[13px] font-semibold text-indigo-700">
-          AI
-        </div>
-
-        {/* subtle placeholder lines, like the mockup */}
-        <div className="flex-1 space-y-1">
-          <div className="h-2.5 rounded-full bg-slate-100 w-3/5" />
-          <div className="h-2.5 rounded-full bg-slate-100 w-2/5" />
+        <div className="flex h-11 w-11 items-center justify-center rounded-full overflow-hidden">
+          <img 
+            src="/bubble-icon.png" 
+            alt="AI Coach" 
+            className="w-full h-full object-contain"
+          />
         </div>
       </div>
 
-      {/* coach message */}
-      <p className="text-[13px] leading-snug text-slate-700">
-        Because you slept <span className="font-semibold">5h 20m</span>, eat a
-        high-protein snack before your shift and keep your last meal light to
-        avoid cravings when you get home.
-      </p>
+      {/* coach tips */}
+      <div className="space-y-2">
+        {tips.map((tip, idx) => (
+          <p key={idx} className="text-xs leading-relaxed text-slate-700">
+            {tip}
+          </p>
+        ))}
+      </div>
     </div>
   );
 }
@@ -391,142 +1180,722 @@ function ShiftCoachCard() {
    --------------------------------------------------- */
 
 export default function AdjustedCaloriesPage() {
-  const adjustedCalories = 2380;
+  const { data, loading } = useTodayNutrition();
+  const [showInfo, setShowInfo] = useState(false);
+  const [circadian, setCircadian] = useState<any>(null);
+  const [weeklyShifts, setWeeklyShifts] = useState<any[]>([]);
+  const [loadingCircadian, setLoadingCircadian] = useState(true);
+  const [loadingShifts, setLoadingShifts] = useState(true);
+  const [todayShift, setTodayShift] = useState<any>(null);
+  const [sleepData, setSleepData] = useState<any>(null);
+  const [loadingEnergyData, setLoadingEnergyData] = useState(true);
 
-  const deltas = [
-    { label: "night shift", value: "+150" },
-    { label: "low sleep", value: "+80" },
-    { label: "fat loss goal", value: "-180" },
-  ];
+  // Fetch circadian data for biological night
+  useEffect(() => {
+    const fetchCircadian = async () => {
+      try {
+        const res = await fetch('/api/circadian/calculate', { next: { revalidate: 30 } });
+        if (res.ok) {
+          const json = await res.json();
+          setCircadian(json.circadian);
+        }
+      } catch (err) {
+        console.error('[AdjustedCaloriesPage] circadian fetch error:', err);
+      } finally {
+        setLoadingCircadian(false);
+      }
+    };
+    fetchCircadian();
+  }, []);
+
+  // Fetch weekly shifts for pattern preview
+  useEffect(() => {
+    const fetchShifts = async () => {
+      try {
+        const today = new Date();
+        const nextWeek = new Date(today);
+        nextWeek.setDate(nextWeek.getDate() + 8); // +8 because API uses .lt() (exclusive)
+        const from = today.toISOString().slice(0, 10);
+        const to = nextWeek.toISOString().slice(0, 10);
+        
+        const res = await fetch(`/api/shifts?from=${from}&to=${to}`, { next: { revalidate: 30 } });
+        if (res.ok) {
+          const json = await res.json();
+          const shifts = json.shifts || [];
+          setWeeklyShifts(shifts);
+          
+          // Extract today's shift for energy curve
+          const todayISO = today.toISOString().slice(0, 10);
+          const todayShiftData = shifts.find((s: any) => s.date === todayISO);
+          setTodayShift(todayShiftData || null);
+        }
+      } catch (err) {
+        console.error('[AdjustedCaloriesPage] shifts fetch error:', err);
+      } finally {
+        setLoadingShifts(false);
+      }
+    };
+    fetchShifts();
+  }, []);
+
+  // Fetch sleep data for energy curve
+  useEffect(() => {
+    const fetchSleepData = async () => {
+      try {
+        const today = new Date();
+        const sevenDaysAgo = new Date(today);
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const from = sevenDaysAgo.toISOString().slice(0, 10);
+        const to = today.toISOString().slice(0, 10);
+        
+        const res = await fetch(`/api/sleep/history?from=${from}&to=${to}`, { next: { revalidate: 30 } });
+        if (res.ok) {
+          const json = await res.json();
+          const sleepLogs = json.items || [];
+          
+          // Get most recent main sleep
+          const mainSleep = sleepLogs.find((log: any) => 
+            log.type === 'sleep' || log.naps === 0 || !log.naps
+          ) || sleepLogs[0];
+          
+          if (mainSleep) {
+            setSleepData({
+              start: mainSleep.start_at || mainSleep.start_ts,
+              end: mainSleep.end_at || mainSleep.end_ts,
+              durationHours: mainSleep.sleep_hours || 
+                (mainSleep.end_at && mainSleep.start_at 
+                  ? (new Date(mainSleep.end_at).getTime() - new Date(mainSleep.start_at).getTime()) / (1000 * 60 * 60)
+                  : null),
+              quality: mainSleep.quality,
+            });
+          }
+        }
+      } catch (err) {
+        console.error('[AdjustedCaloriesPage] sleep fetch error:', err);
+      } finally {
+        setLoadingEnergyData(false);
+      }
+    };
+    fetchSleepData();
+  }, []);
+
+  // Calculate deltas from factors
+  const calculateDeltas = () => {
+    if (!data) return [];
+    
+    const deltas: Array<{ label: string; value: string; color: string }> = [];
+    const base = data.baseCalories;
+    
+    // Rhythm factor adjustment
+    if (data.rhythmFactor !== 1) {
+      const rhythmDelta = Math.round(base * (data.rhythmFactor - 1));
+      if (rhythmDelta !== 0) {
+        deltas.push({
+          label: data.rhythmScore != null ? `rhythm score ${Math.round(data.rhythmScore)}` : 'rhythm adjustment',
+          value: rhythmDelta >= 0 ? `+${rhythmDelta}` : `${rhythmDelta}`,
+          color: rhythmDelta >= 0 ? 'text-emerald-600' : 'text-amber-600'
+        });
+      }
+    }
+    
+    // Sleep factor adjustment
+    if (data.sleepFactor !== 1 && data.sleepHoursLast24h != null) {
+      const sleepDelta = Math.round(base * (data.sleepFactor - 1));
+      if (sleepDelta !== 0) {
+        deltas.push({
+          label: `${data.sleepHoursLast24h.toFixed(1)}h sleep`,
+          value: sleepDelta >= 0 ? `+${sleepDelta}` : `${sleepDelta}`,
+          color: sleepDelta >= 0 ? 'text-emerald-600' : 'text-amber-600'
+        });
+      }
+    }
+    
+    // Shift factor adjustment
+    if (data.shiftFactor !== 1) {
+      const shiftDelta = Math.round(base * (data.shiftFactor - 1));
+      if (shiftDelta !== 0) {
+        const shiftLabel = data.shiftType === 'night' ? 'night shift' : 
+                          data.shiftType === 'day' ? 'day shift' : 
+                          data.shiftType === 'off' ? 'off day' : 'shift';
+        deltas.push({
+          label: shiftLabel,
+          value: shiftDelta >= 0 ? `+${shiftDelta}` : `${shiftDelta}`,
+          color: shiftDelta >= 0 ? 'text-emerald-600' : 'text-amber-600'
+        });
+      }
+    }
+    
+    return deltas;
+  };
+
+  const adjustedCalories = data?.adjustedCalories ?? 0;
+  const baseCalories = data?.baseCalories ?? 0;
+  const deltas = calculateDeltas();
+  const deltaPct = baseCalories > 0 ? Math.round(((adjustedCalories - baseCalories) / baseCalories) * 100) : 0;
+  
+  // Calculate standard calculator calories (Mifflin-St Jeor without adjustments)
+  // This is what a standard calculator would show
+  const calculateStandardCalories = () => {
+    if (!data) return null;
+    // We need profile data - estimate from baseCalories by reversing goal adjustment
+    // Base calories already has goal adjustment, so we need to reverse it
+    // For now, use baseCalories as approximation (standard calculators don't adjust for shift work)
+    return baseCalories;
+  };
+  
+  const standardCalories = calculateStandardCalories();
+  const differenceFromStandard = standardCalories ? adjustedCalories - standardCalories : 0;
+  
+  // Calculate biological night window (default 23:00-07:00, or from circadian if available)
+  const biologicalNight = React.useMemo(() => {
+    // Default biological night for day workers
+    let start = 23;
+    let end = 7;
+    
+    // If we have circadian data with sleep midpoint, calculate from that
+    // Typical biological night is ~8 hours centered around sleep midpoint
+    // For now, use default - could be enhanced with actual circadian midpoint
+    return { start, end };
+  }, [circadian]);
+  
+  // Calculate consumed calories from macros (protein*4 + carbs*4 + fat*9)
+  const consumedCalories = data?.consumedMacros ? 
+    (data.consumedMacros.protein_g * 4) + 
+    (data.consumedMacros.carbs_g * 4) + 
+    (data.consumedMacros.fat_g * 9) : 0;
+  
+  // Calculate progress for the ring (capped at 120% for display)
+  const progress = adjustedCalories > 0 ? Math.min(consumedCalories / adjustedCalories, 1.2) : 0;
+  
+  // Get macro targets from data
+  const macroTargetsData = data?.macros ? [
+    { label: "Carbs", grams: Math.round(data.macros.carbs_g), Icon: IconWheat, barClass: "bg-sky-300" },
+    { label: "Protein", grams: Math.round(data.macros.protein_g), Icon: IconDumbbell, barClass: "bg-emerald-300" },
+    { label: "Fat", grams: Math.round(data.macros.fat_g), Icon: IconAvocado, barClass: "bg-amber-300" },
+  ] : macroTargets;
+  
+  // Get meal times from data
+  const mealTimesData = data?.meals ? data.meals.map(meal => ({
+    label: meal.label,
+    time: meal.suggestedTime,
+    Icon: meal.id.includes('breakfast') || meal.id.includes('post-shift') ? IconBreakfast :
+          meal.id.includes('lunch') || meal.id.includes('main') ? IconLunchEmoji :
+          meal.id.includes('snack') ? IconSnackEmoji :
+          meal.id.includes('dinner') ? IconDinnerEmoji :
+          meal.id.includes('cutoff') ? IconCutoffClock : IconSnackEmoji
+  })) : mealTimes;
+
+  // Calculate energy points for both cards
+  const [currentTime, setCurrentTime] = React.useState(new Date());
+  
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  const energyPoints = React.useMemo(() => {
+    return calculateEnergyLevels(
+      data?.shiftType,
+      todayShift?.start_ts,
+      todayShift?.end_ts,
+      sleepData,
+      biologicalNight,
+      data?.sleepHoursLast24h ? Math.max(0, 7.5 - data.sleepHoursLast24h) : undefined
+    );
+  }, [data?.shiftType, todayShift?.start_ts, todayShift?.end_ts, sleepData, biologicalNight, data?.sleepHoursLast24h]);
+
+  const currentHour = currentTime.getHours() + currentTime.getMinutes() / 60;
+
+  if (loading) {
+    return (
+      <div className="w-full max-w-md mx-auto px-4 py-6 space-y-6">
+        <Card>
+          <div className="animate-pulse space-y-4">
+            <div className="h-6 bg-slate-200 rounded w-48" />
+            <div className="h-4 bg-slate-200 rounded w-32" />
+            <div className="h-32 bg-slate-200 rounded" />
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="w-full max-w-md mx-auto px-4 py-6 space-y-6">
+        <Card>
+          <div className="text-center py-8">
+            <p className="text-sm text-slate-600">Unable to load calorie data</p>
+            <p className="text-xs text-slate-500 mt-2">Please try refreshing the page</p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-md mx-auto px-4 py-6 space-y-6">
       {/* CARD 1 — Adjusted calories */}
       <Card>
-        <div className="flex items-start justify-between gap-6">
-          {/* LEFT: copy */}
-          <div className="flex-1 min-w-0 pr-2">
-            <h1 className="text-[17px] font-bold tracking-[-0.01em] text-slate-900">
-              Adjusted calories
-            </h1>
-            <p className="mt-2 text-[12px] text-slate-500 leading-relaxed">
-              Your adjusted target today based on your shift, sleep and goal.
-            </p>
-
-            <div className="mt-4 space-y-1 text-[15px] text-slate-700">
-              {deltas.map((d) => (
-                <div key={d.label}>
-                  <span className="font-semibold text-slate-900">
-                    {d.value}
-                  </span>{" "}
-                  {d.label}
-                </div>
-              ))}
+        <div>
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h1 className="text-lg font-bold tracking-tight text-slate-900">
+                Adjusted calories
+              </h1>
+              <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                Your adjusted target today based on your shift, sleep and goal.
+              </p>
             </div>
-
-          </div>
-
-          {/* RIGHT: thin hero gauge */}
-          <div className="flex-shrink-0">
-            <div
-              className="relative flex h-[164px] w-[164px] items-center justify-center rounded-full"
-              style={{
-                background:
-                  "conic-gradient(#2563EB 52%, rgba(226,232,240,1) 0deg)",
-              }}
+            <button
+              onClick={() => setShowInfo(!showInfo)}
+              className="relative z-20 flex-shrink-0 p-1.5 rounded-lg hover:bg-slate-100/80 transition-colors group ml-2"
+              aria-label="Why adjusted calories matter"
             >
-              <div className="h-[148px] w-[148px] rounded-full bg-white shadow-[inset_0_3px_6px_rgba(148,163,184,0.30)]" />
-              <div className="absolute flex flex-col items-center justify-center">
-                <span className="text-[12px] text-slate-500">Today</span>
-                <span className="text-[34px] font-semibold text-slate-900 leading-none">
-                  {adjustedCalories.toLocaleString("en-US")}
-                </span>
-                <span className="mt-[2px] text-[12px] text-slate-500">
-                  kcal
-                </span>
-              </div>
+              <Info className="h-4 w-4 text-slate-500 group-hover:text-slate-700 transition-colors" />
+            </button>
+          </div>
+
+          {/* Adjusted calories number */}
+          <div className="mb-4">
+            <div className="flex items-baseline gap-2">
+              <span className="text-[36px] font-bold text-slate-900 leading-none">
+                {adjustedCalories.toLocaleString("en-US")}
+              </span>
+              <span className="text-[14px] text-slate-500 font-medium">
+                kcal
+              </span>
             </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* CARD 2 — Energy curve + Shift coach */}
-      <Card>
-        <div className="flex flex-col gap-4 sm:flex-row">
-          <div className="flex-1">
-            <EnergyCurveCard />
-          </div>
-          <div className="flex-1">
-            <ShiftCoachCard />
-          </div>
-        </div>
-      </Card>
-
-      {/* CARD 3 — Macro targets + Meal times */}
-      <Card>
-        {/* Macro targets */}
-        <div className="mb-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[13px] font-semibold tracking-tight text-slate-900">
-              Macro targets
-            </h2>
-            <span className="text-[11px] text-slate-500">
-              Based on today&apos;s calories
-            </span>
+            {consumedCalories > 0 && (
+              <p className="mt-1.5 text-[11px] text-slate-400">
+                {Math.round(progress * 100)}% consumed today
+              </p>
+            )}
           </div>
 
-          <div className="space-y-3">
-            {macroTargets.map(({ label, grams, Icon, barClass }) => (
-              <div key={label} className="space-y-1">
-                <div className="flex items-center justify-between text-[13px]">
-                  <div className="flex items-center gap-2 text-slate-600">
-                    <Icon />
-                    <span>{label}</span>
-                  </div>
-                  <span className="font-semibold text-slate-900">
-                    {grams} g
+          {/* Factor breakdown */}
+          {deltas.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                Adjustments
+              </p>
+              {deltas.map((d) => (
+                <div key={d.label} className="flex items-center justify-between text-[13px]">
+                  <span className="text-slate-600 capitalize">{d.label}</span>
+                  <span className={`font-semibold ${d.color}`}>
+                    {d.value} kcal
                   </span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className={`h-full rounded-full ${barClass}`}
-                    style={{ width: "60%", opacity: 0.85 }}
-                  />
-                </div>
+              ))}
+              <div className="pt-1.5 mt-1.5 border-t border-slate-200/60 flex items-center justify-between text-[13px]">
+                <span className="text-slate-700 font-medium">Base calories</span>
+                <span className="font-semibold text-slate-900">
+                  {baseCalories.toLocaleString()} kcal
+                </span>
               </div>
-            ))}
-          </div>
+              <div className="flex items-center justify-between text-[13px]">
+                <span className="text-slate-700 font-medium">Total adjustment</span>
+                <span className={`font-semibold ${deltaPct >= 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  {deltaPct >= 0 ? '+' : ''}{deltaPct}%
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Divider */}
-        <div className="h-px bg-white/80" />
-
-        {/* Meal times */}
-        <div className="pt-3">
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-[13px] font-semibold tracking-tight text-slate-900">
-              Meal times
-            </h2>
-            <span className="text-[11px] text-slate-500">
-              Synced to tonight&apos;s shift
-            </span>
-          </div>
-
-          <div className="divide-y divide-white/80 text-[13px]">
-            {mealTimes.map(({ label, time, Icon }) => (
-              <div
-                key={label}
-                className="flex items-center justify-between py-2 first:pt-0 last:pb-0"
+        {/* Info Modal */}
+        {showInfo && (
+          <div className="relative z-20 mt-4 rounded-xl bg-gradient-to-br from-slate-50 to-white border border-slate-200/70 p-4 space-y-3 shadow-lg">
+            <div className="flex items-start justify-between">
+              <h3 className="text-[14px] font-bold text-slate-900">Why Adjusted Calories Matter</h3>
+              <button
+                onClick={() => setShowInfo(false)}
+                className="p-1 rounded-md hover:bg-slate-100/60 transition-colors"
+                aria-label="Close"
               >
-                <div className="flex items-center gap-2 text-slate-600">
-                  <Icon />
-                  <span>{label}</span>
-                </div>
-                <span className="font-semibold text-slate-900">{time}</span>
+                <X className="h-3.5 w-3.5 text-slate-400" />
+              </button>
+            </div>
+            
+            <div className="space-y-3 text-xs text-slate-700 leading-relaxed max-h-[50vh] overflow-y-auto">
+              <div>
+                <p className="font-semibold text-slate-900 mb-1 text-xs">⭐ Standard calculators don't work for shift workers</p>
+                <p className="text-slate-600 text-[11px]">
+                  Standard calorie recommendations assume a 9-5 routine with regular sleep. Shift workers break all of those assumptions, so without adjustment, recommended calories become inaccurate and unhelpful.
+                </p>
               </div>
-            ))}
+              
+              <div>
+                <p className="font-semibold text-slate-900 mb-1 text-xs">1️⃣ Shift patterns change energy expenditure</p>
+                <p className="text-slate-600 text-[11px]">
+                  Night shifts burn calories differently - you're awake longer, move differently, and your temperature rhythm drops at night. Two workers with the same body size may need 100-300+ extra calories on a long night shift.
+                </p>
+              </div>
+              
+              <div>
+                <p className="font-semibold text-slate-900 mb-1 text-xs">2️⃣ Circadian disruption changes metabolism</p>
+                <p className="text-slate-600 text-[11px]">
+                  Eating during your biological "night" means your body stores more calories as fat, has reduced insulin sensitivity, and burns fewer calories at rest. This is why shift workers often gain weight even when eating "the same as everyone else."
+                </p>
+              </div>
+              
+              <div>
+                <p className="font-semibold text-slate-900 mb-1 text-xs">3️⃣ Gender, height, weight, and goals all matter</p>
+                <p className="text-slate-600 text-[11px]">
+                  Men and women differ in metabolism and how circadian misalignment impacts them. Body composition, job physicality, and goals (lose/maintain/gain) all require specific adjustments for disrupted rhythms.
+                </p>
+              </div>
+              
+              <div>
+                <p className="font-semibold text-slate-900 mb-1 text-xs">4️⃣ Awake time and stress change calorie needs</p>
+                <p className="text-slate-600 text-[11px]">
+                  Night-shift workers are often awake 18-20 hours vs 16 hours for day workers. Higher baseline cortisol from shift work affects hunger, fat storage, and metabolic rate - all changing calorie needs.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* NEW CARD — Biological Night Warning */}
+      {data?.shiftType === 'night' && (
+        <Card>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
+                <span className="text-[14px]">🌙</span>
+              </div>
+              <h2 className="text-[15px] font-bold tracking-tight text-slate-900">
+                Biological Night Warning
+              </h2>
+            </div>
+            <div className="rounded-lg bg-gradient-to-br from-amber-50/60 to-amber-50/30 border border-amber-100/50 p-3.5 space-y-2">
+              <p className="text-xs text-slate-700 leading-relaxed">
+                Your biological night is approximately <span className="font-semibold text-slate-900">
+                  {biologicalNight.start}:00 - {biologicalNight.end}:00
+                </span>. Eating during this window increases fat storage and reduces insulin sensitivity.
+              </p>
+              <div className="flex items-start gap-2 text-[11px] text-slate-600">
+                <span className="font-semibold text-amber-700">⚠️</span>
+                <span>Keep meals light after midnight. Your digestive system slows down during biological night, making heavy meals harder to process.</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Standard Calculator Comparison */}
+      {standardCalories && (
+        <Card>
+          <div className="space-y-3">
+            <div>
+              <h2 className="text-[15px] font-bold tracking-tight text-slate-900">
+                vs Standard Calculator
+              </h2>
+              <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
+                Standard calculators use formulas like Mifflin-St Jeor that estimate calories based on age, height, weight, and activity level. They assume a regular 9-5 routine with consistent sleep patterns.
+              </p>
+            </div>
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50/60 border border-slate-200/50">
+                <div>
+                  <p className="text-xs text-slate-600">Standard calculator</p>
+                  <p className="text-[11px] text-slate-500">(assumes 9-5 routine)</p>
+                </div>
+                <span className="text-[18px] font-bold text-slate-700">
+                  {standardCalories.toLocaleString()} kcal
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-br from-blue-50/60 to-blue-50/30 border border-blue-200/50">
+                <div>
+                  <p className="text-xs font-semibold text-slate-900">Your adjusted target</p>
+                  <p className="text-[11px] text-slate-600">(shift worker optimized)</p>
+                </div>
+                <span className="text-[18px] font-bold text-blue-700">
+                  {adjustedCalories.toLocaleString()} kcal
+                </span>
+              </div>
+              <div className="pt-2 border-t border-slate-200/60">
+                <div className="flex items-center justify-between text-[13px]">
+                  <span className="text-slate-600">Difference</span>
+                  <span
+                    className={`font-semibold ${
+                      differenceFromStandard > 0
+                        ? 'text-emerald-600'
+                        : differenceFromStandard < 0
+                        ? 'text-amber-600'
+                        : 'text-slate-600'
+                    }`}
+                  >
+                    {differenceFromStandard > 0 ? '+' : ''}
+                    {differenceFromStandard} kcal
+                    <span className="ml-1 text-[11px] text-slate-500">
+                      (
+                      {differenceFromStandard > 0 ? '+' : ''}
+                      {standardCalories
+                        ? Math.round((differenceFromStandard / standardCalories) * 100)
+                        : 0}
+                      %)
+                    </span>
+                  </span>
+                </div>
+                <p className="mt-1.5 text-[11px] text-slate-500 leading-relaxed">
+                  This difference accounts for your shift pattern, circadian disruption, sleep debt, and shift-specific energy needs.
+                </p>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* CARD 3 — Macro targets + Meal times */}
+      <EnhancedMacroTargetsCard 
+        macroTargetsData={macroTargetsData}
+        consumedMacros={data?.consumedMacros}
+        shiftType={data?.shiftType}
+        mealTimesData={mealTimesData}
+      />
+
+      {/* NEW CARD — Quick Shift-Specific Rules */}
+      <Card>
+        <div className="space-y-3">
+          <h2 className="text-[15px] font-bold tracking-tight text-slate-900">
+            Quick Rules for {data?.shiftType === 'night' ? 'Night Shift' : data?.shiftType === 'day' ? 'Day Shift' : data?.shiftType === 'off' ? 'Off Day' : 'Your Shift'}
+          </h2>
+          <div className="space-y-2.5">
+            {data?.shiftType === 'night' && (
+              <>
+                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
+                  <span className="text-[16px] mt-0.5">🍽️</span>
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-slate-900">Eat largest meal 2-3 hours before shift</p>
+                    <p className="text-[11px] text-slate-600 mt-0.5">This gives you energy without digestive stress during your shift.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
+                  <span className="text-[16px] mt-0.5">🥗</span>
+                  <div className="flex-1">
+                    <p className="text-[12px] font-semibold text-slate-900">Keep meals light after midnight</p>
+                    <p className="text-[11px] text-slate-600 mt-0.5">Your biological night starts around 11 PM - heavy meals increase fat storage.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
+                  <span className="text-[16px] mt-0.5">⚡</span>
+                  <div className="flex-1">
+                    <p className="text-[12px] font-semibold text-slate-900">Protein-rich snacks during shift</p>
+                    <p className="text-[11px] text-slate-600 mt-0.5">Maintain alertness without digestive stress or energy crashes.</p>
+                  </div>
+                </div>
+              </>
+            )}
+            {data?.shiftType === 'day' && (
+              <>
+                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
+                  <span className="text-[16px] mt-0.5">🌅</span>
+                  <div className="flex-1">
+                    <p className="text-[12px] font-semibold text-slate-900">Balanced breakfast before shift</p>
+                    <p className="text-[11px] text-slate-600 mt-0.5">Start your day with protein and complex carbs for sustained energy.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
+                  <span className="text-[16px] mt-0.5">🍱</span>
+                  <div className="flex-1">
+                    <p className="text-[12px] font-semibold text-slate-900">Main meal during shift break</p>
+                    <p className="text-[11px] text-slate-600 mt-0.5">Regular meal timing helps maintain your body clock alignment.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
+                  <span className="text-[16px] mt-0.5">⏰</span>
+                  <div className="flex-1">
+                    <p className="text-[12px] font-semibold text-slate-900">Maintain regular meal timing</p>
+                    <p className="text-[11px] text-slate-600 mt-0.5">Consistent eating times help your circadian rhythm stay aligned.</p>
+                  </div>
+                </div>
+              </>
+            )}
+            {data?.shiftType === 'off' && (
+              <>
+                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
+                  <span className="text-[16px] mt-0.5">🔄</span>
+                  <div className="flex-1">
+                    <p className="text-[12px] font-semibold text-slate-900">Use regular meal timing</p>
+                    <p className="text-[11px] text-slate-600 mt-0.5">Help reset your body clock with consistent breakfast, lunch, and dinner times.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
+                  <span className="text-[16px] mt-0.5">🍽️</span>
+                  <div className="flex-1">
+                    <p className="text-[12px] font-semibold text-slate-900">Keep meals balanced</p>
+                    <p className="text-[11px] text-slate-600 mt-0.5">Avoid large late-night meals that disrupt sleep and circadian rhythm.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
+                  <span className="text-[16px] mt-0.5">😴</span>
+                  <div className="flex-1">
+                    <p className="text-[12px] font-semibold text-slate-900">Last meal 2-3 hours before sleep</p>
+                    <p className="text-[11px] text-slate-600 mt-0.5">Give your digestive system time to rest before bedtime.</p>
+                  </div>
+                </div>
+              </>
+            )}
+            {(!data?.shiftType || data.shiftType === 'other') && (
+              <>
+                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
+                  <span className="text-[16px] mt-0.5">⏰</span>
+                  <div className="flex-1">
+                    <p className="text-[12px] font-semibold text-slate-900">Maintain regular meal timing</p>
+                    <p className="text-[11px] text-slate-600 mt-0.5">Consistent eating times help your circadian rhythm stay aligned.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
+                  <span className="text-[16px] mt-0.5">🍽️</span>
+                  <div className="flex-1">
+                    <p className="text-[12px] font-semibold text-slate-900">Keep meals balanced</p>
+                    <p className="text-[11px] text-slate-600 mt-0.5">Focus on protein, complex carbs, and healthy fats for sustained energy.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
+                  <span className="text-[16px] mt-0.5">💧</span>
+                  <div className="flex-1">
+                    <p className="text-[12px] font-semibold text-slate-900">Stay hydrated</p>
+                    <p className="text-[11px] text-slate-600 mt-0.5">Drink water regularly throughout the day to support your metabolism.</p>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
+      </Card>
+
+      {/* NEW CARD — Digestive Health Tips */}
+      {data?.shiftType === 'night' && (
+        <Card>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100">
+                <span className="text-[14px]">💊</span>
+              </div>
+              <h2 className="text-[15px] font-bold tracking-tight text-slate-900">
+                Digestive Health Tips
+              </h2>
+            </div>
+            <div className="space-y-2.5">
+              <div className="p-3 rounded-lg bg-gradient-to-br from-indigo-50/40 to-indigo-50/20 border border-indigo-100/40">
+                <p className="text-[12px] font-semibold text-slate-900 mb-1">Your gut slows down at night</p>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  During your biological night (around 11 PM - 7 AM), your digestive system operates at reduced capacity. Heavy meals during this time increase risks of acid reflux, bloating, and sluggishness.
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-gradient-to-br from-indigo-50/40 to-indigo-50/20 border border-indigo-100/40">
+                <p className="text-[12px] font-semibold text-slate-900 mb-1">Protein helps without the stress</p>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Protein-rich snacks (nuts, Greek yogurt, protein shakes) provide sustained energy and alertness without overwhelming your digestive system during night shifts.
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-gradient-to-br from-indigo-50/40 to-indigo-50/20 border border-indigo-100/40">
+                <p className="text-[12px] font-semibold text-slate-900 mb-1">Avoid heavy meals after midnight</p>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Large, complex meals during biological night are harder to digest and can cause blood sugar spikes, energy crashes, and increased fat storage.
+                </p>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* NEW CARD — Weekly Pattern Preview */}
+      {!loadingShifts && weeklyShifts.length > 0 && (
+        <Card>
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-[13px] font-bold tracking-tight text-slate-900">
+                This Week
+              </h2>
+              <span className="text-[9px] font-medium text-slate-400 uppercase tracking-wider">
+                Pattern
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {weeklyShifts.slice(0, 7).map((shift: any, idx: number) => {
+                const shiftType = shift.label === 'NIGHT' ? 'night' : 
+                                shift.label === 'DAY' ? 'day' : 
+                                shift.label === 'OFF' ? 'off' : 'other';
+                const date = new Date(shift.date);
+                const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+                const dayNum = date.getDate();
+                const isToday = date.toDateString() === new Date().toDateString();
+                
+                // Estimate calories for this shift type (simplified)
+                let estimatedCalories = baseCalories;
+                if (shiftType === 'night') estimatedCalories = Math.round(baseCalories * 0.92);
+                else if (shiftType === 'off') estimatedCalories = Math.round(baseCalories * 0.95);
+                
+                return (
+                  <div 
+                    key={idx} 
+                    className={`group relative overflow-hidden flex items-center justify-between px-2.5 py-2 rounded-lg border transition-all ${
+                      isToday 
+                        ? 'bg-gradient-to-r from-blue-50/70 via-blue-50/50 to-transparent border-blue-200/60 shadow-[0_2px_8px_rgba(59,130,246,0.08)]' 
+                        : 'bg-gradient-to-r from-slate-50/50 to-transparent border-slate-200/30 hover:border-slate-300/40'
+                    }`}
+                  >
+                    {isToday && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-transparent to-transparent" />
+                    )}
+                    <div className="relative z-10 flex items-center gap-2.5">
+                      <div className={`text-[10px] font-bold tracking-tight ${
+                        isToday ? 'text-blue-700' : 'text-slate-500'
+                      }`}>
+                        {dayName}
+                      </div>
+                      <div className={`text-[10px] font-semibold ${
+                        isToday ? 'text-blue-600' : 'text-slate-400'
+                      }`}>
+                        {dayNum}
+                      </div>
+                      <div className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                        shiftType === 'night' ? 'bg-amber-100/60 text-amber-700' :
+                        shiftType === 'day' ? 'bg-blue-100/60 text-blue-700' :
+                        shiftType === 'off' ? 'bg-slate-100/60 text-slate-500' : 'bg-slate-100/60 text-slate-600'
+                      }`}>
+                        {shift.label || '—'}
+                      </div>
+                    </div>
+                    <div className={`relative z-10 text-[11px] font-bold tracking-tight ${
+                      isToday ? 'text-blue-700' : 'text-slate-700'
+                    }`}>
+                      ~{estimatedCalories.toLocaleString()} <span className="text-[9px] font-medium text-slate-500">kcal</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-[9px] text-slate-400 leading-tight pt-0.5">
+              Estimates by shift type. Actual targets adjust for sleep & rhythm.
+            </p>
+          </div>
+        </Card>
+      )}
+
+      {/* CARD 2 — Energy curve */}
+      <Card>
+        <EnergyCurveCard
+          shiftType={data?.shiftType}
+          shiftStart={todayShift?.start_ts}
+          shiftEnd={todayShift?.end_ts}
+          sleepData={sleepData}
+          circadian={circadian}
+          meals={data?.meals}
+          sleepDebt={data?.sleepHoursLast24h ? Math.max(0, 7.5 - data.sleepHoursLast24h) : undefined}
+          biologicalNight={biologicalNight}
+          energyPoints={energyPoints}
+          currentHour={currentHour}
+          sleepHours={data?.sleepHoursLast24h}
+          adjustedCalories={adjustedCalories}
+        />
       </Card>
 
       {/* CARD 3 — Hydration + Tip + Recommendations */}
@@ -543,10 +1912,12 @@ export default function AdjustedCaloriesPage() {
               <IconDroplet />
               <div className="leading-tight">
                 <p>Today</p>
-                <p className="text-[11px] text-slate-500">By bedtime</p>
+                <p className="text-[11px] text-slate-500">Target</p>
               </div>
             </div>
-            <span className="text-lg font-semibold text-slate-900">3.2 L</span>
+            <span className="text-lg font-semibold text-slate-900">
+              {data.hydrationTargets ? `${(data.hydrationTargets.water_ml / 1000).toFixed(1)} L` : '—'}
+            </span>
           </div>
         </div>
 
@@ -556,10 +1927,25 @@ export default function AdjustedCaloriesPage() {
             Tip of the day
           </h3>
           <p className="text-[12px] text-slate-500 leading-relaxed">
-            Because you slept less than usual and have a night shift tonight,
-            eat a high-protein meal 60–90 minutes before your shift and keep
-            meals light after{" "}
-            <span className="font-semibold text-slate-900">3:00 am</span>.
+            {data.sleepHoursLast24h != null && data.sleepHoursLast24h < 6 && data.shiftType === 'night' ? (
+              <>
+                Because you slept {data.sleepHoursLast24h.toFixed(1)}h and have a night shift, eat a high-protein meal 2-3 hours before your shift and keep meals light after{" "}
+                <span className="font-semibold text-slate-900">midnight</span>.
+              </>
+            ) : data.shiftType === 'night' ? (
+              <>
+                On night shifts, eat your largest meal 2-3 hours before your shift starts and keep meals light during your biological night (after{" "}
+                <span className="font-semibold text-slate-900">midnight</span>).
+              </>
+            ) : data.shiftType === 'day' ? (
+              <>
+                On day shifts, maintain regular meal timing with a balanced breakfast and main meal during your shift break.
+              </>
+            ) : (
+              <>
+                Your adjusted target accounts for your shift pattern, sleep, and goals. Focus on regular meal timing and balanced nutrition.
+              </>
+            )}
           </p>
         </div>
 
@@ -581,23 +1967,13 @@ export default function AdjustedCaloriesPage() {
 
       </Card>
 
-      {/* Sync status bar - Matching other pages */}
-      <section className="relative overflow-hidden flex items-center justify-between rounded-[20px] bg-white/85 backdrop-blur-xl border border-white/70 shadow-[0_16px_40px_rgba(15,23,42,0.06)] px-4 py-2.5 text-[11px] text-slate-500">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/50 via-transparent to-white/30" />
-        <span className="relative z-10 flex items-center gap-2 font-medium">
-          <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-[10px] text-white shadow-sm">
-            ✓
-          </span>
-          <span>Synced</span>
-        </span>
-        <span className="relative z-10 font-medium">at 6:40 am</span>
-      </section>
 
-      <p className="px-1 pt-1 text-[10px] leading-snug text-slate-400">
-        ShiftCoach is a coaching tool and does not provide medical advice. For
-        medical conditions, pregnancy or complex health issues, please check
-        your plan with a registered professional.
-      </p>
+      <div className="pt-4">
+        <p className="text-[11px] leading-relaxed text-slate-500 text-center">
+          Shift Coach is a coaching tool and does not provide medical advice. For medical conditions, pregnancy or complex health issues, please check your plan with a registered professional.
+        </p>
+      </div>
     </div>
   );
 }
+

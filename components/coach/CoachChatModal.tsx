@@ -3,10 +3,18 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useCoachChat } from '@/lib/hooks/useCoachChat'
+import { 
+  hasSeenGreetingToday, 
+  markGreetingAsSeen, 
+  generateDailyGreeting,
+  type GreetingContext 
+} from '@/lib/coach/dailyGreeting'
+import { Tooltip } from '@/components/ui/Tooltip'
 
 export function CoachChatModal({ onClose }: { onClose: () => void }) {
   const [input, setInput] = useState('')
   const [coachContext, setCoachContext] = useState<any>(null)
+  const [isLoadingGreeting, setIsLoadingGreeting] = useState(false)
   
   // Initialize with welcome message
   const { messages, isSending, sendMessage, setMessages } = useCoachChat([
@@ -17,45 +25,84 @@ export function CoachChatModal({ onClose }: { onClose: () => void }) {
     },
   ])
 
+  // Check for daily greeting on mount
   useEffect(() => {
-    const storedContext = localStorage.getItem('coach-context')
-    if (storedContext) {
-      const ctx = JSON.parse(storedContext)
-      setCoachContext(ctx)
-      localStorage.removeItem('coach-context') // Consume context
-      
-      // Adjust initial message based on context
-      let initialMessage = "Hey, I'm your Shift Coach. What are you struggling with today – sleep, cravings, or energy on shift?"
-      if (ctx.reason === 'low_mood') {
-        initialMessage = `I saw you rated your mood low today (${ctx.score || 2}/5). Want to talk about what's making today hard?`
-      } else if (ctx.reason === 'low_focus') {
-        initialMessage = `Your focus looked low today (${ctx.score || 2}/5). Let's see how we can keep you safe and make today easier.`
-      } else if (ctx.reason === 'mood_focus_low') {
-        initialMessage = `I noticed your mood or focus was low today. How can I support you?`
-      } else if (ctx.reason === 'weekly_summary') {
-        initialMessage = `I just shared your weekly summary with you. Want to talk about anything specific from this past week?`
-      } else if (ctx.reason === 'weekly_goals') {
-        initialMessage = `I just shared your weekly focus points. Want to adjust any of them or talk about how to make them work with your shifts?`
-      } else if (ctx.reason === 'weekly_goal_feedback') {
-        initialMessage = `Thanks for sharing how your week went. Let's talk about what worked and what didn't – no judgment, just figuring out what's realistic for you.`
-      }
-      
-      // Update the welcome message
-      setMessages([
-        {
-          id: 'welcome',
-          role: 'assistant',
-          content: initialMessage,
-        },
-      ])
+    const loadDailyGreeting = async () => {
+      // First check if there's stored context (takes priority)
+      const storedContext = localStorage.getItem('coach-context')
+      if (storedContext) {
+        const ctx = JSON.parse(storedContext)
+        setCoachContext(ctx)
+        localStorage.removeItem('coach-context') // Consume context
+        
+        // Adjust initial message based on context
+        let initialMessage = "Hey, I'm your Shift Coach. What are you struggling with today – sleep, cravings, or energy on shift?"
+        if (ctx.reason === 'low_mood') {
+          initialMessage = `I saw you rated your mood low today (${ctx.score || 2}/5). Want to talk about what's making today hard?`
+        } else if (ctx.reason === 'low_focus') {
+          initialMessage = `Your focus looked low today (${ctx.score || 2}/5). Let's see how we can keep you safe and make today easier.`
+        } else if (ctx.reason === 'mood_focus_low') {
+          initialMessage = `I noticed your mood or focus was low today. How can I support you?`
+        } else if (ctx.reason === 'weekly_summary') {
+          initialMessage = `I just shared your weekly summary with you. Want to talk about anything specific from this past week?`
+        } else if (ctx.reason === 'weekly_goals') {
+          initialMessage = `I just shared your weekly focus points. Want to adjust any of them or talk about how to make them work with your shifts?`
+        } else if (ctx.reason === 'weekly_goal_feedback') {
+          initialMessage = `Thanks for sharing how your week went. Let's talk about what worked and what didn't – no judgment, just figuring out what's realistic for you.`
+        }
+        
+        // Update the welcome message
+        setMessages([
+          {
+            id: 'welcome',
+            role: 'assistant',
+            content: initialMessage,
+          },
+        ])
 
-      // If there's an autoMessage, send it automatically after a brief delay
-      if (ctx.autoMessage) {
-        setTimeout(async () => {
-          await sendMessage(ctx.autoMessage, ctx)
-        }, 500)
+        // If there's an autoMessage, send it automatically after a brief delay
+        if (ctx.autoMessage) {
+          setTimeout(async () => {
+            await sendMessage(ctx.autoMessage, ctx)
+          }, 500)
+        }
+        return // Don't show daily greeting if there's stored context
+      }
+
+      // Fetch greeting context and show personalized greeting
+      setIsLoadingGreeting(true)
+      try {
+        const res = await fetch('/api/coach/daily-greeting')
+        const data = await res.json()
+        
+        const greetingContext: GreetingContext = {
+          userName: data.userName,
+          todayShift: data.todayShift,
+          todayEvent: data.todayEvent,
+        }
+        
+        const greetingMessage = generateDailyGreeting(greetingContext)
+        
+        // Update the welcome message with personalized greeting
+        setMessages([
+          {
+            id: 'welcome',
+            role: 'assistant',
+            content: greetingMessage,
+          },
+        ])
+        
+        // Mark greeting as seen for today
+        markGreetingAsSeen()
+      } catch (err) {
+        console.error('[CoachChatModal] Error loading daily greeting:', err)
+        // Keep default message on error
+      } finally {
+        setIsLoadingGreeting(false)
       }
     }
+
+    loadDailyGreeting()
   }, [setMessages, sendMessage])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -129,7 +176,20 @@ export function CoachChatModal({ onClose }: { onClose: () => void }) {
                 />
               </div>
               <div className="flex flex-col">
-                <p className="text-sm font-bold tracking-tight text-slate-900">Shift Coach</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-bold tracking-tight text-slate-900">Shift Coach</p>
+                  <Tooltip
+                    content={
+                      <span>
+                        Shift Coach uses your rota, sleep, mood and goals to tailor advice for shift work. It&apos;s a
+                        guide, not medical advice.
+                      </span>
+                    }
+                    side="bottom"
+                  >
+                    ?
+                  </Tooltip>
+                </div>
                 <p className="text-xs text-slate-500 leading-relaxed">Chat about your shift, sleep or meals</p>
               </div>
             </div>
@@ -150,6 +210,25 @@ export function CoachChatModal({ onClose }: { onClose: () => void }) {
             {/* Messages gradient fade */}
             <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-white/60 to-transparent pointer-events-none z-10" />
             <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white/60 to-transparent pointer-events-none z-10" />
+            
+            {/* Loading indicator for daily greeting */}
+            {isLoadingGreeting && messages.length === 1 && messages[0].id === 'welcome' && (
+              <div className="flex justify-start animate-fade-in relative z-0">
+                <div
+                  className="rounded-2xl backdrop-blur-xl border px-4 py-3 flex items-center gap-2 shadow-[0_4px_12px_rgba(15,23,42,0.08)] relative overflow-hidden"
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                    borderColor: 'rgba(148, 163, 184, 0.25)',
+                  }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/50 via-transparent to-slate-50/30 pointer-events-none" />
+                  <div className="flex items-center gap-2 relative z-10">
+                    <div className="w-4 h-4 border-2 border-slate-400 border-t-sky-500 rounded-full animate-spin" />
+                    <span className="text-sm text-slate-600">Calculating your personalized recommendations...</span>
+                  </div>
+                </div>
+              </div>
+            )}
             
             {messages.map((m) => (
               <div

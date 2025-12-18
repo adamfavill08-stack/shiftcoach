@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
+import { logSupabaseError } from '@/lib/supabase/error-handler'
+
+export const dynamic = 'force-dynamic'
 
 // GET ?month=11&year=2025 -> list events for month
 export async function GET(req: NextRequest) {
@@ -14,33 +17,68 @@ export async function GET(req: NextRequest) {
     const month = Number(searchParams.get('month')) || new Date().getMonth() + 1
     const year  = Number(searchParams.get('year'))  || new Date().getFullYear()
 
-    // Query events for the month
-    // Use event_date as primary filter since holidays are saved with event_date
-    const startDateStr = `${year}-${String(month).padStart(2, '0')}-01`
-    const endDateStr = month === 12 
-      ? `${year + 1}-01-01` 
-      : `${year}-${String(month + 1).padStart(2, '0')}-01`
+    // Calculate the actual date range for the calendar grid (includes previous/next month dates)
+    const zeroBasedMonth = month - 1
+    const firstOfMonth = new Date(year, zeroBasedMonth, 1)
+    const firstWeekday = (firstOfMonth.getDay() + 6) % 7 // Monday = 0
+    const gridStart = new Date(firstOfMonth)
+    gridStart.setDate(firstOfMonth.getDate() - firstWeekday) // Start from first Monday before/on 1st
+    
+    // Calendar shows 6 weeks max (42 days)
+    const gridEnd = new Date(gridStart)
+    gridEnd.setDate(gridStart.getDate() + 41) // 42 days total
+    
+    // Query events for the entire calendar grid range
+    const startIso = gridStart.toISOString()
+    const endIso = new Date(gridEnd)
+    endIso.setHours(23, 59, 59, 999)
+    const endIsoStr = endIso.toISOString()
 
-    // Query by event_date (primary) and also check start_at as fallback
-    const startIso = new Date(Date.UTC(year, month - 1, 1)).toISOString()
-    const endIso = new Date(Date.UTC(year, month, 1)).toISOString()
-
-    const { data, error } = await supabase
+    // Add timeout protection for Supabase query
+    const queryPromise = supabase
       .from('rota_events')
       .select('*')
       .eq('user_id', userId)
       .gte('start_at', startIso)
-      .lt('start_at', endIso)
+      .lte('start_at', endIsoStr)
       .order('start_at', { ascending: true })
 
+    // Race against a timeout (10 seconds)
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Query timeout')), 10000)
+    )
+
+    let result
+    try {
+      result = await Promise.race([queryPromise, timeoutPromise])
+    } catch (timeoutError: any) {
+      if (timeoutError?.message === 'Query timeout') {
+        console.warn('[api/rota/event] Query timeout, returning empty events')
+        return NextResponse.json({ events: [] }, { status: 200 })
+      }
+      throw timeoutError
+    }
+
+    const { data, error } = result as { data: any; error: any }
+
     if (error) {
-      console.error('[api/rota/event] fetch error', error)
+      // Check if it's a table not found error (non-fatal)
+      if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+        console.warn('[api/rota/event] rota_events table not found, returning empty events')
+        return NextResponse.json({ events: [] }, { status: 200 })
+      }
+      logSupabaseError('api/rota/event', error, { level: 'warn' })
       return NextResponse.json({ events: [] }, { status: 200 }) // don't break UI
     }
 
     return NextResponse.json({ events: data ?? [] })
-  } catch (e) {
-    console.error('[api/rota/event] fatal GET', e)
+  } catch (e: any) {
+    // Handle any unexpected errors gracefully
+    console.error('[api/rota/event] fatal GET', {
+      name: e?.name,
+      message: e?.message,
+      stack: e?.stack?.slice(0, 500), // Limit stack trace length
+    })
     return NextResponse.json({ events: [] }, { status: 200 })
   }
 }
@@ -88,6 +126,19 @@ export async function POST(req: NextRequest) {
         )
       }
 
+      // Clean up any existing holiday events with the same title in this range to avoid stacking
+      const { error: rangeDeleteError } = await supabase
+        .from('rota_events')
+        .delete()
+        .eq('user_id', userId)
+        .eq('title', body.title)
+        .gte('date', startDateStr)
+        .lte('date', endDateStr)
+
+      if (rangeDeleteError && !rangeDeleteError.message?.includes('relation')) {
+        console.warn('[api/rota/event] range delete warning (safe to continue):', rangeDeleteError)
+      }
+
       // Generate all dates in the range
       const currentDate = new Date(start)
       while (currentDate <= end) {
@@ -108,8 +159,7 @@ export async function POST(req: NextRequest) {
         eventsToCreate.push({
           user_id: userId,
           title: body.title,
-          type: body.eventType || 'holiday',
-          event_date: dateStr,
+          date: dateStr,
           start_at: startAt,
           end_at: endAt,
           all_day: true,
@@ -165,12 +215,12 @@ export async function POST(req: NextRequest) {
       eventsToCreate.push({
         user_id: userId,
         title: body.title,
-        type: body.eventType || 'other',
-        event_date: dateStr,
+        date: dateStr,
         start_at: startAt,
         end_at: endAt,
         all_day: !!body.allDay,
-        color: body.color ?? '#2563EB',
+        // Default to the same amber-yellow used in the UI if no explicit colour chosen
+        color: body.color ?? '#FCD34D',
         notes: body.description?.trim() || null,
       })
     }

@@ -38,6 +38,14 @@ export default function SyncWearableButton() {
       const ts = serverTs ? new Date(serverTs).getTime() : Date.now()
       localStorage.setItem('wearables:lastSyncedAt', String(ts))
       setLastSyncedAt(ts)
+
+      // Broadcast sync event so other components can update their labels
+      try {
+        window.dispatchEvent(new CustomEvent('wearables-synced', { detail: { ts } }))
+      } catch {
+        // ignore if window is not available
+      }
+
       setState('synced')
       // fall back to idle after 6h
       setTimeout(() => setState('idle'), FRESH_MS)
@@ -47,12 +55,13 @@ export default function SyncWearableButton() {
     }
   }
 
-  const dotClass = {
+  const dotClassMap: Record<SyncState, string> = {
     idle:   'bg-slate-300',
     syncing:'bg-blue-500 animate-pulse',
     synced: 'bg-emerald-500',
     error:  'bg-rose-500',
-  }[state]
+  }
+  const dotClass = dotClassMap[state]
 
   return (
     <button

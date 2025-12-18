@@ -32,7 +32,12 @@ export default function StepsPage(_props: Props) {
     setLocalGoal(stepGoal)
   }, [stepGoal])
 
-  // Load shift and sleep data
+  const [todaySteps, setTodaySteps] = useState<number>(0)
+  const [weekData, setWeekData] = useState<Array<{ d: string; v: number }>>([])
+  const [manualSteps, setManualSteps] = useState<string>('')
+  const [savingManual, setSavingManual] = useState<boolean>(false)
+
+  // Load shift, sleep, steps, and recovery data
   useEffect(() => {
     ;(async () => {
       const shift = await getTodayShift()
@@ -51,13 +56,103 @@ export default function StepsPage(_props: Props) {
         setLastMainSleep(sleepData)
       }
 
-      // TODO: Load recovery score from engine
-      // For now, using null - will be wired when engine is available
+      // Get user ID first
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Load today's steps from activity_logs
+      const today = new Date().toISOString().slice(0, 10)
+      const startOfDay = new Date(today + 'T00:00:00Z')
+      const endOfDay = new Date(today + 'T23:59:59Z')
+
+      const { data: todayActivity } = await supabase
+        .from('activity_logs')
+        .select('steps')
+        .eq('user_id', user.id)
+        .gte('ts', startOfDay.toISOString())
+        .lt('ts', endOfDay.toISOString())
+        .order('ts', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (todayActivity?.steps) {
+        setTodaySteps(todayActivity.steps)
+      } else {
+        // Try with created_at if ts doesn't exist
+        const { data: todayActivityAlt } = await supabase
+          .from('activity_logs')
+          .select('steps')
+          .eq('user_id', user.id)
+          .gte('created_at', startOfDay.toISOString())
+          .lt('created_at', endOfDay.toISOString())
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        
+        if (todayActivityAlt?.steps) {
+          setTodaySteps(todayActivityAlt.steps)
+        }
+      }
+
+      // Load 7-day steps trend
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+      const { data: weekActivities } = await supabase
+        .from('activity_logs')
+        .select('steps, ts, created_at')
+        .eq('user_id', user.id)
+        .gte('ts', sevenDaysAgo.toISOString())
+        .order('ts', { ascending: true })
+
+      if (weekActivities && weekActivities.length > 0) {
+        // Group by day and get latest steps per day
+        const daysMap = new Map<string, number>()
+        weekActivities.forEach((activity: any) => {
+          const date = new Date(activity.ts || activity.created_at).toISOString().slice(0, 10)
+          const existing = daysMap.get(date) || 0
+          daysMap.set(date, Math.max(existing, activity.steps || 0))
+        })
+
+        // Create week array (last 7 days)
+        const weekDays = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+        const week: Array<{ d: string; v: number }> = []
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000)
+          const dateStr = date.toISOString().slice(0, 10)
+          const dayName = weekDays[date.getDay()]
+          week.push({
+            d: dayName,
+            v: daysMap.get(dateStr) || 0,
+          })
+        }
+        setWeekData(week)
+      } else {
+        // Fallback to empty week if no data
+        setWeekData([
+          { d: 'M', v: 0 },
+          { d: 'T', v: 0 },
+          { d: 'W', v: 0 },
+          { d: 'T', v: 0 },
+          { d: 'F', v: 0 },
+          { d: 'S', v: 0 },
+          { d: 'S', v: 0 },
+        ])
+      }
+
+      // Load recovery score from shift rhythm
+      try {
+        const rhythmRes = await fetch('/api/shift-rhythm', { cache: 'no-store' })
+        if (rhythmRes.ok) {
+          const rhythmData = await rhythmRes.json()
+          if (rhythmData.score?.recovery_score !== undefined) {
+            setRecoveryScore(rhythmData.score.recovery_score)
+          }
+        }
+      } catch (err) {
+        console.error('[StepsPage] Failed to load recovery score:', err)
+      }
     })()
   }, [])
 
-  // Mock data for now – keep logic unchanged elsewhere
-  const todaySteps = 9845
   const goal = stepGoal
   const progress = Math.min(todaySteps / goal, 1)
 
@@ -74,15 +169,15 @@ export default function StepsPage(_props: Props) {
     [shiftType, lastMainSleepHours, recoveryScore]
   )
 
-  // Simple 7‑day mock trend (replace with real data when available)
-  const week = [
-    { d: 'M', v: 8200 },
-    { d: 'T', v: 9100 },
-    { d: 'W', v: 7600 },
-    { d: 'T', v: 10400 },
-    { d: 'F', v: 9800 },
-    { d: 'S', v: 12300 },
-    { d: 'S', v: 8700 },
+  // Use real week data (loaded from API)
+  const week = weekData.length > 0 ? weekData : [
+    { d: 'M', v: 0 },
+    { d: 'T', v: 0 },
+    { d: 'W', v: 0 },
+    { d: 'T', v: 0 },
+    { d: 'F', v: 0 },
+    { d: 'S', v: 0 },
+    { d: 'S', v: 0 },
   ]
 
   const ring = useMemo(() => {
@@ -93,6 +188,104 @@ export default function StepsPage(_props: Props) {
     const dash = progress * c
     return { size, stroke, r, c, dash }
   }, [progress])
+
+  const handleAddManualSteps = async () => {
+    const delta = Number(manualSteps)
+    if (!delta || delta <= 0 || Number.isNaN(delta)) return
+
+    try {
+      setSavingManual(true)
+
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser()
+      if (authError || !user) {
+        console.error('[StepsPage] Cannot add manual steps – no authenticated user')
+        return
+      }
+
+      const today = new Date().toISOString().slice(0, 10)
+      const startOfDay = new Date(today + 'T00:00:00Z')
+      const endOfDay = new Date(today + 'T23:59:59Z')
+
+      // Try to load existing activity row for today
+      let existingQuery = await supabase
+        .from('activity_logs')
+        .select('id, steps, ts, created_at, source')
+        .eq('user_id', user.id)
+        .gte('ts', startOfDay.toISOString())
+        .lt('ts', endOfDay.toISOString())
+        .order('ts', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (existingQuery.error && (existingQuery.error.code === '42703' || existingQuery.error.message?.includes('ts'))) {
+        existingQuery = await supabase
+          .from('activity_logs')
+          .select('id, steps, created_at, source')
+          .eq('user_id', user.id)
+          .gte('created_at', startOfDay.toISOString())
+          .lt('created_at', endOfDay.toISOString())
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      }
+
+      const existing = existingQuery.data as any | null
+
+      if (existing) {
+        const newSteps = (existing.steps || 0) + delta
+        const { error: updateError } = await supabase
+          .from('activity_logs')
+          .update({ steps: newSteps, source: existing.source || 'Manual entry' })
+          .eq('id', existing.id)
+
+        if (updateError) {
+          console.error('[StepsPage] Failed to update manual steps:', updateError)
+        } else {
+          setTodaySteps(newSteps)
+        }
+      } else {
+        const insertData: any = {
+          user_id: user.id,
+          steps: delta,
+          source: 'Manual entry',
+        }
+
+        let insertQuery = await supabase
+          .from('activity_logs')
+          .insert({ ...insertData, ts: new Date().toISOString() })
+          .select('steps')
+          .single()
+
+        if (insertQuery.error && (insertQuery.error.code === '42703' || insertQuery.error.message?.includes('ts'))) {
+          insertQuery = await supabase.from('activity_logs').insert(insertData).select('steps').single()
+        }
+
+        if (insertQuery.error) {
+          console.error('[StepsPage] Failed to insert manual steps:', insertQuery.error)
+        } else if (insertQuery.data) {
+          setTodaySteps(insertQuery.data.steps || delta)
+        }
+      }
+
+      // Update last day in week chart for immediate feedback
+      setWeekData((prev) => {
+        if (!prev || prev.length === 0) return prev
+        const updated = [...prev]
+        const idx = updated.length - 1
+        updated[idx] = { ...updated[idx], v: (updated[idx]?.v || 0) + delta }
+        return updated
+      })
+
+      setManualSteps('')
+    } catch (err) {
+      console.error('[StepsPage] Unexpected error adding manual steps:', err)
+    } finally {
+      setSavingManual(false)
+    }
+  }
 
   return (
     <main
@@ -222,6 +415,49 @@ export default function StepsPage(_props: Props) {
                 className="rounded-full px-3 py-1 text-xs font-medium bg-gradient-to-r from-sky-500 to-violet-500 text-white hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-default"
               >
                 Save
+              </button>
+            </form>
+          </div>
+
+          {/* Manual steps entry */}
+          <div className="mt-3 flex items-center justify-between gap-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+            <div className="flex flex-col">
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                Add manual steps
+              </p>
+              <p className="text-sm" style={{ color: 'var(--text-soft)' }}>
+                Use this if your wearable missed some movement.
+              </p>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                void handleAddManualSteps()
+              }}
+              className="flex items-center gap-2"
+            >
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={manualSteps}
+                onChange={(e) => setManualSteps(e.target.value)}
+                disabled={savingManual}
+                className="w-24 rounded-full border px-3 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-sky-500/50"
+                placeholder="e.g. 1500"
+                style={{
+                  backgroundColor: 'var(--card-subtle)',
+                  borderColor: 'var(--border-subtle)',
+                  color: 'var(--text-main)',
+                }}
+              />
+              <button
+                type="submit"
+                disabled={savingManual}
+                className="rounded-full px-3 py-1 text-xs font-medium bg-gradient-to-r from-sky-500 to-violet-500 text-white hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-default"
+              >
+                {savingManual ? 'Saving…' : 'Add'}
               </button>
             </form>
           </div>

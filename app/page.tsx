@@ -1,40 +1,30 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/components/AuthProvider'
+import SplashPage from '@/app/splash/page'
 
-import { supabase } from '@/lib/supabase'
+export default function HomePage() {
+  const router = useRouter()
+  const { user, loading } = useAuth()
 
-export default function Home() {
-  const [result, setResult] = useState<'loading'|'ok'|'error'>('loading')
-  const [payload, setPayload] = useState<any>(null)
-
+  // Auto-redirect signed-in users to dashboard (bypass splash)
   useEffect(() => {
-    ;(async () => {
-      // make sure table exists; if not, we'll get a clear error
-      const { data, error } = await supabase.from('profiles').select('*').limit(1)
+    if (!loading && user) {
+      router.replace('/dashboard')
+    }
+  }, [user, loading, router])
 
-      if (error) { setResult('error'); setPayload(error.message); }
-      else { setResult('ok'); setPayload(data); }
-    })()
-  }, [])
+  // Show nothing while checking auth
+  if (loading) {
+    return null
+  }
 
-  return (
-    <main className="p-10 text-gray-900 space-y-4">
-      <h1 className="text-3xl font-bold">Shift Coach — Supabase Connectivity Check</h1>
-      {result === 'loading' && <p>Checking Supabase…</p>}
-      {result === 'ok' && (
-        <>
-          <p className="text-green-600">Connected to Supabase ✅</p>
-          <pre className="bg-gray-100 p-4 rounded">{JSON.stringify(payload, null, 2)}</pre>
-        </>
-      )}
-      {result === 'error' && (
-        <>
-          <p className="text-red-600">Supabase error ❌</p>
-          <pre className="bg-gray-100 p-4 rounded">{String(payload)}</pre>
-          <p className="text-sm text-gray-600">If this says "permission denied" or "relation profiles does not exist", run the SQL below.</p>
-        </>
-      )}
-    </main>
-  )
+  // Show splash for non-signed-in users
+  if (!user) {
+    return <SplashPage />
+  }
+
+  return null
 }

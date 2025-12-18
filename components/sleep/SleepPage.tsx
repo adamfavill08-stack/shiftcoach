@@ -1,0 +1,1168 @@
+"use client";
+
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
+import { Moon, X, Pencil, Trash2, Clock, Plus } from "lucide-react";
+import { LogSleepModal } from "@/components/sleep/LogSleepModal";
+import { SleepEditModal } from "@/components/sleep/SleepEditModal";
+import type { SleepType } from '@/lib/sleep/predictSleep';
+import { DeleteSleepConfirmModal } from "@/components/sleep/DeleteSleepConfirmModal";
+import { useRouter } from "next/navigation";
+
+// Lazy-load heavier visual components so the initial Sleep page bundle stays small
+const CombinedSleepMetricsCard = dynamic(
+  () => import("@/components/sleep/CombinedSleepMetricsCard").then(m => m.CombinedSleepMetricsCard),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-[24px] bg-white/80 border border-slate-100 px-5 py-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)] animate-pulse h-[140px]" />
+    ),
+  },
+);
+
+const SleepQualityChart = dynamic(
+  () => import("@/components/sleep/SleepQualityChart").then(m => m.SleepQualityChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-[24px] bg-white/80 border border-slate-100 px-5 py-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)] animate-pulse h-[180px]" />
+    ),
+  },
+);
+
+const SleepLogListCard = dynamic(
+  () => import("@/components/sleep/SleepLogListCard").then(m => m.SleepLogListCard),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-[24px] bg-white/80 border border-slate-100 px-5 py-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)] animate-pulse h-[160px]" />
+    ),
+  },
+);
+
+function ShellCard({
+  children,
+  className = "",
+}: React.PropsWithChildren<{ className?: string }>) {
+  return (
+    <section
+      className={[
+        "relative overflow-hidden rounded-[24px]",
+        "bg-white/90 backdrop-blur-xl border border-white",
+        "shadow-[0_20px_55px_rgba(15,23,42,0.08)]",
+        "px-6 py-6",
+        className,
+      ].join(" ")}
+    >
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 to-white/55" />
+      <div className="relative z-10">{children}</div>
+    </section>
+  );
+}
+
+function MiniCard({
+  children,
+  className = "",
+}: React.PropsWithChildren<{ className?: string }>) {
+  return (
+    <section
+      className={[
+        "rounded-[24px] bg-white/95 border border-white",
+        "shadow-[0_16px_40px_rgba(15,23,42,0.06)]",
+        "px-5 py-4",
+        className,
+      ].join(" ")}
+    >
+      {children}
+    </section>
+  );
+}
+
+/* ---------- Top: Sleep summary + gauge ---------- */
+
+function SleepGauge({ totalMinutes, targetMinutes }: { totalMinutes: number | null; targetMinutes: number }) {
+  const hours = totalMinutes ? Math.floor(totalMinutes / 60) : 0;
+  const minutes = totalMinutes ? totalMinutes % 60 : 0;
+  const percent = totalMinutes ? Math.round((totalMinutes / targetMinutes) * 100) : 0;
+  const angle = (percent / 100) * 360;
+
+  return (
+    <div
+      className="relative flex h-[160px] w-[160px] items-center justify-center rounded-full"
+      style={{
+        background: `conic-gradient(#2563EB ${angle}deg, #E5E7EB 0deg)`,
+      }}
+    >
+      <div className="h-[138px] w-[138px] rounded-full bg-white shadow-[inset_0_4px_7px_rgba(148,163,184,0.28)]" />
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-[12px] text-slate-500 tracking-wide">Sleep</span>
+        <span className="mt-[2px] text-[32px] font-semibold leading-none text-slate-900">
+          {hours}
+          <span className="align-top text-[18px] font-normal ml-[2px]">h</span>{" "}
+          {minutes}
+        </span>
+        <span className="mt-[2px] text-[12px] text-slate-500">
+          {percent}% of goal
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function SleepSummaryCard({ 
+  onLogSleep, 
+  totalMinutes, 
+  targetMinutes 
+}: { 
+  onLogSleep: () => void;
+  totalMinutes: number | null;
+  targetMinutes: number;
+}) {
+  const [sleepStages, setSleepStages] = useState<{
+    deep: number;
+    rem: number;
+    light: number;
+    awake: number;
+  } | null>(null);
+  const [loadingStages, setLoadingStages] = useState(true);
+
+  // Fetch sleep stages from API
+  useEffect(() => {
+    let cancelled = false;
+    const fetchStages = async () => {
+      try {
+        setLoadingStages(true);
+        const res = await fetch('/api/sleep/summary', { cache: 'no-store' });
+        if (!res.ok) throw new Error(String(res.status));
+        const json = await res.json();
+        if (!cancelled && json.lastNight) {
+          setSleepStages({
+            deep: json.lastNight.deep || 0,
+            rem: json.lastNight.rem || 0,
+            light: json.lastNight.light || 0,
+            awake: json.lastNight.awake || 0,
+          });
+        } else if (!cancelled) {
+          // No sleep data - set to null to show empty rings
+          setSleepStages(null);
+        }
+      } catch (err) {
+        console.error('[SleepSummaryCard] Failed to fetch sleep stages:', err);
+        if (!cancelled) {
+          setSleepStages(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingStages(false);
+        }
+      }
+    };
+    
+    fetchStages();
+    
+    // Listen for sleep refresh events
+    const handleRefresh = () => {
+      if (!cancelled) {
+        fetchStages();
+      }
+    };
+    window.addEventListener('sleep-refreshed', handleRefresh);
+    
+    return () => {
+      cancelled = true;
+      window.removeEventListener('sleep-refreshed', handleRefresh);
+    };
+  }, []);
+
+  const hours = totalMinutes ? Math.floor(totalMinutes / 60) : 0;
+  const minutes = totalMinutes ? totalMinutes % 60 : 0;
+  const percent = totalMinutes ? Math.round((totalMinutes / targetMinutes) * 100) : 0;
+  const displayText = totalMinutes 
+    ? `${hours}h ${minutes}m – ${percent}% of your goal`
+    : '';
+
+  // Reuse wearable sync status on the main sleep card
+  const [lastWearableSync, setLastWearableSync] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const ts = window.localStorage.getItem("wearables:lastSyncedAt");
+    if (ts) {
+      const n = Number(ts);
+      if (!Number.isNaN(n)) setLastWearableSync(n);
+    }
+
+    const handleSynced = (e: Event) => {
+      const detailTs = (e as CustomEvent).detail?.ts as number | undefined;
+      if (detailTs && typeof detailTs === "number") {
+        setLastWearableSync(detailTs);
+      }
+    };
+
+    window.addEventListener("wearables-synced", handleSynced as EventListener);
+    return () => {
+      window.removeEventListener("wearables-synced", handleSynced as EventListener);
+    };
+  }, []);
+
+  const wearableLastSyncLabel = React.useMemo(() => {
+    if (!lastWearableSync) return "Last sync: not yet";
+    const diffMs = Date.now() - lastWearableSync;
+    const diffMin = Math.round(diffMs / 60000);
+    if (diffMin < 2) return "Last sync: just now";
+    if (diffMin < 60) return `Last sync: ${diffMin} min ago`;
+    const diffH = Math.round(diffMin / 60);
+    if (diffH < 24) return `Last sync: ${diffH} h ago`;
+    const diffD = Math.round(diffH / 24);
+    return `Last sync: ${diffD} day${diffD > 1 ? "s" : ""} ago`;
+  }, [lastWearableSync]);
+
+  // Sleep Matrix stages data with premium gradients
+  // Use real data from API, or show empty (0%) when no sleep data
+  const stages = [
+    { 
+      label: "Deep", 
+      value: sleepStages?.deep ?? 0, 
+      gradient: { from: "#1e3a8a", to: "#1e40af" },
+      glow: "rgba(30, 64, 175, 0.4)",
+      description: "Restorative sleep for physical recovery"
+    },
+    { 
+      label: "REM", 
+      value: sleepStages?.rem ?? 0, 
+      gradient: { from: "#2563eb", to: "#3b82f6" },
+      glow: "rgba(59, 130, 246, 0.4)",
+      description: "Dream sleep for memory and learning"
+    },
+    { 
+      label: "Light", 
+      value: sleepStages?.light ?? 0, 
+      gradient: { from: "#3b82f6", to: "#60a5fa" },
+      glow: "rgba(96, 165, 250, 0.4)",
+      description: "Transitional sleep between stages"
+    },
+    { 
+      label: "Awake", 
+      value: sleepStages?.awake ?? 0, 
+      gradient: { from: "#60a5fa", to: "#93c5fd" },
+      glow: "rgba(147, 197, 253, 0.4)",
+      description: "Brief awakenings during sleep"
+    },
+  ];
+
+  const RingGauge = ({ 
+    value, 
+    gradient, 
+    glow, 
+    label,
+    description
+  }: { 
+    value: number
+    gradient: { from: string; to: string }
+    glow: string
+    label: string
+    description?: string
+  }) => {
+    const size = 72
+    const strokeWidth = 7
+    const radius = (size - strokeWidth) / 2
+    const circumference = 2 * Math.PI * radius
+    const offset = circumference - (value / 100) * circumference
+    const gradientId = `gradient-${label.toLowerCase().replace(/\s+/g, '-')}`
+
+    return (
+      <div className="flex flex-col items-center group">
+        <div className="relative" style={{ width: size, height: size }}>
+          {/* Subtle outer glow on hover */}
+          <div 
+            className="absolute inset-0 rounded-full blur-sm opacity-0 group-hover:opacity-60 transition-opacity duration-300"
+            style={{ 
+              background: `radial-gradient(circle, ${glow}, transparent 80%)`,
+              transform: 'scale(1.15)'
+            }}
+          />
+          
+          <svg
+            width={size}
+            height={size}
+            className="transform -rotate-90 relative z-10"
+          >
+            <defs>
+              <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor={gradient.from} />
+                <stop offset="100%" stopColor={gradient.to} />
+              </linearGradient>
+            </defs>
+            
+            {/* Inner background ring */}
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke="#e2e8f0"
+              strokeWidth={strokeWidth - 1}
+            />
+            
+            {/* Progress ring with gradient - clean and premium */}
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke={`url(#${gradientId})`}
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={offset}
+              style={{
+                transition: 'stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+            />
+          </svg>
+          
+          {/* Center content with premium styling */}
+          <div className="absolute inset-0 flex items-center justify-center z-20">
+            <div className="flex flex-col items-center">
+              <span className="text-[15px] font-bold text-slate-900 leading-none">
+                {value}
+              </span>
+              <span className="text-[9px] font-semibold text-slate-500 mt-0.5">
+                %
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        {/* Label with premium styling */}
+        <span className="mt-3 text-[11px] font-semibold text-slate-700 tracking-wide uppercase">
+          {label}
+        </span>
+        {/* Description */}
+        {description && (
+          <p className="mt-1.5 text-[10px] text-slate-500 leading-relaxed text-center max-w-[80px]">
+            {description}
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <ShellCard>
+      <div className="space-y-6">
+        {/* Top section: Header and Log Sleep button */}
+        <div className="flex items-start justify-between gap-6">
+          <div className="flex-1 min-w-0 pr-2 space-y-3">
+            <p className="sc-section-label">
+              Sleep stages
+            </p>
+            <div className="space-y-1">
+              <h1 className="sc-page-title">
+                {totalMinutes ? 'Last night you slept' : 'Log your sleep'}
+              </h1>
+              <p className="sc-body">
+                {totalMinutes ? displayText : wearableLastSyncLabel}
+              </p>
+              <p className="sc-caption">
+                Source: Sleep from Google Fit &amp; ShiftCoach app
+              </p>
+            </div>
+            <button
+              onClick={onLogSleep}
+              className="group relative mt-4 inline-flex items-center justify-center gap-2 rounded-full text-white px-6 py-3 text-sm font-semibold transition-all duration-300 hover:scale-105 active:scale-95 overflow-hidden"
+              style={{
+                background: 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)',
+                boxShadow: `
+                  0 4px 16px rgba(14,165,233,0.3),
+                  0 2px 6px rgba(99,102,241,0.2),
+                  inset 0 1px 0 rgba(255,255,255,0.25),
+                  inset 0 -1px 0 rgba(0,0,0,0.1)
+                `,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = `
+                  0 8px 24px rgba(14,165,233,0.4),
+                  0 4px 12px rgba(99,102,241,0.3),
+                  inset 0 1px 0 rgba(255,255,255,0.35),
+                  inset 0 -1px 0 rgba(0,0,0,0.1),
+                  0 0 0 1px rgba(255,255,255,0.1)
+                `
+                e.currentTarget.style.background = 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = `
+                  0 4px 16px rgba(14,165,233,0.3),
+                  0 2px 6px rgba(99,102,241,0.2),
+                  inset 0 1px 0 rgba(255,255,255,0.25),
+                  inset 0 -1px 0 rgba(0,0,0,0.1)
+                `
+                e.currentTarget.style.background = 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)'
+              }}
+            >
+              {/* Premium shine effect */}
+              <div 
+                className="absolute inset-0 opacity-0 group-hover:opacity-30 transition-opacity duration-300 pointer-events-none"
+                style={{
+                  background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.6), transparent 60%)',
+                }}
+              />
+              
+              {/* Icon */}
+              <Moon className="relative z-10 w-4 h-4" strokeWidth={2.5} />
+              
+              {/* Text */}
+              <span className="relative z-10 tracking-tight">Log Sleep</span>
+            </button>
+          </div>
+          <SleepGauge totalMinutes={totalMinutes} targetMinutes={targetMinutes} />
+        </div>
+
+        {/* Bottom section: Sleep Matrix */}
+        <div className="pt-4 border-t border-slate-200/60">
+          <div className="grid grid-cols-2 gap-6">
+            {stages.map((stage) => (
+              <RingGauge
+                key={stage.label}
+                value={stage.value}
+                gradient={stage.gradient}
+                glow={stage.glow}
+                label={stage.label}
+                description={stage.description}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </ShellCard>
+  );
+}
+
+
+type TonightTargetProps = {
+  targetHours: number
+  explanation: string
+  loading?: boolean
+}
+
+function TonightTargetCard({ targetHours, explanation, loading }: TonightTargetProps) {
+  return (
+    <MiniCard>
+      <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
+        Tonight&apos;s target
+      </h2>
+      {loading ? (
+        <div className="mt-3 space-y-2">
+          <div className="h-7 w-16 bg-slate-200 animate-pulse rounded" />
+          <div className="h-4 w-full bg-slate-200 animate-pulse rounded" />
+        </div>
+      ) : (
+        <>
+          <p className="mt-3 text-[26px] font-semibold text-slate-900 leading-tight">
+            {targetHours % 1 === 0 ? targetHours : targetHours.toFixed(1)}
+            <span className="ml-1 text-[14px] font-normal text-slate-500">h</span>
+          </p>
+          {explanation && (
+            <p className="mt-2 text-[11px] text-slate-600 leading-relaxed">
+              {explanation}
+            </p>
+          )}
+        </>
+      )}
+    </MiniCard>
+  );
+}
+
+/* ---------- Shift coach (dark band) ---------- */
+
+function ShiftCoachCard() {
+  const router = useRouter()
+  const [tip, setTip] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    
+    const fetchTip = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const res = await fetch('/api/coach/tip', { cache: 'no-store' })
+        
+        // API now returns 200 even on errors (with fallback tip)
+        // Only throw if it's a real server error (500+)
+        if (!res.ok && res.status >= 500) {
+          throw new Error(`Failed to fetch tip: ${res.status}`)
+        }
+        
+        const json = await res.json()
+        if (!cancelled) {
+          // Use the tip from response, or fallback if not provided
+          const tipText = json.tip || 'Keep your sleep schedule consistent to maintain your body clock rhythm.'
+          setTip(tipText)
+          
+          // Only set error state if there was an actual error (not just a fallback)
+          if (json.error && !json.fallback) {
+            setError('Unable to load personalized tip')
+          }
+        }
+      } catch (err: any) {
+        // Only log actual errors, not expected fallbacks
+        if (err.message && !err.message.includes('Failed to fetch tip: 200')) {
+          console.error('[ShiftCoachCard] Failed to fetch tip:', err)
+        }
+        if (!cancelled) {
+          // Always provide a fallback tip
+          setTip('Keep your sleep schedule consistent to maintain your body clock rhythm.')
+          setError(null) // Don't show error for fallback tips
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    fetchTip()
+
+    // Listen for sleep refresh events to refetch tip
+    const handleRefresh = () => {
+      if (!cancelled) {
+        fetchTip()
+      }
+    }
+    window.addEventListener('sleep-refreshed', handleRefresh)
+    
+    return () => {
+      cancelled = true
+      window.removeEventListener('sleep-refreshed', handleRefresh)
+    }
+  }, [])
+
+  return (
+    <section
+      className={[
+        "relative overflow-hidden rounded-[24px]",
+        "bg-slate-900 text-slate-50",
+        "px-6 py-5",
+        "shadow-[0_22px_50px_rgba(15,23,42,0.85)]",
+      ].join(" ")}
+    >
+      <div className="relative z-10 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full overflow-hidden flex-shrink-0">
+            <img
+              src="/bubble-icon.png"
+              alt="Shift Coach"
+              className="w-full h-full object-contain brightness-0 invert"
+            />
+          </div>
+          <h2 className="text-[13px] font-semibold tracking-[0.18em] uppercase">
+            Shift coach
+          </h2>
+        </div>
+
+        {loading ? (
+          <p className="text-[13px] leading-snug text-slate-100/92 animate-pulse">
+            Loading your personalized tip...
+          </p>
+        ) : error && !tip ? (
+          <p className="text-[13px] leading-snug text-slate-100/92 text-slate-300">
+            Unable to load coaching tip. Please try again later.
+          </p>
+        ) : tip ? (
+          <p className="text-[13px] leading-snug text-slate-100/92">
+            {tip}
+          </p>
+        ) : (
+          <p className="text-[13px] leading-snug text-slate-100/92">
+            Keep your sleep schedule consistent to maintain your body clock rhythm.
+          </p>
+        )}
+
+        <button 
+          onClick={() => {
+            // Navigate to sleep overview page
+            router.push('/sleep/overview')
+          }}
+          className="mt-1 text-[12px] font-medium text-slate-100 underline underline-offset-4 decoration-slate-400/70 hover:text-indigo-300 transition-colors"
+        >
+          Sleep overview
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- MAIN PAGE ---------- */
+
+type SleepSession = {
+  id: string
+  session_type: 'main' | 'nap'
+  start_time: string
+  end_time: string
+  durationHours: number
+  quality?: string | number | null
+  source: string
+}
+
+export default function SleepPage() {
+  const [tonightTarget, setTonightTarget] = useState<{ targetHours: number; explanation: string } | null>(null)
+  const [loadingTarget, setLoadingTarget] = useState(true)
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [sessions, setSessions] = useState<SleepSession[]>([])
+  const [loadingSessions, setLoadingSessions] = useState(false)
+  const [editingSession, setEditingSession] = useState<SleepSession | null>(null)
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [dateBeforeDelete, setDateBeforeDelete] = useState<string | null>(null)
+
+  // Fetch tonight's target
+  useEffect(() => {
+    let cancelled = false
+    const fetchTarget = async () => {
+      try {
+        setLoadingTarget(true)
+        const res = await fetch('/api/sleep/tonight-target', { cache: 'no-store' })
+        if (!res.ok) throw new Error(String(res.status))
+        const json = await res.json()
+        if (!cancelled) {
+          setTonightTarget(json)
+        }
+      } catch (err) {
+        console.error('[SleepPage] Failed to fetch tonight target:', err)
+      } finally {
+        if (!cancelled) setLoadingTarget(false)
+      }
+    }
+    
+    fetchTarget()
+    
+    // Listen for sleep refresh events
+    const handleRefresh = () => {
+      if (!cancelled) fetchTarget()
+    }
+    window.addEventListener('sleep-refreshed', handleRefresh)
+    
+    return () => {
+      cancelled = true
+      window.removeEventListener('sleep-refreshed', handleRefresh)
+    }
+  }, [])
+  const router = useRouter()
+  const [isLogModalOpen, setIsLogModalOpen] = useState(false)
+  const [logModalType, setLogModalType] = useState<SleepType>('main')
+  const [logModalStart, setLogModalStart] = useState<Date | null>(null)
+  const [logModalEnd, setLogModalEnd] = useState<Date | null>(null)
+  const [sleepData, setSleepData] = useState<{
+    totalMinutes: number | null;
+    targetMinutes: number;
+  }>({ totalMinutes: null, targetMinutes: 8 * 60 })
+  const [sleepDataError, setSleepDataError] = useState<string | null>(null)
+  const [loadingSleepData, setLoadingSleepData] = useState(true)
+
+  // Ref for debounced refresh timeout
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const fetchSleepData = useCallback(async () => {
+    try {
+      setLoadingSleepData(true)
+      setSleepDataError(null)
+      const res = await fetch('/api/sleep/summary', { cache: 'no-store' })
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Failed to fetch sleep data' }))
+        throw new Error(errorData.error || `Failed to fetch sleep summary: ${res.status}`)
+      }
+      const json = await res.json()
+      const lastNight = json.lastNight
+      const totalMinutes = lastNight?.totalMinutes ?? null
+      const targetMinutes = json.targetMinutes ?? 8 * 60
+      setSleepData({ totalMinutes, targetMinutes })
+    } catch (err: any) {
+      console.error('[SleepPage] Error fetching sleep data:', err)
+      setSleepDataError(err.message || 'Failed to load sleep data')
+    } finally {
+      setLoadingSleepData(false)
+    }
+  }, [])
+
+
+  const fetchTarget = useCallback(async () => {
+    let cancelled = false
+    try {
+      setLoadingTarget(true)
+      const res = await fetch('/api/sleep/tonight-target', { cache: 'no-store' })
+      if (!res.ok) throw new Error(String(res.status))
+      const json = await res.json()
+      if (!cancelled) {
+        setTonightTarget(json)
+      }
+    } catch (err) {
+      console.error('[SleepPage] Failed to fetch tonight target:', err)
+    } finally {
+      if (!cancelled) setLoadingTarget(false)
+    }
+  }, [])
+
+  // Debounced refresh function - defined after all fetch functions
+  const debouncedRefresh = useCallback(() => {
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current)
+    }
+    refreshTimeoutRef.current = setTimeout(() => {
+      fetchSleepData()
+      fetchTarget()
+    }, 300)
+  }, [fetchSleepData, fetchTarget])
+
+  useEffect(() => {
+    fetchSleepData()
+    fetchTarget()
+    
+    // Listen for sleep refresh events with debouncing
+    const handleSleepRefresh = () => {
+      debouncedRefresh()
+    }
+    window.addEventListener('sleep-refreshed', handleSleepRefresh)
+    
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current)
+      }
+      window.removeEventListener('sleep-refreshed', handleSleepRefresh)
+    }
+  }, [fetchSleepData, fetchTarget, debouncedRefresh])
+
+  const handleLogSleep = async (data: {
+    type: 'sleep' | 'nap'
+    start: string
+    end: string
+    quality: 'Excellent' | 'Good' | 'Fair' | 'Poor'
+    notes?: string
+  }) => {
+    try {
+      const res = await fetch('/api/sleep/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: data.type,
+          startAt: data.start,
+          endAt: data.end,
+          quality: data.quality,
+          notes: data.notes || null,
+        }),
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Failed to save sleep' }))
+        throw new Error(errorData.error || 'Failed to save sleep')
+      }
+
+      // Refresh the page data
+      router.refresh()
+      
+      // Set refresh flag for client components
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('sleepRefresh', Date.now().toString())
+        // Dispatch custom event for immediate same-window updates
+        window.dispatchEvent(new CustomEvent('sleep-refreshed'))
+      }
+      
+      // Refresh sleep data immediately
+      setTimeout(() => {
+        fetchSleepData()
+      }, 500)
+    } catch (error) {
+      console.error('[SleepPage] Error logging sleep:', error)
+      throw error
+    }
+  }
+
+  // Fetch sessions for a specific date
+  const fetchSessionsForDate = useCallback(async (date: string) => {
+    try {
+      setLoadingSessions(true)
+      const url = `/api/sleep/history?from=${date}&to=${date}`
+      const res = await fetch(url, { cache: 'no-store' })
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
+        console.error('[SleepPage] Failed to fetch sessions:', res.status, errorData)
+        setSessions([])
+        return
+      }
+
+      const data = await res.json()
+      const items = data.items || []
+      
+      // Map history items to SleepSession format
+      const mappedSessions: SleepSession[] = items.map((item: any) => {
+        const sessionType: 'main' | 'nap' = (item.naps === 0 || !item.naps) ? 'main' : 'nap'
+        const startTime = item.start_ts || item.start_at
+        const endTime = item.end_ts || item.end_at
+        
+        if (!startTime || !endTime) return null
+        
+        const start = new Date(startTime)
+        const end = new Date(endTime)
+        const durationMs = end.getTime() - start.getTime()
+        const durationHours = durationMs / (1000 * 60 * 60)
+        
+        return {
+          id: item.id,
+          session_type: sessionType,
+          start_time: startTime,
+          end_time: endTime,
+          durationHours,
+          quality: item.quality,
+          source: item.source || 'manual',
+        }
+      }).filter((s: any) => s !== null) as SleepSession[]
+      
+      setSessions(mappedSessions)
+    } catch (err) {
+      console.error('[SleepPage] Error fetching sessions:', err)
+      setSessions([])
+    } finally {
+      setLoadingSessions(false)
+    }
+  }, [])
+
+  // Handle day click - open day detail modal
+  const handleDayClick = useCallback((date: string) => {
+    setSelectedDate(date)
+    fetchSessionsForDate(date)
+  }, [fetchSessionsForDate])
+
+  // Handle delete click - open confirmation modal
+  const handleDeleteClick = (sessionId: string) => {
+    // Store the current date before closing modal
+    setDateBeforeDelete(selectedDate)
+    // Close day modal and open delete confirmation
+    setSelectedDate(null)
+    setDeletingSessionId(sessionId)
+  }
+
+  // Handle delete confirm
+  const handleDeleteConfirm = async () => {
+    if (!deletingSessionId) return
+
+    setIsDeleting(true)
+    const sessionIdToDelete = deletingSessionId
+    
+    try {
+      console.log('[SleepPage] Deleting session:', sessionIdToDelete)
+      
+      const res = await fetch(`/api/sleep/sessions/${sessionIdToDelete}`, {
+        method: 'DELETE',
+      })
+
+      const responseData = await res.json().catch(() => ({ error: 'Failed to parse response' }))
+
+      if (!res.ok) {
+        console.error('[SleepPage] Failed to delete session:', res.status, responseData)
+        alert(responseData.error || 'Failed to delete session')
+        setIsDeleting(false)
+        setDeletingSessionId(null)
+        return
+      }
+
+      console.log('[SleepPage] Delete successful:', responseData)
+
+      // Close delete modal first
+      setDeletingSessionId(null)
+      setIsDeleting(false)
+
+      // Remove the deleted session from local state immediately
+      setSessions(prev => prev.filter(s => s.id !== sessionIdToDelete))
+
+      // Batch all updates together to prevent excessive re-renders
+      const dateToReopen = dateBeforeDelete
+      setDateBeforeDelete(null)
+      
+      // Single debounced refresh function
+      const refreshAll = () => {
+        // Refresh sleep summary
+        fetchSleepData()
+        
+        // Refresh day modal data if it was open
+        if (dateToReopen) {
+          fetchSessionsForDate(dateToReopen)
+          setSelectedDate(dateToReopen) // Reopen the modal
+        }
+        
+        // Trigger refresh for other components (debounced)
+        window.dispatchEvent(new CustomEvent('sleep-refreshed'))
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('sleepRefresh', Date.now().toString())
+        }
+      }
+      
+      // Wait a moment for backend to update, then refresh everything once
+      setTimeout(refreshAll, 500)
+      
+      // Refresh router once (this will trigger server component re-renders)
+      router.refresh()
+    } catch (err) {
+      console.error('[SleepPage] Delete error:', err)
+      alert('Failed to delete session')
+      setIsDeleting(false)
+      setDeletingSessionId(null)
+    }
+  }
+
+  const handleDeleteCancel = () => {
+    setDeletingSessionId(null)
+    setIsDeleting(false)
+    // Reopen day modal if we had one
+    if (dateBeforeDelete) {
+      setSelectedDate(dateBeforeDelete)
+      setDateBeforeDelete(null)
+    }
+  }
+
+  const handleCloseDayModal = () => {
+    setSelectedDate(null)
+    setSessions([])
+    setEditingSession(null)
+  }
+
+  return (
+    <div className="w-full max-w-md mx-auto px-4 py-6 space-y-6">
+      {/* Top: big sleep summary card */}
+      {sleepDataError ? (
+        <div className="rounded-[24px] bg-red-50/90 border border-red-200 px-6 py-4">
+          <p className="text-[13px] text-red-700">
+            {sleepDataError}
+          </p>
+        </div>
+      ) : (
+        <SleepSummaryCard 
+          onLogSleep={() => setIsLogModalOpen(true)}
+          totalMinutes={sleepData.totalMinutes}
+          targetMinutes={sleepData.targetMinutes}
+        />
+      )}
+
+      {/* Combined Sleep Metrics Card - Ultra Premium */}
+      <CombinedSleepMetricsCard 
+        tonightTarget={tonightTarget}
+        loadingTarget={loadingTarget}
+      />
+
+      {/* Sleep Quality Chart - Ultra Premium */}
+      <SleepQualityChart />
+
+      {/* Sleep Log List Card - Ultra Premium */}
+      <SleepLogListCard />
+
+      {/* Full-width dark Shift Coach card */}
+      <ShiftCoachCard />
+
+
+      {/* Disclaimer */}
+      <div className="pt-4 pb-4">
+        <p className="text-[11px] leading-relaxed text-slate-500 text-center">
+          Shift Coach is a coaching tool and does not provide medical advice. For medical conditions, pregnancy or complex health issues, please check your plan with a registered professional.
+        </p>
+      </div>
+
+      {/* Log Sleep Modal */}
+      <LogSleepModal
+        open={isLogModalOpen}
+        onClose={() => {
+          setIsLogModalOpen(false)
+          setLogModalStart(null)
+          setLogModalEnd(null)
+        }}
+        onSubmit={handleLogSleep}
+        defaultType={logModalType === 'nap' || logModalType === 'pre_shift_nap' ? 'nap' : 'sleep'}
+        defaultStart={logModalStart}
+        defaultEnd={logModalEnd}
+      />
+
+      {/* Day Detail Modal */}
+      {selectedDate && !deletingSessionId && !editingSession && (
+        <DayDetailModal
+          date={selectedDate}
+          sessions={sessions}
+          loadingSessions={loadingSessions}
+          onClose={handleCloseDayModal}
+          onEdit={(session) => {
+            setEditingSession(session)
+            handleCloseDayModal()
+          }}
+          onDelete={handleDeleteClick}
+          onAdd={() => {
+            setIsLogModalOpen(true)
+            handleCloseDayModal()
+          }}
+        />
+      )}
+
+      {/* Edit Session Modal */}
+      {editingSession && (
+        <SleepEditModal
+          open={true}
+          session={editingSession}
+          onClose={() => {
+            setEditingSession(null)
+          }}
+          onSuccess={() => {
+            if (selectedDate) {
+              fetchSessionsForDate(selectedDate)
+            }
+            fetchSleepData()
+            window.dispatchEvent(new CustomEvent('sleep-refreshed'))
+            router.refresh()
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletingSessionId && (
+        <DeleteSleepConfirmModal
+          open={!!deletingSessionId}
+          onClose={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          loading={isDeleting}
+        />
+      )}
+    </div>
+  );
+}
+
+// Day Detail Modal Component
+function DayDetailModal({
+  date,
+  sessions,
+  loadingSessions,
+  onClose,
+  onEdit,
+  onDelete,
+  onAdd,
+}: {
+  date: string
+  sessions: SleepSession[]
+  loadingSessions: boolean
+  onClose: () => void
+  onEdit: (session: SleepSession) => void
+  onDelete: (id: string) => void
+  onAdd: () => void
+}) {
+  const formatDayLabel = (dateStr: string) => {
+    const date = new Date(dateStr + 'T12:00:00')
+    const dayName = date.toLocaleDateString('en-GB', { weekday: 'long' })
+    const dayNum = date.getDate()
+    const monthName = date.toLocaleDateString('en-GB', { month: 'short' })
+    return `${dayName} ${dayNum} ${monthName}`
+  }
+
+  const formatTime = (isoString: string) => {
+    const date = new Date(isoString)
+    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  const formatDuration = (hours: number) => {
+    const h = Math.floor(hours)
+    const m = Math.round((hours - h) * 60)
+    if (h === 0 && m === 0) return '0h'
+    if (m === 0) return `${h}h`
+    return `${h}h ${m}m`
+  }
+
+  return (
+    <div className="fixed inset-0 z-[99999] flex items-end sm:items-center justify-center p-4">
+      <div 
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+        onClick={onClose}
+      />
+      
+      <div className="relative w-full max-w-md max-h-[85vh] bg-white rounded-t-[32px] sm:rounded-[32px] shadow-2xl overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="relative z-10 flex items-center justify-between px-7 pt-6 pb-4 border-b border-slate-100/80">
+          <div>
+            <h2 className="text-[19px] font-bold tracking-tight text-slate-900">
+              {formatDayLabel(date)}
+            </h2>
+            <p className="mt-0.5 text-[12px] text-slate-500">
+              Edit sleep for this day
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50/80 hover:bg-slate-100/80 border border-slate-200/60 text-slate-600 hover:text-slate-900 transition-all hover:scale-105 active:scale-95"
+          >
+            <X className="h-4 w-4" strokeWidth={2.5} />
+          </button>
+        </div>
+
+        {/* Sessions List */}
+        <div className="relative z-10 flex-1 overflow-y-auto px-7 py-6">
+          {loadingSessions ? (
+            <div className="py-12 text-center text-sm text-slate-500">Loading sessions...</div>
+          ) : sessions.length === 0 ? (
+            <div className="py-12 text-center text-sm text-slate-500">
+              No sleep sessions logged for this day.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {sessions.map((session) => (
+                <div
+                  key={session.id}
+                  className="rounded-xl border border-slate-200/80 bg-white/90 backdrop-blur-sm px-4 py-3.5 space-y-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`h-2 w-2 rounded-full ${session.session_type === 'main' ? 'bg-blue-500' : 'bg-amber-500'}`} />
+                      <span className="text-[13px] font-semibold text-slate-900 capitalize">
+                        {session.session_type}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => onEdit(session)}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50/80 border border-blue-200/60 text-blue-600 hover:bg-blue-100/80 transition-all hover:scale-105 active:scale-95"
+                        aria-label="Edit"
+                      >
+                        <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
+                      </button>
+                      <button
+                        onClick={() => onDelete(session.id)}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50/80 border border-rose-200/60 text-rose-600 hover:bg-rose-100/80 transition-all hover:scale-105 active:scale-95"
+                        aria-label="Delete"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" strokeWidth={2.5} />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-4 text-[12px] text-slate-600">
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>{formatTime(session.start_time)} - {formatTime(session.end_time)}</span>
+                    </div>
+                    <span className="font-semibold">{formatDuration(session.durationHours)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="relative z-10 px-7 pb-6 pt-4 border-t border-slate-100/80">
+          <button
+            onClick={onAdd}
+            className="w-full h-12 rounded-xl bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 text-[13px] font-bold text-white shadow-[0_4px_12px_rgba(59,130,246,0.3)] transition-all hover:shadow-[0_6px_16px_rgba(59,130,246,0.4)] hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add sleep for this day
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+

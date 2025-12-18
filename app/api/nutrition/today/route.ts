@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 import { calculateAdjustedCalories } from '@/lib/nutrition/calculateAdjustedCalories'
-import { getTodayMacroIntake } from '@/lib/nutrition/getTodayMacroIntake'
 import { getHydrationAndCaffeineTargets } from '@/lib/nutrition/getHydrationAndCaffeineTargets'
 import { getTodayHydrationIntake } from '@/lib/nutrition/getTodayHydrationIntake'
 
@@ -9,14 +8,10 @@ export async function GET(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
 
   try {
-    const [calorieResult, consumedMacros, hydrationTargets, hydrationIntake] = await Promise.all([
+    const [calorieResult, hydrationTargets, hydrationIntake] = await Promise.all([
       calculateAdjustedCalories(supabase, userId).catch((err: unknown) => {
         console.error('[/api/nutrition/today] calculateAdjustedCalories error', err)
         return null
-      }),
-      getTodayMacroIntake(supabase, userId).catch((err: unknown) => {
-        console.error('[/api/nutrition/today] getTodayMacroIntake error', err)
-        return { protein_g: 0, carbs_g: 0, fat_g: 0, sat_fat_g: 0 }
       }),
       getHydrationAndCaffeineTargets(supabase, userId).catch((err: unknown) => {
         console.error('[/api/nutrition/today] hydration targets error', err)
@@ -36,7 +31,7 @@ export async function GET(req: NextRequest) {
       {
         nutrition: {
           ...calorieResult,
-          consumedMacros,
+          consumedMacros: { protein_g: 0, carbs_g: 0, fat_g: 0, sat_fat_g: 0 },
           hydrationTargets,
           hydrationIntake,
         },

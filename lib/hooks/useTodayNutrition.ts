@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useGoalChange } from './useGoalChange'
 
 type MealSlot = {
   id: string
@@ -43,10 +44,14 @@ export function useTodayNutrition() {
   const [data, setData] = useState<TodayNutrition | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const refetch = async () => {
+  const refetch = async (forceFresh = false) => {
     try {
       setLoading(true)
-      const res = await fetch('/api/nutrition/today')
+      const res = await fetch('/api/nutrition/today', 
+        forceFresh
+          ? { cache: 'no-store' } // used when something important just changed
+          : { next: { revalidate: 30 } } // short-lived cache for normal loads
+      )
       if (!res.ok) {
         console.error('[useTodayNutrition] failed:', res.status)
         setData(null)
@@ -62,7 +67,44 @@ export function useTodayNutrition() {
     }
   }
 
-  useEffect(() => { refetch() }, [])
+  // Initial load can safely use short-lived caching for speed
+  useEffect(() => { refetch(false) }, [])
+
+  // Listen for goal changes and refetch
+  useGoalChange(() => {
+    // Goal changes should immediately recompute, bypassing cache
+    refetch(true)
+  })
+
+  // Listen for weight and height changes - these affect BMR and all calculations
+  useEffect(() => {
+    const handleWeightChange = () => {
+      console.log('[useTodayNutrition] Weight changed, refetching nutrition data...')
+      refetch(true)
+    }
+    
+    const handleHeightChange = () => {
+      console.log('[useTodayNutrition] Height changed, refetching nutrition data...')
+      refetch(true)
+    }
+    
+    const handleProfileUpdate = () => {
+      console.log('[useTodayNutrition] Profile updated, refetching nutrition data...')
+      refetch(true)
+    }
+
+    window.addEventListener('weightChanged', handleWeightChange)
+    window.addEventListener('heightChanged', handleHeightChange)
+    window.addEventListener('profile-updated', handleProfileUpdate)
+
+    return () => {
+      window.removeEventListener('weightChanged', handleWeightChange)
+      window.removeEventListener('heightChanged', handleHeightChange)
+      window.removeEventListener('profile-updated', handleProfileUpdate)
+    }
+  }, [refetch])
+
+  // Meal logging removed - no event listeners needed
 
   return { data, loading, refresh: refetch }
 }

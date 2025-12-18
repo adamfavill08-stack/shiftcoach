@@ -1,8 +1,9 @@
 'use client'
 
 import type { ComponentType } from 'react'
-import { Droplet, Coffee, Flame } from 'lucide-react'
+import { Droplet, Coffee, Flame, Info } from 'lucide-react'
 import { NutritionSummary } from '../types'
+import { Tooltip } from '@/components/ui/Tooltip'
 
 interface CaloriesPageProps {
   summary: NutritionSummary | null
@@ -19,8 +20,20 @@ export function CaloriesPage({ summary }: CaloriesPageProps) {
     <div className="flex h-full flex-col rounded-3xl bg-white/95 p-6 text-slate-900 shadow-lg shadow-slate-900/10 dark:bg-slate-900/95 dark:text-slate-50 dark:shadow-slate-900/40">
       <header className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Energy & macros</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Adjusted for your shift</p>
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-lg font-semibold">Energy &amp; macros</h2>
+            <Tooltip
+              content={
+                <span>
+                  We adjust your daily calories and macros based on your shift pattern, recent sleep and activity, so
+                  nights and days don&apos;t get the same target.
+                </span>
+              }
+            >
+              <Info className="h-3 w-3" />
+            </Tooltip>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Targets personalised to today&apos;s shift</p>
         </div>
         <Flame className="h-5 w-5 text-slate-400 dark:text-slate-500" />
       </header>

@@ -1,24 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { supabaseServer } from '@/lib/supabase-server'
+import * as SupabaseServer from '@/lib/supabase-server'
 import { calculateShiftRhythm } from '@/lib/shift-rhythm/engine'
 import { calculateAdjustedCalories } from '@/lib/nutrition/calculateAdjustedCalories'
-import { getTodayMacroIntake } from '@/lib/nutrition/getTodayMacroIntake'
 import { getHydrationAndCaffeineTargets } from '@/lib/nutrition/getHydrationAndCaffeineTargets'
 import { getTodayHydrationIntake } from '@/lib/nutrition/getTodayHydrationIntake'
+import { calculateSleepDeficit } from '@/lib/sleep/calculateSleepDeficit'
+import { getSocialJetlagMetrics } from '@/lib/circadian/socialJetlag'
+import { calculateBingeRisk } from '@/lib/binge/calculateBingeRisk'
+import { toShiftType as toStandardShiftType, toShiftRhythmType } from '@/lib/shifts/toShiftType'
 
 type SupabaseClient = Awaited<ReturnType<typeof getServerSupabaseAndUserId>>['supabase']
 
-function toShiftType(label?: string | null): 'night' | 'day' | 'off' | 'morning' | 'afternoon' {
-  if (!label) return 'off'
-  const normalised = label.toLowerCase()
-  if (normalised.includes('night')) return 'night'
-  if (normalised.includes('morning')) return 'morning'
-  if (normalised.includes('afternoon') || normalised.includes('late')) return 'afternoon'
-  if (normalised.includes('day')) return 'day'
-  return 'off'
-}
-
-async function buildShiftRhythmInputs(supabase: SupabaseClient, userId: string) {
+export async function buildShiftRhythmInputs(supabase: SupabaseClient, userId: string) {
   const today = new Date()
   const sevenDaysAgo = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000)
   const todayIso = today.toISOString().slice(0, 10)
@@ -26,7 +21,6 @@ async function buildShiftRhythmInputs(supabase: SupabaseClient, userId: string) 
   const [
     sleepQuery,
     shiftQuery,
-    macroTargets,
     hydrationTargets,
     hydrationIntake,
     adjustedCalories,
@@ -44,7 +38,6 @@ async function buildShiftRhythmInputs(supabase: SupabaseClient, userId: string) 
         .eq('user_id', userId)
         .gte('date', sevenDaysAgo.toISOString().slice(0, 10))
         .lte('date', todayIso),
-      getTodayMacroIntake(userId, supabase),
       getHydrationAndCaffeineTargets(supabase, userId),
       getTodayHydrationIntake(supabase, userId),
       calculateAdjustedCalories(supabase, userId),
@@ -69,57 +62,24 @@ async function buildShiftRhythmInputs(supabase: SupabaseClient, userId: string) 
   const shiftDays =
     (shiftQuery.data ?? []).map((row: any) => ({
       date: row.date,
-      type: toShiftType(row.label),
+      type: toShiftRhythmType(toStandardShiftType(row.label, row.start_ts)),
     })) ?? []
 
-  const sevenDaysAgoStart = new Date(sevenDaysAgo)
-  sevenDaysAgoStart.setHours(0, 0, 0, 0)
+  // Note: If shiftDays is empty, calculations will still work but may be less accurate
+  // The shift-rhythm engine handles missing shift data gracefully (returns score of 70)
 
-  let mealQuery: any = await supabase
-    .from('meal_logs')
-    .select('calories,slot_label,logged_at')
-    .eq('user_id', userId)
-    .gte('logged_at', sevenDaysAgoStart.toISOString())
-
-  if (mealQuery.error) {
-    const err = mealQuery.error
-    if (err.code === '42703' || err.message?.includes('logged_at')) {
-      console.warn('[/api/shift-rhythm] meal_logs.logged_at missing, falling back to created_at')
-      mealQuery = await supabase
-        .from('meal_logs')
-        .select('calories,slot_label,created_at')
-        .eq('user_id', userId)
-        .gte('created_at', sevenDaysAgoStart.toISOString())
-    }
-  }
-
-  const mealRows = mealQuery.data ?? []
-
-  const getMealDate = (row: any) => {
-    const raw = row.logged_at ?? row.created_at ?? row.date ?? null
-    if (!raw) return null
-    return new Date(raw).toISOString().slice(0, 10)
-  }
-
-  const consumedCalories = mealRows
-    .filter((row: any) => getMealDate(row) === todayIso)
-    .reduce((sum: number, row: any) => sum + (row.calories ?? 0), 0)
-
-  const mealTimingActual = mealRows
-    .filter((row: any) => getMealDate(row) === todayIso)
-    .map((row: any) => ({
-      slot: row.slot_label ?? 'meal',
-      timestamp: row.logged_at ?? row.created_at ?? `${todayIso}T12:00:00Z`,
-    }))
+  // Meal logging removed - using advice-only approach
+  const consumedCalories = 0
+  const mealTimingActual: any[] = []
 
   const nutritionSnapshot = {
     adjustedCalories: adjustedCalories.adjustedCalories,
     consumedCalories,
     calorieTarget: adjustedCalories.adjustedCalories,
     macros: {
-      protein: { target: adjustedCalories.macros.protein_g, consumed: macroTargets.protein ?? null },
-      carbs: { target: adjustedCalories.macros.carbs_g, consumed: macroTargets.carbs ?? null },
-      fat: { target: adjustedCalories.macros.fat_g, consumed: macroTargets.fat ?? null },
+      protein: { target: adjustedCalories.macros.protein_g, consumed: null },
+      carbs: { target: adjustedCalories.macros.carbs_g, consumed: null },
+      fat: { target: adjustedCalories.macros.fat_g, consumed: null },
       satFat: { limit: adjustedCalories.macros.sat_fat_g, consumed: null },
     },
     hydration: {
@@ -224,7 +184,8 @@ export async function GET(req: NextRequest) {
     ])
 
     if (fetchErr) {
-      console.error('[/api/shift-rhythm] fetch error:', fetchErr)
+      const { logSupabaseError } = await import('@/lib/supabase/error-handler')
+      logSupabaseError('api/shift-rhythm', fetchErr, { level: 'warn' })
       
       // If table doesn't exist, return null instead of error
       if (fetchErr.message?.includes('relation') || fetchErr.message?.includes('does not exist')) {
@@ -247,55 +208,83 @@ export async function GET(req: NextRequest) {
         }
       : null
 
+    let hasRhythmData = true
+
     // If no score or force recalculation, calculate and store it
     if (!score || forceRecalculate) {
       console.log('[/api/shift-rhythm] No score for today, calculating…')
-
       try {
         const inputs = await buildShiftRhythmInputs(supabase, userId)
-        const result = calculateShiftRhythm(inputs)
 
-        const upsertPayload = {
-          user_id: userId,
-          date: today,
-          sleep_score: result.sleep_score,
-          regularity_score: result.regularity_score,
-          shift_pattern_score: result.shift_pattern_score,
-          recovery_score: result.recovery_score,
-          total_score: result.total_score,
-        }
+        const hasMeaningfulSleep = inputs.sleepLogs.some((s) => s.durationHours > 0)
+        const hasMeaningfulShifts = inputs.shiftDays.length > 0
+        hasRhythmData = hasMeaningfulSleep || hasMeaningfulShifts
 
-        const { data: inserted, error: upsertErr } = await supabase
-          .from('shift_rhythm_scores')
-          .upsert(upsertPayload, { onConflict: 'user_id,date' })
-          .select()
-          .maybeSingle()
-
-        if (upsertErr) {
-          console.error('[/api/shift-rhythm] upsert error:', upsertErr)
-          
-          // If table doesn't exist, return null
-          if (upsertErr.message?.includes('relation') || upsertErr.message?.includes('does not exist')) {
-            console.warn('[/api/shift-rhythm] Table does not exist yet:', upsertErr.message)
-            return NextResponse.json({ score: null }, { status: 200 })
+        // If there is no real sleep or shift data yet, return a neutral zero score
+        // so new users don't see an arbitrary mid-range value.
+        if (!hasRhythmData) {
+          score = {
+            date: today,
+            sleep_score: 0,
+            regularity_score: 0,
+            shift_pattern_score: 0,
+            recovery_score: 0,
+            nutrition_score: null,
+            activity_score: null,
+            meal_timing_score: null,
+            total_score: 0,
           }
-          
-          return NextResponse.json(
-            { error: 'Failed to save shift rhythm score', details: upsertErr.message },
-            { status: 500 }
-          )
-        }
+        } else {
+          const result = calculateShiftRhythm(inputs)
 
-        score = {
-          date: inserted?.date ?? today,
-          sleep_score: result.sleep_score,
-          regularity_score: result.regularity_score,
-          shift_pattern_score: result.shift_pattern_score,
-          recovery_score: result.recovery_score,
-          nutrition_score: result.nutrition_score,
-          activity_score: result.activity_score,
-          meal_timing_score: result.meal_timing_score,
-          total_score: result.total_score,
+          const upsertPayload = {
+            user_id: userId,
+            date: today,
+            sleep_score: result.sleep_score,
+            regularity_score: result.regularity_score,
+            shift_pattern_score: result.shift_pattern_score,
+            recovery_score: result.recovery_score,
+            total_score: result.total_score,
+          }
+
+          const { data: inserted, error: upsertErr } = await supabase
+            .from('shift_rhythm_scores')
+            .upsert(upsertPayload, { onConflict: 'user_id,date' })
+            .select()
+            .maybeSingle()
+
+          if (upsertErr) {
+            console.error('[/api/shift-rhythm] upsert error:', upsertErr)
+
+            // If table doesn't exist, return null
+            if (upsertErr.message?.includes('relation') || upsertErr.message?.includes('does not exist')) {
+              console.warn('[/api/shift-rhythm] Table does not exist yet:', upsertErr.message)
+              return NextResponse.json({ score: null }, { status: 200 })
+            }
+
+            // If RLS blocks insert (common when RLS is strict), log and continue WITHOUT failing the request.
+            // We'll still return the calculated score so the UI can render rings, we just won't persist it.
+            if (upsertErr.code === '42501' || upsertErr.message?.includes('row-level security')) {
+              console.warn('[/api/shift-rhythm] RLS prevented saving score; returning calculated score only.')
+            } else {
+              return NextResponse.json(
+                { error: 'Failed to save shift rhythm score', details: upsertErr.message },
+                { status: 500 }
+              )
+            }
+          }
+
+          score = {
+            date: inserted?.date ?? today,
+            sleep_score: result.sleep_score,
+            regularity_score: result.regularity_score,
+            shift_pattern_score: result.shift_pattern_score,
+            recovery_score: result.recovery_score,
+            nutrition_score: result.nutrition_score,
+            activity_score: result.activity_score,
+            meal_timing_score: result.meal_timing_score,
+            total_score: result.total_score,
+          }
         }
       } catch (calcErr: any) {
         console.error('[/api/shift-rhythm] Calculation error:', calcErr)
@@ -304,11 +293,346 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Include yesterday's score for comparison
-    const response: any = { score }
+    // Calculate social jetlag
+    let socialJetlag = null
+    try {
+      console.log('[api/shift-rhythm] Calculating social jetlag for user:', userId)
+      const jetlagMetrics = await getSocialJetlagMetrics(supabase, userId)
+      
+      // Only include social jetlag if it has valid data (not default/error metrics)
+      // Valid data means: has a category and explanation doesn't contain error messages
+      const explanation = jetlagMetrics.explanation || ''
+      const hasError = explanation.includes('No sleep') || 
+                      explanation.includes('Not enough') || 
+                      explanation.includes('Failed to fetch') ||
+                      explanation.includes('need at least') ||
+                      explanation.includes('No main sleep') ||
+                      explanation.includes('Not enough baseline')
+      
+      // Valid data: has category and no error in explanation
+      // Note: currentMisalignmentHours can be 0 (which means low jetlag - still valid!)
+      const hasValidData = !hasError && 
+                          jetlagMetrics.category && 
+                          jetlagMetrics.currentMisalignmentHours !== undefined &&
+                          jetlagMetrics.currentMisalignmentHours >= 0
+      
+      if (hasValidData) {
+        socialJetlag = {
+          currentMisalignmentHours: jetlagMetrics.currentMisalignmentHours,
+          weeklyAverageMisalignmentHours: jetlagMetrics.weeklyAverageMisalignmentHours,
+          baselineMidpointClock: jetlagMetrics.baselineMidpointClock,
+          currentMidpointClock: jetlagMetrics.currentMidpointClock,
+          category: jetlagMetrics.category,
+          explanation: jetlagMetrics.explanation,
+        }
+        console.log('[api/shift-rhythm] Calculated social jetlag:', {
+          category: jetlagMetrics.category,
+          misalignment: jetlagMetrics.currentMisalignmentHours,
+          explanation: jetlagMetrics.explanation,
+        })
+      } else {
+        console.log('[api/shift-rhythm] Social jetlag not available:', jetlagMetrics.explanation)
+        // Don't include socialJetlag in response if it's just an error message
+      }
+    } catch (err: any) {
+      console.error('[/api/shift-rhythm] Error calculating social jetlag:', {
+        error: err?.message,
+        stack: err?.stack,
+      })
+      // Continue without social jetlag if calculation fails
+    }
+
+    // Calculate sleep deficit
+    let sleepDeficit = null
+    try {
+      const { supabase: deficitSupabase, isDevFallback: deficitIsDev } = await getServerSupabaseAndUserId()
+      const deficitSupabaseClient = deficitIsDev ? SupabaseServer.supabaseServer : deficitSupabase
+      
+      const now = new Date()
+      const sevenAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0)
+      
+      const getLocalDateString = (date: Date): string => {
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+      }
+      
+      const getLocalDateFromISO = (isoString: string): string => {
+        const date = new Date(isoString)
+        return getLocalDateString(date)
+      }
+      
+      const minutesBetween = (a: string | Date, b: string | Date) => {
+        return Math.max(0, Math.round((+new Date(b) - +new Date(a)) / 60000))
+      }
+      
+      // Fetch sleep data for last 7 days
+      let weekLogs: any[] = []
+      let weekResult = await deficitSupabaseClient
+        .from('sleep_logs')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('start_at', sevenAgo.toISOString())
+        .order('start_at', { ascending: true })
+      
+      weekLogs = weekResult.data || []
+      
+      if (weekResult.error && (weekResult.error.message?.includes("start_at") || weekResult.error.code === 'PGRST204')) {
+        weekResult = await deficitSupabaseClient
+          .from('sleep_logs')
+          .select('*')
+          .eq('user_id', userId)
+          .gte('start_ts', sevenAgo.toISOString())
+          .order('start_ts', { ascending: true })
+        weekLogs = weekResult.data || []
+      }
+      
+      // Aggregate by day
+      const byDay: Record<string, number> = {}
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(sevenAgo.getFullYear(), sevenAgo.getMonth(), sevenAgo.getDate() + i, 12, 0, 0, 0)
+        const key = getLocalDateString(d)
+        byDay[key] = 0
+      }
+      
+      for (const row of weekLogs ?? []) {
+        const endTime = row.end_at || row.end_ts
+        const startTime = row.start_at || row.start_ts
+        if (!endTime || !startTime) continue
+        
+        let key: string
+        if (row.date) {
+          key = row.date.slice(0, 10)
+        } else {
+          key = getLocalDateFromISO(endTime)
+        }
+        
+        if (byDay[key] !== undefined) {
+          byDay[key] += minutesBetween(startTime, endTime)
+        }
+      }
+      
+      const sleepData = Object.entries(byDay).map(([date, totalMinutes]) => ({
+        date,
+        totalMinutes,
+      }))
+      
+      sleepDeficit = calculateSleepDeficit(sleepData, 7.5)
+      console.log('[api/shift-rhythm] Calculated sleep deficit:', sleepDeficit.category, sleepDeficit.weeklyDeficit)
+    } catch (deficitErr) {
+      console.warn('[api/shift-rhythm] Failed to calculate sleep deficit:', deficitErr)
+      // Continue without deficit data
+    }
+
+    // Calculate binge risk
+    let bingeRisk = null
+    try {
+      console.log('[api/shift-rhythm] Starting binge risk calculation...')
+      
+      // Always use service role client for binge risk (most reliable, bypasses RLS)
+      // This ensures we always have a valid Supabase client regardless of auth state
+      const bingeRiskSupabaseClient = supabaseServer
+      
+      // Verify the client is valid before using it
+      if (!bingeRiskSupabaseClient) {
+        throw new Error('Supabase service role client is not available. Check SUPABASE_SERVICE_ROLE_KEY environment variable.')
+      }
+      if (typeof bingeRiskSupabaseClient.from !== 'function') {
+        console.error('[api/shift-rhythm] Service role client validation failed:', {
+          clientType: typeof bingeRiskSupabaseClient,
+          clientKeys: Object.keys(bingeRiskSupabaseClient || {}),
+          hasFrom: 'from' in (bingeRiskSupabaseClient || {}),
+          constructor: bingeRiskSupabaseClient?.constructor?.name
+        })
+        throw new Error('Invalid Supabase service role client: missing .from() method')
+      }
+      
+      console.log('[api/shift-rhythm] Using Supabase service role client for binge risk calculation')
+      
+      const inputs = await buildShiftRhythmInputs(bingeRiskSupabaseClient, userId)
+      console.log('[api/shift-rhythm] Built inputs, sleepLogs:', inputs.sleepLogs.length, 'shiftDays:', inputs.shiftDays.length)
+      
+      const now = new Date()
+      
+      // Meal logging removed - using advice-only approach
+      // Prepare data for binge risk calculation
+      // Sort sleep logs by most recent first (they should already be sorted, but ensure it)
+      const sortedSleepLogs = [...inputs.sleepLogs].sort((a, b) => {
+        const dateA = new Date(a.end || a.start).getTime()
+        const dateB = new Date(b.end || b.start).getTime()
+        return dateB - dateA
+      })
+      
+      // Sort shifts by date descending (most recent first)
+      const sortedShifts = [...inputs.shiftDays].sort((a: any, b: any) => {
+        return new Date(b.date).getTime() - new Date(a.date).getTime()
+      })
+      
+      // No meals logged - empty array for binge risk calculation
+      const sortedMeals: any[] = []
+      
+      // Fetch today's activity level for binge risk
+      const today = now.toISOString().slice(0, 10)
+      const startOfDay = new Date(today + 'T00:00:00Z')
+      const endOfDay = new Date(today + 'T23:59:59Z')
+      
+      let activityQuery = await bingeRiskSupabaseClient
+        .from('activity_logs')
+        .select('shift_activity_level,ts')
+        .eq('user_id', userId)
+        .gte('ts', startOfDay.toISOString())
+        .lt('ts', endOfDay.toISOString())
+        .order('ts', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      
+      // Fallback to created_at if ts doesn't exist
+      if (activityQuery.error && (activityQuery.error.code === '42703' || activityQuery.error.message?.includes('ts'))) {
+        activityQuery = await bingeRiskSupabaseClient
+          .from('activity_logs')
+          .select('shift_activity_level,created_at')
+          .eq('user_id', userId)
+          .gte('created_at', startOfDay.toISOString())
+          .lt('created_at', endOfDay.toISOString())
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      }
+      
+      const todayActivityLevel = activityQuery.data?.shift_activity_level as 'very_light' | 'light' | 'moderate' | 'busy' | 'intense' | null | undefined
+      
+      const bingeRiskInputs = {
+        sleepLogs: sortedSleepLogs.map((s: any) => ({
+          date: s.date,
+          start: s.start,
+          end: s.end,
+          durationHours: s.durationHours,
+          quality: s.quality ?? null,
+        })),
+        shifts: sortedShifts.map((s: any) => ({
+          date: s.date,
+          type: s.type,
+        })),
+        meals: sortedMeals,
+        now,
+        sleepDebtHours: sleepDeficit?.weeklyDeficit ?? undefined,
+        shiftLagScore: score?.total_score ? (100 - score.total_score) : undefined, // Inverse of shift rhythm score
+        activityLevel: todayActivityLevel ?? undefined,
+      }
+      
+      console.log('[api/shift-rhythm] Binge risk inputs:', {
+        sleepLogsCount: bingeRiskInputs.sleepLogs.length,
+        shiftsCount: bingeRiskInputs.shifts.length,
+        mealsCount: bingeRiskInputs.meals.length,
+        hasSleepDebt: bingeRiskInputs.sleepDebtHours !== undefined,
+        hasShiftLag: bingeRiskInputs.shiftLagScore !== undefined,
+      })
+      
+      console.log('[api/shift-rhythm] Calling calculateBingeRisk...')
+      bingeRisk = calculateBingeRisk(bingeRiskInputs)
+      console.log('[api/shift-rhythm] calculateBingeRisk returned:', {
+        type: typeof bingeRisk,
+        isNull: bingeRisk === null,
+        isUndefined: bingeRisk === undefined,
+        value: bingeRisk
+      })
+      console.log('[api/shift-rhythm] Calculated binge risk:', JSON.stringify(bingeRisk, null, 2))
+      
+      // Validate bingeRisk result - ensure it has all required fields
+      if (!bingeRisk) {
+        console.error('[api/shift-rhythm] calculateBingeRisk returned null/undefined, creating fallback')
+        bingeRisk = {
+          score: 0,
+          level: 'low' as const,
+          drivers: ['Insufficient data for calculation'],
+          explanation: 'Unable to calculate binge risk due to missing data.'
+        }
+      } else if (typeof bingeRisk.score !== 'number' || !bingeRisk.level || !Array.isArray(bingeRisk.drivers) || !bingeRisk.explanation) {
+        console.error('[api/shift-rhythm] Invalid binge risk result structure, creating fallback:', {
+          hasScore: typeof bingeRisk.score === 'number',
+          scoreValue: bingeRisk.score,
+          hasLevel: !!bingeRisk.level,
+          levelValue: bingeRisk.level,
+          hasDrivers: Array.isArray(bingeRisk.drivers),
+          driversValue: bingeRisk.drivers,
+          hasExplanation: !!bingeRisk.explanation,
+          explanationValue: bingeRisk.explanation,
+          actualValue: bingeRisk
+        })
+        // Create a valid fallback result
+        bingeRisk = {
+          score: typeof bingeRisk.score === 'number' ? bingeRisk.score : 0,
+          level: (bingeRisk.level || 'low') as 'low' | 'medium' | 'high',
+          drivers: Array.isArray(bingeRisk.drivers) ? bingeRisk.drivers : ['Calculation error'],
+          explanation: bingeRisk.explanation || 'Binge risk calculation completed with limited data.'
+        }
+      } else {
+        console.log('[api/shift-rhythm] Binge risk validation passed:', {
+          score: bingeRisk.score,
+          level: bingeRisk.level,
+          driversCount: bingeRisk.drivers.length,
+          hasExplanation: !!bingeRisk.explanation
+        })
+      }
+    } catch (bingeErr: any) {
+      console.error('[api/shift-rhythm] Failed to calculate binge risk:', bingeErr)
+      console.error('[api/shift-rhythm] Binge risk error name:', bingeErr?.name || 'Unknown')
+      console.error('[api/shift-rhythm] Binge risk error message:', bingeErr?.message || String(bingeErr))
+      console.error('[api/shift-rhythm] Binge risk error stack:', bingeErr?.stack || 'No stack trace')
+      
+      // Check if it's specifically the supabase.from error
+      const errorMessage = bingeErr?.message || String(bingeErr)
+      if (errorMessage.includes('supabase.from is not a function') || errorMessage.includes('.from is not a function')) {
+        console.error('[api/shift-rhythm] CRITICAL: Supabase client initialization failed. Check SUPABASE_SERVICE_ROLE_KEY env variable.')
+      }
+      
+      // Provide a fallback result instead of null
+      bingeRisk = {
+        score: 0,
+        level: 'low' as const,
+        drivers: ['Calculation error'],
+        explanation: `Unable to calculate binge risk: ${errorMessage}`
+      }
+    }
+    
+    // Ensure bingeRisk is always set (should never be null now)
+    // If it's still null at this point, set a fallback
+    if (bingeRisk === null || bingeRisk === undefined) {
+      console.warn('[api/shift-rhythm] bingeRisk is null/undefined before response, setting fallback')
+      bingeRisk = {
+        score: 0,
+        level: 'low' as const,
+        drivers: ['No data available'],
+        explanation: 'Binge risk calculation is not available at this time.'
+      }
+    }
+
+    // Include yesterday's score, sleep deficit, social jetlag, and binge risk for comparison
+    const response: any = { score, sleepDeficit, socialJetlag, bingeRisk, hasRhythmData }
     if (yesterdayScore?.total_score !== undefined) {
       response.yesterdayScore = yesterdayScore.total_score
     }
+
+    // Double-check that bingeRisk is in the response (should never be null now)
+    if (response.bingeRisk === null || response.bingeRisk === undefined) {
+      console.error('[api/shift-rhythm] CRITICAL: bingeRisk is still null/undefined in response object!')
+      response.bingeRisk = {
+        score: 0,
+        level: 'low',
+        drivers: ['System error'],
+        explanation: 'Binge risk calculation failed. Please try again later.'
+      }
+    }
+
+    console.log('[api/shift-rhythm] Final response bingeRisk:', {
+      hasBingeRisk: !!response.bingeRisk,
+      bingeRisk: response.bingeRisk,
+      bingeRiskType: typeof response.bingeRisk,
+      bingeRiskIsNull: response.bingeRisk === null,
+      score: response.bingeRisk?.score,
+      level: response.bingeRisk?.level,
+    })
 
     return NextResponse.json(response, { status: 200 })
   } catch (err: any) {
@@ -392,4 +716,6 @@ export async function POST(req: NextRequest) {
     )
   }
 }
+
+
 

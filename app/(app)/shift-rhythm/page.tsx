@@ -31,7 +31,7 @@ export default function ShiftRhythmPage() {
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
-          <h1 className="text-xl font-semibold" style={{ color: 'var(--text-main)' }}>Shift Rhythm</h1>
+          <h1 className="text-xl font-semibold tracking-tight" style={{ color: 'var(--text-main)' }}>Shift Rhythm</h1>
         </header>
 
         {/* Key facts strip */}

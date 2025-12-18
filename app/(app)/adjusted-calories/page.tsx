@@ -191,6 +191,13 @@ export default function AdjustedCaloriesPage() {
             Go to Dashboard
           </Link>
         </section>
+
+        {/* Disclaimer */}
+        <div className="pt-4 pb-4">
+          <p className="text-[11px] leading-relaxed text-slate-500 text-center">
+            Shift Coach is a coaching tool and does not provide medical advice. For medical conditions, pregnancy or complex health issues, please check your plan with a registered professional.
+          </p>
+        </div>
       </div>
     </main>
   )

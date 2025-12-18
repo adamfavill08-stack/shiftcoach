@@ -1,4 +1,4 @@
-import RotaOverviewPage from '@/components/dashboard/pages/RotaOverviewPage'
+import RotaOverviewPage from '@/components/calendar/RotaOverviewPage'
 
 export default function RotaIndexPage() {
   return <RotaOverviewPage />

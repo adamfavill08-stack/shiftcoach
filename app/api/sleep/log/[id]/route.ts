@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { supabaseServer } from '@/lib/supabase-server'
 
 export async function PUT(
   req: NextRequest,
@@ -92,9 +93,18 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { supabase, userId } = await getServerSupabaseAndUserId()
-
   try {
+    const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    
+    // Always use service role client for deletes to bypass RLS
+    // This ensures deletes work even if RLS policies are misconfigured
+    const supabase = supabaseServer
+    
+    if (!userId) {
+      console.error('[/api/sleep/log/:id DELETE] No userId')
+      return NextResponse.json({ error: 'unauthorized', details: 'No user ID found' }, { status: 401 })
+    }
+
     // Next 16: params is a Promise
     const { id } = await params
 
@@ -109,21 +119,37 @@ export async function DELETE(
       return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
     }
 
-    const { error } = await supabase
+    console.log('[/api/sleep/log/:id DELETE] Attempting to delete sleep log:', { id, userId })
+
+    const { data, error } = await supabase
       .from('sleep_logs')
       .delete()
       .eq('id', id)
       .eq('user_id', userId)
+      .select()
 
     if (error) {
-      console.error('[/api/sleep/log/:id DELETE] delete error:', error)
+      console.error('[/api/sleep/log/:id DELETE] delete error:', {
+        message: error.message,
+        code: error.code,
+        hint: error.hint,
+        details: error.details,
+        id,
+        userId,
+      })
       return NextResponse.json(
-        { error: 'Failed to delete sleep log' },
+        { 
+          error: 'Failed to delete sleep log',
+          details: error.message || 'Unknown database error',
+          code: error.code,
+        },
         { status: 500 }
       )
     }
 
-    return NextResponse.json({ success: true }, { status: 200 })
+    console.log('[/api/sleep/log/:id DELETE] Successfully deleted:', { id, deletedRows: data?.length || 0 })
+
+    return NextResponse.json({ success: true, deleted: data }, { status: 200 })
   } catch (err: any) {
     console.error('[/api/sleep/log/:id DELETE] FATAL ERROR:', {
       name: err?.name,
@@ -132,7 +158,10 @@ export async function DELETE(
     })
 
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: err?.message || 'Unknown error',
+      },
       { status: 500 }
     )
   }

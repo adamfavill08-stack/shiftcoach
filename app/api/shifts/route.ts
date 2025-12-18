@@ -100,7 +100,8 @@ export async function GET(req: NextRequest) {
       .order('date', { ascending: true })
 
     if (error) {
-      console.error('[api/shifts] fetch error', error)
+      const { logSupabaseError } = await import('@/lib/supabase/error-handler')
+      logSupabaseError('api/shifts', error, { level: 'warn' })
       return NextResponse.json({ shifts: [] }, { status: 200 })
     }
 

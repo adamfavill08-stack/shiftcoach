@@ -1,96 +1,108 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { CheckCircle2, XCircle, Info, X } from 'lucide-react'
 
-export type ToastMessage = {
+export type ToastType = 'success' | 'error' | 'info'
+
+export interface Toast {
   id: string
   message: string
-  type: 'success' | 'warning' | 'info'
-  duration?: number
+  type: ToastType
 }
 
-type ToastProps = {
-  toast: ToastMessage | null
-  onDismiss: () => void
+let toastListeners: ((toast: Toast) => void)[] = []
+let toasts: Toast[] = []
+
+export function showToast(message: string, type: ToastType = 'info') {
+  const id = Math.random().toString(36).substring(7)
+  const toast: Toast = { id, message, type }
+  toasts = [...toasts, toast]
+  toastListeners.forEach(listener => listener(toast))
+  
+  // Auto-dismiss after 3 seconds
+  setTimeout(() => {
+    dismissToast(id)
+  }, 3000)
 }
 
-export function Toast({ toast, onDismiss }: ToastProps) {
-  const [isVisible, setIsVisible] = useState(false)
+function dismissToast(id: string) {
+  toasts = toasts.filter(t => t.id !== id)
+  toastListeners.forEach(listener => {
+    // Trigger re-render by calling with a dummy toast
+    const dummyToast: Toast = { id: '', message: '', type: 'info' }
+    listener(dummyToast)
+  })
+}
+
+export function ToastContainer() {
+  const [currentToasts, setCurrentToasts] = useState<Toast[]>([])
 
   useEffect(() => {
-    if (toast) {
-      setIsVisible(true)
-      const timer = setTimeout(() => {
-        setIsVisible(false)
-        setTimeout(onDismiss, 300) // Wait for fade out
-      }, toast.duration || 4000)
-
-      return () => clearTimeout(timer)
+    const listener = () => {
+      setCurrentToasts([...toasts])
     }
-  }, [toast, onDismiss])
+    toastListeners.push(listener)
+    setCurrentToasts([...toasts])
+    
+    return () => {
+      toastListeners = toastListeners.filter(l => l !== listener)
+    }
+  }, [])
 
-  if (!toast) return null
-
-  const colors = {
-    success: {
-      bg: 'rgba(34, 197, 94, 0.15)',
-      border: 'rgba(34, 197, 94, 0.3)',
-      text: '#16a34a',
-    },
-    warning: {
-      bg: 'rgba(245, 158, 11, 0.15)',
-      border: 'rgba(245, 158, 11, 0.3)',
-      text: '#d97706',
-    },
-    info: {
-      bg: 'rgba(59, 130, 246, 0.15)',
-      border: 'rgba(59, 130, 246, 0.3)',
-      text: '#2563eb',
-    },
-  }
-
-  const color = colors[toast.type]
+  if (currentToasts.length === 0) return null
 
   return (
-    <div
-      className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ${
-        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
-      }`}
-      style={{
-        maxWidth: 'calc(100% - 2rem)',
-        width: 'max-content',
-      }}
-    >
-      <div
-        className="rounded-full border px-4 py-2.5 text-sm font-medium backdrop-blur-xl shadow-lg"
-        style={{
-          backgroundColor: color.bg,
-          borderColor: color.border,
-          color: color.text,
-        }}
-      >
-        {toast.message}
-      </div>
+    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+      {currentToasts.map(toast => (
+        <ToastItem key={toast.id} toast={toast} onDismiss={() => dismissToast(toast.id)} />
+      ))}
     </div>
   )
 }
 
-export function useToast() {
-  const [toast, setToast] = useState<ToastMessage | null>(null)
-
-  const showToast = (message: string, type: 'success' | 'warning' | 'info' = 'info', duration?: number) => {
-    setToast({
-      id: `toast-${Date.now()}`,
-      message,
-      type,
-      duration,
-    })
+function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
+  const icons = {
+    success: <CheckCircle2 className="w-5 h-5 text-green-500" />,
+    error: <XCircle className="w-5 h-5 text-red-500" />,
+    info: <Info className="w-5 h-5 text-blue-500" />,
   }
 
-  const dismissToast = () => {
-    setToast(null)
+  const bgColors = {
+    success: 'bg-green-50 border-green-200',
+    error: 'bg-red-50 border-red-200',
+    info: 'bg-blue-50 border-blue-200',
   }
 
-  return { toast, showToast, dismissToast }
+  return (
+    <div
+      className={`
+        pointer-events-auto
+        flex items-center gap-3
+        px-4 py-3
+        rounded-xl
+        border
+        shadow-lg
+        backdrop-blur-sm
+        animate-in slide-in-from-right
+        ${bgColors[toast.type]}
+      `}
+      style={{
+        minWidth: '280px',
+        maxWidth: '400px',
+      }}
+    >
+      {icons[toast.type]}
+      <p className="flex-1 text-sm font-medium" style={{ color: 'var(--text-main)' }}>
+        {toast.message}
+      </p>
+      <button
+        onClick={onDismiss}
+        className="opacity-60 hover:opacity-100 transition-opacity"
+        aria-label="Dismiss"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  )
 }
-

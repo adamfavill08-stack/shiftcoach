@@ -256,6 +256,8 @@ export default function NewRotaPatternPage() {
 
       if (typeof window !== 'undefined') {
         window.localStorage.setItem('dashboardPage', '4')
+        // Dispatch event to refresh settings (shift_pattern may have been auto-updated)
+        window.dispatchEvent(new CustomEvent('rota-saved'))
       }
 
       // Navigate to dashboard and refresh to ensure calendar refetches

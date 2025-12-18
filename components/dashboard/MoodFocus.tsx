@@ -81,15 +81,20 @@ export function MoodFocus({
       
       <div className="relative z-10 space-y-5">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
-              Mood & Focus
-            </h2>
-            <p className="text-[12px] text-slate-500 leading-relaxed mt-0.5">
-              Today
-            </p>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
+                Mood & Focus
+              </h2>
+              <p className="text-[12px] text-slate-500 leading-relaxed mt-0.5">
+                Today
+              </p>
+            </div>
           </div>
+          <p className="text-[11px] text-slate-500 leading-relaxed max-w-sm">
+            Use the sliders to log how you feel right now. Low scores tell ShiftCoach to protect your sleep, simplify your day and adjust your plan around tougher shifts.
+          </p>
         </div>
         
         {/* Sliders */}

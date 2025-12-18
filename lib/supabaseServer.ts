@@ -1,6 +1,6 @@
-import { getServerSupabase } from '@/lib/supabase/server'
+import { supabaseServer } from '@/lib/supabase-server'
 
 export async function getSupabaseServer() {
-  return getServerSupabase()
+  return supabaseServer
 }
 

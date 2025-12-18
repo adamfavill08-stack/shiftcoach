@@ -3,9 +3,10 @@
 import { ReactNode, useEffect, useState } from 'react'
 import { Bell } from 'lucide-react'
 import Image from 'next/image'
-import { CoachChatModal } from '@/components/coach/CoachChatModal'
+import { CoachChatModal } from '@/components/modals/CoachChatModal'
 import { useCoachState } from '@/lib/hooks/useCoachState'
 import { useCoachingState } from '@/lib/hooks/useCoachingState'
+import { hasSeenGreetingToday } from '@/lib/coach/dailyGreeting'
 
 export function Header({ title, right }: { title?: string; right?: ReactNode }) {
   const [showBadge, setShowBadge] = useState(false)
@@ -48,6 +49,72 @@ export function Header({ title, right }: { title?: string; right?: ReactNode }) 
     }
   }, [coachingState?.status, setHasUnread])
 
+  // Check if daily greeting hasn't been shown today and show blue badge
+  useEffect(() => {
+    const checkDailyGreeting = () => {
+      try {
+        // Only show badge if greeting hasn't been seen today
+        // and there's no other reason to show unread (mood/focus low, red state)
+        const mfLow = localStorage.getItem('mf-low') === '1'
+        const greetingNotSeen = !hasSeenGreetingToday()
+        const shouldShowGreetingBadge = greetingNotSeen && !mfLow && coachingState?.status !== 'red'
+        
+        if (shouldShowGreetingBadge) {
+          setHasUnread(true)
+        } else if (greetingNotSeen === false && !mfLow && coachingState?.status !== 'red') {
+          // If greeting has been seen and no other reasons, clear the badge
+          setHasUnread(false)
+        }
+      } catch {
+        // Ignore errors
+      }
+    }
+    
+    checkDailyGreeting()
+    
+    // Check again when page becomes visible (user might have opened app in another tab)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkDailyGreeting()
+      }
+    }
+    
+    // Listen for storage changes (when greeting is marked as seen)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'coach-daily-greeting-date') {
+        checkDailyGreeting()
+      }
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('storage', handleStorageChange)
+    
+    // Also check periodically (in case storage event doesn't fire in same window)
+    const interval = setInterval(checkDailyGreeting, 2000)
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('storage', handleStorageChange)
+      clearInterval(interval)
+    }
+  }, [coachingState?.status, setHasUnread])
+
+  // Clear badge when coach modal opens (greeting will be shown and marked as seen)
+  useEffect(() => {
+    if (isOpen) {
+      // The greeting will be marked as seen when the modal loads
+      // Clear the badge after a short delay to allow the greeting to be processed
+      const timer = setTimeout(() => {
+        const mfLow = localStorage.getItem('mf-low') === '1'
+        if (hasSeenGreetingToday() && !mfLow && coachingState?.status !== 'red') {
+          setHasUnread(false)
+        }
+      }, 1000)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [isOpen, coachingState?.status, setHasUnread])
+
   function openAiCoachFromHeader() {
     try { localStorage.setItem('coach-context', JSON.stringify({ reason: 'mood_focus_low' })) } catch {}
     openCoach()
@@ -66,7 +133,7 @@ export function Header({ title, right }: { title?: string; right?: ReactNode }) 
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full bg-gradient-to-r from-pink-500 to-purple-500" />
-              <span className="font-semibold text-lg" style={{ color: 'var(--text-main)' }}>Shift Coach</span>
+              <span className="text-lg font-semibold tracking-tight" style={{ color: 'var(--text-main)' }}>Shift Coach</span>
             </div>
             {/* Coaching state pill */}
             {coachingState && (

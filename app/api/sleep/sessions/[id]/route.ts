@@ -25,6 +25,14 @@ export async function PATCH(
     const body = await req.json()
     const { start_time, end_time, session_type, quality } = body
 
+    console.log('[api/sleep/sessions/:id PATCH] Received update request:', {
+      id,
+      start_time,
+      end_time,
+      session_type,
+      quality,
+    })
+
     if (!start_time || !end_time) {
       return NextResponse.json(
         { error: 'start_time and end_time are required' },
@@ -52,6 +60,22 @@ export async function PATCH(
     // Map session_type to type field
     const type = session_type === 'nap' ? 'nap' : 'sleep'
 
+    // Convert quality text to int for old schema compatibility (if needed)
+    const qualityMap: Record<string, number> = {
+      'Excellent': 5,
+      'Good': 4,
+      'Fair': 3,
+      'Poor': 1,
+    }
+    const qualityInt = quality && typeof quality === 'string' ? (qualityMap[quality] || null) : (typeof quality === 'number' ? quality : null)
+    const qualityText = quality && typeof quality === 'string' ? quality : null
+
+    console.log('[api/sleep/sessions/:id PATCH] Quality conversion:', {
+      original: quality,
+      text: qualityText,
+      int: qualityInt,
+    })
+
     // Try new schema first
     let updateResult = await supabase
       .from('sleep_logs')
@@ -59,7 +83,7 @@ export async function PATCH(
         type,
         start_at: startDate.toISOString(),
         end_at: endDate.toISOString(),
-        quality: quality || null,
+        quality: qualityText || qualityInt || null,
       })
       .eq('id', id)
       .eq('user_id', userId)
@@ -67,6 +91,7 @@ export async function PATCH(
       .maybeSingle()
 
     if (updateResult.error) {
+      console.log('[api/sleep/sessions/:id PATCH] New schema failed, trying old schema:', updateResult.error.message)
       // Try old schema
       updateResult = await supabase
         .from('sleep_logs')
@@ -74,7 +99,7 @@ export async function PATCH(
           start_ts: startDate.toISOString(),
           end_ts: endDate.toISOString(),
           naps: session_type === 'nap' ? 1 : 0,
-          quality: quality || null,
+          quality: qualityInt || null,
         })
         .eq('id', id)
         .eq('user_id', userId)
@@ -118,37 +143,52 @@ export async function DELETE(
     const supabase = supabaseServer
     
     if (!userId) {
+      console.log('[api/sleep/session] DELETE unauthorized - no userId')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { id } = await context.params
 
     if (!id) {
+      console.log('[api/sleep/session] DELETE missing id')
       return NextResponse.json({ error: 'Missing id' }, { status: 400 })
     }
 
-    // Basic UUID format guard
-    if (!/^[0-9a-fA-F-]{36}$/.test(id)) {
-      return NextResponse.json({ error: 'Invalid id format' }, { status: 400 })
-    }
+    console.log('[api/sleep/session] DELETE id=', id, 'userId=', userId)
 
-    const { error } = await supabase
+    // Try to delete from sleep_logs
+    const { data: deletedData, error } = await supabase
       .from('sleep_logs')
       .delete()
       .eq('id', id)
       .eq('user_id', userId)
+      .select()
 
     if (error) {
-      console.error('[api/sleep/sessions/:id DELETE] error:', error)
+      console.error('[api/sleep/session] DELETE error:', error)
       return NextResponse.json(
         { error: 'Failed to delete sleep session', details: error.message },
         { status: 500 }
       )
     }
 
+    // Check if any row was actually deleted
+    if (!deletedData || deletedData.length === 0) {
+      console.log('[api/sleep/session] DELETE no rows deleted - session not found or not owned by user')
+      return NextResponse.json(
+        { error: 'Sleep session not found' },
+        { status: 404 }
+      )
+    }
+
+    console.log('[api/sleep/session] DELETE successful, deleted:', deletedData.length, 'row(s)')
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (err: any) {
-    console.error('[api/sleep/sessions/:id DELETE] FATAL ERROR:', err)
+    console.error('[api/sleep/session] DELETE FATAL ERROR:', {
+      name: err?.name,
+      message: err?.message,
+      stack: err?.stack,
+    })
     return NextResponse.json(
       { error: 'Internal server error', details: err?.message },
       { status: 500 }

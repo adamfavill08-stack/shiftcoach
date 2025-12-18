@@ -3,25 +3,51 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Info, X } from "lucide-react";
 import { MoodFocus } from "./MoodFocus";
+import { SleepDeficitCard } from "./SleepDeficitCard";
+import { SocialJetlagCard } from "@/components/sleep/SocialJetlagCard";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
+import type { SleepDeficitResponse } from '@/lib/sleep/calculateSleepDeficit'
+import type { ShiftLagMetrics } from '@/lib/circadian/calculateShiftLag'
 
 type ShiftRhythmCardProps = {
   // Dashboard passes score as 0–1000 (totalScore * 10) or undefined
   score?: number;
   // Circadian calculation result
   circadian?: CircadianOutput | null;
+  // Sleep deficit data
+  sleepDeficit?: SleepDeficitResponse | null;
+  // Social jetlag data
+  socialJetlag?: {
+    currentMisalignmentHours: number;
+    weeklyAverageMisalignmentHours?: number;
+    category: "low" | "moderate" | "high";
+    explanation: string;
+    baselineMidpointClock?: number;
+    currentMidpointClock?: number;
+  } | null;
+  // ShiftLag data
+  shiftLag?: ShiftLagMetrics | null;
 };
 
-function ShiftRhythmCard({ score, circadian }: ShiftRhythmCardProps) {
+function ShiftRhythmCard({ score, circadian, sleepDeficit, socialJetlag, shiftLag }: ShiftRhythmCardProps) {
   // Use circadian phase if available, otherwise fall back to normalized score
   const displayScore = circadian?.circadianPhase ?? normalizeScore(score);
   const inSync = displayScore >= 70;
   const [mood, setMood] = useState<number>(3);
   const [focus, setFocus] = useState<number>(3);
   const [isLoadingMood, setIsLoadingMood] = useState(true);
+  const [deficitData, setDeficitData] = useState<SleepDeficitResponse | null>(sleepDeficit || null);
+  const [isLoadingDeficit, setIsLoadingDeficit] = useState(!sleepDeficit);
+  const [lastWearableSync, setLastWearableSync] = useState<number | null>(null);
+  const [recoveryScore, setRecoveryScore] = useState<number | null>(null);
+  const [recoveryLoading, setRecoveryLoading] = useState(true);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [sleepConsistencyScore, setSleepConsistencyScore] = useState<number | null>(null);
+  const [sleepConsistencyLoading, setSleepConsistencyLoading] = useState(true);
 
   // Fetch current mood and focus values
   useEffect(() => {
@@ -57,6 +83,171 @@ function ShiftRhythmCard({ score, circadian }: ShiftRhythmCardProps) {
       window.removeEventListener('sleep-refreshed', handleSleepRefresh);
     };
   }, []);
+
+  // Load last wearable sync time and listen for sync events
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const loadFromStorage = () => {
+      const ts = window.localStorage.getItem('wearables:lastSyncedAt');
+      if (ts) {
+        const n = Number(ts);
+        if (!Number.isNaN(n)) setLastWearableSync(n);
+      }
+    };
+
+    loadFromStorage();
+
+    const handleSynced = (e: Event) => {
+      const detailTs = (e as CustomEvent).detail?.ts as number | undefined;
+      if (detailTs && typeof detailTs === 'number') {
+        setLastWearableSync(detailTs);
+      } else {
+        loadFromStorage();
+      }
+    };
+
+    window.addEventListener('wearables-synced', handleSynced as EventListener);
+
+    return () => {
+      window.removeEventListener('wearables-synced', handleSynced as EventListener);
+    };
+  }, []);
+
+  const wearableLastSyncLabel = React.useMemo(() => {
+    if (!lastWearableSync) return 'Last sync: not yet';
+    const diffMs = Date.now() - lastWearableSync;
+    const diffMin = Math.round(diffMs / 60000);
+    if (diffMin < 2) return 'Last sync: just now';
+    if (diffMin < 60) return `Last sync: ${diffMin} min ago`;
+    const diffH = Math.round(diffMin / 60);
+    if (diffH < 24) return `Last sync: ${diffH} h ago`;
+    const diffD = Math.round(diffH / 24);
+    return `Last sync: ${diffD} day${diffD > 1 ? 's' : ''} ago`;
+  }, [lastWearableSync]);
+
+  // Fetch recovery score from sleep overview (combines sleep + shift data)
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchRecovery = async () => {
+      try {
+        setRecoveryLoading(true);
+        setRecoveryError(null);
+
+        const res = await fetch('/api/sleep/overview', { cache: 'no-store' });
+        const json = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          if (!cancelled) setRecoveryError('Could not load recovery score yet.');
+          return;
+        }
+
+        const raw = json?.metrics?.recoveryScore;
+        if (!cancelled) {
+          if (typeof raw === 'number' && !Number.isNaN(raw)) {
+            // Clamp 0–100
+            const clamped = Math.max(0, Math.min(100, raw));
+            setRecoveryScore(clamped);
+          } else {
+            setRecoveryScore(null);
+          }
+        }
+      } catch (err) {
+        console.error('[ShiftRhythmCard] Failed to fetch recovery score:', err);
+        if (!cancelled) setRecoveryError('Could not load recovery score yet.');
+      } finally {
+        if (!cancelled) setRecoveryLoading(false);
+      }
+    };
+
+    fetchRecovery();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Fetch sleep consistency score to explain Body Clock and Why You Have This Score
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchConsistency = async () => {
+      try {
+        setSleepConsistencyLoading(true);
+
+        const res = await fetch('/api/sleep/consistency', { cache: 'no-store' });
+        const json = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          if (!cancelled) setSleepConsistencyScore(null);
+          return;
+        }
+
+        if (!cancelled) {
+          const score = typeof json.consistencyScore === 'number' ? json.consistencyScore : null;
+          setSleepConsistencyScore(score);
+        }
+      } catch (err) {
+        console.error('[ShiftRhythmCard] Failed to fetch sleep consistency:', err);
+        if (!cancelled) setSleepConsistencyScore(null);
+      } finally {
+        if (!cancelled) setSleepConsistencyLoading(false);
+      }
+    };
+
+    fetchConsistency();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Fetch sleep deficit data
+  useEffect(() => {
+    let cancelled = false;
+    const fetchSleepDeficit = async () => {
+      if (sleepDeficit) {
+        setDeficitData(sleepDeficit);
+        setIsLoadingDeficit(false);
+        return;
+      }
+      
+      try {
+        setIsLoadingDeficit(true);
+        const res = await fetch('/api/sleep/deficit', { cache: 'no-store' });
+        if (!res.ok) throw new Error(String(res.status));
+        const json = await res.json();
+        if (!cancelled) {
+          setDeficitData(json);
+        }
+      } catch (err) {
+        console.error('[ShiftRhythmCard] Failed to fetch sleep deficit:', err);
+      } finally {
+        if (!cancelled) setIsLoadingDeficit(false);
+      }
+    };
+    
+    fetchSleepDeficit();
+    
+    // Listen for sleep refresh events with debouncing
+    let refreshTimeout: NodeJS.Timeout | null = null
+    const handleSleepRefresh = () => {
+      if (refreshTimeout) clearTimeout(refreshTimeout)
+      refreshTimeout = setTimeout(() => {
+        if (!cancelled) {
+          fetchSleepDeficit();
+        }
+      }, 300)
+    };
+    window.addEventListener('sleep-refreshed', handleSleepRefresh);
+    
+    return () => { 
+      cancelled = true;
+      if (refreshTimeout) clearTimeout(refreshTimeout)
+      window.removeEventListener('sleep-refreshed', handleSleepRefresh);
+    };
+  }, [sleepDeficit]);
 
   // Handle mood/focus changes
   const handleMoodFocusChange = async (newMood: number, newFocus: number) => {
@@ -146,13 +337,132 @@ function ShiftRhythmCard({ score, circadian }: ShiftRhythmCardProps) {
     }
   };
 
+  // Simple recovery banding based on score
+  const recovery = React.useMemo(() => {
+    if (recoveryLoading) {
+      return {
+        label: 'Calculating recovery…',
+        tone: 'neutral' as const,
+        message: 'We’re combining your latest sleep and movement to score your recovery for today.',
+      };
+    }
+    if (recoveryError) {
+      return {
+        label: 'Recovery score unavailable',
+        tone: 'neutral' as const,
+        message: recoveryError,
+      };
+    }
+    if (recoveryScore == null) {
+      return {
+        label: 'Recovery not scored yet',
+        tone: 'neutral' as const,
+        message: 'Log some sleep and sync your wearables to see a daily recovery score here.',
+      };
+    }
+
+    if (recoveryScore >= 80) {
+      return {
+        label: 'Recovered',
+        tone: 'good' as const,
+        message: 'Sleep and movement are supporting recovery today – this is a good day for tougher shifts or training.',
+      };
+    }
+    if (recoveryScore >= 50) {
+      return {
+        label: 'OK, not fully charged',
+        tone: 'ok' as const,
+        message: 'You’re not running on empty, but slightly under‑recovered. Protect sleep tonight and keep activity moderate.',
+      };
+    }
+    return {
+      label: 'Running low',
+      tone: 'low' as const,
+      message: 'Recovery is low – prioritise sleep, lighter shifts where possible and avoid stacking back‑to‑back nights.',
+    };
+  }, [recoveryLoading, recoveryError, recoveryScore]);
+
+  const sleepConsistencyDisplay = React.useMemo(() => {
+    if (sleepConsistencyScore == null || Number.isNaN(sleepConsistencyScore)) return null;
+    return Math.round(Math.max(0, Math.min(100, sleepConsistencyScore)));
+  }, [sleepConsistencyScore]);
+
   return (
     <div className="w-full max-w-md mx-auto px-4 py-4 space-y-6">
+      {/* RECOVERY TODAY CARD */}
+      <section
+        className={[
+          "relative overflow-hidden rounded-[20px]",
+          "bg-slate-900 text-slate-50",
+          "px-5 py-4",
+          "shadow-[0_18px_40px_rgba(15,23,42,0.65)]",
+        ].join(" ")}
+      >
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-400/15 via-sky-400/10 to-transparent" />
+        <div className="relative z-10 flex items-center justify-between gap-4">
+          <div className="space-y-1">
+            <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-emerald-200/90">
+              Recovery today
+            </p>
+            <h2 className="text-[17px] font-semibold tracking-tight">
+              {recovery.label}
+            </h2>
+            <p className="text-[11px] text-slate-200/85 leading-relaxed max-w-[230px]">
+              {recovery.message}
+            </p>
+            <p className="mt-1 text-[10px] text-slate-400">
+              Based on your latest sleep and Google Fit steps.
+            </p>
+          </div>
+          <div className="flex flex-col items-center justify-center">
+            <div
+              className={[
+                "flex h-14 w-14 items-center justify-center rounded-full border-2 text-[18px] font-semibold",
+                recoveryScore == null
+                  ? "border-slate-500 text-slate-200"
+                  : recoveryScore >= 80
+                  ? "border-emerald-400 text-emerald-200"
+                  : recoveryScore >= 50
+                  ? "border-amber-300 text-amber-200"
+                  : "border-rose-400 text-rose-200",
+              ].join(" ")}
+            >
+              {recoveryScore != null ? Math.round(recoveryScore) : "--"}
+            </div>
+            <span className="mt-1 text-[9px] uppercase tracking-[0.16em] text-slate-400">
+              / 100
+            </span>
+          </div>
+        </div>
+      </section>
+
       {/* MAIN BODY CLOCK CARD */}
-      <BodyClockCard score={displayScore} inSync={inSync} circadian={circadian} />
+      <BodyClockCard
+        score={displayScore}
+        inSync={inSync}
+        circadian={circadian}
+        shiftLag={shiftLag}
+        wearableLastSyncLabel={wearableLastSyncLabel}
+      />
 
       {/* WHY YOU HAVE THIS SCORE CARD */}
-      <WhyYouHaveThisScoreCard />
+      <WhyYouHaveThisScoreCard
+        socialJetlag={socialJetlag}
+        wearableLastSyncLabel={wearableLastSyncLabel}
+        sleepConsistencyDisplay={sleepConsistencyDisplay}
+      />
+
+      {/* SLEEP DEFICIT CARD */}
+      <SleepDeficitCard data={deficitData} loading={isLoadingDeficit} />
+
+      {/* SOCIAL JETLAG */}
+      {socialJetlag ? (
+        <SocialJetlagCard />
+      ) : (
+        <div className="text-xs text-slate-400 p-4 text-center">
+          Social Jetlag data loading...
+        </div>
+      )}
 
       {/* MOOD & FOCUS */}
       {!isLoadingMood && (
@@ -168,8 +478,6 @@ function ShiftRhythmCard({ score, circadian }: ShiftRhythmCardProps) {
       {/* BLOG SECTION */}
       <BlogSection />
 
-      {/* SYNC BAR */}
-      <SyncBar />
 
       {/* Disclaimer */}
       <div className="pt-4">
@@ -190,10 +498,23 @@ function normalizeScore(score?: number) {
 
 /* -------------------- MAIN BODY CLOCK CARD -------------------- */
 
-function BodyClockCard({ score, inSync, circadian }: { score: number; inSync: boolean; circadian?: CircadianOutput | null }) {
+function BodyClockCard({ 
+  score, 
+  inSync, 
+  circadian, 
+  shiftLag,
+  wearableLastSyncLabel,
+}: { 
+  score: number; 
+  inSync: boolean; 
+  circadian?: CircadianOutput | null; 
+  shiftLag?: ShiftLagMetrics | null;
+  wearableLastSyncLabel: string;
+}) {
   const factors = circadian 
     ? buildAlignmentFactorsFromCircadian(circadian.factors)
     : buildAlignmentFactors(score);
+  const [showInfo, setShowInfo] = React.useState(false);
 
   return (
     <section
@@ -212,23 +533,89 @@ function BodyClockCard({ score, inSync, circadian }: { score: number; inSync: bo
       <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/50" />
 
       <div className="relative z-10 space-y-5">
-        {/* TOP LEFT: Body clock title */}
-        <p className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
-          Body clock
-        </p>
+        {/* TOP LEFT: Body clock title + info */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <p className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
+              Body clock
+            </p>
+            <Tooltip
+              content={
+                <span>
+                  Based on circadian science: we combine your recent sleep timing, shift pattern and regularity
+                  to estimate how aligned your internal clock is today.
+                </span>
+              }
+              side="bottom"
+            >
+              <Info className="h-3 w-3" />
+            </Tooltip>
+          </div>
+          <button
+            onClick={() => setShowInfo(true)}
+            className="text-[11px] text-slate-500 hover:text-slate-700 rounded-lg px-2 py-1 hover:bg-slate-100/80 transition-colors"
+            type="button"
+          >
+            How it works
+          </button>
+        </div>
+
+        {/* Info Card */}
+        {showInfo && (
+          <div className="relative z-20 mt-2 rounded-xl bg-gradient-to-br from-slate-50 to-white border border-slate-200/70 p-4 space-y-3 shadow-lg">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-[14px] font-bold text-slate-900">How your Body Clock score works</h3>
+                <p className="mt-1 text-[11px] text-slate-600">
+                  Your score uses circadian science: it looks at when you sleep and wake, how often shifts move your schedule,
+                  and how consistent your pattern is compared with a healthy 24‑hour rhythm.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowInfo(false)}
+                className="p-1 rounded-md hover:bg-slate-100/70 transition-colors"
+                aria-label="Close body clock info"
+                type="button"
+              >
+                <X className="h-3.5 w-3.5 text-slate-400" />
+              </button>
+            </div>
+            <div className="space-y-1.5 text-[11px] text-slate-600 leading-relaxed">
+              <p>
+                <span className="font-semibold text-slate-900">High score (70+):</span> means your core sleep window, wake time and light exposure
+                are close to a stable rhythm, so melatonin and cortisol are following a more normal curve.
+              </p>
+              <p>
+                <span className="font-semibold text-slate-900">Lower score:</span> usually means frequent schedule switches, short or mistimed sleep
+                and lots of light / food in your biological night, which push your clock out of sync.
+              </p>
+            </div>
+            <div className="pt-2 border-t border-slate-200/70">
+              <p className="text-[11px] font-semibold text-slate-900 mb-1">How to improve:</p>
+              <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-600">
+                <li>Keep your main sleep and wake time as consistent as your rota allows.</li>
+                <li>Group similar shifts together when possible (blocks of days or nights).</li>
+                <li>Get daylight after waking, and keep light and heavy meals out of your deepest “body night”.</li>
+              </ul>
+            </div>
+          </div>
+        )}
 
         {/* MAIN ROW: Heading + Alignment factors on LEFT, Gauge on RIGHT */}
         <div className="flex items-start gap-5">
           {/* LEFT: Heading + Alignment factors */}
           <div className="flex-1 space-y-4 min-w-0">
             <div className="space-y-1">
-              <h1 className="text-[17px] font-bold tracking-[-0.01em] text-slate-900 leading-[1.2]">
+              <h1 className="text-lg font-bold tracking-tight text-slate-900 leading-tight">
                 {inSync
                   ? "Your body clock is in sync"
                   : "Your body clock is out of sync"}
               </h1>
-              <p className="text-[12px] text-slate-500 leading-relaxed">
+              <p className="text-xs text-slate-500 leading-relaxed">
                 Based on your latest sleep, shifts and daytime patterns.
+              </p>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Source: Sleep from Google Fit &amp; ShiftCoach app · {wearableLastSyncLabel}
               </p>
             </div>
 
@@ -263,9 +650,46 @@ function BodyClockCard({ score, inSync, circadian }: { score: number; inSync: bo
             </div>
           </div>
 
-          {/* RIGHT: Main circadian gauge */}
-          <div className="flex-shrink-0">
+          {/* RIGHT: Main circadian gauge + ShiftLag card */}
+          <div className="flex-shrink-0 flex flex-col items-center gap-4">
             <CircadianGauge score={score} />
+            
+            {/* ShiftLag Card - Ultra Premium Square */}
+            {shiftLag && (
+              <div className="relative overflow-hidden rounded-[16px] bg-white/90 backdrop-blur-xl border border-white/80 shadow-[0_12px_40px_rgba(15,23,42,0.08)] px-3 py-3 w-[110px] h-[110px] flex flex-col justify-between">
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 to-white/55" />
+                <div className="pointer-events-none absolute inset-0 rounded-[16px] ring-1 ring-white/50" />
+                
+                <div className="relative z-10 flex flex-col justify-between h-full">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-[0.15em]">
+                      ShiftLag
+                    </span>
+                    <div
+                      className={`rounded-full px-1.5 py-0.5 text-[8px] font-semibold ${
+                        shiftLag.category === "low"
+                          ? "bg-emerald-50 text-emerald-600"
+                          : shiftLag.category === "moderate"
+                          ? "bg-amber-50 text-amber-600"
+                          : "bg-rose-50 text-rose-600"
+                      }`}
+                    >
+                      {shiftLag.category === "low"
+                        ? "Low"
+                        : shiftLag.category === "moderate"
+                        ? "Mod"
+                        : "High"}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-center justify-center flex-1">
+                    <span className="text-[26px] font-bold text-slate-900 tabular-nums leading-none">
+                      {shiftLag.score}
+                    </span>
+                    <span className="text-[10px] text-slate-500 mt-0.5">/100</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -500,163 +924,29 @@ function CircadianGauge({ score }: { score: number }) {
 }
 
 /* -------------------- SOCIAL JETLAG CARD -------------------- */
-
-function SocialJetlagCard() {
-  // Mock data - in production, calculate from sleep logs comparing work days vs free days
-  const socialJetlagHours = 2.5; // hours difference between work day and free day sleep timing
-  const severity = socialJetlagHours < 1 ? 'low' : socialJetlagHours < 2.5 ? 'medium' : 'high';
-  const workDayBedtime = '11:30 PM';
-  const freeDayBedtime = '1:00 AM';
-  
-  const severityColors = {
-    low: { 
-      gradient: 'from-emerald-500/20 via-emerald-400/10 to-teal-500/5',
-      text: 'text-emerald-600',
-      bg: 'bg-emerald-50/80',
-      dot: 'bg-emerald-500',
-      shadow: 'shadow-emerald-500/20'
-    },
-    medium: { 
-      gradient: 'from-amber-500/20 via-amber-400/10 to-orange-500/5',
-      text: 'text-amber-600',
-      bg: 'bg-amber-50/80',
-      dot: 'bg-amber-500',
-      shadow: 'shadow-amber-500/20'
-    },
-    high: { 
-      gradient: 'from-rose-500/20 via-rose-400/10 to-red-500/5',
-      text: 'text-rose-600',
-      bg: 'bg-rose-50/80',
-      dot: 'bg-rose-500',
-      shadow: 'shadow-rose-500/20'
-    },
-  };
-  
-  const colors = severityColors[severity];
-
-  return (
-    <section
-      className={[
-        "relative overflow-hidden rounded-[28px]",
-        "bg-white/85 backdrop-blur-2xl",
-        "border border-white/80",
-        "shadow-[0_24px_60px_rgba(15,23,42,0.12)]",
-        "px-7 py-6",
-      ].join(" ")}
-    >
-      {/* Ultra-premium gradient overlay */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/95 via-white/80 to-white/60" />
-      
-      {/* Subtle inner glow */}
-      <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/50" />
-
-      <div className="relative z-10 space-y-5">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <p className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
-              Social Jetlag
-            </p>
-            <div className="flex items-baseline gap-2">
-              <h3 className="text-[17px] font-bold tracking-[-0.01em] text-slate-900">
-                {socialJetlagHours.toFixed(1)}h
-              </h3>
-              <span className="text-[13px] font-medium text-slate-500">difference</span>
-            </div>
-          </div>
-          <div className={`relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${colors.gradient} border border-white/60 shadow-lg ${colors.shadow}`}>
-            <svg
-              viewBox="0 0 24 24"
-              className={`w-7 h-7 ${colors.text}`}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
-            {/* Subtle glow inside icon */}
-            <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${colors.gradient} opacity-30 blur-sm`} />
-          </div>
-        </div>
-
-        {/* Visual comparison */}
-        <div className="space-y-2.5">
-          {/* Work day */}
-          <div className="group relative overflow-hidden flex items-center justify-between rounded-2xl bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-xl px-5 py-3.5 border border-white/90 shadow-[0_4px_12px_rgba(15,23,42,0.04)] transition-all hover:shadow-[0_6px_16px_rgba(15,23,42,0.06)]">
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-50/50 via-transparent to-transparent" />
-            <div className="relative z-10 flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 border border-slate-200/60 shadow-sm">
-                <svg
-                  viewBox="0 0 24 24"
-                  className="w-5 h-5 text-slate-700"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <p className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">Work days</p>
-                <p className="mt-0.5 text-[17px] font-bold tracking-[-0.01em] text-slate-900">{workDayBedtime}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Free day */}
-          <div className="group relative overflow-hidden flex items-center justify-between rounded-2xl bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-xl px-5 py-3.5 border border-white/90 shadow-[0_4px_12px_rgba(15,23,42,0.04)] transition-all hover:shadow-[0_6px_16px_rgba(15,23,42,0.06)]">
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-50/50 via-transparent to-transparent" />
-            <div className="relative z-10 flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 border border-slate-200/60 shadow-sm">
-                <svg
-                  viewBox="0 0 24 24"
-                  className="w-5 h-5 text-slate-700"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <p className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">Free days</p>
-                <p className="mt-0.5 text-[17px] font-bold tracking-[-0.01em] text-slate-900">{freeDayBedtime}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Severity indicator */}
-        <div className={`relative overflow-hidden flex items-center gap-3 rounded-2xl ${colors.bg} backdrop-blur-sm px-5 py-3.5 border border-white/70 shadow-[0_4px_12px_rgba(15,23,42,0.04)]`}>
-          <div className="absolute inset-0 bg-gradient-to-r from-white/30 via-transparent to-transparent" />
-          <div className={`relative z-10 flex h-3 w-3 items-center justify-center`}>
-            <div className={`h-2.5 w-2.5 rounded-full ${colors.dot} shadow-sm`} />
-            <div className={`absolute inset-0 rounded-full ${colors.dot} opacity-30 blur-md`} />
-          </div>
-          <p className="relative z-10 text-[12px] font-semibold text-slate-700 leading-relaxed">
-            {severity === 'low' 
-              ? 'Minimal impact on circadian rhythm'
-              : severity === 'medium'
-              ? 'Moderate disruption to body clock'
-              : 'Significant circadian misalignment'}
-          </p>
-        </div>
-      </div>
-    </section>
-  );
-}
+/* Now imported from @/components/sleep/SocialJetlagCard */
 
 /* -------------------- WHY YOU HAVE THIS SCORE CARD -------------------- */
 
-function WhyYouHaveThisScoreCard() {
+function WhyYouHaveThisScoreCard({
+  socialJetlag,
+  wearableLastSyncLabel,
+  sleepConsistencyDisplay,
+}: {
+  socialJetlag?: ShiftRhythmCardProps['socialJetlag'];
+  wearableLastSyncLabel: string;
+  sleepConsistencyDisplay: number | null;
+}) {
+  // Format social jetlag display to match sleep page format (e.g., "2.3 h")
+  const formatJetlagHours = (hours?: number) => {
+    if (hours === undefined || hours === null) return null
+    return `${hours.toFixed(1)} h`
+  }
+
+  const jetlagCategory = socialJetlag?.category || null
+  const jetlagHours = socialJetlag?.currentMisalignmentHours
+  const jetlagDisplay = formatJetlagHours(jetlagHours)
+
   return (
     <section
       className={[
@@ -676,7 +966,7 @@ function WhyYouHaveThisScoreCard() {
       <div className="relative z-10 space-y-6">
         {/* Header */}
         <div className="space-y-1">
-          <h2 className="text-[17px] font-bold tracking-[-0.01em] text-slate-900">
+          <h2 className="text-lg font-bold tracking-tight text-slate-900">
             Why You Have This Score
           </h2>
           <div className="h-0.5 w-12 rounded-full bg-gradient-to-r from-slate-300 to-transparent" />
@@ -687,16 +977,23 @@ function WhyYouHaveThisScoreCard() {
           {/* Sleep Consistency */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-[13px] font-bold tracking-tight text-slate-700">Sleep Consistency</span>
+              <div className="flex flex-col">
+                <span className="text-[13px] font-bold tracking-tight text-slate-700">Sleep Consistency</span>
+                <span className="text-[11px] text-slate-400">
+                  {wearableLastSyncLabel}
+                </span>
+              </div>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-[16px] font-bold text-slate-900">5</span>
+                <span className="text-[16px] font-bold text-slate-900">
+                  {sleepConsistencyDisplay !== null ? sleepConsistencyDisplay : '—'}
+                </span>
                 <span className="text-[12px] font-semibold text-slate-500">%</span>
               </div>
             </div>
             <div className="relative h-3 w-full rounded-full bg-gradient-to-r from-slate-100/90 to-slate-100/60 overflow-hidden border border-slate-200/50 shadow-inner">
               <div 
                 className="h-full rounded-full bg-gradient-to-r from-slate-500 via-slate-600 to-slate-700 shadow-[0_2px_4px_rgba(15,23,42,0.2)]"
-                style={{ width: '5%' }}
+                style={{ width: `${sleepConsistencyDisplay !== null ? Math.max(sleepConsistencyDisplay, 5) : 5}%` }}
               />
               <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/20 to-transparent" />
             </div>
@@ -786,20 +1083,42 @@ function WhyYouHaveThisScoreCard() {
         {/* Metrics Section */}
         <div className="pt-5 space-y-4 border-t border-slate-200/70">
           {/* Social Jetlag */}
-          <div className="group relative overflow-hidden flex items-center justify-between rounded-xl bg-gradient-to-br from-amber-50/60 to-amber-50/30 backdrop-blur-sm px-4 py-3.5 border border-amber-100/50 shadow-[0_4px_12px_rgba(15,23,42,0.03)] transition-all">
-            <div className="absolute inset-0 bg-gradient-to-r from-white/30 via-transparent to-transparent" />
-            <div className="relative z-10 flex items-center gap-3.5">
-              <div className="relative flex h-3 w-3 items-center justify-center">
-                <div className="h-3 w-3 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 shadow-sm" />
-                <div className="absolute inset-0 rounded-full bg-amber-500 opacity-40 blur-md" />
+          {socialJetlag && (
+            <div className={`group relative overflow-hidden flex items-center justify-between rounded-xl backdrop-blur-sm px-4 py-3.5 border shadow-[0_4px_12px_rgba(15,23,42,0.03)] transition-all ${
+              jetlagCategory === 'high' ? 'bg-gradient-to-br from-rose-50/60 to-rose-50/30 border-rose-100/50' :
+              jetlagCategory === 'moderate' ? 'bg-gradient-to-br from-amber-50/60 to-amber-50/30 border-amber-100/50' :
+              'bg-gradient-to-br from-emerald-50/60 to-emerald-50/30 border-emerald-100/50'
+            }`}>
+              <div className="absolute inset-0 bg-gradient-to-r from-white/30 via-transparent to-transparent" />
+              <div className="relative z-10 flex items-center gap-3.5">
+                <div className="relative flex h-3 w-3 items-center justify-center">
+                  <div className={`h-3 w-3 rounded-full bg-gradient-to-br shadow-sm ${
+                    jetlagCategory === 'high' ? 'from-rose-500 to-rose-600' :
+                    jetlagCategory === 'moderate' ? 'from-amber-500 to-amber-600' :
+                    'from-emerald-500 to-emerald-600'
+                  }`} />
+                  <div className={`absolute inset-0 rounded-full opacity-40 blur-md ${
+                    jetlagCategory === 'high' ? 'bg-rose-500' :
+                    jetlagCategory === 'moderate' ? 'bg-amber-500' :
+                    'bg-emerald-500'
+                  }`} />
+                </div>
+                <span className="text-[13px] font-bold tracking-tight text-slate-700">Social Jetlag</span>
               </div>
-              <span className="text-[13px] font-bold tracking-tight text-slate-700">Social Jetlag</span>
+              <div className="relative z-10 flex items-center gap-3">
+                <span className={`text-[11px] font-bold uppercase tracking-wider ${
+                  jetlagCategory === 'high' ? 'text-rose-700' :
+                  jetlagCategory === 'moderate' ? 'text-amber-700' :
+                  'text-emerald-700'
+                }`}>
+                  {jetlagCategory === 'high' ? 'High' : jetlagCategory === 'moderate' ? 'Moderate' : 'Low'}
+                </span>
+                {jetlagDisplay && (
+                  <span className="text-[13px] font-bold text-slate-900">{jetlagDisplay}</span>
+                )}
+              </div>
             </div>
-            <div className="relative z-10 flex items-center gap-3">
-              <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider">Moderate</span>
-              <span className="text-[13px] font-bold text-slate-900">1h 20 m Impact</span>
-            </div>
-          </div>
+          )}
 
           {/* Sleep Debt */}
           <div className="group relative overflow-hidden flex items-center justify-between rounded-xl bg-gradient-to-br from-amber-50/60 to-amber-50/30 backdrop-blur-sm px-4 py-3.5 border border-amber-100/50 shadow-[0_4px_12px_rgba(15,23,42,0.03)] transition-all">
@@ -854,7 +1173,7 @@ function NextBestActionsCard() {
           <div className="relative overflow-hidden flex items-start gap-4 rounded-2xl bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-xl px-5 py-4 border border-white/90 shadow-[0_4px_12px_rgba(15,23,42,0.04)]">
             <div className="absolute inset-0 bg-gradient-to-r from-slate-50/50 via-transparent to-transparent" />
             <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 text-[13px] font-bold tracking-wide text-white shadow-lg shadow-indigo-500/30">
-              AI
+              SC
             </div>
             <div className="relative z-10 flex-1 pt-0.5">
               <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-slate-400 mb-1.5">
@@ -936,111 +1255,7 @@ function ShiftCoachCard({ inSync }: { inSync: boolean }) {
 /* -------------------- BOTTOM METRICS ROW -------------------- */
 
 function BottomMetricsRow({ score }: { score: number }) {
-  const consistency = Math.round(score);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-4">
-        {/* Today's Key Sleep Times */}
-        <MiniCard>
-          <div className="space-y-6">
-            {/* Title */}
-            <h3 className="text-[17px] font-bold tracking-tight text-blue-900">
-              Today&apos;s Key Sleep Times
-            </h3>
-            
-            {/* Arc Gauge with improved gradient */}
-            <div className="relative w-full h-24 flex items-center justify-center -mx-3">
-              <svg
-                viewBox="0 0 280 80"
-                className="w-full h-full"
-                preserveAspectRatio="xMidYMid meet"
-                aria-hidden="true"
-              >
-                <defs>
-                  <linearGradient id="sleepArcGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#FB923C" /> {/* orange */}
-                    <stop offset="30%" stopColor="#FBBF24" /> {/* lighter orange */}
-                    <stop offset="50%" stopColor="#E5E7EB" /> {/* light grey */}
-                    <stop offset="70%" stopColor="#93C5FD" /> {/* light blue */}
-                    <stop offset="100%" stopColor="#1E3A8A" /> {/* dark blue */}
-                  </linearGradient>
-                </defs>
-                
-                {/* Arc path - more curved arch, wider */}
-                <path
-                  d="M 20 65 Q 140 10, 260 65"
-                  fill="none"
-                  stroke="url(#sleepArcGradient)"
-                  strokeWidth="10"
-                  strokeLinecap="round"
-                />
-                
-                {/* Left handle (orange) */}
-                <circle
-                  cx="20"
-                  cy="65"
-                  r="11"
-                  fill="#FB923C"
-                  stroke="white"
-                  strokeWidth="3"
-                />
-                
-                {/* Right handle (dark blue) */}
-                <circle
-                  cx="260"
-                  cy="65"
-                  r="11"
-                  fill="#1E3A8A"
-                  stroke="white"
-                  strokeWidth="3"
-                />
-              </svg>
-            </div>
-            
-            {/* Three-column layout - aligned with gauge dots */}
-            <div className="space-y-3 pt-2">
-              {/* Labels Row - uppercase, dark grey */}
-              <div className="flex items-center justify-between text-[10px] font-semibold text-slate-700 tracking-[0.1em] uppercase">
-                <span className="text-left">AWAKE</span>
-                <span className="text-center">SLEEP WINDOW</span>
-                <span className="text-right">BEDTIME</span>
-              </div>
-              
-              {/* Times Row - dark blue, bold, aligned with dots */}
-              <div className="flex items-center justify-between">
-                <span className="text-[16px] font-bold text-blue-900 tracking-tight text-left">6:20 am</span>
-                <span className="text-[15px] font-bold text-blue-900 tracking-tight text-center">11:30 pm-7:30 am</span>
-                <span className="text-[16px] font-bold text-blue-900 tracking-tight text-right">11:40 pm</span>
-              </div>
-            </div>
-          </div>
-        </MiniCard>
-
-        {/* Consistency card */}
-        <MiniCard>
-          <h3 className="text-[13px] font-semibold tracking-tight text-slate-900">
-            Consistency
-          </h3>
-          <p className="mt-3 text-[26px] font-semibold text-slate-900 leading-tight">
-            {consistency}
-          </p>
-          <p className="mt-1 text-[11px] text-slate-500">
-            Rhythm alignment score
-          </p>
-
-          <div className="mt-3 flex items-center gap-1 text-slate-500">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <span
-                key={i}
-                className="h-[2px] flex-1 rounded-full bg-slate-200"
-              />
-            ))}
-          </div>
-        </MiniCard>
-      </div>
-    </div>
-  );
+  return null;
 }
 
 function MiniCard({
@@ -1104,22 +1319,6 @@ function RhythmMiniLine() {
   );
 }
 
-/* -------------------- SYNC BAR -------------------- */
-
-function SyncBar() {
-  return (
-    <section className="relative overflow-hidden flex items-center justify-between rounded-[20px] bg-white/85 backdrop-blur-xl border border-white/70 shadow-[0_16px_40px_rgba(15,23,42,0.06)] px-4 py-2.5 text-[11px] text-slate-500">
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/50 via-transparent to-white/30" />
-      <span className="relative z-10 flex items-center gap-2 font-medium">
-        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-[10px] text-white shadow-sm">
-          ✓
-        </span>
-        <span>Synced</span>
-      </span>
-      <span className="relative z-10 font-medium">at 6:40 am</span>
-    </section>
-  );
-}
 
 /* -------------------- ALIGNMENT FACTORS -------------------- */
 

@@ -8,11 +8,15 @@ export function LogSleepModal({
   onClose,
   onSubmit,
   defaultType = 'sleep',
+  defaultStart,
+  defaultEnd,
 }: {
   open: boolean
   onClose: () => void
   onSubmit: (data: any) => Promise<void>
   defaultType?: 'sleep' | 'nap'
+  defaultStart?: Date | null
+  defaultEnd?: Date | null
 }) {
   // Normalize defaultType to always be a string (prevents dependency array size changes)
   const normalizedType = defaultType || 'sleep'
@@ -61,23 +65,35 @@ export function LogSleepModal({
   // Set default times when modal opens and ensure type matches defaultType
   useEffect(() => {
     if (open) {
-      const now = new Date()
-      const yesterday = new Date(now)
-      yesterday.setDate(yesterday.getDate() - 1)
-      yesterday.setHours(22, 0, 0, 0) // 10 PM yesterday
+      let startDate: Date
+      let endDate: Date
+      
+      // Use provided defaults if available
+      if (defaultStart && defaultEnd) {
+        startDate = defaultStart
+        endDate = defaultEnd
+      } else {
+        // Fallback to default logic
+        const now = new Date()
+        const yesterday = new Date(now)
+        yesterday.setDate(yesterday.getDate() - 1)
+        yesterday.setHours(22, 0, 0, 0) // 10 PM yesterday
+        startDate = yesterday
+        endDate = now
+      }
       
       // Reset form when modal opens, ensuring type is locked to defaultType
       setForm({
         type: normalizedType as 'sleep' | 'nap',
-        startDate: formatDateForInput(yesterday),
-        startTime: formatTimeForInput(yesterday),
-        endDate: formatDateForInput(now),
-        endTime: formatTimeForInput(now),
+        startDate: formatDateForInput(startDate),
+        startTime: formatTimeForInput(startDate),
+        endDate: formatDateForInput(endDate),
+        endTime: formatTimeForInput(endDate),
         quality: 'Good',
         notes: '',
       })
     }
-  }, [open, normalizedType])
+  }, [open, normalizedType, defaultStart, defaultEnd])
 
   if (!open) return null
 

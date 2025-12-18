@@ -20,10 +20,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true
 
     const init = async () => {
-      const { data } = await supabase.auth.getUser()
-      if (!mounted) return
-      setUser(data.user ?? null)
-      setLoading(false)
+      try {
+        const { data } = await supabase.auth.getUser()
+        if (!mounted) return
+        setUser(data.user ?? null)
+        setLoading(false)
+      } catch (err: any) {
+        // Catch AuthSessionMissingError silently - it's expected in some contexts
+        if (err?.name === 'AuthSessionMissingError' || 
+            err?.message?.includes('Auth session missing') ||
+            err?.__isAuthError) {
+          // Expected - no session yet
+          if (!mounted) return
+          setUser(null)
+          setLoading(false)
+        } else {
+          // Unexpected error - log it
+          console.error('[AuthProvider] Unexpected auth error:', err)
+          if (!mounted) return
+          setUser(null)
+          setLoading(false)
+        }
+      }
     }
 
     init()

@@ -5,6 +5,7 @@ import { Moon } from "lucide-react";
 import { LogSleepModal } from "@/components/sleep/LogSleepModal";
 import { Sleep7DayBars } from "@/components/sleep/Sleep7DayBars";
 import { useRouter } from "next/navigation";
+import { SleepDeficitCard } from "@/components/dashboard/SleepDeficitCard";
 
 function ShellCard({
   children,
@@ -61,13 +62,13 @@ function SleepGauge({ totalMinutes, targetMinutes }: { totalMinutes: number | nu
     >
       <div className="h-[138px] w-[138px] rounded-full bg-white shadow-[inset_0_4px_7px_rgba(148,163,184,0.28)]" />
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-[12px] text-slate-500 tracking-wide">Sleep</span>
+        <span className="text-xs text-slate-500 tracking-wide">Sleep</span>
         <span className="mt-[2px] text-[32px] font-semibold leading-none text-slate-900">
           {hours}
           <span className="align-top text-[18px] font-normal ml-[2px]">h</span>{" "}
           {minutes}
         </span>
-        <span className="mt-[2px] text-[12px] text-slate-500">
+        <span className="mt-[2px] text-xs text-slate-500">
           {percent}% of goal
         </span>
       </div>
@@ -89,7 +90,42 @@ function SleepSummaryCard({
   const percent = totalMinutes ? Math.round((totalMinutes / targetMinutes) * 100) : 0;
   const displayText = totalMinutes 
     ? `${hours}h ${minutes}m – ${percent}% of your goal`
-    : 'No sleep logged yet';
+    : '';
+
+  const [lastWearableSync, setLastWearableSync] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const ts = window.localStorage.getItem("wearables:lastSyncedAt");
+    if (ts) {
+      const n = Number(ts);
+      if (!Number.isNaN(n)) setLastWearableSync(n);
+    }
+
+    const handleSynced = (e: Event) => {
+      const detailTs = (e as CustomEvent).detail?.ts as number | undefined;
+      if (detailTs && typeof detailTs === "number") {
+        setLastWearableSync(detailTs);
+      }
+    };
+
+    window.addEventListener("wearables-synced", handleSynced as EventListener);
+    return () => {
+      window.removeEventListener("wearables-synced", handleSynced as EventListener);
+    };
+  }, []);
+
+  const wearableLastSyncLabel = React.useMemo(() => {
+    if (!lastWearableSync) return "Last sync: not yet";
+    const diffMs = Date.now() - lastWearableSync;
+    const diffMin = Math.round(diffMs / 60000);
+    if (diffMin < 2) return "Last sync: just now";
+    if (diffMin < 60) return `Last sync: ${diffMin} min ago`;
+    const diffH = Math.round(diffMin / 60);
+    if (diffH < 24) return `Last sync: ${diffH} h ago`;
+    const diffD = Math.round(diffH / 24);
+    return `Last sync: ${diffD} day${diffD > 1 ? "s" : ""} ago`;
+  }, [lastWearableSync]);
 
   return (
     <ShellCard>
@@ -99,11 +135,11 @@ function SleepSummaryCard({
             Sleep stages
           </p>
           <div className="space-y-1">
-            <h1 className="text-[17px] font-bold tracking-[-0.01em] text-slate-900">
-              {totalMinutes ? 'Last night you slept' : 'Log your sleep'}
+            <h1 className="text-lg font-bold tracking-tight text-slate-900">
+              {totalMinutes ? "Last night you slept" : "Log your sleep"}
             </h1>
-            <p className="text-[12px] text-slate-500 leading-relaxed">
-              {displayText}
+            <p className="text-xs text-slate-500 leading-relaxed">
+              {totalMinutes ? displayText : wearableLastSyncLabel}
             </p>
           </div>
           <button
@@ -211,16 +247,36 @@ function LatestShiftTimeCard() {
   );
 }
 
-function TonightTargetCard() {
+type TonightTargetProps = {
+  targetHours: number
+  explanation: string
+  loading?: boolean
+}
+
+function TonightTargetCard({ targetHours, explanation, loading }: TonightTargetProps) {
   return (
     <MiniCard>
       <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
         Tonight&apos;s target
       </h2>
-      <p className="mt-3 text-[26px] font-semibold text-slate-900 leading-tight">
-        8
-        <span className="ml-1 text-[14px] font-normal text-slate-500">h</span>
-      </p>
+      {loading ? (
+        <div className="mt-3 space-y-2">
+          <div className="h-7 w-16 bg-slate-200 animate-pulse rounded" />
+          <div className="h-4 w-full bg-slate-200 animate-pulse rounded" />
+        </div>
+      ) : (
+        <>
+          <p className="mt-3 text-[26px] font-semibold text-slate-900 leading-tight">
+            {targetHours % 1 === 0 ? targetHours : targetHours.toFixed(1)}
+            <span className="ml-1 text-[14px] font-normal text-slate-500">h</span>
+          </p>
+          {explanation && (
+            <p className="mt-2 text-[10px] text-slate-600 leading-relaxed">
+              {explanation}
+            </p>
+          )}
+        </>
+      )}
     </MiniCard>
   );
 }
@@ -253,7 +309,7 @@ function ShiftCoachCard() {
           <span className="font-semibold">11:00 pm</span>.
         </p>
 
-        <button className="mt-1 text-[12px] font-medium text-slate-100 underline underline-offset-4 decoration-slate-400/70">
+        <button className="mt-1 text-xs font-medium text-slate-100 underline underline-offset-4 decoration-slate-400/70">
           View analysis
         </button>
       </div>
@@ -264,6 +320,106 @@ function ShiftCoachCard() {
 /* ---------- Bottom: metrics + sync ---------- */
 
 function SleepMetricsRow() {
+  const [hrLoading, setHrLoading] = useState(true)
+  const [hrResting, setHrResting] = useState<number | null>(null)
+  const [hrAvg, setHrAvg] = useState<number | null>(null)
+  const [hrError, setHrError] = useState<string | null>(null)
+
+  const [consistencyLoading, setConsistencyLoading] = useState(true)
+  const [consistencyScore, setConsistencyScore] = useState<number | null>(null)
+  const [consistencyError, setConsistencyError] = useState<string | null>(null)
+
+  // Heart rate from Google Fit
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchHr = async () => {
+      try {
+        setHrLoading(true)
+        setHrError(null)
+
+        const res = await fetch('/api/google-fit/heart-rate', { cache: 'no-store' })
+        const json = await res.json().catch(() => ({}))
+
+        if (!res.ok) {
+          if (res.status === 404 && json?.error === 'no_google_fit_connection') {
+            if (!cancelled) setHrError('Connect Google Fit to see your heart rate here')
+            return
+          }
+          if (!cancelled) setHrError('Could not fetch heart rate data')
+          return
+        }
+
+        if (json?.message === 'no_heart_rate_data') {
+          if (!cancelled) setHrError('No heart rate data from the last 24 hours yet')
+          return
+        }
+
+        if (!cancelled) {
+          setHrResting(typeof json.resting_bpm === 'number' ? json.resting_bpm : null)
+          setHrAvg(typeof json.avg_bpm === 'number' ? json.avg_bpm : null)
+        }
+      } catch (err) {
+        console.error('[SleepMetricsRow] Failed to fetch heart rate:', err)
+        if (!cancelled) setHrError('Could not fetch heart rate data')
+      } finally {
+        if (!cancelled) setHrLoading(false)
+      }
+    }
+
+    fetchHr()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Sleep consistency score for shift workers
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchConsistency = async () => {
+      try {
+        setConsistencyLoading(true)
+        setConsistencyError(null)
+
+        const res = await fetch('/api/sleep/consistency', { cache: 'no-store' })
+        const json = await res.json().catch(() => ({}))
+
+        if (!res.ok) {
+          if (!cancelled) setConsistencyError('Could not fetch sleep consistency')
+          return
+        }
+
+        if (!cancelled) {
+          const score = typeof json.consistencyScore === 'number' ? json.consistencyScore : null
+          setConsistencyScore(score)
+          if (!score && json?.error) {
+            setConsistencyError(json.error)
+          }
+        }
+      } catch (err) {
+        console.error('[SleepMetricsRow] Failed to fetch sleep consistency:', err)
+        if (!cancelled) setConsistencyError('Could not fetch sleep consistency')
+      } finally {
+        if (!cancelled) setConsistencyLoading(false)
+      }
+    }
+
+    fetchConsistency()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const consistencyLabel = (() => {
+    if (consistencyLoading) return 'Calculating…'
+    if (consistencyError) return consistencyError
+    if (consistencyScore === null) return 'Not enough sleep logged yet'
+    if (consistencyScore >= 70) return 'Stable pattern for your recent shifts'
+    if (consistencyScore >= 40) return 'Some swings between shifts – aim to tighten bedtime window'
+    return 'Very changeable pattern – protect sleep around tough runs of shifts'
+  })()
+
   return (
     <div className="space-y-4">
       {/* two small cards next to each other */}
@@ -274,61 +430,78 @@ function SleepMetricsRow() {
             Sleep consistency
           </h3>
 
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-[24px] font-semibold text-slate-900">78</span>
-            <span className="text-[11px] text-slate-500">score</span>
-          </div>
-
-          <div className="mt-2">
-            <svg viewBox="0 0 100 24" className="h-6 w-full">
-              <path
-                d="M4 16 C 18 10, 32 10, 46 14 S 74 20, 96 12"
-                fill="none"
-                stroke="#2563EB"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-              />
-              <circle cx="80" cy="14" r="2.3" fill="#2563EB" />
-            </svg>
-          </div>
-
-          <div className="mt-1 flex justify-between text-[11px] text-slate-500">
-            <span>Bedtime</span>
-            <span>Wake time</span>
-          </div>
+          {consistencyLoading ? (
+            <div className="mt-2 space-y-2">
+              <div className="h-7 w-12 bg-slate-200 animate-pulse rounded" />
+              <div className="h-3 w-full bg-slate-200 animate-pulse rounded" />
+            </div>
+          ) : (
+            <>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-[24px] font-semibold text-slate-900">
+                  {consistencyScore !== null ? Math.round(consistencyScore) : '—'}
+                </span>
+                <span className="text-[10px] text-slate-500">score</span>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-500 leading-relaxed">
+                {consistencyLabel}
+              </p>
+            </>
+          )}
         </MiniCard>
 
         {/* Sleep deficit */}
-        <MiniCard>
-          <h3 className="text-[13px] font-semibold tracking-tight text-slate-900">
-            Sleep deficit
-          </h3>
-
-          <p className="mt-2 text-[24px] font-semibold text-slate-900 leading-tight">
-            11.00 pm
-          </p>
-          <p className="mt-1 text-[11px] text-slate-500">Wake time</p>
-
-          <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-700">
-            <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[10px] text-white">
-              ✓
-            </span>
-            <span>On track</span>
-          </div>
-        </MiniCard>
+        <SleepDeficitCard />
       </div>
 
-      {/* sync bar */}
-      <section className="relative overflow-hidden flex items-center justify-between rounded-[20px] bg-white/85 backdrop-blur-xl border border-white/70 shadow-[0_16px_40px_rgba(15,23,42,0.06)] px-4 py-2.5 text-[11px] text-slate-500">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/50 via-transparent to-white/30" />
-        <span className="relative z-10 flex items-center gap-2 font-medium">
-          <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-[10px] text-white shadow-sm">
-            ✓
-          </span>
-          <span>Synced</span>
-        </span>
-        <span className="relative z-10 font-medium">at 6:40 am</span>
-      </section>
+      {/* Heart rate / recovery card */}
+      <MiniCard>
+        <h3 className="text-[13px] font-semibold tracking-tight text-slate-900">
+          Recovery &amp; heart rate
+        </h3>
+        {hrLoading ? (
+          <div className="mt-3 space-y-2">
+            <div className="h-5 w-24 rounded bg-slate-200 animate-pulse" />
+            <div className="h-3 w-40 rounded bg-slate-200 animate-pulse" />
+          </div>
+        ) : hrError ? (
+          <p className="mt-3 text-[11px] text-slate-500 leading-relaxed">
+            {hrError}
+          </p>
+        ) : hrResting == null && hrAvg == null ? (
+          <p className="mt-3 text-[11px] text-slate-500 leading-relaxed">
+            No heart rate data from the last 24 hours yet.
+          </p>
+        ) : (
+          <div className="mt-3 flex items-end justify-between gap-6">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">
+                Resting bpm
+              </p>
+              <p className="mt-1 text-[24px] font-semibold text-slate-900 leading-tight">
+                {hrResting ?? '--'}
+              </p>
+              <p className="mt-1 text-[10px] text-slate-500">
+                Lower resting heart rate usually means better recovery.
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">
+                24h average
+              </p>
+              <p className="mt-1 text-[20px] font-semibold text-slate-900 leading-tight">
+                {hrAvg ?? '--'}
+              </p>
+              <p className="mt-1 text-[10px] text-slate-500">
+                We look at your last 24 hours from Google Fit.
+              </p>
+            </div>
+          </div>
+        )}
+        <p className="mt-3 text-[10px] text-slate-400">
+          Source: Google Fit
+        </p>
+      </MiniCard>
     </div>
   );
 }
@@ -336,6 +509,41 @@ function SleepMetricsRow() {
 /* ---------- MAIN PAGE ---------- */
 
 export default function SleepPage() {
+  const [tonightTarget, setTonightTarget] = useState<{ targetHours: number; explanation: string } | null>(null)
+  const [loadingTarget, setLoadingTarget] = useState(true)
+
+  // Fetch tonight's target
+  useEffect(() => {
+    let cancelled = false
+    const fetchTarget = async () => {
+      try {
+        setLoadingTarget(true)
+        const res = await fetch('/api/sleep/tonight-target', { cache: 'no-store' })
+        if (!res.ok) throw new Error(String(res.status))
+        const json = await res.json()
+        if (!cancelled) {
+          setTonightTarget(json)
+        }
+      } catch (err) {
+        console.error('[SleepPage] Failed to fetch tonight target:', err)
+      } finally {
+        if (!cancelled) setLoadingTarget(false)
+      }
+    }
+    
+    fetchTarget()
+    
+    // Listen for sleep refresh events
+    const handleRefresh = () => {
+      if (!cancelled) fetchTarget()
+    }
+    window.addEventListener('sleep-refreshed', handleRefresh)
+    
+    return () => {
+      cancelled = true
+      window.removeEventListener('sleep-refreshed', handleRefresh)
+    }
+  }, [])
   const router = useRouter()
   const [isLogModalOpen, setIsLogModalOpen] = useState(false)
   const [sleepData, setSleepData] = useState<{
@@ -439,7 +647,11 @@ export default function SleepPage() {
         {/* Right column – two stacked cards */}
         <div className="flex flex-col gap-4">
           <LatestShiftTimeCard />
-          <TonightTargetCard />
+          <TonightTargetCard 
+            targetHours={tonightTarget?.targetHours ?? 8}
+            explanation={tonightTarget?.explanation ?? ''}
+            loading={loadingTarget}
+          />
         </div>
       </div>
 
@@ -458,7 +670,7 @@ export default function SleepPage() {
 
       {/* Disclaimer */}
       <div className="pt-4 pb-4">
-        <p className="text-[11px] leading-relaxed text-slate-500 text-center">
+        <p className="text-[10px] leading-relaxed text-slate-500 text-center">
           Shift Coach is a coaching tool and does not provide medical advice. For medical conditions, pregnancy or complex health issues, please check your plan with a registered professional.
         </p>
       </div>

@@ -53,7 +53,13 @@ export function useRotaMonth(month: number, year: number) {
       setError(null)
 
       try {
-        const monthRes = await fetch(`/api/rota/month?month=${m + 1}&year=${y}`)
+        const monthRes = await fetch(`/api/rota/month?month=${m + 1}&year=${y}`, { 
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+          }
+        })
 
         if (!monthRes.ok) {
           const text = await monthRes.text().catch(() => null)
@@ -89,24 +95,55 @@ export function useRotaMonth(month: number, year: number) {
               count: eventsList.length,
               events: eventsList,
             })
-            const map = new Map<string, RotaEvent[]>()
+
+            // Deduplicate events that are effectively the same holiday/entry on a given day.
+            // This protects against accidental duplicate inserts or migration artefacts that can
+            // show many identical "Holiday" blocks stacked on one date, especially in production.
+            const seenKeys = new Set<string>()
+            const dedupedEvents: RotaEvent[] = []
             for (const ev of eventsList) {
-              // Extract date from start_at field (primary after migration), event_date, date, or start_at ISO string
+              const rawEventDate = (ev as any).event_date as string | undefined
+              const rawDate =
+                rawEventDate ||
+                ev.date ||
+                (ev as any).start_at ||
+                null
+
+              // Prefer the event_date string directly to avoid any timezone shift
+              const dateStr = rawEventDate
+                ? rawEventDate.slice(0, 10)
+                : rawDate
+                ? new Date(rawDate).toISOString().slice(0, 10)
+                : null
+
+              if (!dateStr) continue
+
+              const key = `${dateStr}|${ev.title ?? ''}`
+              if (seenKeys.has(key)) continue
+              seenKeys.add(key)
+              dedupedEvents.push(ev)
+            }
+
+            const map = new Map<string, RotaEvent[]>()
+            for (const ev of dedupedEvents) {
+              const rawEventDate = (ev as any).event_date as string | undefined
               let dateStr: string | null = null
-              if (ev?.start_at) {
-                dateStr = new Date(ev.start_at).toISOString().slice(0, 10)
-              } else if (ev?.event_date) {
-                dateStr = ev.event_date.slice(0, 10)
+
+              if (rawEventDate) {
+                dateStr = rawEventDate.slice(0, 10)
               } else if (ev?.date) {
                 dateStr = ev.date.slice(0, 10)
+              } else if ((ev as any)?.start_at) {
+                dateStr = new Date((ev as any).start_at).toISOString().slice(0, 10)
               }
+
               if (!dateStr) continue
               const key = dateStr
               const existing = map.get(key) ?? []
               existing.push(ev)
               map.set(key, existing)
             }
-            
+
             setEventsByDate(map)
           }
         } catch (eventsErr) {

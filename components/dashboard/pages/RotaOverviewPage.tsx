@@ -382,19 +382,6 @@ export default function RotaOverviewPage() {
             </div>
           )}
 
-          {legendItems.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-slate-300/50 flex flex-wrap items-center justify-center gap-4 text-[10px] font-medium text-slate-700 antialiased flex-shrink-0">
-              {legendItems.map((item) => (
-                <span key={item.key} className="flex items-center gap-2">
-                  <span
-                    className="h-3 w-3 rounded shadow-sm"
-                    style={{ backgroundColor: item.color }}
-                  />
-                  <span className="tracking-wide">{item.label}</span>
-                </span>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Edit/Delete Modal */}

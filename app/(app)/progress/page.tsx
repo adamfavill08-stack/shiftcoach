@@ -21,6 +21,522 @@ function Sparkline({ values, color='currentColor' }:{ values: number[]; color?: 
   )
 }
 
+function CircadianRhythmCard({
+  scores,
+  days,
+  hasRealData,
+  loading,
+}: {
+  scores: number[]
+  days: string[]
+  hasRealData?: boolean
+  loading?: boolean
+}) {
+  if (!scores.length) return null
+
+  const data = scores.slice(0, 7)
+  const labels = days.slice(0, 7)
+
+  const maxScore = Math.max(...data)
+  const minScore = Math.min(...data)
+  const peakIndex = data.findIndex((v) => v === maxScore)
+
+  const width = 320
+  const height = 140
+  const paddingX = 8
+  const paddingTop = 10
+  const paddingBottom = 26
+
+  const usableHeight = height - paddingTop - paddingBottom
+  const stepX = data.length > 1 ? (width - paddingX * 2) / (data.length - 1) : 0
+  const normY = (v: number) =>
+    minScore === maxScore
+      ? paddingTop + usableHeight / 2
+      : paddingTop + usableHeight - ((v - minScore) / (maxScore - minScore)) * usableHeight
+
+  const points = data.map((v, i) => ({
+    x: paddingX + i * stepX,
+    y: normY(v),
+    value: v,
+  }))
+
+  const pathD =
+    points.length === 1
+      ? `M ${points[0].x} ${points[0].y}`
+      : points
+          .map((p, i) => {
+            if (i === 0) return `M ${p.x} ${p.y}`
+            const prev = points[i - 1]
+            const cx = (prev.x + p.x) / 2
+            return `C ${cx} ${prev.y}, ${cx} ${p.y}, ${p.x} ${p.y}`
+          })
+          .join(' ')
+
+  const areaD =
+    points.length === 1
+      ? `M ${points[0].x} ${height - paddingBottom} L ${points[0].x} ${points[0].y} L ${
+          points[0].x
+        } ${height - paddingBottom} Z`
+      : `M ${points[0].x} ${height - paddingBottom} ` +
+        points
+          .map((p, i) => {
+            if (i === 0) return `L ${p.x} ${p.y}`
+            const prev = points[i - 1]
+            const cx = (prev.x + p.x) / 2
+            return `C ${cx} ${prev.y}, ${cx} ${p.y}, ${p.x} ${p.y}`
+          })
+          .join(' ') +
+        ` L ${points[points.length - 1].x} ${height - paddingBottom} Z`
+
+  const peakPoint = points[peakIndex]
+
+  return (
+    <section
+      className="relative overflow-hidden rounded-3xl border px-5 pt-5 pb-4 flex flex-col gap-4"
+      style={{
+        backgroundColor: 'var(--card)',
+        borderColor: 'var(--border-subtle)',
+        boxShadow: 'var(--shadow-soft)',
+      }}
+    >
+      {/* subtle premium overlays */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-br from-white/95 via-white/85 to-white/80" />
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-sky-50/45 via-transparent to-indigo-50/35" />
+      <div className="pointer-events-none absolute inset-[1px] rounded-[23px] ring-1 ring-white/60" />
+
+      <div className="relative z-10 flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+            Last 7 Days
+          </p>
+          <h2 className="mt-1 text-[18px] font-semibold text-slate-900 tracking-tight">
+            Circadian Rhythm
+          </h2>
+          <p className="mt-1 text-[11px] text-slate-500 leading-relaxed max-w-[230px]">
+            A quick snapshot of how aligned your body clock has been with your ideal rhythm this
+            week.
+          </p>
+        </div>
+        <div className="inline-flex flex-col items-end gap-1">
+          {hasRealData ? (
+            <>
+              <span className="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white shadow-[0_10px_26px_rgba(15,23,42,0.35)]">
+                Weekly peak&nbsp;
+                <span className="ml-1 rounded-full bg-white/10 px-2 py-0.5 text-[11px]">
+                  {maxScore}
+                </span>
+              </span>
+              <span className="text-[10px] font-medium text-slate-400">
+                Stability: {Math.max(0, 100 - Math.round(peakIndex * 4))}/100
+              </span>
+            </>
+          ) : (
+            <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[10px] font-medium text-slate-500 border border-slate-200">
+              We’ll show your first 7-day rhythm once enough sleep & shift data is logged.
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="relative mt-1">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-[150px]">
+          <defs>
+            <linearGradient id="circadian-line" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#38bdf8" />
+              <stop offset="50%" stopColor="#2563eb" />
+              <stop offset="100%" stopColor="#4f46e5" />
+            </linearGradient>
+            <linearGradient id="circadian-area" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="rgba(59,130,246,0.35)" />
+              <stop offset="70%" stopColor="rgba(59,130,246,0.04)" />
+              <stop offset="100%" stopColor="transparent" />
+            </linearGradient>
+          </defs>
+
+          {/* Soft background grid */}
+          <g stroke="rgba(148,163,184,0.22)" strokeWidth="0.5">
+            {[0, 1, 2, 3, 4].map((i) => {
+              const y = paddingTop + (usableHeight / 4) * i
+              return <line key={i} x1={paddingX} y1={y} x2={width - paddingX} y2={y} />
+            })}
+          </g>
+
+          {hasRealData ? (
+            <>
+              {/* Area under curve */}
+              <path d={areaD} fill="url(#circadian-area)" />
+
+              {/* Curve */}
+              <path
+                d={pathD}
+                stroke="url(#circadian-line)"
+                strokeWidth={3}
+                fill="none"
+                strokeLinecap="round"
+              />
+
+              {/* Peak glow */}
+              {peakPoint && (
+                <>
+              <circle
+                cx={peakPoint.x}
+                cy={peakPoint.y}
+                r={16}
+                fill="rgba(59,130,246,0.25)"
+                className="blur-[6px]"
+              />
+              <circle cx={peakPoint.x} cy={peakPoint.y} r={7} fill="#ffffff" />
+              <circle cx={peakPoint.x} cy={peakPoint.y} r={5} fill="#2563eb" />
+              <text
+                x={peakPoint.x}
+                y={peakPoint.y - 18}
+                textAnchor="middle"
+                className="text-[11px] font-semibold"
+                fill="#2563eb"
+              >
+                {peakPoint.value}
+              </text>
+            </>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Placeholder baseline curve */}
+              <path
+                d={`M ${paddingX} ${paddingTop + usableHeight * 0.6} L ${
+                  width - paddingX
+                } ${paddingTop + usableHeight * 0.6}`}
+                stroke="rgba(148,163,184,0.5)"
+                strokeWidth={2}
+                strokeDasharray="4 4"
+                fill="none"
+              />
+            </>
+          )}
+
+          {/* Y-axis labels (0–100) */}
+          {[0, 25, 50, 75, 100].map((val, idx) => {
+            const y =
+              paddingTop +
+              usableHeight -
+              ((val - 0) / (100 - 0 || 1)) * usableHeight
+            return (
+              <text
+                key={idx}
+                x={0}
+                y={y + 3}
+                fontSize="9"
+                fill="rgba(148,163,184,0.9)"
+              >
+                {val}
+              </text>
+            )
+          })}
+
+          {/* Day labels */}
+          {labels.map((label, i) => (
+            <text
+              key={label + i}
+              x={paddingX + i * stepX}
+              y={height - 8}
+              textAnchor="middle"
+              fontSize="9"
+              fill="rgba(148,163,184,0.95)"
+            >
+              {label.toUpperCase().slice(0, 3)}
+            </text>
+          ))}
+        </svg>
+      </div>
+
+      <p className="text-[11px] text-slate-500 leading-relaxed">
+        {hasRealData
+          ? 'Higher points mean your body clock was more in sync with your ideal rhythm. Dips often follow night shifts, irregular sleep, or disrupted routines.'
+          : 'Once we have a full week of sleep and shift data, this card will begin to show how your body clock is adapting to your pattern.'}
+      </p>
+      </div>
+    </section>
+  )
+}
+
+function CircadianRhythmReport({
+  scores,
+  sleepHours,
+  sleepTiming,
+  days,
+  hasRealData,
+}: {
+  scores: number[]
+  sleepHours: number[]
+  sleepTiming: number[]
+  days: string[]
+  hasRealData?: boolean
+}) {
+  if (!scores.length) return null
+
+  const data = scores.slice(0, 7)
+  const sleep = sleepHours.slice(0, 7)
+  const timing = sleepTiming.slice(0, 7)
+  const labels = days.slice(0, 7)
+
+  const avgScore = Math.round(data.reduce((a, b) => a + b, 0) / data.length)
+  const first = data[0]
+  const last = data[data.length - 1]
+  const trendDelta = last - first
+  const direction: 'up' | 'down' | 'flat' =
+    Math.abs(trendDelta) < 3 ? 'flat' : trendDelta > 0 ? 'up' : 'down'
+
+  const maxScore = Math.max(...data)
+  const minScore = Math.min(...data)
+  const bestIndex = data.findIndex((v) => v === maxScore)
+  const worstIndex = data.findIndex((v) => v === minScore)
+
+  const mean =
+    data.reduce((a, b) => a + b, 0) / data.length
+  const variance =
+    data.reduce((sum, v) => sum + (v - mean) ** 2, 0) / data.length
+  const stdDev = Math.sqrt(variance)
+  const stabilityScore = Math.max(0, Math.min(100, Math.round(100 - stdDev * 2.2)))
+
+  let headline: string
+  if (direction === 'up' && avgScore >= 65 && stabilityScore >= 60) {
+    headline = 'Your rhythm has improved this week — your body is stabilising.'
+  } else if (direction === 'down' && avgScore <= 60) {
+    headline = 'Your rhythm is drifting — recent shifts are pulling you off track.'
+  } else if (avgScore >= 75 && stabilityScore >= 70) {
+    headline = 'Strong alignment this week — your routine is really paying off.'
+  } else if (stabilityScore < 50) {
+    headline = 'Your rhythm has been choppy — this week was harder on your body clock.'
+  } else {
+    headline = 'Your rhythm is holding steady — small tweaks could move it higher.'
+  }
+
+  const patterns: string[] = []
+  if (direction === 'up') {
+    patterns.push(
+      'Alignment has trended upward across the week — your body is adapting to your pattern.',
+    )
+  } else if (direction === 'down') {
+    patterns.push(
+      'Alignment has slipped compared with the start of the week, likely from schedule pressure.',
+    )
+  }
+  if (stabilityScore >= 70) {
+    patterns.push('Your circadian rhythm was quite stable — very few big swings day to day.')
+  } else if (stabilityScore <= 45) {
+    patterns.push(
+      'Large day-to-day swings suggest irregular sleep timing or disruptive shift changes.',
+    )
+  }
+  const avgSleep = sleep.reduce((a, b) => a + b, 0) / sleep.length
+  if (avgSleep < 7) {
+    patterns.push('Average sleep was under 7 hours, which keeps alignment under pressure.')
+  } else {
+    patterns.push('Sleep duration was generally solid, giving your rhythm a good foundation.')
+  }
+
+  const feeling: string =
+    avgScore >= 75
+      ? 'You likely felt more daytime energy, clearer focus and fewer heavy crashes.'
+      : avgScore <= 55
+      ? 'You may have noticed more fatigue, foggier thinking and slower reaction times.'
+      : 'You were probably in a mid-range zone — functional most days but sensitive to late nights and shift changes.'
+
+  const adjustments: string[] = []
+  if (direction === 'down' || stabilityScore < 60) {
+    adjustments.push(
+      'Aim to keep bedtime within about 60–90 minutes on both work days and days off.',
+    )
+  }
+  if (avgSleep < 7.2) {
+    adjustments.push('Build in one extra 30–60 minutes of sleep on 2–3 nights to lower sleep debt.')
+  }
+  adjustments.push(
+    'Try to get 10 minutes of light (daylight if possible) within an hour of waking to anchor your clock.',
+  )
+  adjustments.push(
+    'On night or very late shifts, plan a short pre-shift nap instead of pushing through heavy fatigue.',
+  )
+
+  const forecast =
+    direction === 'up'
+      ? 'If you repeat this pattern, your rhythm is likely to stabilise further over the next week.'
+      : direction === 'down'
+      ? 'If this pattern repeats, your rhythm will likely dip again midweek — especially around demanding shifts.'
+      : 'With a similar week, your rhythm should stay in a similar range — small upgrades will nudge it upward.'
+
+  const milestones: string[] = []
+  if (avgScore > 70) {
+    milestones.push('This is one of your stronger alignment weeks — keep the structure you liked.')
+  }
+  if (maxScore - minScore >= 15) {
+    milestones.push(
+      'You had at least one very strong day — use that as a template for sleep and routine on other days.',
+    )
+  }
+
+  if (!hasRealData) {
+    return (
+      <section
+        className="relative overflow-hidden rounded-3xl border px-5 pt-5 pb-4 flex flex-col gap-3"
+        style={{
+          backgroundColor: 'var(--card)',
+          borderColor: 'var(--border-subtle)',
+          boxShadow: 'var(--shadow-soft)',
+        }}
+      >
+        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-br from-white/95 via-white/90 to-slate-50/90" />
+        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-slate-50/60 via-transparent to-slate-100/70" />
+        <div className="pointer-events-none absolute inset-[1px] rounded-[23px] ring-1 ring-white/70" />
+
+        <div className="relative z-10 space-y-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+            Weekly circadian report
+          </p>
+          <p className="text-[13px] font-semibold text-slate-900 leading-snug">
+            We’re still learning your rhythm.
+          </p>
+          <p className="text-[11px] text-slate-600 leading-relaxed">
+            After you’ve logged around a week of sleep and shift data, ShiftCoach will start
+            building a full circadian report here with trends, patterns and next steps tailored to
+            you.
+          </p>
+        </div>
+      </section>
+    )
+  }
+
+  return (
+    <section
+      className="relative overflow-hidden rounded-3xl border px-5 pt-5 pb-4 flex flex-col gap-4"
+      style={{
+        backgroundColor: 'var(--card)',
+        borderColor: 'var(--border-subtle)',
+        boxShadow: 'var(--shadow-soft)',
+      }}
+    >
+      {/* soft report overlay */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-br from-white/95 via-white/90 to-slate-50/90" />
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-slate-50/60 via-transparent to-slate-100/70" />
+      <div className="pointer-events-none absolute inset-[1px] rounded-[23px] ring-1 ring-white/70" />
+
+      <div className="relative z-10 flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+          Weekly circadian report
+        </p>
+        <p className="text-[13px] font-semibold text-slate-900 leading-snug">{headline}</p>
+        <p className="text-[11px] text-slate-500 leading-relaxed">
+          Your average alignment score was <span className="font-semibold">{avgScore}</span> with a
+          stability score of <span className="font-semibold">{stabilityScore}</span>. Peaks and
+          dips tell the story of how your shifts, sleep timing and routines played out.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 text-[11px] text-slate-600">
+        <div className="rounded-2xl bg-white/80 border border-slate-100 px-3 py-2.5 shadow-sm">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 mb-1">
+            Best aligned day
+          </p>
+          <p className="text-[13px] font-semibold text-slate-900">
+            {labels[bestIndex] ?? '—'} · {maxScore}
+          </p>
+          <p className="mt-0.5">
+            Your rhythm locked in best here — repeat the sleep and light routine from this day
+            where you can.
+          </p>
+        </div>
+        <div className="rounded-2xl bg-white/80 border border-slate-100 px-3 py-2.5 shadow-sm">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 mb-1">
+            Toughest day
+          </p>
+          <p className="text-[13px] font-semibold text-slate-900">
+            {labels[worstIndex] ?? '—'} · {minScore}
+          </p>
+          <p className="mt-0.5">
+            Likely after a demanding shift, short sleep or irregular timing — this is where your
+            body felt the strain.
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-[11px] font-semibold text-slate-900">Daily rhythm snapshot</p>
+        <div className="space-y-1.5">
+          {data.map((score, i) => {
+            const sleepH = sleep[i] ?? null
+            const timingScore = timing[i] ?? null
+            const deficit = sleepH != null ? Math.max(0, 7.5 - sleepH) : null
+            return (
+              <div
+                key={`${labels[i]}-${i}`}
+                className="flex items-center justify-between rounded-xl bg-white/70 border border-slate-100 px-3 py-1.5 text-[11px]"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-8 font-semibold text-slate-900">
+                    {(labels[i] ?? '').toUpperCase().slice(0, 3)}
+                  </span>
+                  <span className="text-slate-500">
+                    Score <span className="font-semibold text-slate-900">{score}</span> · Sleep{' '}
+                    {sleepH != null ? `${sleepH.toFixed(1)}h` : '—'}
+                    {deficit && deficit >= 0.8 ? ` (debt ~${deficit.toFixed(1)}h)` : ''}
+                  </span>
+                </div>
+                {timingScore != null && (
+                  <span className="text-[10px] text-slate-400">
+                    Timing {timingScore}% aligned
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-[11px] font-semibold text-slate-900">Patterns we noticed</p>
+        <ul className="list-disc pl-4 text-[11px] text-slate-600 space-y-1">
+          {patterns.map((p) => (
+            <li key={p}>{p}</li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-[11px] font-semibold text-slate-900">How you may have felt</p>
+        <p className="text-[11px] text-slate-600 leading-relaxed">{feeling}</p>
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-[11px] font-semibold text-slate-900">Next week, focus on</p>
+        <ul className="list-disc pl-4 text-[11px] text-slate-600 space-y-1">
+          {adjustments.map((a) => (
+            <li key={a}>{a}</li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-[11px] font-semibold text-slate-900">Looking ahead</p>
+        <p className="text-[11px] text-slate-600 leading-relaxed">{forecast}</p>
+      </div>
+
+      {milestones.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-semibold text-slate-900">Wins to keep building on</p>
+          <ul className="list-disc pl-4 text-[11px] text-slate-600 space-y-1">
+            {milestones.map((m) => (
+              <li key={m}>{m}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      </div>
+    </section>
+  )
+}
+
 export default function ProgressPage(){
   const [weekOffset, setWeekOffset] = useState(0)
   const w = useWeeklyProgress(weekOffset)
@@ -55,10 +571,7 @@ export default function ProgressPage(){
     }
   }, [w]) as any
 
-  const totalMealsLogged = useMemo(()=> w.mealsLoggedCount.reduce((a,b)=>a+b,0), [w])
-  const avgMealsPerDay = useMemo(()=> totalMealsLogged / w.days.length, [totalMealsLogged, w.days.length])
-  const photoMeals = useMemo(()=> w.aiMealsPhotoCount.reduce((a,b)=>a+b,0), [w])
-  const barcodeMeals = useMemo(()=> w.aiMealsScanCount.reduce((a,b)=>a+b,0), [w])
+  // Meal logging removed - stats no longer tracked
 
   const avgSleepHours = useMemo(()=> w.sleepHours.reduce((a,b)=>a+b,0)/w.sleepHours.length, [w])
   const minSleepHours = useMemo(()=> Math.min(...w.sleepHours), [w])
@@ -101,14 +614,20 @@ export default function ProgressPage(){
             <h1 className="text-xl font-semibold" style={{ color: 'var(--text-main)' }}>Progress</h1>
             <p className="text-sm" style={{ color: 'var(--text-soft)' }}>Your last 7 days at a glance.</p>
           </div>
-          <div
-            className="inline-flex items-center rounded-full backdrop-blur-xl border px-3 py-1 text-xs gap-2"
-            style={{
-              backgroundColor: 'var(--card-subtle)',
-              borderColor: 'var(--border-subtle)',
-              color: 'var(--text-soft)',
-            }}
-          >
+          <div className="flex items-center gap-2">
+            {w.hasNewInsights && (
+              <span className="inline-flex items-center rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 px-2.5 py-1 text-[10px] font-semibold text-white shadow-[0_8px_18px_rgba(37,99,235,0.55)] animate-pulse-slow">
+                New insight detected
+              </span>
+            )}
+            <div
+              className="inline-flex items-center rounded-full backdrop-blur-xl border px-3 py-1 text-xs gap-2"
+              style={{
+                backgroundColor: 'var(--card-subtle)',
+                borderColor: 'var(--border-subtle)',
+                color: 'var(--text-soft)',
+              }}
+            >
             <button
               onClick={()=>setWeekOffset(weekOffset-1)}
               className="transition-colors"
@@ -128,200 +647,24 @@ export default function ProgressPage(){
             >
               ›
             </button>
+            </div>
           </div>
         </header>
 
-        {/* Weekly Summary Card */}
-        <WeeklySummaryCard />
-
-        {/* Weekly Goals Card */}
-        <WeeklyGoalsCard />
-
-        {/* Hero – Body Clock weekly */}
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-soft)' }}>Body Clock</p>
-              <p className="text-sm" style={{ color: 'var(--text-main)' }}>Weekly Shift Rhythm™ average</p>
-            </div>
-            <div className="flex flex-col items-end">
-              <p className="text-3xl font-semibold" style={{ color: 'var(--text-main)' }}>{weeklyBodyClockAvg}</p>
-              <p className="text-xs" style={{ color: 'var(--text-soft)' }}>out of 100</p>
-            </div>
-          </div>
-          <Sparkline values={w.bodyClockScores} color="#0ea5e9" />
-          <p className="text-xs" style={{ color: 'var(--text-soft)' }}>Upward trend this week.</p>
-        </section>
-
-        {/* Nutrition block */}
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-4"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>Nutrition</p>
-            <p className="text-xs" style={{ color: 'var(--text-soft)' }}>Last 7 days</p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex-1">
-              <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-soft)' }}>Calories</p>
-              <div className="h-2.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: 'var(--ring-bg)' }}>
-                <div className="h-full rounded-full bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500" style={{ width: `${caloriesAdherence.percent}%` }} />
-              </div>
-              <p className="mt-1 text-[11px]" style={{ color: 'var(--text-soft)' }}>{caloriesAdherence.daysOnTarget} of {caloriesAdherence.daysTotal} days within your adjusted target.</p>
-            </div>
-            <div className="flex flex-col items-end">
-              <p className="text-xs" style={{ color: 'var(--text-soft)' }}>Average</p>
-              <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>{caloriesAdherence.deltaLabel} kcal</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            {(['Protein','Carbs','Fats'] as const).map((label) => {
-              const key = label.toLowerCase() as 'protein'|'carbs'|'fats'
-              const stat = macroStats[key]
-              return (
-                <div
-                  key={label}
-                  className="rounded-2xl border px-3 py-2.5 flex flex-col gap-1"
-                  style={{
-                    backgroundColor: 'var(--card-subtle)',
-                    borderColor: 'var(--border-subtle)',
-                  }}
-                >
-                  <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-soft)' }}>{label}</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>{stat.avg}g</p>
-                  <p className="text-[11px]" style={{ color: 'var(--text-soft)' }}>{stat.adherencePercent}% of days on target</p>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-
-        {/* Meals & logging */}
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>Meals & logging</p>
-            <p className="text-xs" style={{ color: 'var(--text-soft)' }}>This week</p>
-          </div>
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div className="flex flex-col gap-1">
-              <p className="text-xs" style={{ color: 'var(--text-soft)' }}>Meals logged</p>
-              <p className="text-lg font-semibold" style={{ color: 'var(--text-main)' }}>{totalMealsLogged}</p>
-              <p className="text-[11px]" style={{ color: 'var(--text-soft)' }}>{Math.round(avgMealsPerDay*10)/10}/day</p>
-            </div>
-            <div className="flex flex-col gap-1">
-              <p className="text-xs" style={{ color: 'var(--text-soft)' }}>Photo</p>
-              <p className="text-lg font-semibold" style={{ color: 'var(--text-main)' }}>{photoMeals}</p>
-              <p className="text-[11px]" style={{ color: 'var(--text-soft)' }}>AI estimates</p>
-            </div>
-            <div className="flex flex-col gap-1">
-              <p className="text-xs" style={{ color: 'var(--text-soft)' }}>Scan</p>
-              <p className="text-lg font-semibold" style={{ color: 'var(--text-main)' }}>{barcodeMeals}</p>
-              <p className="text-[11px]" style={{ color: 'var(--text-soft)' }}>from barcode</p>
-            </div>
-          </div>
-          <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Entries marked "AI" or "Scan" are still editable — they're smart starting points, not fixed numbers.</p>
-        </section>
-
-        {/* Sleep & recovery */}
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>Sleep & recovery</p>
-            <p className="text-xs" style={{ color: 'var(--text-soft)' }}>Last 7 days</p>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-soft)' }}>Sleep hours</p>
-              <p className="text-2xl font-semibold" style={{ color: 'var(--text-main)' }}>{avgSleepHours.toFixed(1)}<span className="text-sm font-normal ml-1" style={{ color: 'var(--text-soft)' }}>h/night</span></p>
-              <p className="text-[11px]" style={{ color: 'var(--text-soft)' }}>Range: {minSleepHours.toFixed(1)}–{maxSleepHours.toFixed(1)} h</p>
-            </div>
-            <div className="flex flex-col items-end">
-              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-soft)' }}>Alignment</p>
-              <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>{avgSleepAlignment}%</p>
-              <p className="text-[11px]" style={{ color: 'var(--text-soft)' }}>with your body clock</p>
-            </div>
-          </div>
-          <Sparkline values={w.sleepHours} color="#64748b" />
-        </section>
-
-        {/* Mood & Focus */}
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>Mood & Focus</p>
-            <p className="text-xs" style={{ color: 'var(--text-soft)' }}>Average this week</p>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">😊</span>
-              <div className="flex flex-col">
-                <p className="text-xs" style={{ color: 'var(--text-soft)' }}>Mood</p>
-                <p className="text-lg font-semibold" style={{ color: 'var(--text-main)' }}>{avgMood.toFixed(1)}/5</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xl">🎯</span>
-              <div className="flex flex-col items-end">
-                <p className="text-xs" style={{ color: 'var(--text-soft)' }}>Focus</p>
-                <p className="text-lg font-semibold" style={{ color: 'var(--text-main)' }}>{avgFocus.toFixed(1)}/5</p>
-              </div>
-            </div>
-          </div>
-          <Sparkline values={w.moodScores} color="#0ea5e9" />
-          <p className="mt-1 text-[11px]" style={{ color: 'var(--text-soft)' }}>Mood dipped on your last night shift – plan an easier day after nights.</p>
-        </section>
-
-        {/* AI Coach insight */}
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-4 flex flex-col gap-2"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 flex items-center justify-center text-xs text-white">💬</div>
-            <div className="flex flex-col">
-              <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>AI Coach</p>
-              <p className="text-xs" style={{ color: 'var(--text-soft)' }}>{totalCoachChats} conversations this week</p>
-            </div>
-          </div>
-          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-main)' }}>Most chats happened after night shifts. Next week we'll keep nudging you to plan recovery days after runs of nights.</p>
-        </section>
+        {/* Circadian rhythm snapshot */}
+        <CircadianRhythmCard
+          scores={w.bodyClockScores}
+          days={w.days}
+          hasRealData={w.hasRealData}
+          loading={w.loading}
+        />
+        <CircadianRhythmReport
+          scores={w.bodyClockScores}
+          sleepHours={w.sleepHours}
+          sleepTiming={w.sleepTimingScore}
+          days={w.days}
+          hasRealData={w.hasRealData}
+        />
       </div>
     </main>
   )

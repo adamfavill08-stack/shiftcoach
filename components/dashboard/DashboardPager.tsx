@@ -4,7 +4,7 @@ import React, { ReactNode, useEffect, useState } from 'react'
 import { useSwipeable } from 'react-swipeable'
 import { BottomPageNav } from './BottomPageNav'
 import ShiftRhythmCard from './ShiftRhythmCard'
-import { SleepPage } from './pages/SleepPage'
+import SleepPage from './pages/SleepPage'
 import { MealTimingCoachPage } from './pages/MealTimingCoachPage'
 import ActivityAndStepsPage from './pages/ActivityAndStepsPage'
 

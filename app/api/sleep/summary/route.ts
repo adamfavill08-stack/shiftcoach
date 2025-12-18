@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
+import { estimateSleepStages } from '@/lib/sleep/estimateSleepStages'
 
 // Utility
 function minutesBetween(a: string | Date, b: string | Date) {
@@ -216,15 +217,135 @@ export async function GET(req: NextRequest) {
     last7Details: last7Array.map(d => ({ date: d.dateISO.slice(0, 10), total: d.total }))
   })
 
+  // Calculate sleep stages for last night
+  // Priority: 1) Wearable device data (sleep_records), 2) AI estimation from manual entry
+  let sleepStages = { deep: 0, rem: 0, light: 0, awake: 0 }
+  
+  if (last && startTime && endTime && totalMins > 0) {
+    // First, try to get wearable device data (sleep_records table)
+    // This is the most accurate source when available
+    try {
+      const { data: wearableRecords } = await supabase
+        .from('sleep_records')
+        .select('stage, start_at, end_at')
+        .eq('user_id', userId)
+        .gte('start_at', startTime)
+        .lte('end_at', endTime)
+        .order('start_at', { ascending: true })
+      
+      if (wearableRecords && wearableRecords.length > 0) {
+        // Calculate percentages from wearable stage data
+        const totalDurationMs = totalMins * 60 * 1000
+        let deepMs = 0, remMs = 0, lightMs = 0, awakeMs = 0
+        
+        for (const record of wearableRecords) {
+          const recordStart = new Date(record.start_at).getTime()
+          const recordEnd = new Date(record.end_at).getTime()
+          const recordDuration = recordEnd - recordStart
+          
+          if (record.stage === 'deep') {
+            deepMs += recordDuration
+          } else if (record.stage === 'rem') {
+            remMs += recordDuration
+          } else if (record.stage === 'light') {
+            lightMs += recordDuration
+          } else if (record.stage === 'awake') {
+            awakeMs += recordDuration
+          }
+        }
+        
+        // Convert to percentages
+        sleepStages = {
+          deep: Math.round((deepMs / totalDurationMs) * 100),
+          rem: Math.round((remMs / totalDurationMs) * 100),
+          light: Math.round((lightMs / totalDurationMs) * 100),
+          awake: Math.round((awakeMs / totalDurationMs) * 100),
+        }
+      } else {
+        // No wearable data - use AI estimation for manual entry
+        const durationHours = totalMins / 60
+        const startDate = new Date(startTime)
+        const bedtimeHour = startDate.getHours()
+        
+        // Determine if this is daytime sleep (for shift workers)
+        const midpointHour = (startDate.getHours() + new Date(endTime).getHours()) / 2
+        const isDaySleep = midpointHour >= 8 && midpointHour <= 16
+        
+        // Get quality - this is the manually input quality from the user
+        const quality = (() => {
+          const q = last.quality
+          if (!q) return 'Fair' as const
+          if (typeof q === 'number') {
+            const qualityMap: Record<number, 'Excellent' | 'Good' | 'Fair' | 'Poor'> = { 
+              5: 'Excellent', 4: 'Good', 3: 'Fair', 2: 'Fair', 1: 'Poor' 
+            }
+            return qualityMap[q] || 'Fair'
+          }
+          return q as 'Excellent' | 'Good' | 'Fair' | 'Poor'
+        })()
+        
+        console.log('[api/sleep/summary] Using quality for AI estimation:', {
+          quality,
+          durationHours: durationHours.toFixed(1),
+          bedtimeHour,
+          isDaySleep,
+        })
+        
+        // Estimate sleep stages using AI - quality significantly affects the calculation
+        sleepStages = estimateSleepStages({
+          durationHours,
+          quality, // User's manual quality input directly affects Deep/REM/Light/Awake percentages
+          bedtimeHour,
+          isDaySleep,
+        })
+        
+        console.log('[api/sleep/summary] AI estimated stages based on quality:', sleepStages)
+      }
+    } catch (wearableError) {
+      // If wearable query fails (table might not exist), fall back to AI estimation
+      console.log('[api/sleep/summary] Wearable data not available, using AI estimation:', wearableError)
+      
+      const durationHours = totalMins / 60
+      const startDate = new Date(startTime)
+      const bedtimeHour = startDate.getHours()
+      const midpointHour = (startDate.getHours() + new Date(endTime).getHours()) / 2
+      const isDaySleep = midpointHour >= 8 && midpointHour <= 16
+      
+      const quality = (() => {
+        const q = last.quality
+        if (!q) return 'Fair' as const
+        if (typeof q === 'number') {
+          const qualityMap: Record<number, 'Excellent' | 'Good' | 'Fair' | 'Poor'> = { 
+            5: 'Excellent', 4: 'Good', 3: 'Fair', 2: 'Fair', 1: 'Poor' 
+          }
+          return qualityMap[q] || 'Fair'
+        }
+        return q as 'Excellent' | 'Good' | 'Fair' | 'Poor'
+      })()
+      
+      console.log('[api/sleep/summary] Fallback: Using quality for AI estimation:', {
+        quality,
+        durationHours: durationHours.toFixed(1),
+      })
+      
+      sleepStages = estimateSleepStages({
+        durationHours,
+        quality, // User's manual quality input directly affects Deep/REM/Light/Awake percentages
+        bedtimeHour,
+        isDaySleep,
+      })
+    }
+  }
+
   const response = NextResponse.json({
     lastNight: last ? {
       totalMinutes: totalMins,
       startAt: startTime || '',
       endAt: endTime || '',
-      deep: 0, // Not in new schema - can be calculated from duration if needed
-      rem: 0,
-      light: 0,
-      awake: 0,
+      deep: sleepStages.deep,
+      rem: sleepStages.rem,
+      light: sleepStages.light,
+      awake: sleepStages.awake,
       quality: (() => {
         const q = last.quality
         if (!q) return 'Fair'

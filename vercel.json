@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/subscription/process-deletions",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/precompute-daily-scores",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}

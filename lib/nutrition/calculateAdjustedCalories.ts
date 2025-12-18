@@ -21,6 +21,9 @@ export type CalorieResult = {
   rhythmFactor: number
   sleepFactor: number
   shiftFactor: number
+  activityFactor: number // Base BMR activity factor (from profile)
+  shiftActivityFactor: number // Shift-specific activity factor
+  activityLevel: string | null
   meals: MealSlot[]
   macros: MacroTargets
   hydrationIntake: {
@@ -35,7 +38,7 @@ export async function calculateAdjustedCalories(supabase: any, userId: string): 
   // 1) User settings (from profiles)
   const { data: profile } = await supabase
     .from('profiles')
-    .select('weight_kg, height_cm, age, sex, goal, activity_level')
+    .select('weight_kg, height_cm, age, sex, goal, default_activity_level, calorie_adjustment_aggressiveness, macro_split_preset')
     .eq('user_id', userId)
     .maybeSingle()
 
@@ -44,15 +47,52 @@ export async function calculateAdjustedCalories(supabase: any, userId: string): 
   const age = profile?.age ?? 35
   const sex = (profile?.sex as 'male' | 'female' | 'other' | null) ?? 'male'
   const goal = (profile?.goal as 'lose' | 'maintain' | 'gain' | null) ?? 'maintain'
-  const activity = (profile?.activity_level as 'light' | 'moderate' | 'high' | null) ?? 'light'
+  const calorieAdjustment = (profile?.calorie_adjustment_aggressiveness as 'gentle' | 'balanced' | 'aggressive' | null) ?? 'balanced'
+  const macroPreset = (profile?.macro_split_preset as 'balanced' | 'high_protein' | 'custom' | null) ?? 'balanced'
+  
+  // Activity level: prioritize wearable data, fall back to default_activity_level from profile
+  // 
+  // TODO: When wearable devices are integrated:
+  // 1. Check for real-time activity data from wearable devices (e.g., daily_active_energy_burned, steps, heart rate)
+  // 2. Calculate activity level from wearable metrics (e.g., active minutes, METs, calories burned)
+  // 3. Use wearable-derived activity level if available and recent (within last 24-48 hours)
+  // 4. Fall back to default_activity_level from profile if no wearable data available
+  // 
+  // For now, use default_activity_level from profile (set during onboarding)
+  const defaultActivity = (profile?.default_activity_level as 'low' | 'medium' | 'high' | null) ?? 'medium'
+  
+  // Map profile activity levels to calculation levels
+  // Profile uses: 'low' | 'medium' | 'high'
+  // Calculation uses: 'light' | 'moderate' | 'high'
+  let activity: 'light' | 'moderate' | 'high' = 'moderate'
+  if (defaultActivity === 'low') activity = 'light'
+  else if (defaultActivity === 'medium') activity = 'moderate'
+  else if (defaultActivity === 'high') activity = 'high'
+  
+  // Note: This is the BASE activity level for BMR calculation.
+  // Shift-specific activity adjustments are applied later via shift_activity_level from activity_logs
 
   // Mifflin–St Jeor
   const s = sex === 'female' ? -161 : 5
   const bmr = 10 * weight + 6.25 * height - 5 * age + s
   const activityFactor = activity === 'high' ? 1.6 : activity === 'moderate' ? 1.4 : 1.3
   let baseCalories = bmr * activityFactor
-  if (goal === 'lose') baseCalories *= 0.85
+
+  // 1a) Apply goal (lose / maintain / gain)
+  if (goal === 'lose') baseCalories *= 0.9
   if (goal === 'gain') baseCalories *= 1.1
+
+  // 1b) Apply user preference for calorie adjustment aggressiveness.
+  // Gentle = smaller deviation from maintenance, Aggressive = larger.
+  // This is applied as a bounded extra multiplier on top of goal.
+  if (calorieAdjustment === 'gentle') {
+    if (goal === 'lose') baseCalories *= 0.97
+    if (goal === 'gain') baseCalories *= 1.02
+  } else if (calorieAdjustment === 'aggressive') {
+    if (goal === 'lose') baseCalories *= 0.9
+    if (goal === 'gain') baseCalories *= 1.05
+  }
+
   baseCalories = Math.round(baseCalories)
 
   // 2) Shift Rhythm (latest)
@@ -119,8 +159,73 @@ export async function calculateAdjustedCalories(supabase: any, userId: string): 
   else if (shiftType === 'night') shiftFactor = 0.92
   else shiftFactor = 1.0
 
-  // 5) Final adjusted calories
-  const adjustedCalories = Math.round(baseCalories * rhythmFactor * sleepFactor * shiftFactor)
+  // 5) Today's activity level (shift-specific physical demand)
+  // Note: This is separate from the base BMR activityFactor (line 55)
+  const { getActivityFactor } = await import('@/lib/activity/activityLevels')
+  let shiftActivityFactor = 1.0
+  let activityLevel: string | null = null
+
+  // Fetch today's activity level from activity_logs
+  const startOfDay = new Date(today + 'T00:00:00Z')
+  const endOfDay = new Date(today + 'T23:59:59Z')
+  
+  let activityQuery = await supabase
+    .from('activity_logs')
+    .select('shift_activity_level,ts')
+    .eq('user_id', userId)
+    .gte('ts', startOfDay.toISOString())
+    .lt('ts', endOfDay.toISOString())
+    .order('ts', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  // Fallback to created_at if ts doesn't exist
+  if (activityQuery.error && (activityQuery.error.code === '42703' || activityQuery.error.message?.includes('ts'))) {
+    activityQuery = await supabase
+      .from('activity_logs')
+      .select('shift_activity_level,created_at')
+      .eq('user_id', userId)
+      .gte('created_at', startOfDay.toISOString())
+      .lt('created_at', endOfDay.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+  }
+
+  if (!activityQuery.error && activityQuery.data?.shift_activity_level) {
+    activityLevel = activityQuery.data.shift_activity_level
+    // Get shift-specific activity factor (separate from base BMR activityFactor on line 55)
+    // This uses shiftActivityFactor, NOT activityFactor, to avoid naming conflict
+    shiftActivityFactor = getActivityFactor(activityLevel as 'very_light' | 'light' | 'moderate' | 'busy' | 'intense' | null)
+  } else if (shift && shiftType !== 'off' && shiftType !== 'other') {
+    // If shift exists but no activity level is set, default to 'moderate' for better calorie accuracy
+    // This ensures shift activity is always considered when a shift exists
+    activityLevel = 'moderate'
+    shiftActivityFactor = getActivityFactor('moderate')
+  }
+
+  // 6) Final adjusted calories (now includes shift activity factor)
+  const adjustedCalories = Math.round(baseCalories * rhythmFactor * sleepFactor * shiftFactor * shiftActivityFactor)
+  
+  // Debug logging for verification
+  console.log('[calculateAdjustedCalories] Calculation breakdown:', {
+    userId,
+    baseCalories,
+    rhythmScore: rhythmScoreRaw,
+    rhythmFactor,
+    sleepHoursLast24h,
+    sleepFactor,
+    shiftType,
+    shiftFactor,
+    activityLevel,
+    shiftActivityFactor,
+    adjustedCalories,
+    totalAdjustment: `${Math.round(((adjustedCalories - baseCalories) / baseCalories) * 100)}%`,
+    rhythmAdjustment: `${Math.round((rhythmFactor - 1) * 100)}%`,
+    sleepAdjustment: `${Math.round((sleepFactor - 1) * 100)}%`,
+    shiftAdjustment: `${Math.round((shiftFactor - 1) * 100)}%`,
+    shiftActivityAdjustment: `${Math.round((shiftActivityFactor - 1) * 100)}%`,
+  })
 
   function buildMealPlan(
     total: number,
@@ -164,14 +269,21 @@ export async function calculateAdjustedCalories(supabase: any, userId: string): 
   ): MacroTargets {
     const w = weightKg || 75
 
-    // Protein per kg by goal
+    // Protein per kg by goal / macro preset
     let proteinPerKg = 1.7
     if (goalStr === 'lose') proteinPerKg = 2.0
     else if (goalStr === 'gain') proteinPerKg = 1.8
+
+    if (macroPreset === 'high_protein') {
+      proteinPerKg += 0.2
+    }
     let protein_g = w * proteinPerKg
 
     // Fat per kg (~0.7 g/kg, min ~0.5 g/kg)
     let fatPerKg = 0.7
+    if (macroPreset === 'high_protein') {
+      fatPerKg = 0.6
+    }
     if (fatPerKg < 0.5) fatPerKg = 0.5
     let fat_g = w * fatPerKg
 
@@ -260,6 +372,9 @@ export async function calculateAdjustedCalories(supabase: any, userId: string): 
     rhythmFactor,
     sleepFactor,
     shiftFactor,
+    activityFactor, // Base BMR activity factor (from profile)
+    shiftActivityFactor, // Shift-specific activity factor
+    activityLevel,
     meals,
     macros,
     hydrationIntake: {

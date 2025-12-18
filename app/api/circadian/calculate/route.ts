@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { calculateCircadianPhase, type ShiftType } from '@/lib/circadian/calcCircadianPhase'
+import { getSleepDeficitForCircadian } from '@/lib/circadian/sleep'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,9 +17,50 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get last 14 days of sleep data for averages
-    const fourteenDaysAgo = new Date(Date.now() - 13 * 24 * 60 * 60 * 1000)
     const today = new Date()
+
+    // Fast path: if we already have a recent circadian_logs row for this user,
+    // reuse it instead of recalculating. This keeps behavior the same but moves
+    // the heavy work off the request path when the precompute cron has run.
+    const precomputed = await supabase
+      .from('circadian_logs')
+      .select(
+        'sleep_midpoint_minutes,deviation_hours,circadian_phase,alignment_score,latest_shift,sleep_duration,sleep_timing,sleep_debt,inconsistency,created_at',
+      )
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!precomputed.error && precomputed.data) {
+      const createdAt = precomputed.data.created_at
+      const createdDate = createdAt ? new Date(createdAt) : null
+      const isToday =
+        createdDate &&
+        createdDate.getFullYear() === today.getFullYear() &&
+        createdDate.getMonth() === today.getMonth() &&
+        createdDate.getDate() === today.getDate()
+
+      if (isToday) {
+        const circadian = {
+          circadianPhase: precomputed.data.circadian_phase,
+          alignmentScore: precomputed.data.alignment_score,
+          factors: {
+            latestShift: precomputed.data.latest_shift,
+            sleepDuration: precomputed.data.sleep_duration,
+            sleepTiming: precomputed.data.sleep_timing,
+            sleepDebt: precomputed.data.sleep_debt,
+            inconsistency: precomputed.data.inconsistency,
+          },
+        }
+
+        return NextResponse.json({ circadian }, { status: 200 })
+      }
+    }
+
+    // Fallback path: no usable precomputed row for today, so we calculate
+    // circadian metrics on-demand exactly as before.
+    const fourteenDaysAgo = new Date(Date.now() - 13 * 24 * 60 * 60 * 1000)
 
     // Fetch ALL sleep logs (both main sleep and naps) - try new schema first
     let sleepLogs: any[] = []
@@ -53,7 +95,8 @@ export async function GET(req: NextRequest) {
         .limit(100)
 
       if (oldSchemaResult.error) {
-        console.error('[api/circadian/calculate] sleep query error:', oldSchemaResult.error)
+        const { logSupabaseError } = await import('@/lib/supabase/error-handler')
+        logSupabaseError('api/circadian/calculate', oldSchemaResult.error, { level: 'warn' })
         return NextResponse.json({ error: 'Failed to fetch sleep data' }, { status: 500 })
       }
 
@@ -71,10 +114,13 @@ export async function GET(req: NextRequest) {
     }
 
     if (!sleepLogs || sleepLogs.length === 0) {
-      return NextResponse.json({ 
-        error: 'No sleep data available',
-        circadian: null 
-      }, { status: 200 })
+      return NextResponse.json(
+        {
+          error: 'No sleep data available',
+          circadian: null,
+        },
+        { status: 200 },
+      )
     }
 
     // Separate main sleep and naps
@@ -148,29 +194,16 @@ export async function GET(req: NextRequest) {
     }, 0) / bedtimes.length
     const bedtimeVariance = Math.round(Math.sqrt(variance))
 
-    // Calculate sleep debt using MAIN SLEEP + NAPS combined
-    // Get last 7 days of all sleep (main + naps)
-    const sevenDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000)
-    const allRecentSleep = sleepLogs.filter(log => {
-      const logDate = new Date(log.start_ts || log.end_ts)
-      return logDate >= sevenDaysAgo
+    // Calculate sleep debt using sleep deficit helper
+    // This ensures consistency with /api/sleep/deficit
+    const sleepDeficit = await getSleepDeficitForCircadian(supabase, userId, 7.5)
+    const sleepDebtHours = sleepDeficit ? Math.max(0, sleepDeficit.weeklyDeficit) : 0
+    
+    console.log('[api/circadian/calculate] Sleep deficit:', {
+      weeklyDeficit: sleepDeficit?.weeklyDeficit,
+      category: sleepDeficit?.category,
+      sleepDebtHours,
     })
-
-    // Calculate total sleep hours from main sleep + naps over last 7 days
-    let totalSleepHours = 0
-    for (const log of allRecentSleep) {
-      if (!log.start_ts || !log.end_ts) continue
-      const start = new Date(log.start_ts)
-      const end = new Date(log.end_ts)
-      const duration = log.sleep_hours ?? (end.getTime() - start.getTime()) / (1000 * 60 * 60)
-      totalSleepHours += duration
-    }
-
-    // Calculate sleep debt
-    const idealHoursPerNight = 7.5
-    const numberOfDays = 7
-    const expectedSleepHours = idealHoursPerNight * numberOfDays
-    const sleepDebtHours = Math.max(0, expectedSleepHours - totalSleepHours)
 
     // Get latest shift to determine shift type
     const { data: shifts, error: shiftError } = await supabase
@@ -188,41 +221,14 @@ export async function GET(req: NextRequest) {
       const latestShift = shifts.find(s => s.label && s.label !== 'OFF')
       
       if (latestShift) {
-        const label = latestShift.label?.toUpperCase()
-        
-        // Map shift labels to circadian shift types
-        if (label === 'NIGHT') {
-          shiftType = 'night'
-        } else if (label === 'DAY') {
-          // Check if it's morning or day based on start time
-          if (latestShift.start_ts) {
-            const startHour = new Date(latestShift.start_ts).getHours()
-            if (startHour >= 5 && startHour < 9) {
-              shiftType = 'morning'
-            } else {
-              shiftType = 'day'
-            }
-          } else {
-            shiftType = 'day'
-          }
-        } else if (label === 'CUSTOM' && latestShift.start_ts) {
-          const startHour = new Date(latestShift.start_ts).getHours()
-          if (startHour >= 5 && startHour < 9) {
-            shiftType = 'morning'
-          } else if (startHour >= 12 && startHour < 17) {
-            shiftType = 'day'
-          } else if (startHour >= 17 && startHour < 22) {
-            shiftType = 'evening'
-          } else {
-            shiftType = 'night'
-          }
-        }
-        
-        // Check if pattern is rotating (multiple different shift types in last 7 days)
-        const uniqueLabels = new Set(shifts.filter(s => s.label && s.label !== 'OFF').map(s => s.label))
-        if (uniqueLabels.size > 2) {
-          shiftType = 'rotating'
-        }
+        // Use shared utility for consistent classification
+        const { toShiftType } = await import('@/lib/shifts/toShiftType')
+        shiftType = toShiftType(
+          latestShift.label,
+          latestShift.start_ts,
+          true, // check for rotating pattern
+          shifts
+        ) as ShiftType
       }
     }
 

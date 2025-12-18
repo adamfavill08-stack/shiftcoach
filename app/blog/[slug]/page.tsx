@@ -83,11 +83,11 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
             <h1 className="text-xl font-bold text-slate-900 mb-2">Article not found</h1>
             <p className="text-slate-500 mb-6">The article you're looking for doesn't exist.</p>
             <Link
-              href="/shift-rhythm"
+              href="/dashboard"
               className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
             >
               <ChevronLeft className="w-4 h-4" />
-              Back to Blog
+              Back to dashboard
             </Link>
           </div>
         </div>
@@ -101,9 +101,9 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
         {/* Header */}
         <header className="flex items-center gap-3 mb-6">
           <Link
-            href="/shift-rhythm"
+            href="/dashboard"
             className="p-2 rounded-xl bg-white/90 backdrop-blur-xl border border-white/80 text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.08)] transition-all hover:bg-white hover:shadow-[0_4px_12px_rgba(15,23,42,0.12)] active:scale-95"
-            aria-label="Back to blog"
+            aria-label="Back to dashboard"
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
