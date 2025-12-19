@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronRight, Info, X } from "lucide-react";
+import { ChevronRight, Info, X, Clock, UtensilsCrossed, AlertCircle, Sparkles } from "lucide-react";
 import { MoodFocus } from "@/components/dashboard/MoodFocus";
 import { useGoalChange } from "@/lib/hooks/useGoalChange";
 import { ShiftLagCard } from "@/components/shiftlag/ShiftLagCard";
@@ -271,6 +271,9 @@ function ShiftRhythmCard({ score, circadian, socialJetlag, shiftLag, bingeRisk, 
         wearableLastSyncLabel={wearableLastSyncLabel}
         hasRhythmData={hasRhythmData}
       />
+
+      {/* DETAILED MEAL TIMES CARD */}
+      <DetailedMealTimesCard />
 
       {/* WHY YOU HAVE THIS SCORE CARD */}
       <WhyYouHaveThisScoreCard 
@@ -1646,6 +1649,348 @@ function WhyYouHaveThisScoreCard({
   );
 }
 
+/* -------------------- DETAILED MEAL TIMES CARD -------------------- */
+
+type DetailedMealTimingData = {
+  nextMealLabel: string;
+  nextMealTime: string;
+  nextMealType: string;
+  nextMealMacros: { protein: number; carbs: number; fats: number };
+  shiftLabel: string;
+  shiftType: 'day' | 'night' | 'late' | 'off';
+  totalCalories: number;
+  totalMacros: { protein_g: number; carbs_g: number; fat_g: number };
+  meals: Array<{
+    id: string;
+    label: string;
+    time: string;
+    windowLabel: string;
+    calories: number;
+    hint: string;
+    macros: { protein: number; carbs: number; fats: number };
+  }>;
+  sleepContext: string;
+  activityContext: string;
+};
+
+function DetailedMealTimesCard() {
+  const [data, setData] = useState<DetailedMealTimingData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showInfo, setShowInfo] = useState(false);
+
+  const fetchMealTiming = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/meal-timing/today', { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        setData(json);
+      }
+    } catch (err) {
+      console.error('[DetailedMealTimesCard] Failed to fetch meal timing:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMealTiming();
+  }, []);
+
+  useGoalChange(() => {
+    fetchMealTiming();
+  });
+
+  useEffect(() => {
+    const handleWeightChange = () => fetchMealTiming();
+    const handleHeightChange = () => fetchMealTiming();
+    const handleProfileUpdate = () => fetchMealTiming();
+
+    window.addEventListener('weightChanged', handleWeightChange);
+    window.addEventListener('heightChanged', handleHeightChange);
+    window.addEventListener('profile-updated', handleProfileUpdate);
+
+    return () => {
+      window.removeEventListener('weightChanged', handleWeightChange);
+      window.removeEventListener('heightChanged', handleHeightChange);
+      window.removeEventListener('profile-updated', handleProfileUpdate);
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <section className="relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur-xl border border-slate-200/60 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.12)] p-5">
+        <div className="animate-pulse space-y-4">
+          <div className="h-6 bg-slate-200 rounded w-48" />
+          <div className="h-4 bg-slate-200 rounded w-32" />
+        </div>
+      </section>
+    );
+  }
+
+  if (!data || !data.meals || data.meals.length === 0) {
+    return null;
+  }
+
+  const now = new Date();
+  const getNextMeal = () => {
+    // Get current time components for comparison (24-hour format)
+    const nowHours = now.getHours();
+    const nowMinutes = now.getMinutes();
+    const nowTotalMinutes = nowHours * 60 + nowMinutes;
+    
+    // Parse time string - handle both "HH:MM" and "HH:MM AM/PM" formats
+    const parseTime = (timeStr: string): number => {
+      // Remove AM/PM if present and convert to 24-hour
+      let cleanTime = timeStr.trim().toUpperCase();
+      const isPM = cleanTime.includes('PM');
+      const isAM = cleanTime.includes('AM');
+      cleanTime = cleanTime.replace(/\s*(AM|PM)/i, '');
+      
+      const [hoursStr, minutesStr] = cleanTime.split(':');
+      let hours = parseInt(hoursStr, 10);
+      const minutes = parseInt(minutesStr || '0', 10);
+      
+      // Convert 12-hour to 24-hour format
+      if (isPM && hours !== 12) hours += 12;
+      if (isAM && hours === 12) hours = 0;
+      
+      return hours * 60 + minutes;
+    };
+    
+    // Ensure meals are sorted by time
+    const sortedMeals = [...data.meals].sort((a, b) => {
+      return parseTime(a.time) - parseTime(b.time);
+    });
+    
+    // Find the first meal that hasn't passed yet today
+    for (const meal of sortedMeals) {
+      const mealTotalMinutes = parseTime(meal.time);
+      const diffMinutes = mealTotalMinutes - nowTotalMinutes;
+      
+      // If meal is still coming today (positive difference means future)
+      if (diffMinutes > 0) {
+        return meal;
+      }
+    }
+    
+    // If all meals have passed today, return the first meal (tomorrow's first meal)
+    return sortedMeals[0];
+  };
+
+  const nextMeal = getNextMeal();
+  const isNextMeal = (mealId: string) => nextMeal?.id === mealId;
+
+  const getAIInsight = () => {
+    if (data.shiftType === 'night') {
+      return {
+        title: 'Night Shift Strategy',
+        content: 'Your body\'s digestive system slows significantly during biological night (typically 2-6 AM). Eating your largest meal 2-3 hours before your shift helps maintain energy without overloading your system when it\'s least efficient. Keep late-night snacks minimal—think protein-rich, easy-to-digest options that won\'t disrupt your post-shift sleep.',
+      };
+    } else if (data.shiftType === 'day') {
+      return {
+        title: 'Day Shift Balance',
+        content: 'Day shifts align more naturally with your circadian rhythm. A balanced breakfast 30-60 minutes before work provides steady energy, while your main meal during break sustains you through the afternoon. Lighter evening meals help your body wind down naturally, supporting better sleep quality.',
+      };
+    } else if (data.shiftType === 'late') {
+      return {
+        title: 'Late Shift Timing',
+        content: 'Late shifts require careful timing to avoid eating too close to bedtime. Fuel up well before your shift starts, then keep late-night snacks very light and easy to digest. A light meal after your shift ends gives your body time to process before sleep, reducing the risk of disrupted rest.',
+      };
+    } else {
+      return {
+        title: 'Recovery Day',
+        content: 'Use off days to reset your meal timing and support your body\'s natural rhythms. Regular intervals between meals help stabilize blood sugar and energy levels. Avoid large late-night meals that can interfere with your sleep schedule, especially if you\'re transitioning between different shift types.',
+      };
+    }
+  };
+
+  const aiInsight = getAIInsight();
+
+  return (
+    <>
+      {/* Top divider between cards */}
+      <div className="h-px bg-gradient-to-r from-transparent via-slate-200/60 to-transparent my-5" />
+      
+      <section
+        className={[
+          "relative overflow-hidden rounded-2xl",
+          "bg-white/75 backdrop-blur-xl",
+          "border border-slate-200/60",
+          "shadow-[0_1px_2px_rgba(0,0,0,0.035),0_6px_20px_-12px_rgba(0,0,0,0.10)]",
+          "p-5",
+          "before:absolute before:inset-0 before:rounded-2xl before:bg-white/40 before:opacity-30 before:pointer-events-none",
+        ].join(" ")}
+      >
+        {/* Subtle highlight overlay */}
+        <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-b from-white/60 via-transparent to-transparent" />
+        
+        <div className="relative z-10 space-y-6">
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <UtensilsCrossed className="h-4 w-4 text-slate-400" strokeWidth={2} />
+            <div>
+              <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">
+                Meal Times
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {data.totalCalories.toLocaleString()} kcal today
+              </p>
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 bg-emerald-100/70 text-emerald-700/80 border border-emerald-200/40 text-[11px] font-medium">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/60" />
+                  {data.shiftType === 'night' ? 'Night Shift' : data.shiftType === 'day' ? 'Day Shift' : data.shiftType === 'late' ? 'Late Shift' : 'Off Day'}
+                </span>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowInfo(!showInfo)}
+            className="flex-shrink-0 p-1 rounded-md hover:bg-slate-100/60 transition-colors group"
+            aria-label="Why meal timing matters"
+          >
+            <Info className="h-4 w-4 text-slate-400 group-hover:text-slate-600 transition-colors" strokeWidth={2} />
+          </button>
+        </div>
+
+        {/* Info Modal */}
+        {showInfo && (
+          <div className="relative z-20 rounded-xl bg-white/95 backdrop-blur-xl border border-slate-200/60 p-4 space-y-3 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.12)]">
+            <div className="flex items-start justify-between">
+              <h3 className="text-sm font-bold tracking-tight text-slate-900">Why Meal Timing Matters</h3>
+              <button
+                onClick={() => setShowInfo(false)}
+                className="p-1 rounded-md hover:bg-slate-100/60 transition-colors"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4 text-slate-400" strokeWidth={2} />
+              </button>
+            </div>
+            <div className="space-y-3 text-sm text-slate-600 leading-relaxed max-h-[50vh] overflow-y-auto">
+              <div>
+                <p className="font-semibold text-slate-900 mb-1">Your body can't digest as well at night</p>
+                <p className="text-slate-600">
+                  At night, your gut slows down. Eating during this "rest" phase makes digestion harder and can cause acid reflux, bloating, and blood sugar spikes.
+                </p>
+              </div>
+              <div>
+                <p className="font-semibold text-slate-900 mb-1">Meal timing shifts your circadian rhythm</p>
+                <p className="text-slate-600">
+                  Food is a secondary time cue. Consistent meals help your body decide "Is it daytime or nighttime?" This reduces circadian misalignment and improves alertness.
+                </p>
+              </div>
+              <div>
+                <p className="font-semibold text-slate-900 mb-1">Better blood sugar = more stable energy</p>
+                <p className="text-slate-600">
+                  Eating irregularly causes energy crashes and trouble staying awake. Regular, well-timed meals help maintain smoother glucose levels.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Next Meal Panel */}
+        {nextMeal && (
+          <div className="rounded-xl p-4 bg-gradient-to-r from-emerald-50/40 to-cyan-50/40 border border-emerald-200/30">
+            <div className="flex items-start gap-3">
+              <Clock className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" strokeWidth={2} />
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-medium text-emerald-700/70 uppercase tracking-wider mb-1.5">Next Meal</p>
+                <p className="text-sm font-semibold tracking-tight text-slate-900 mb-1">{nextMeal.label}</p>
+                <p className="text-xs text-slate-500 tabular-nums mb-2.5">{nextMeal.time} · {nextMeal.windowLabel}</p>
+                <div className="flex items-center gap-1.5 mb-2.5">
+                  <span className="text-sm font-semibold tabular-nums text-slate-900">{nextMeal.calories}</span>
+                  <span className="text-xs text-slate-500">kcal</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                  <span className="font-medium text-slate-900">{nextMeal.macros.protein}g</span>
+                  <span>protein</span>
+                  <span className="text-slate-300">•</span>
+                  <span className="font-medium text-slate-900">{nextMeal.macros.fats}g</span>
+                  <span>fat</span>
+                  <span className="text-slate-300">•</span>
+                  <span className="font-medium text-slate-900">{nextMeal.macros.carbs}g</span>
+                  <span>carbs</span>
+                </div>
+                {nextMeal.hint && (
+                  <p className="text-sm text-slate-600 leading-relaxed mt-2.5">{nextMeal.hint}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Today's Meals */}
+        <div className="space-y-2">
+          <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Today's Meals</p>
+          <div className="rounded-2xl bg-white/60 p-2">
+            {data.meals.map((meal, index) => {
+              const isNext = isNextMeal(meal.id);
+              return (
+                <React.Fragment key={meal.id}>
+                  <div className="rounded-xl px-4 py-3 bg-slate-50/40 border border-transparent shadow-none">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-sm font-semibold tracking-tight text-slate-900">
+                            {meal.label}
+                          </span>
+                          {isNext && (
+                            <span className="text-[9px] font-semibold text-emerald-700/80 bg-emerald-100/80 px-1.5 py-0.5 rounded-full">
+                              Next
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mb-2">
+                          <p className="text-xs text-slate-500 tabular-nums">{meal.windowLabel}</p>
+                          <span className="text-slate-300">•</span>
+                          <p className="text-sm font-semibold tabular-nums text-slate-900">{meal.calories}</p>
+                          <span className="text-xs text-slate-500">kcal</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                          <span className="font-medium text-slate-900">{meal.macros.protein}g</span>
+                          <span>protein</span>
+                          <span className="text-slate-300">•</span>
+                          <span className="font-medium text-slate-900">{meal.macros.fats}g</span>
+                          <span>fat</span>
+                          <span className="text-slate-300">•</span>
+                          <span className="font-medium text-slate-900">{meal.macros.carbs}g</span>
+                          <span>carbs</span>
+                        </div>
+                        {meal.hint && (
+                          <p className="text-sm text-slate-600 leading-relaxed mt-2">{meal.hint}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {index < data.meals.length - 1 && (
+                    <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-2" />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* AI Insight Panel */}
+        <div className="rounded-xl p-4 bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/40">
+          <div className="flex items-start gap-2">
+            <Sparkles className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" strokeWidth={2} />
+            <div className="flex-1">
+              <p className="text-xs font-semibold tracking-tight text-slate-900 flex items-center gap-2 mb-1.5">
+                {aiInsight.title}
+              </p>
+              <p className="text-sm text-slate-600 leading-relaxed">{aiInsight.content}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    </>
+  );
+}
+
 /* -------------------- ADJUSTED MEAL TIMES CARD -------------------- */
 
 type MealTimingData = {
@@ -1679,7 +2024,28 @@ function AdjustedMealTimesCard() {
       const res = await fetch('/api/meal-timing/today', { cache: 'no-store' });
       if (res.ok) {
         const json = await res.json();
-        setMealTiming(json.meals);
+        // Handle new API structure - convert meals array to old structure for compatibility
+        if (json.meals && Array.isArray(json.meals)) {
+          setMealTiming({
+            shiftType: json.shiftType || 'off',
+            recommended: json.meals.map((m: any) => ({
+              id: m.id,
+              label: m.label,
+              windowLabel: m.windowLabel,
+              windowStart: m.windowStart,
+              windowEnd: m.windowEnd,
+              suggestedTime: m.time,
+              calories: m.calories,
+              caloriesTarget: m.calories,
+              hint: m.hint,
+              slot: m.id,
+            })),
+            actual: json.actual || [],
+          });
+        } else {
+          // Old structure
+          setMealTiming(json);
+        }
       }
     } catch (err) {
       console.error('[AdjustedMealTimesCard] Failed to fetch meal timing:', err);
@@ -1736,7 +2102,23 @@ function AdjustedMealTimesCard() {
     );
   }
 
-  if (!mealTiming || mealTiming.recommended.length === 0) {
+  // Handle both old and new API structures
+  const recommended = mealTiming?.recommended || (mealTiming as any)?.meals?.map((m: any) => ({
+    id: m.id,
+    label: m.label,
+    windowLabel: m.windowLabel,
+    windowStart: m.windowStart,
+    windowEnd: m.windowEnd,
+    suggestedTime: m.time,
+    calories: m.calories,
+    caloriesTarget: m.calories,
+    hint: m.hint,
+    slot: m.id,
+  })) || [];
+  
+  const actual = mealTiming?.actual || [];
+
+  if (!mealTiming || recommended.length === 0) {
     return null;
   }
 
@@ -1751,11 +2133,11 @@ function AdjustedMealTimesCard() {
     }
   };
 
-  const getMealLabel = (meal: typeof mealTiming.recommended[0]) => {
+  const getMealLabel = (meal: typeof recommended[0]) => {
     return meal.label || meal.slot || 'Meal';
   };
 
-  const getMealTimeWindow = (meal: typeof mealTiming.recommended[0]) => {
+  const getMealTimeWindow = (meal: typeof recommended[0]) => {
     if (meal.windowLabel) return meal.windowLabel;
     if (meal.windowStart && meal.windowEnd) {
       return `${formatTime(meal.windowStart)} - ${formatTime(meal.windowEnd)}`;
@@ -1766,27 +2148,27 @@ function AdjustedMealTimesCard() {
     return 'Check timing';
   };
 
-  const getMealCalories = (meal: typeof mealTiming.recommended[0]) => {
+  const getMealCalories = (meal: typeof recommended[0]) => {
     return meal.calories || meal.caloriesTarget || 0;
   };
 
-  const getMealStatus = (recommended: typeof mealTiming.recommended[0]) => {
-    const mealId = recommended.id || recommended.slot;
-    const actual = mealTiming.actual.find(a => {
+  const getMealStatus = (recommendedMeal: typeof recommended[0]) => {
+    const mealId = recommendedMeal.id || recommendedMeal.slot;
+    const actualMeal = actual.find(a => {
       const actualSlot = a.slot?.toLowerCase();
       return actualSlot === mealId?.toLowerCase() || 
-             actualSlot === recommended.label?.toLowerCase() ||
-             actualSlot === recommended.slot?.toLowerCase();
+             actualSlot === recommendedMeal.label?.toLowerCase() ||
+             actualSlot === recommendedMeal.slot?.toLowerCase();
     });
     
-    if (!actual) return { status: 'pending', label: 'Not logged' };
+    if (!actualMeal) return { status: 'pending', label: 'Not logged' };
     
     // If we have window times, check if actual is within window
-    if (recommended.windowStart && recommended.windowEnd) {
+    if (recommendedMeal.windowStart && recommendedMeal.windowEnd) {
       try {
-        const actualTime = new Date(actual.timestamp);
-        const [startH, startM] = recommended.windowStart.split(':').map(Number);
-        const [endH, endM] = recommended.windowEnd.split(':').map(Number);
+        const actualTime = new Date(actualMeal.timestamp);
+        const [startH, startM] = recommendedMeal.windowStart.split(':').map(Number);
+        const [endH, endM] = recommendedMeal.windowEnd.split(':').map(Number);
         
         const windowStart = new Date(actualTime);
         windowStart.setHours(startH, startM, 0, 0);
@@ -1834,7 +2216,7 @@ function AdjustedMealTimesCard() {
                 Meal Times
               </h2>
               <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-100/80">
-                {mealTiming.shiftType === 'night' ? 'Night' : mealTiming.shiftType === 'day' ? 'Day' : mealTiming.shiftType === 'late' ? 'Late' : 'Off'}
+                {(mealTiming as any)?.shiftType === 'night' ? 'Night' : (mealTiming as any)?.shiftType === 'day' ? 'Day' : (mealTiming as any)?.shiftType === 'late' ? 'Late' : 'Off'}
               </span>
             </div>
           </div>
@@ -1902,7 +2284,7 @@ function AdjustedMealTimesCard() {
 
         {/* Meal Schedule */}
         <div className="space-y-2">
-          {mealTiming.recommended.map((meal, index) => {
+          {recommended.map((meal, index) => {
             const status = getMealStatus(meal);
             const statusColors: Record<string, string> = {
               onTime: 'bg-emerald-50/80 border-emerald-200/60 text-emerald-700',
@@ -1961,7 +2343,7 @@ function AdjustedMealTimesCard() {
             <span>Quick Tips</span>
           </p>
           <ul className="text-[10px] text-slate-600 space-y-0.5">
-            {mealTiming.shiftType === 'night' && (
+            {(mealTiming as any)?.shiftType === 'night' && (
               <>
                 <li className="flex items-start gap-1.5">
                   <span className="text-indigo-400 mt-0.5">•</span>
@@ -1977,7 +2359,7 @@ function AdjustedMealTimesCard() {
                 </li>
               </>
             )}
-            {mealTiming.shiftType === 'day' && (
+            {(mealTiming as any)?.shiftType === 'day' && (
               <>
                 <li className="flex items-start gap-1.5">
                   <span className="text-indigo-400 mt-0.5">•</span>
@@ -1993,7 +2375,7 @@ function AdjustedMealTimesCard() {
                 </li>
               </>
             )}
-            {mealTiming.shiftType === 'late' && (
+            {(mealTiming as any)?.shiftType === 'late' && (
               <>
                 <li className="flex items-start gap-1.5">
                   <span className="text-indigo-400 mt-0.5">•</span>
@@ -2009,7 +2391,7 @@ function AdjustedMealTimesCard() {
                 </li>
               </>
             )}
-            {mealTiming.shiftType === 'off' && (
+            {(mealTiming as any)?.shiftType === 'off' && (
               <>
                 <li className="flex items-start gap-1.5">
                   <span className="text-indigo-400 mt-0.5">•</span>

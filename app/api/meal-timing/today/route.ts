@@ -139,22 +139,48 @@ export async function GET(req: NextRequest) {
       else if (minutesUntilNext < -15) status = 'slightlyLate'
     }
 
-    // Calculate macros for next meal (distribute from total)
+    // Calculate macros for each meal (proportional to calories)
     const totalMacros = adjusted.macros
-    const mealsCount = mealSchedule.length
-    const nextMealMacros = {
-      protein: Math.round(totalMacros.protein_g / mealsCount),
-      carbs: Math.round(totalMacros.carbs_g / mealsCount),
-      fats: Math.round(totalMacros.fat_g / mealsCount),
-    }
+    const totalCalories = adjusted.adjustedCalories
+    const mealsWithMacros = mealSchedule.map((meal) => {
+      // Calculate macros proportionally based on meal calories
+      const mealCalorieRatio = meal.caloriesTarget / totalCalories
+      return {
+        id: meal.id,
+        label: meal.label,
+        time: meal.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        windowLabel: meal.windowLabel,
+        calories: meal.caloriesTarget,
+        hint: meal.hint,
+        macros: {
+          protein: Math.round(totalMacros.protein_g * mealCalorieRatio),
+          carbs: Math.round(totalMacros.carbs_g * mealCalorieRatio),
+          fats: Math.round(totalMacros.fat_g * mealCalorieRatio),
+        },
+      }
+    })
+
+    // Find next meal with macros
+    const nextMealWithMacros = mealsWithMacros.find(m => {
+      const mealTime = mealSchedule.find(ms => ms.id === m.id)?.time
+      return mealTime && mealTime > now
+    }) || mealsWithMacros[0]
 
     // Build response
     const response = {
       nextMealLabel: nextMeal?.label || 'Next meal',
       nextMealTime: nextMeal?.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '—',
       nextMealType: nextMeal?.hint || 'Balanced meal',
-      nextMealMacros,
+      nextMealMacros: nextMealWithMacros?.macros || {
+        protein: Math.round(totalMacros.protein_g / mealSchedule.length),
+        carbs: Math.round(totalMacros.carbs_g / mealSchedule.length),
+        fats: Math.round(totalMacros.fat_g / mealSchedule.length),
+      },
       shiftLabel: shiftLabelFormatted,
+      shiftType,
+      totalCalories: adjusted.adjustedCalories,
+      totalMacros,
+      meals: mealsWithMacros,
       lastMeal: {
         time: '—',
         description: 'No meals logged yet',
