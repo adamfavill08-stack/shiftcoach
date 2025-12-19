@@ -370,69 +370,76 @@ export default function DashboardHeader() {
   return (
     <>
       <header className="px-5 pt-6 safe-top" style={{ paddingTop: 'calc(1.5rem + env(safe-area-inset-top))' }}>
-        {/* Logo and buttons row */}
-        <div className="flex h-[48px] items-center justify-between bg-transparent px-4 pt-1 pb-3">
-          <Image
-            src="/Faviconnew.png"
-            alt="ShiftCoach Icon"
-            width={60}
-            height={60}
-            className="object-contain"
-            priority
-          />
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.push('/rota')}
-              className="flex items-center justify-center w-10 h-10 rounded-full bg-white/90 shadow-sm border border-slate-200/60 hover:bg-white transition-all hover:scale-105 active:scale-95"
-              aria-label="Calendar"
-              type="button"
-            >
-              <Calendar className="w-5 h-5 text-slate-700" strokeWidth={2} />
-            </button>
-            <button
-              onClick={() => setIsNotificationModalOpen(true)}
-              className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white/90 shadow-sm border border-slate-200/60 hover:bg-white transition-all hover:scale-105 active:scale-95"
-              aria-label="Notifications"
-              type="button"
-            >
-              <Bell className="w-5 h-5 text-slate-700" strokeWidth={2} />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-lg">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </button>
-            {coachEnabled !== false && (
-              <button
-                onClick={() => setIsCoachChatOpen(true)}
-                className="flex items-center justify-center w-10 h-10 rounded-full bg-white/90 shadow-sm border border-slate-200/60 hover:bg-white transition-all hover:scale-105 active:scale-95"
-                aria-label="Chat with your coach"
-                type="button"
-              >
-                <Image
-                  src="/bubble-icon.png"
-                  alt="Shift Coach"
-                  width={28}
-                  height={28}
-                  className="w-7 h-7 object-contain"
-                  style={{
-                    filter:
-                      'brightness(0) saturate(100%) invert(15%) sepia(9%) saturate(1033%) hue-rotate(169deg) brightness(95%) contrast(88%)',
-                  }}
-                />
-              </button>
-            )}
-            <SyncWearableButton />
-            <button
-              onClick={() => router.push('/settings')}
-              className="flex items-center justify-center w-10 h-10 rounded-full bg-white/90 shadow-sm border border-slate-200/60 hover:bg-white transition-all hover:scale-105 active:scale-95"
-              aria-label="More options"
-              type="button"
-            >
-              <MoreHorizontal className="w-5 h-5 text-slate-700" strokeWidth={2} />
-            </button>
+        {/* Premium Header Rail */}
+        <div className="flex h-14 items-center justify-between px-4">
+            <Image
+              src="/Faviconnew.png"
+              alt="ShiftCoach Icon"
+              width={60}
+              height={60}
+              className="object-contain"
+              priority
+            />
+            
+            {/* Button clusters */}
+            <div className="flex items-center gap-4">
+              {/* Left cluster: Refresh/Sync */}
+              <div className="flex items-center gap-2">
+                <SyncWearableButton />
+              </div>
+              
+              {/* Right cluster: Calendar + Bell + Coach + Settings */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => router.push('/rota')}
+                  className="flex items-center justify-center h-10 w-10 rounded-full bg-white/60 border border-slate-200/50 shadow-none hover:bg-white/85 transition-transform active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2"
+                  aria-label="Calendar"
+                  type="button"
+                >
+                  <Calendar className="h-5 w-5 text-slate-500" strokeWidth={2} />
+                </button>
+                <button
+                  onClick={() => setIsNotificationModalOpen(true)}
+                  className="relative flex items-center justify-center h-10 w-10 rounded-full bg-white/60 border border-slate-200/50 shadow-none hover:bg-white/85 transition-transform active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2"
+                  aria-label="Notifications"
+                  type="button"
+                >
+                  <Bell className="h-5 w-5 text-slate-500" strokeWidth={2} />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-rose-500/80 ring-2 ring-white" />
+                  )}
+                </button>
+                {coachEnabled !== false && (
+                  <button
+                    onClick={() => setIsCoachChatOpen(true)}
+                    className="flex items-center justify-center h-10 w-10 rounded-full bg-white/60 border border-slate-200/50 shadow-none hover:bg-white/85 transition-transform active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2"
+                    aria-label="Chat with your coach"
+                    type="button"
+                  >
+                    <Image
+                      src="/bubble-icon.png"
+                      alt="Shift Coach"
+                      width={28}
+                      height={28}
+                      className="w-5 h-5 object-contain"
+                      style={{
+                        filter:
+                          'brightness(0) saturate(100%) invert(31%) sepia(6%) saturate(747%) hue-rotate(169deg) brightness(95%) contrast(88%)',
+                      }}
+                    />
+                  </button>
+                )}
+                <button
+                  onClick={() => router.push('/settings')}
+                  className="flex items-center justify-center h-10 w-10 rounded-full bg-white/60 border border-slate-200/50 shadow-none hover:bg-white/85 transition-transform active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2"
+                  aria-label="More options"
+                  type="button"
+                >
+                  <MoreHorizontal className="h-5 w-5 text-slate-500" strokeWidth={2} />
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
         
         {/* Calendar preview - integrated into header */}
         <div className="bg-transparent rounded-2xl px-4 py-3.5">
