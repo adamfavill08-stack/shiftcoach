@@ -2258,7 +2258,7 @@ function AdjustedMealTimesCard() {
 
         {/* Meal Schedule */}
         <div className="space-y-2">
-          {recommended.map((meal, index) => {
+          {recommended.map((meal: typeof recommended[0], index: number) => {
             const status = getMealStatus(meal);
             const statusColors: Record<string, string> = {
               onTime: 'bg-emerald-50/80 border-emerald-200/60 text-emerald-700',
