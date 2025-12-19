@@ -134,7 +134,7 @@ export function DataPrivacySection() {
           )}
         </button>
         {isOpen && (
-          <div className="absolute left-0 right-0 top-full mt-2 mx-2 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/50 shadow-[0_4px_12px_rgba(0,0,0,0.08)] p-4 space-y-1 z-20">
+          <div className="mt-2 mx-2 mb-4 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/50 shadow-[0_4px_12px_rgba(0,0,0,0.08)] p-4 pb-5 space-y-1">
             <a
               href="/privacy-policy"
               target="_blank"

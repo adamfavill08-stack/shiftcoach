@@ -28,10 +28,10 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-md">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 flex items-start justify-center px-4 py-8 pb-16 overflow-y-auto">
+      <div className="w-full max-w-md my-auto">
         {/* Premium Card Container */}
-        <div className="relative overflow-hidden rounded-3xl bg-white/75 backdrop-blur-xl border border-slate-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_10px_30px_-16px_rgba(0,0,0,0.12)] p-4">
+        <div className="relative overflow-visible rounded-3xl bg-white/75 backdrop-blur-xl border border-slate-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_10px_30px_-16px_rgba(0,0,0,0.12)] p-4 pb-6">
           {/* Optional inner highlight */}
           <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/60 via-transparent to-transparent" />
           
@@ -52,7 +52,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Settings Sections */}
-            <div className="px-2 pb-4 space-y-1">
+            <div className="px-2 pb-6 space-y-1">
               {/* Account Section */}
               <div className="pt-4">
                 <p className="px-4 pt-4 pb-2 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">

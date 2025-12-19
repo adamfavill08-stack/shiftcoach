@@ -76,7 +76,7 @@ export function TesterFeedbackSection() {
         )}
       </button>
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-2 mx-2 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/50 shadow-[0_4px_12px_rgba(0,0,0,0.08)] p-4 space-y-4 z-20">
+        <div className="mt-2 mx-2 mb-4 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/50 shadow-[0_4px_12px_rgba(0,0,0,0.08)] p-4 pb-5 space-y-4">
             <p className="text-xs text-slate-600 leading-relaxed">
               Found a bug or have a suggestion? Send us your feedback directly. We read every message!
             </p>
@@ -114,7 +114,7 @@ export function TesterFeedbackSection() {
               <button
                 type="submit"
                 disabled={isSubmitting || !subject.trim() || !message.trim()}
-                className="w-full py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-blue-500 via-indigo-600 to-blue-600 hover:from-blue-600 hover:via-indigo-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_12px_rgba(59,130,246,0.3)] hover:shadow-[0_6px_16px_rgba(59,130,246,0.4)] rounded-xl flex items-center justify-center gap-2"
+                className="w-full py-2.5 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_10px_26px_-14px_rgba(0,0,0,0.35)] hover:shadow-[0_12px_30px_-14px_rgba(0,0,0,0.40)] rounded-xl flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
                   <>
