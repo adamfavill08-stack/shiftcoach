@@ -26,10 +26,10 @@ export function SettingsCard({ title, subtitle, children }:{ title:string; subti
 
 export function SettingsRow({ label, description, right }:{ label:string; description?:string; right?:React.ReactNode }){
   return (
-    <div className="flex items-center justify-between gap-3 py-1.5">
+    <div className="flex items-center justify-between gap-3 py-2">
       <div className="flex-1">
-        <p className="text-[13px] font-medium" style={{ color: 'var(--text-main)' }}>{label}</p>
-        {description && (<p className="text-[11px] mt-0.5" style={{ color: 'var(--text-soft)' }}>{description}</p>)}
+        <p className="text-sm font-medium text-slate-800">{label}</p>
+        {description && (<p className="text-xs text-slate-500 mt-0.5">{description}</p>)}
       </div>
       {right}
     </div>

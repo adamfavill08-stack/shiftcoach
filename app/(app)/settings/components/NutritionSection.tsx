@@ -43,29 +43,27 @@ export function NutritionSection() {
   }[safeSettings.macro_split_preset || 'balanced'] || 'Balanced'
 
   return (
-    <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-sm border border-white/90 shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
-      <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/30 via-transparent to-transparent" />
-      <div className="relative z-10">
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="group w-full flex items-center justify-between px-3.5 py-2.5 hover:bg-white/50 transition-all"
-        >
-          <div className="flex items-center gap-3 flex-1">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-100 to-teal-100 border border-emerald-200/60 shadow-sm">
-              <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-              </svg>
-            </div>
-            <h3 className="text-[12px] font-semibold text-slate-900 leading-snug">Nutrition</h3>
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 bg-slate-50/40 hover:bg-white/70 transition-colors w-full"
+      >
+        <div className="flex items-center gap-3 flex-1">
+          <div className="h-9 w-9 rounded-xl bg-white/60 border border-slate-200/50 grid place-items-center flex-shrink-0">
+            <svg className="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
           </div>
-          {isOpen ? (
-            <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-emerald-500 transition-colors" />
-          ) : (
-            <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-500 transition-colors" />
-          )}
-        </button>
-        {isOpen && (
-          <div className="px-5 pb-3 space-y-1">
+          <h3 className="text-sm font-medium text-slate-800">Nutrition</h3>
+        </div>
+        {isOpen ? (
+          <ChevronDown className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition flex-shrink-0" strokeWidth={2} />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition flex-shrink-0" strokeWidth={2} />
+        )}
+      </button>
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-2 mx-2 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/50 shadow-[0_4px_12px_rgba(0,0,0,0.08)] p-4 space-y-3 z-20">
             <SettingsRow
               label="Activity Level"
               description="Your typical shift intensity level."
@@ -134,9 +132,8 @@ export function NutritionSection() {
                 />
               }
             />
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

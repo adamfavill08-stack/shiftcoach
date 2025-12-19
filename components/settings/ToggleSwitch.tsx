@@ -71,23 +71,22 @@ export function ToggleSwitch({
         <div
           className="h-5 w-9 rounded-full transition-colors disabled:opacity-50"
           style={{
-            backgroundColor: checked ? '#3b82f6' : '#cbd5e1',
+            backgroundColor: checked ? '#10b981' : '#cbd5e1', // emerald-500 for ON, slate-300 for OFF
           }}
         >
           <div
-            className="h-4 w-4 rounded-full shadow transition-transform mt-[2px] ml-[2px]"
+            className="h-4 w-4 rounded-full bg-white shadow-sm transition-transform mt-[2px] ml-[2px]"
             style={{
-              backgroundColor: 'var(--card)',
               transform: checked ? 'translateX(1rem)' : 'translateX(0)',
             }}
           />
         </div>
       </label>
       {isLoading && (
-        <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--text-soft)' }} />
+        <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
       )}
       {showSuccess && !isLoading && (
-        <CheckCircle2 className="w-4 h-4 text-green-500" />
+        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
       )}
     </div>
   )
