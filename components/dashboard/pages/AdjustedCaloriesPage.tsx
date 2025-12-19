@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Info, X } from "lucide-react";
+import { Info, X, Sparkles, Wheat, Dumbbell, Droplet, Sun, UtensilsCrossed, Apple, Clock, Timer, Zap, Sunrise, RefreshCw, Moon, Droplets, Check } from "lucide-react";
 import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition";
 
 /* ---------------------------------------------------
@@ -177,47 +177,14 @@ const IconCookie = () => (
   </svg>
 );
 
-/** Emoji-style icons for clearer meal semantics */
-const IconBreakfast = () => (
-  <span className="text-[15px]" aria-hidden="true">
-    🍳
-  </span>
-);
-
-const IconLunchEmoji = () => (
-  <span className="text-[15px]" aria-hidden="true">
-    🥪
-  </span>
-);
-
-const IconSnackEmoji = () => (
-  <span className="text-[15px]" aria-hidden="true">
-    🍎
-  </span>
-);
-
-const IconDinnerEmoji = () => (
-  <span className="text-[15px]" aria-hidden="true">
-    🍽️
-  </span>
-);
+/** Lucide icons for meal semantics */
+const IconBreakfast = () => <Sun className="h-5 w-5 text-slate-400" />;
+const IconLunchEmoji = () => <UtensilsCrossed className="h-5 w-5 text-slate-400" />;
+const IconSnackEmoji = () => <Apple className="h-5 w-5 text-slate-400" />;
+const IconDinnerEmoji = () => <UtensilsCrossed className="h-5 w-5 text-slate-400" />;
 
 /** Clock with slash – cut-off */
-const IconCutoffClock = () => (
-  <svg
-    viewBox="0 0 24 24"
-    className={iconClass}
-    fill="none"
-    stroke="currentColor"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <circle cx="12" cy="13" r="7" />
-    <path d="M12 13V9" />
-    <path d="M12 13l2.5 2.5" />
-    <path d="M5 5l14 14" />
-  </svg>
-);
+const IconCutoffClock = () => <Clock className="h-5 w-5 text-slate-400" />;
 
 /** Droplet – hydration */
 const IconDroplet = () => (
@@ -251,9 +218,9 @@ type MealTime = {
 };
 
 const macroTargets: MacroTarget[] = [
-  { label: "Carbs",   grams: 280, Icon: IconWheat,    barClass: "bg-sky-300" },
-  { label: "Protein", grams: 160, Icon: IconDumbbell, barClass: "bg-emerald-300" },
-  { label: "Fat",     grams: 50,  Icon: IconAvocado,  barClass: "bg-amber-300" },
+  { label: "Carbs",   grams: 280, Icon: () => <Wheat className="h-5 w-5 text-slate-400" />,    barClass: "bg-sky-300" },
+  { label: "Protein", grams: 160, Icon: () => <Dumbbell className="h-5 w-5 text-slate-400" />, barClass: "bg-emerald-300" },
+  { label: "Fat",     grams: 50,  Icon: () => <Droplet className="h-5 w-5 text-slate-400" />,  barClass: "bg-amber-300" },
 ];
 
 const mealTimes: MealTime[] = [
@@ -349,163 +316,167 @@ function EnhancedMacroTargetsCard({
   }
 
   return (
-    <Card>
-      {/* Macro targets */}
-      <div className="mb-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[13px] font-semibold tracking-tight text-slate-900">
-            Macro targets
-          </h2>
-          <button
-            onClick={() => setShowBreakdown(!showBreakdown)}
-            className="text-[11px] text-slate-500 hover:text-slate-700 transition-colors"
-          >
-            {showBreakdown ? 'Hide' : 'Show'} breakdown
-          </button>
+    <section
+      className={[
+        "relative overflow-hidden rounded-3xl",
+        "bg-white/75 backdrop-blur-xl",
+        "border border-slate-200/50",
+        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+        "p-6",
+      ].join(" ")}
+    >
+      {/* Highlight overlay */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+      
+      <div className="relative z-10 space-y-6">
+        {/* Macro targets */}
+        <div>
+          <div className="flex items-center justify-between">
+            <h3 className="text-[17px] font-semibold tracking-tight text-slate-900">
+              Macro targets
+            </h3>
+            <button
+              onClick={() => setShowBreakdown(!showBreakdown)}
+              className="text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors"
+            >
+              {showBreakdown ? 'Hide' : 'Show'} breakdown
+            </button>
+          </div>
+
+          {/* Grouped list container */}
+          <div className="mt-4 rounded-2xl border border-slate-200/50 bg-white/60 p-2">
+            {macroTargetsData.map(({ label, grams, Icon, barClass }, index) => {
+              // Get consumed amount for this macro
+              const consumed = label === 'Carbs' ? displayMacros.carbs_g :
+                              label === 'Protein' ? displayMacros.protein_g :
+                              displayMacros.fat_g
+              const progress = grams > 0 ? Math.min(consumed / grams, 1.2) : 0
+              const percentage = grams > 0 ? (consumed / grams) * 100 : 0
+              const remaining = Math.max(0, grams - consumed)
+              const suggestion = getSuggestion(label, consumed, grams, remaining)
+              
+              return (
+                <React.Fragment key={label}>
+                  <div className="group flex items-center justify-between gap-4 rounded-2xl px-4 py-4 bg-slate-50/35 hover:bg-white/70 transition-colors">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      {/* Icon badge */}
+                      <div className="h-10 w-10 rounded-2xl bg-white/70 backdrop-blur border border-slate-200/60 grid place-items-center flex-shrink-0">
+                        <Icon />
+                      </div>
+                      
+                      {/* Label and subtext */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800">{label}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Recommended today: <span className="font-medium text-slate-700 tabular-nums">{grams}g</span>
+                        </p>
+                        {/* Progress meter */}
+                        <div className="mt-3 h-2 rounded-full bg-slate-200/60 overflow-hidden">
+                          <div 
+                            className="h-full rounded-full bg-slate-400/60 transition-all duration-300"
+                            style={{ width: `${Math.min(percentage, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Value anchor */}
+                    <div className="flex-shrink-0 text-right">
+                      <p className="text-base font-semibold text-slate-900 tabular-nums">
+                        {grams}<span className="text-sm font-semibold text-slate-500"> g</span>
+                      </p>
+                    </div>
+                  </div>
+                  {index < macroTargetsData.length - 1 && (
+                    <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-2" />
+                  )}
+                </React.Fragment>
+              )
+            })}
+          </div>
+
+          {/* Meal breakdown */}
+          {showBreakdown && mealsBreakdown.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-slate-200/50">
+              <h3 className="text-sm font-semibold tracking-tight text-slate-900 mb-3">
+                Breakdown by meal
+              </h3>
+              <div className="space-y-2">
+                {mealsBreakdown.map((meal, idx) => (
+                  <div key={idx} className="text-sm text-slate-600">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium text-slate-700">{meal.label}</span>
+                      <span className="text-slate-500 tabular-nums">{meal.calories} kcal</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-slate-500">
+                      <span className="tabular-nums">P: {Math.round(meal.protein_g)}g</span>
+                      <span className="tabular-nums">C: {Math.round(meal.carbs_g)}g</span>
+                      <span className="tabular-nums">F: {Math.round(meal.fat_g)}g</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="space-y-3">
-          {macroTargetsData.map(({ label, grams, Icon, barClass }) => {
-            // Get consumed amount for this macro
-            const consumed = label === 'Carbs' ? displayMacros.carbs_g :
-                            label === 'Protein' ? displayMacros.protein_g :
-                            displayMacros.fat_g
-            const progress = grams > 0 ? Math.min(consumed / grams, 1.2) : 0
-            const percentage = grams > 0 ? (consumed / grams) * 100 : 0
-            const remaining = Math.max(0, grams - consumed)
-            const suggestion = getSuggestion(label, consumed, grams, remaining)
-            
-            return (
-              <div key={label} className="space-y-1">
-                <div className="flex items-center justify-between text-[13px]">
-                  <div className="flex items-center gap-2.5 text-slate-600">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-50 border border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+        {/* Divider */}
+        <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent" />
+
+        {/* Meal times */}
+        <div>
+          <div>
+            <h3 className="text-[17px] font-semibold tracking-tight text-slate-900">
+              Meal times
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {shiftType === 'night' ? "Tonight's shift" :
+               shiftType === 'day' ? "Today's shift" :
+               shiftType === 'off' ? "For your off day" :
+               "Your schedule"}
+            </p>
+          </div>
+
+          {/* Grouped list container */}
+          <div className="mt-4 rounded-2xl border border-slate-200/50 bg-white/60 p-2">
+            {mealTimesData.map(({ label, time, Icon }, index) => (
+              <React.Fragment key={label}>
+                <div className="group flex items-center justify-between gap-4 rounded-2xl px-4 py-4 bg-slate-50/35 hover:bg-white/70 transition-colors">
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    {/* Icon badge */}
+                    <div className="h-10 w-10 rounded-2xl bg-white/70 backdrop-blur border border-slate-200/60 grid place-items-center flex-shrink-0">
                       <Icon />
                     </div>
-                    <span className="font-medium">{label}</span>
+                    <p className="text-sm font-medium text-slate-800">{label}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {consumed > 0 && (
-                      <span className="text-[11px] text-slate-500">
-                        {Math.round(consumed)} / 
-                      </span>
-                    )}
-                    <span className="font-semibold text-slate-900">
-                      {grams} g
-                    </span>
-                    {percentage > 0 && (
-                      <span className="text-[10px] text-slate-400">
-                        ({Math.round(percentage)}%)
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Contextual information */}
-                {suggestion && (
-                  <p className="text-[10px] text-slate-500 leading-tight">
-                    {suggestion}
+                  <p className="text-sm font-semibold text-slate-900 tabular-nums flex-shrink-0">
+                    {time}
                   </p>
-                )}
-                {percentage >= 100 && (
-                  <p className="text-[10px] text-emerald-600 font-medium leading-tight">
-                    ✓ Target met!
-                  </p>
-                )}
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Smart suggestion based on overall progress */}
-        {(() => {
-          const proteinPct = macroTargetsData.find(m => m.label === 'Protein') 
-            ? (displayMacros.protein_g / macroTargetsData.find(m => m.label === 'Protein')!.grams) * 100 : 0
-          const carbsPct = macroTargetsData.find(m => m.label === 'Carbs')
-            ? (displayMacros.carbs_g / macroTargetsData.find(m => m.label === 'Carbs')!.grams) * 100 : 0
-          const fatPct = macroTargetsData.find(m => m.label === 'Fat')
-            ? (displayMacros.fat_g / macroTargetsData.find(m => m.label === 'Fat')!.grams) * 100 : 0
-
-          const lowestPct = Math.min(proteinPct, carbsPct, fatPct)
-          const lowestMacro = lowestPct === proteinPct ? 'Protein' : lowestPct === carbsPct ? 'Carbs' : 'Fat'
-          
-          if (lowestPct < 50 && displayMacros.protein_g + displayMacros.carbs_g + displayMacros.fat_g > 0) {
-            return (
-              <div className="mt-3 rounded-lg bg-slate-50/80 border border-slate-200/60 p-2.5">
-                <p className="text-[11px] font-medium text-slate-700 mb-1">
-                  💡 Focus on {lowestMacro.toLowerCase()}
-                </p>
-                <p className="text-[10px] text-slate-600 leading-relaxed">
-                  {shiftType === 'night' 
-                    ? `Night shift tip: Prioritize protein to maintain energy and prevent muscle loss during long shifts.`
-                    : `Add more ${lowestMacro.toLowerCase()} to balance your macros.`}
-                </p>
-              </div>
-            )
-          }
-          return null
-        })()}
-
-        {/* Meal breakdown */}
-        {showBreakdown && mealsBreakdown.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-white/80">
-            <h3 className="text-xs font-semibold text-slate-900 mb-2">
-              Breakdown by meal
-            </h3>
-            <div className="space-y-2">
-              {mealsBreakdown.map((meal, idx) => (
-                <div key={idx} className="text-[11px] text-slate-600">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium text-slate-700">{meal.label}</span>
-                    <span className="text-slate-500">{meal.calories} kcal</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-[10px] text-slate-500">
-                    <span>P: {Math.round(meal.protein_g)}g</span>
-                    <span>C: {Math.round(meal.carbs_g)}g</span>
-                    <span>F: {Math.round(meal.fat_g)}g</span>
-                  </div>
                 </div>
-              ))}
-            </div>
+                {index < mealTimesData.length - 1 && (
+                  <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-2" />
+                )}
+              </React.Fragment>
+            ))}
           </div>
-        )}
-      </div>
-
-      {/* Divider */}
-      <div className="h-px bg-white/80" />
-
-      {/* Meal times */}
-      <div className="pt-3">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-[13px] font-semibold tracking-tight text-slate-900">
-            Meal times
-          </h2>
-          <span className="text-[11px] text-slate-500">
-            {shiftType === 'night' ? "Tonight's shift" :
-             shiftType === 'day' ? "Today's shift" :
-             shiftType === 'off' ? "For your off day" :
-             "Your schedule"}
-          </span>
         </div>
 
-        <div className="divide-y divide-white/80 text-[13px]">
-          {mealTimesData.map(({ label, time, Icon }) => (
-            <div
-              key={label}
-              className="flex items-center justify-between py-2 first:pt-0 last:pb-0"
-            >
-              <div className="flex items-center gap-2.5 text-slate-600">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-50 border border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-                  <Icon />
-                </div>
-                <span className="font-medium">{label}</span>
-              </div>
-              <span className="font-semibold text-slate-900">{time}</span>
-            </div>
-          ))}
+        {/* AI tip footer */}
+        <div className="mt-5 rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/50">
+          <p className="text-xs font-semibold tracking-tight text-slate-900 flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-slate-400" />
+            Today's timing tip
+          </p>
+          <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+            {shiftType === 'night' 
+              ? "Keep your biggest meal within 2–3 hours of waking to stabilise energy on night shifts."
+              : shiftType === 'day'
+              ? "Keep your biggest meal within 2–3 hours of waking to stabilise energy on shift days."
+              : "Keep your biggest meal within 2–3 hours of waking to stabilise energy throughout the day."}
+          </p>
         </div>
       </div>
-    </Card>
+    </section>
   )
 }
 
@@ -970,22 +941,45 @@ function EnergyCurveCard({
 
   const tip = generateTip();
   
+  // Get current energy level for status pill
+  const currentEnergy = energyPoints && currentHour !== undefined
+    ? (energyPoints.find(p => Math.abs(p.hour - currentHour) < 0.5) || energyPoints[Math.floor(currentHour)])?.energy
+    : null;
+  
+  const getEnergyStatus = (energy: number | null): string => {
+    if (energy === null) return 'Calculating';
+    if (energy >= 70) return 'High right now';
+    if (energy >= 40) return 'Moderate right now';
+    return 'Low right now';
+  };
+  
   return (
-    <div className="space-y-4">
-      <h2 className="text-[13px] font-semibold tracking-tight text-slate-900">
-        Energy curve
-      </h2>
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <h3 className="text-[17px] font-semibold tracking-tight text-slate-900">
+          Energy curve
+        </h3>
+        {currentEnergy !== null && (
+          <span className="inline-flex items-center rounded-full px-2.5 py-1 bg-slate-50/60 border border-slate-200/50 text-[11px] text-slate-500">
+            {getEnergyStatus(currentEnergy)}
+          </span>
+        )}
+      </div>
 
-      {/* Explanation */}
-      <p className="text-xs text-slate-600 leading-relaxed">
-        This curve shows your predicted energy levels throughout the day based on your shift pattern, sleep, and circadian rhythm. The red dot shows where you are right now.
+      {/* Description */}
+      <p className="text-sm leading-relaxed text-slate-600 max-w-prose">
+        Predicted energy through the day from your shift pattern, sleep, and circadian rhythm.
+        <span className="text-slate-400"> The dot is "now".</span>
       </p>
 
-      {/* Simple energy curve */}
-      <div className="mt-1">
+      {/* Energy curve with baseline */}
+      <div className="relative mt-4">
+        {/* Baseline */}
+        <div className="absolute inset-x-6 top-[58%] h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent" />
+        
         <svg
           viewBox="0 0 180 40"
-          className="w-full h-16"
+          className="w-full h-16 drop-shadow-[0_10px_18px_rgba(0,0,0,0.10)]"
           aria-hidden="true"
         >
           <defs>
@@ -1000,6 +994,13 @@ function EnergyCurveCard({
               <stop offset="45%" stopColor="#facc15" />
               <stop offset="100%" stopColor="#fb923c" />
             </linearGradient>
+            <filter id="energyGlow">
+              <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+              <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
           </defs>
 
           {/* Dynamic energy curve */}
@@ -1008,36 +1009,55 @@ function EnergyCurveCard({
               d={svgPath}
               fill="none"
               stroke="url(#energyCurveGradient)"
-              strokeWidth="3.5"
+              strokeWidth="3"
               strokeLinecap="round"
               strokeLinejoin="round"
+              filter="url(#energyGlow)"
             />
           )}
 
-          {/* Simple current time indicator */}
+          {/* Elegant current time indicator */}
           <g>
+            {/* Gradient vertical line */}
+            <defs>
+              <linearGradient id="nowLineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="transparent" />
+                <stop offset="50%" stopColor="rgba(244, 63, 94, 0.5)" />
+                <stop offset="100%" stopColor="transparent" />
+              </linearGradient>
+            </defs>
             <line
               x1={hourToX(currentHour)}
               y1="0"
               x2={hourToX(currentHour)}
               y2="40"
-              stroke="#ef4444"
-              strokeWidth="2"
-              opacity="0.6"
+              stroke="url(#nowLineGradient)"
+              strokeWidth="1"
             />
             {(() => {
               const currentPoint = energyPoints.find(p => Math.abs(p.hour - currentHour) < 0.5) || energyPoints[Math.floor(currentHour)];
               if (currentPoint) {
                 const y = 4 + (36 * (1 - currentPoint.energy / 100));
                 return (
-                  <circle
-                    cx={hourToX(currentHour)}
-                    cy={y}
-                    r="3.5"
-                    fill="#ef4444"
-                    stroke="white"
-                    strokeWidth="1.5"
-                  />
+                  <g>
+                    {/* Outer ring */}
+                    <circle
+                      cx={hourToX(currentHour)}
+                      cy={y}
+                      r="4"
+                      fill="none"
+                      stroke="rgba(244, 63, 94, 0.3)"
+                      strokeWidth="1"
+                    />
+                    {/* Dot with shadow */}
+                    <circle
+                      cx={hourToX(currentHour)}
+                      cy={y}
+                      r="3"
+                      fill="#f43f5e"
+                      filter="drop-shadow(0 8px 20px rgba(244, 63, 94, 0.30))"
+                    />
+                  </g>
                 );
               }
               return null;
@@ -1046,17 +1066,29 @@ function EnergyCurveCard({
         </svg>
       </div>
 
-      {/* Simple labels */}
-      <div className="flex justify-between text-[11px] font-medium">
-        <span className="text-emerald-500">{labels.good}</span>
-        <span className="text-amber-500">{labels.low}</span>
-        <span className="text-orange-500">{labels.avoid}</span>
+      {/* Phase chips */}
+      <div className="flex justify-between items-center">
+        <span className="rounded-full px-2.5 py-1 text-[11px] font-medium bg-emerald-50/70 border border-emerald-200/40 text-emerald-700/80">
+          {labels.good}
+        </span>
+        <span className="rounded-full px-2.5 py-1 text-[11px] font-medium bg-amber-50/70 border border-amber-200/40 text-amber-700/80">
+          {labels.low}
+        </span>
+        <span className="rounded-full px-2.5 py-1 text-[11px] font-medium bg-orange-50/70 border border-orange-200/40 text-orange-700/80">
+          {labels.avoid}
+        </span>
       </div>
 
-      {/* Tip section */}
-      <div className="pt-2 border-t border-slate-200/60">
-        <p className="text-xs font-medium text-slate-700 mb-1.5">Tip</p>
-        <p className="text-xs text-slate-600 leading-relaxed">
+      {/* Gradient divider */}
+      <div className="my-5 h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent" />
+
+      {/* AI insight panel */}
+      <div className="rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/50">
+        <p className="text-xs font-semibold tracking-tight text-slate-900 flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-slate-400" />
+          What to do now
+        </p>
+        <p className="mt-2 text-sm text-slate-600 leading-relaxed">
           {tip}
         </p>
       </div>
@@ -1439,38 +1471,49 @@ export default function AdjustedCaloriesPage() {
   return (
     <div className="w-full max-w-md mx-auto px-4 py-6 space-y-6">
       {/* CARD 1 — Adjusted calories */}
-      <Card>
-        <div>
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h1 className="text-lg font-bold tracking-tight text-slate-900">
+      <section
+        className={[
+          "relative overflow-hidden rounded-3xl",
+          "bg-white/75 backdrop-blur-xl",
+          "border border-slate-200/50",
+          "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+          "p-6",
+        ].join(" ")}
+      >
+        {/* Highlight overlay */}
+        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+        
+        <div className="relative z-10 space-y-5">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h1 className="text-[17px] font-semibold tracking-tight text-slate-900">
                 Adjusted calories
               </h1>
-              <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+              <p className="mt-1.5 text-sm leading-relaxed text-slate-600">
                 Your adjusted target today based on your shift, sleep and goal.
               </p>
             </div>
             <button
               onClick={() => setShowInfo(!showInfo)}
-              className="relative z-20 flex-shrink-0 p-1.5 rounded-lg hover:bg-slate-100/80 transition-colors group ml-2"
+              className="h-8 w-8 flex items-center justify-center rounded-full bg-transparent text-slate-400 hover:bg-slate-100/60 transition-colors flex-shrink-0 ml-2"
               aria-label="Why adjusted calories matter"
             >
-              <Info className="h-4 w-4 text-slate-500 group-hover:text-slate-700 transition-colors" />
+              <Info className="h-4 w-4" strokeWidth={2} />
             </button>
           </div>
 
           {/* Adjusted calories number */}
-          <div className="mb-4">
+          <div>
             <div className="flex items-baseline gap-2">
-              <span className="text-[36px] font-bold text-slate-900 leading-none">
+              <span className="text-[40px] font-semibold text-slate-900 tabular-nums leading-none">
                 {adjustedCalories.toLocaleString("en-US")}
               </span>
-              <span className="text-[14px] text-slate-500 font-medium">
+              <span className="text-base font-medium text-slate-500">
                 kcal
               </span>
             </div>
             {consumedCalories > 0 && (
-              <p className="mt-1.5 text-[11px] text-slate-400">
+              <p className="mt-2 text-xs text-slate-500">
                 {Math.round(progress * 100)}% consumed today
               </p>
             )}
@@ -1478,29 +1521,31 @@ export default function AdjustedCaloriesPage() {
 
           {/* Factor breakdown */}
           {deltas.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+            <div className="pt-4 border-t border-slate-200/50 space-y-3">
+              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                 Adjustments
               </p>
-              {deltas.map((d) => (
-                <div key={d.label} className="flex items-center justify-between text-[13px]">
-                  <span className="text-slate-600 capitalize">{d.label}</span>
-                  <span className={`font-semibold ${d.color}`}>
-                    {d.value} kcal
+              <div className="space-y-2">
+                {deltas.map((d) => (
+                  <div key={d.label} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600 capitalize">{d.label}</span>
+                    <span className={`font-semibold tabular-nums ${d.color}`}>
+                      {d.value} kcal
+                    </span>
+                  </div>
+                ))}
+                <div className="pt-2 mt-2 border-t border-slate-200/40 flex items-center justify-between text-sm">
+                  <span className="text-slate-700 font-medium">Base calories</span>
+                  <span className="font-semibold tabular-nums text-slate-900">
+                    {baseCalories.toLocaleString()} kcal
                   </span>
                 </div>
-              ))}
-              <div className="pt-1.5 mt-1.5 border-t border-slate-200/60 flex items-center justify-between text-[13px]">
-                <span className="text-slate-700 font-medium">Base calories</span>
-                <span className="font-semibold text-slate-900">
-                  {baseCalories.toLocaleString()} kcal
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-[13px]">
-                <span className="text-slate-700 font-medium">Total adjustment</span>
-                <span className={`font-semibold ${deltaPct >= 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                  {deltaPct >= 0 ? '+' : ''}{deltaPct}%
-                </span>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-700 font-medium">Total adjustment</span>
+                  <span className={`font-semibold tabular-nums ${deltaPct >= 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    {deltaPct >= 0 ? '+' : ''}{deltaPct}%
+                  </span>
+                </div>
               </div>
             </div>
           )}
@@ -1508,57 +1553,57 @@ export default function AdjustedCaloriesPage() {
 
         {/* Info Modal */}
         {showInfo && (
-          <div className="relative z-20 mt-4 rounded-xl bg-gradient-to-br from-slate-50 to-white border border-slate-200/70 p-4 space-y-3 shadow-lg">
+          <div className="relative z-20 mt-4 rounded-xl bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/50 p-4 space-y-3 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.12)]">
             <div className="flex items-start justify-between">
-              <h3 className="text-[14px] font-bold text-slate-900">Why Adjusted Calories Matter</h3>
+              <h3 className="text-sm font-semibold tracking-tight text-slate-900">Why Adjusted Calories Matter</h3>
               <button
                 onClick={() => setShowInfo(false)}
                 className="p-1 rounded-md hover:bg-slate-100/60 transition-colors"
                 aria-label="Close"
               >
-                <X className="h-3.5 w-3.5 text-slate-400" />
+                <X className="h-4 w-4 text-slate-400" strokeWidth={2} />
               </button>
             </div>
             
-            <div className="space-y-3 text-xs text-slate-700 leading-relaxed max-h-[50vh] overflow-y-auto">
+            <div className="space-y-3 text-sm text-slate-600 leading-relaxed max-h-[50vh] overflow-y-auto">
               <div>
-                <p className="font-semibold text-slate-900 mb-1 text-xs">⭐ Standard calculators don't work for shift workers</p>
-                <p className="text-slate-600 text-[11px]">
+                <p className="font-semibold text-slate-900 mb-1.5 text-sm">⭐ Standard calculators don't work for shift workers</p>
+                <p className="text-slate-600 text-sm">
                   Standard calorie recommendations assume a 9-5 routine with regular sleep. Shift workers break all of those assumptions, so without adjustment, recommended calories become inaccurate and unhelpful.
                 </p>
               </div>
               
               <div>
-                <p className="font-semibold text-slate-900 mb-1 text-xs">1️⃣ Shift patterns change energy expenditure</p>
-                <p className="text-slate-600 text-[11px]">
+                <p className="font-semibold text-slate-900 mb-1.5 text-sm">1️⃣ Shift patterns change energy expenditure</p>
+                <p className="text-slate-600 text-sm">
                   Night shifts burn calories differently - you're awake longer, move differently, and your temperature rhythm drops at night. Two workers with the same body size may need 100-300+ extra calories on a long night shift.
                 </p>
               </div>
               
               <div>
-                <p className="font-semibold text-slate-900 mb-1 text-xs">2️⃣ Circadian disruption changes metabolism</p>
-                <p className="text-slate-600 text-[11px]">
+                <p className="font-semibold text-slate-900 mb-1.5 text-sm">2️⃣ Circadian disruption changes metabolism</p>
+                <p className="text-slate-600 text-sm">
                   Eating during your biological "night" means your body stores more calories as fat, has reduced insulin sensitivity, and burns fewer calories at rest. This is why shift workers often gain weight even when eating "the same as everyone else."
                 </p>
               </div>
               
               <div>
-                <p className="font-semibold text-slate-900 mb-1 text-xs">3️⃣ Gender, height, weight, and goals all matter</p>
-                <p className="text-slate-600 text-[11px]">
+                <p className="font-semibold text-slate-900 mb-1.5 text-sm">3️⃣ Gender, height, weight, and goals all matter</p>
+                <p className="text-slate-600 text-sm">
                   Men and women differ in metabolism and how circadian misalignment impacts them. Body composition, job physicality, and goals (lose/maintain/gain) all require specific adjustments for disrupted rhythms.
                 </p>
               </div>
               
               <div>
-                <p className="font-semibold text-slate-900 mb-1 text-xs">4️⃣ Awake time and stress change calorie needs</p>
-                <p className="text-slate-600 text-[11px]">
+                <p className="font-semibold text-slate-900 mb-1.5 text-sm">4️⃣ Awake time and stress change calorie needs</p>
+                <p className="text-slate-600 text-sm">
                   Night-shift workers are often awake 18-20 hours vs 16 hours for day workers. Higher baseline cortisol from shift work affects hunger, fat storage, and metabolic rate - all changing calorie needs.
                 </p>
               </div>
             </div>
           </div>
         )}
-      </Card>
+      </section>
 
       {/* NEW CARD — Biological Night Warning */}
       {data?.shiftType === 'night' && (
@@ -1589,40 +1634,51 @@ export default function AdjustedCaloriesPage() {
 
       {/* Standard Calculator Comparison */}
       {standardCalories && (
-        <Card>
-          <div className="space-y-3">
+        <section
+          className={[
+            "relative overflow-hidden rounded-3xl",
+            "bg-white/75 backdrop-blur-xl",
+            "border border-slate-200/50",
+            "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+            "p-6",
+          ].join(" ")}
+        >
+          {/* Highlight overlay */}
+          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+          
+          <div className="relative z-10 space-y-5">
             <div>
-              <h2 className="text-[15px] font-bold tracking-tight text-slate-900">
+              <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">
                 vs Standard Calculator
               </h2>
-              <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
+              <p className="mt-1.5 text-sm leading-relaxed text-slate-600">
                 Standard calculators use formulas like Mifflin-St Jeor that estimate calories based on age, height, weight, and activity level. They assume a regular 9-5 routine with consistent sleep patterns.
               </p>
             </div>
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50/60 border border-slate-200/50">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-2xl px-4 py-3.5 bg-slate-50/40 border border-slate-200/40">
                 <div>
-                  <p className="text-xs text-slate-600">Standard calculator</p>
-                  <p className="text-[11px] text-slate-500">(assumes 9-5 routine)</p>
+                  <p className="text-sm text-slate-600">Standard calculator</p>
+                  <p className="text-xs text-slate-500 mt-0.5">(assumes 9-5 routine)</p>
                 </div>
-                <span className="text-[18px] font-bold text-slate-700">
+                <span className="text-lg font-semibold tabular-nums text-slate-900">
                   {standardCalories.toLocaleString()} kcal
                 </span>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-br from-blue-50/60 to-blue-50/30 border border-blue-200/50">
+              <div className="flex items-center justify-between rounded-2xl px-4 py-3.5 bg-gradient-to-br from-indigo-50/40 to-violet-50/40 border border-indigo-200/30">
                 <div>
-                  <p className="text-xs font-semibold text-slate-900">Your adjusted target</p>
-                  <p className="text-[11px] text-slate-600">(shift worker optimized)</p>
+                  <p className="text-sm font-semibold text-slate-900">Your adjusted target</p>
+                  <p className="text-xs text-slate-600 mt-0.5">(shift worker optimized)</p>
                 </div>
-                <span className="text-[18px] font-bold text-blue-700">
+                <span className="text-lg font-semibold tabular-nums text-indigo-700">
                   {adjustedCalories.toLocaleString()} kcal
                 </span>
               </div>
-              <div className="pt-2 border-t border-slate-200/60">
-                <div className="flex items-center justify-between text-[13px]">
+              <div className="pt-3 mt-3 border-t border-slate-200/50">
+                <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-600">Difference</span>
                   <span
-                    className={`font-semibold ${
+                    className={`font-semibold tabular-nums ${
                       differenceFromStandard > 0
                         ? 'text-emerald-600'
                         : differenceFromStandard < 0
@@ -1632,7 +1688,7 @@ export default function AdjustedCaloriesPage() {
                   >
                     {differenceFromStandard > 0 ? '+' : ''}
                     {differenceFromStandard} kcal
-                    <span className="ml-1 text-[11px] text-slate-500">
+                    <span className="ml-1.5 text-xs text-slate-500 font-normal">
                       (
                       {differenceFromStandard > 0 ? '+' : ''}
                       {standardCalories
@@ -1642,13 +1698,13 @@ export default function AdjustedCaloriesPage() {
                     </span>
                   </span>
                 </div>
-                <p className="mt-1.5 text-[11px] text-slate-500 leading-relaxed">
+                <p className="mt-2 text-sm text-slate-600 leading-relaxed">
                   This difference accounts for your shift pattern, circadian disruption, sleep debt, and shift-specific energy needs.
                 </p>
               </div>
             </div>
           </div>
-        </Card>
+        </section>
       )}
 
       {/* CARD 3 — Macro targets + Meal times */}
@@ -1660,115 +1716,160 @@ export default function AdjustedCaloriesPage() {
       />
 
       {/* NEW CARD — Quick Shift-Specific Rules */}
-      <Card>
-        <div className="space-y-3">
-          <h2 className="text-[15px] font-bold tracking-tight text-slate-900">
+      <section
+        className={[
+          "relative overflow-hidden rounded-3xl",
+          "bg-white/75 backdrop-blur-xl",
+          "border border-slate-200/50",
+          "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+          "p-6",
+        ].join(" ")}
+      >
+        {/* Highlight overlay */}
+        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+        
+        <div className="relative z-10 space-y-5">
+          <h3 className="text-[17px] font-semibold tracking-tight text-slate-900">
             Quick Rules for {data?.shiftType === 'night' ? 'Night Shift' : data?.shiftType === 'day' ? 'Day Shift' : data?.shiftType === 'off' ? 'Off Day' : 'Your Shift'}
-          </h2>
-          <div className="space-y-2.5">
+          </h3>
+          
+          {/* Grouped list container */}
+          <div className="rounded-2xl border border-slate-200/50 bg-white/60 p-2">
             {data?.shiftType === 'night' && (
               <>
-                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
-                  <span className="text-[16px] mt-0.5">🍽️</span>
-                  <div className="flex-1">
-                    <p className="text-xs font-semibold text-slate-900">Eat largest meal 2-3 hours before shift</p>
-                    <p className="text-[11px] text-slate-600 mt-0.5">This gives you energy without digestive stress during your shift.</p>
+                <div className="group flex items-start gap-4 rounded-2xl px-4 py-4 bg-slate-50/35 hover:bg-white/70 transition-colors">
+                  <div className="h-10 w-10 rounded-2xl bg-white/70 backdrop-blur border border-slate-200/60 grid place-items-center flex-shrink-0">
+                    <UtensilsCrossed className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">Eat largest meal 2-3 hours before shift</p>
+                    <p className="mt-1 text-sm text-slate-600 leading-relaxed">This gives you energy without digestive stress during your shift.</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
-                  <span className="text-[16px] mt-0.5">🥗</span>
-                  <div className="flex-1">
-                    <p className="text-[12px] font-semibold text-slate-900">Keep meals light after midnight</p>
-                    <p className="text-[11px] text-slate-600 mt-0.5">Your biological night starts around 11 PM - heavy meals increase fat storage.</p>
+                <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-2" />
+                <div className="group flex items-start gap-4 rounded-2xl px-4 py-4 bg-slate-50/35 hover:bg-white/70 transition-colors">
+                  <div className="h-10 w-10 rounded-2xl bg-white/70 backdrop-blur border border-slate-200/60 grid place-items-center flex-shrink-0">
+                    <Moon className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">Keep meals light after midnight</p>
+                    <p className="mt-1 text-sm text-slate-600 leading-relaxed">Your biological night starts around 11 PM - heavy meals increase fat storage.</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
-                  <span className="text-[16px] mt-0.5">⚡</span>
-                  <div className="flex-1">
-                    <p className="text-[12px] font-semibold text-slate-900">Protein-rich snacks during shift</p>
-                    <p className="text-[11px] text-slate-600 mt-0.5">Maintain alertness without digestive stress or energy crashes.</p>
+                <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-2" />
+                <div className="group flex items-start gap-4 rounded-2xl px-4 py-4 bg-slate-50/35 hover:bg-white/70 transition-colors">
+                  <div className="h-10 w-10 rounded-2xl bg-white/70 backdrop-blur border border-slate-200/60 grid place-items-center flex-shrink-0">
+                    <Zap className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">Protein-rich snacks during shift</p>
+                    <p className="mt-1 text-sm text-slate-600 leading-relaxed">Maintain alertness without digestive stress or energy crashes.</p>
                   </div>
                 </div>
               </>
             )}
             {data?.shiftType === 'day' && (
               <>
-                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
-                  <span className="text-[16px] mt-0.5">🌅</span>
-                  <div className="flex-1">
-                    <p className="text-[12px] font-semibold text-slate-900">Balanced breakfast before shift</p>
-                    <p className="text-[11px] text-slate-600 mt-0.5">Start your day with protein and complex carbs for sustained energy.</p>
+                <div className="group flex items-start gap-4 rounded-2xl px-4 py-4 bg-slate-50/35 hover:bg-white/70 transition-colors">
+                  <div className="h-10 w-10 rounded-2xl bg-white/70 backdrop-blur border border-slate-200/60 grid place-items-center flex-shrink-0">
+                    <Sunrise className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">Balanced breakfast before shift</p>
+                    <p className="mt-1 text-sm text-slate-600 leading-relaxed">Start your day with protein and complex carbs for sustained energy.</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
-                  <span className="text-[16px] mt-0.5">🍱</span>
-                  <div className="flex-1">
-                    <p className="text-[12px] font-semibold text-slate-900">Main meal during shift break</p>
-                    <p className="text-[11px] text-slate-600 mt-0.5">Regular meal timing helps maintain your body clock alignment.</p>
+                <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-2" />
+                <div className="group flex items-start gap-4 rounded-2xl px-4 py-4 bg-slate-50/35 hover:bg-white/70 transition-colors">
+                  <div className="h-10 w-10 rounded-2xl bg-white/70 backdrop-blur border border-slate-200/60 grid place-items-center flex-shrink-0">
+                    <UtensilsCrossed className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">Main meal during shift break</p>
+                    <p className="mt-1 text-sm text-slate-600 leading-relaxed">Regular meal timing helps maintain your body clock alignment.</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
-                  <span className="text-[16px] mt-0.5">⏰</span>
-                  <div className="flex-1">
-                    <p className="text-[12px] font-semibold text-slate-900">Maintain regular meal timing</p>
-                    <p className="text-[11px] text-slate-600 mt-0.5">Consistent eating times help your circadian rhythm stay aligned.</p>
+                <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-2" />
+                <div className="group flex items-start gap-4 rounded-2xl px-4 py-4 bg-slate-50/35 hover:bg-white/70 transition-colors">
+                  <div className="h-10 w-10 rounded-2xl bg-white/70 backdrop-blur border border-slate-200/60 grid place-items-center flex-shrink-0">
+                    <Timer className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">Maintain regular meal timing</p>
+                    <p className="mt-1 text-sm text-slate-600 leading-relaxed">Consistent eating times help your circadian rhythm stay aligned.</p>
                   </div>
                 </div>
               </>
             )}
             {data?.shiftType === 'off' && (
               <>
-                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
-                  <span className="text-[16px] mt-0.5">🔄</span>
-                  <div className="flex-1">
-                    <p className="text-[12px] font-semibold text-slate-900">Use regular meal timing</p>
-                    <p className="text-[11px] text-slate-600 mt-0.5">Help reset your body clock with consistent breakfast, lunch, and dinner times.</p>
+                <div className="group flex items-start gap-4 rounded-2xl px-4 py-4 bg-slate-50/35 hover:bg-white/70 transition-colors">
+                  <div className="h-10 w-10 rounded-2xl bg-white/70 backdrop-blur border border-slate-200/60 grid place-items-center flex-shrink-0">
+                    <RefreshCw className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">Use regular meal timing</p>
+                    <p className="mt-1 text-sm text-slate-600 leading-relaxed">Help reset your body clock with consistent breakfast, lunch, and dinner times.</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
-                  <span className="text-[16px] mt-0.5">🍽️</span>
-                  <div className="flex-1">
-                    <p className="text-[12px] font-semibold text-slate-900">Keep meals balanced</p>
-                    <p className="text-[11px] text-slate-600 mt-0.5">Avoid large late-night meals that disrupt sleep and circadian rhythm.</p>
+                <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-2" />
+                <div className="group flex items-start gap-4 rounded-2xl px-4 py-4 bg-slate-50/35 hover:bg-white/70 transition-colors">
+                  <div className="h-10 w-10 rounded-2xl bg-white/70 backdrop-blur border border-slate-200/60 grid place-items-center flex-shrink-0">
+                    <UtensilsCrossed className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">Keep meals balanced</p>
+                    <p className="mt-1 text-sm text-slate-600 leading-relaxed">Avoid large late-night meals that disrupt sleep and circadian rhythm.</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
-                  <span className="text-[16px] mt-0.5">😴</span>
-                  <div className="flex-1">
-                    <p className="text-[12px] font-semibold text-slate-900">Last meal 2-3 hours before sleep</p>
-                    <p className="text-[11px] text-slate-600 mt-0.5">Give your digestive system time to rest before bedtime.</p>
+                <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-2" />
+                <div className="group flex items-start gap-4 rounded-2xl px-4 py-4 bg-slate-50/35 hover:bg-white/70 transition-colors">
+                  <div className="h-10 w-10 rounded-2xl bg-white/70 backdrop-blur border border-slate-200/60 grid place-items-center flex-shrink-0">
+                    <Moon className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">Last meal 2-3 hours before sleep</p>
+                    <p className="mt-1 text-sm text-slate-600 leading-relaxed">Give your digestive system time to rest before bedtime.</p>
                   </div>
                 </div>
               </>
             )}
             {(!data?.shiftType || data.shiftType === 'other') && (
               <>
-                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
-                  <span className="text-[16px] mt-0.5">⏰</span>
-                  <div className="flex-1">
-                    <p className="text-[12px] font-semibold text-slate-900">Maintain regular meal timing</p>
-                    <p className="text-[11px] text-slate-600 mt-0.5">Consistent eating times help your circadian rhythm stay aligned.</p>
+                <div className="group flex items-start gap-4 rounded-2xl px-4 py-4 bg-slate-50/35 hover:bg-white/70 transition-colors">
+                  <div className="h-10 w-10 rounded-2xl bg-white/70 backdrop-blur border border-slate-200/60 grid place-items-center flex-shrink-0">
+                    <Timer className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">Maintain regular meal timing</p>
+                    <p className="mt-1 text-sm text-slate-600 leading-relaxed">Consistent eating times help your circadian rhythm stay aligned.</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
-                  <span className="text-[16px] mt-0.5">🍽️</span>
-                  <div className="flex-1">
-                    <p className="text-[12px] font-semibold text-slate-900">Keep meals balanced</p>
-                    <p className="text-[11px] text-slate-600 mt-0.5">Focus on protein, complex carbs, and healthy fats for sustained energy.</p>
+                <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-2" />
+                <div className="group flex items-start gap-4 rounded-2xl px-4 py-4 bg-slate-50/35 hover:bg-white/70 transition-colors">
+                  <div className="h-10 w-10 rounded-2xl bg-white/70 backdrop-blur border border-slate-200/60 grid place-items-center flex-shrink-0">
+                    <UtensilsCrossed className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">Keep meals balanced</p>
+                    <p className="mt-1 text-sm text-slate-600 leading-relaxed">Focus on protein, complex carbs, and healthy fats for sustained energy.</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/60">
-                  <span className="text-[16px] mt-0.5">💧</span>
-                  <div className="flex-1">
-                    <p className="text-[12px] font-semibold text-slate-900">Stay hydrated</p>
-                    <p className="text-[11px] text-slate-600 mt-0.5">Drink water regularly throughout the day to support your metabolism.</p>
+                <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-2" />
+                <div className="group flex items-start gap-4 rounded-2xl px-4 py-4 bg-slate-50/35 hover:bg-white/70 transition-colors">
+                  <div className="h-10 w-10 rounded-2xl bg-white/70 backdrop-blur border border-slate-200/60 grid place-items-center flex-shrink-0">
+                    <Droplets className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">Stay hydrated</p>
+                    <p className="mt-1 text-sm text-slate-600 leading-relaxed">Drink water regularly throughout the day to support your metabolism.</p>
                   </div>
                 </div>
               </>
             )}
           </div>
         </div>
-      </Card>
+      </section>
 
       {/* NEW CARD — Digestive Health Tips */}
       {data?.shiftType === 'night' && (
@@ -1881,91 +1982,141 @@ export default function AdjustedCaloriesPage() {
       )}
 
       {/* CARD 2 — Energy curve */}
-      <Card>
-        <EnergyCurveCard
-          shiftType={data?.shiftType}
-          shiftStart={todayShift?.start_ts}
-          shiftEnd={todayShift?.end_ts}
-          sleepData={sleepData}
-          circadian={circadian}
-          meals={data?.meals}
-          sleepDebt={data?.sleepHoursLast24h ? Math.max(0, 7.5 - data.sleepHoursLast24h) : undefined}
-          biologicalNight={biologicalNight}
-          energyPoints={energyPoints}
-          currentHour={currentHour}
-          sleepHours={data?.sleepHoursLast24h}
-          adjustedCalories={adjustedCalories}
-        />
-      </Card>
+      <section
+        className={[
+          "relative overflow-hidden rounded-3xl",
+          "bg-white/75 backdrop-blur-xl",
+          "border border-slate-200/50",
+          "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+          "p-6",
+        ].join(" ")}
+      >
+        {/* Highlight overlay */}
+        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+        
+        <div className="relative z-10">
+          <EnergyCurveCard
+            shiftType={data?.shiftType}
+            shiftStart={todayShift?.start_ts}
+            shiftEnd={todayShift?.end_ts}
+            sleepData={sleepData}
+            circadian={circadian}
+            meals={data?.meals}
+            sleepDebt={data?.sleepHoursLast24h ? Math.max(0, 7.5 - data.sleepHoursLast24h) : undefined}
+            biologicalNight={biologicalNight}
+            energyPoints={energyPoints}
+            currentHour={currentHour}
+            sleepHours={data?.sleepHoursLast24h}
+            adjustedCalories={adjustedCalories}
+          />
+        </div>
+      </section>
 
       {/* CARD 3 — Hydration + Tip + Recommendations */}
-      <Card>
-        {/* Hydration */}
-        <div className="mb-3">
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-[13px] font-semibold tracking-tight text-slate-900">
-              Hydration
-            </h2>
-          </div>
-          <div className="flex items-center justify-between text-[13px]">
-            <div className="flex items-center gap-2 text-slate-600">
-              <IconDroplet />
-              <div className="leading-tight">
-                <p>Today</p>
-                <p className="text-[11px] text-slate-500">Target</p>
+      <section
+        className={[
+          "relative overflow-hidden rounded-3xl",
+          "bg-white/75 backdrop-blur-xl",
+          "border border-slate-200/50",
+          "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+          "p-6",
+        ].join(" ")}
+      >
+        {/* Highlight overlay */}
+        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+        
+        <div className="relative z-10 space-y-5">
+          {/* Hydration Header */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-slate-50/60 border border-slate-200/50 grid place-items-center">
+                <Droplet className="h-5 w-5 text-slate-400" />
+              </div>
+              <div>
+                <h3 className="text-[17px] font-semibold tracking-tight text-slate-900">Hydration</h3>
+                <p className="text-xs text-slate-500">Today • Target</p>
               </div>
             </div>
-            <span className="text-lg font-semibold text-slate-900">
-              {data.hydrationTargets ? `${(data.hydrationTargets.water_ml / 1000).toFixed(1)} L` : '—'}
-            </span>
+            <div className="text-right">
+              <p className="text-2xl font-semibold text-slate-900 tabular-nums leading-none">
+                {data.hydrationTargets ? `${(data.hydrationTargets.water_ml / 1000).toFixed(1)}` : '—'}<span className="text-sm font-semibold text-slate-500"> L</span>
+              </p>
+              <span className="mt-2 inline-flex rounded-full bg-slate-50/60 border border-slate-200/50 px-2.5 py-1 text-[11px] text-slate-500">
+                Adjusted for shifts
+              </span>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div className="mt-4 h-2 rounded-full bg-slate-200/60 overflow-hidden">
+            <div className="h-full w-[0%] rounded-full bg-slate-400/60" />
+          </div>
+          <p className="mt-2 text-xs text-slate-500">0% logged</p>
+
+          {/* Gradient divider */}
+          <div className="my-5 h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent" />
+
+          {/* AI Insight Panel */}
+          <div className="rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/50">
+            <p className="text-xs font-semibold tracking-tight text-slate-900 flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-slate-400" />
+              Tip for today
+            </p>
+            <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+              {data.sleepHoursLast24h != null && data.sleepHoursLast24h < 6 && data.shiftType === 'night' ? (
+                <>
+                  Because you slept {data.sleepHoursLast24h.toFixed(1)}h and have a night shift, eat a high-protein meal 2-3 hours before your shift and keep meals light after midnight.
+                </>
+              ) : data.shiftType === 'night' ? (
+                <>
+                  On night shifts, eat your largest meal 2-3 hours before your shift starts and keep meals light during your biological night (after midnight).
+                </>
+              ) : data.shiftType === 'day' ? (
+                <>
+                  On day shifts, maintain regular meal timing with a balanced breakfast and main meal during your shift break.
+                </>
+              ) : (
+                <>
+                  Your target is adjusted for your shift pattern and recent sleep. Aim for steady sips across the day.
+                </>
+              )}
+            </p>
+          </div>
+
+          {/* Recommendations */}
+          <div>
+            <p className="mt-5 text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">
+              Recommendations
+            </p>
+            <div className="mt-3 space-y-2">
+              <div className="flex items-start gap-3 rounded-2xl px-4 py-3 bg-slate-50/40 border border-slate-200/30">
+                <div className="mt-0.5 h-7 w-7 rounded-full bg-white/70 border border-slate-200/60 grid place-items-center flex-shrink-0">
+                  <Check className="h-4 w-4 text-slate-400" />
+                </div>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Increase protein on low-sleep days.
+                </p>
+              </div>
+              <div className="flex items-start gap-3 rounded-2xl px-4 py-3 bg-slate-50/40 border border-slate-200/30">
+                <div className="mt-0.5 h-7 w-7 rounded-full bg-white/70 border border-slate-200/60 grid place-items-center flex-shrink-0">
+                  <Check className="h-4 w-4 text-slate-400" />
+                </div>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Keep one balanced meal before your shift starts.
+                </p>
+              </div>
+              <div className="flex items-start gap-3 rounded-2xl px-4 py-3 bg-slate-50/40 border border-slate-200/30">
+                <div className="mt-0.5 h-7 w-7 rounded-full bg-white/70 border border-slate-200/60 grid place-items-center flex-shrink-0">
+                  <Check className="h-4 w-4 text-slate-400" />
+                </div>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Avoid large meals in the final <span className="font-semibold text-slate-900">90 minutes</span> before you plan to sleep.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* Tip */}
-        <div className="border-t border-white/80 pt-3">
-          <h3 className="mb-2 text-[13px] font-semibold tracking-tight text-slate-900">
-            Tip of the day
-          </h3>
-          <p className="text-[12px] text-slate-500 leading-relaxed">
-            {data.sleepHoursLast24h != null && data.sleepHoursLast24h < 6 && data.shiftType === 'night' ? (
-              <>
-                Because you slept {data.sleepHoursLast24h.toFixed(1)}h and have a night shift, eat a high-protein meal 2-3 hours before your shift and keep meals light after{" "}
-                <span className="font-semibold text-slate-900">midnight</span>.
-              </>
-            ) : data.shiftType === 'night' ? (
-              <>
-                On night shifts, eat your largest meal 2-3 hours before your shift starts and keep meals light during your biological night (after{" "}
-                <span className="font-semibold text-slate-900">midnight</span>).
-              </>
-            ) : data.shiftType === 'day' ? (
-              <>
-                On day shifts, maintain regular meal timing with a balanced breakfast and main meal during your shift break.
-              </>
-            ) : (
-              <>
-                Your adjusted target accounts for your shift pattern, sleep, and goals. Focus on regular meal timing and balanced nutrition.
-              </>
-            )}
-          </p>
-        </div>
-
-        {/* Recommendations */}
-        <div className="border-t border-white/80 pt-3">
-          <h3 className="mb-1 text-[13px] font-semibold tracking-tight text-slate-900">
-            Recommendations
-          </h3>
-          <ul className="list-disc space-y-1 pl-4 text-[12px] text-slate-500">
-            <li>Increase protein on low-sleep days.</li>
-            <li>Keep one balanced meal before your shift starts.</li>
-            <li>
-              Avoid large meals in the final{" "}
-              <span className="font-semibold text-slate-900">90 minutes</span>{" "}
-              before you plan to sleep.
-            </li>
-          </ul>
-        </div>
-
-      </Card>
+      </section>
 
 
       <div className="pt-4">

@@ -1,7 +1,8 @@
 'use client'
 
-import { useMemo, useEffect, useState } from 'react'
+import React, { useMemo, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ChevronRight, Sparkles } from 'lucide-react'
 import { useActivityToday } from '@/lib/hooks/useActivityToday'
 import { ActivityLevelSelector } from '@/components/activity/ActivityLevelSelector'
 import { generateActivityRecommendation } from '@/lib/activity/generateActivityRecommendation'
@@ -41,36 +42,58 @@ function CircularGauge({ value, max, label, subLabel, color = 'emerald' }: {
 
   return (
     <div className="relative h-28 w-28 flex-shrink-0 mx-auto">
-      <svg viewBox="0 0 100 100" className="h-full w-full transform -rotate-90">
-        {/* Background circle */}
-        <circle
-          cx="50"
-          cy="50"
-          r={radius}
-          stroke="rgba(15,23,42,0.08)"
-          strokeWidth="7"
-          fill="none"
-        />
-        {/* Progress circle */}
-        <circle
-          cx="50"
-          cy="50"
-          r={radius}
-          stroke={strokeColor}
-          strokeWidth="7"
-          fill="none"
-          strokeDasharray={`${strokeLength} ${circumference - strokeLength}`}
-          strokeLinecap="round"
-          style={{
-            filter: `drop-shadow(0 2px 4px ${strokeColor}40)`,
-          }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <div className="text-lg font-bold tracking-tight text-slate-900 leading-none">{value}</div>
-        {subLabel && (
-          <div className="text-[10px] text-slate-500 mt-1 leading-tight">({subLabel})</div>
-        )}
+      {/* Subtle outer glow */}
+      <div className="absolute inset-[-8px] rounded-full bg-gradient-to-br from-slate-100/50 to-transparent blur-md pointer-events-none" />
+      
+      {/* Ring container */}
+      <div className="relative h-28 w-28 rounded-full bg-white/60 border border-slate-200/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+        <div className="absolute inset-2 rounded-full border border-slate-200/40 bg-white/50" />
+        
+        <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full transform -rotate-90">
+          <defs>
+            <linearGradient id={`trackGradient-${label}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#F1F5F9" />
+              <stop offset="100%" stopColor="#E2E8F0" />
+            </linearGradient>
+            <linearGradient id={`activeGradient-${label}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={strokeColor} />
+              <stop offset="100%" stopColor={strokeColor} stopOpacity="0.8" />
+            </linearGradient>
+          </defs>
+          
+          {/* Background circle */}
+          <circle
+            cx="50"
+            cy="50"
+            r={radius}
+            stroke={`url(#trackGradient-${label})`}
+            strokeWidth="6"
+            fill="none"
+          />
+          {/* Progress circle */}
+          <circle
+            cx="50"
+            cy="50"
+            r={radius}
+            stroke={`url(#activeGradient-${label})`}
+            strokeWidth="6"
+            fill="none"
+            strokeDasharray={`${strokeLength} ${circumference - strokeLength}`}
+            strokeLinecap="round"
+            style={{
+              filter: `drop-shadow(0 2px 4px ${strokeColor}30)`,
+              transition: 'stroke-dasharray 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          />
+        </svg>
+        
+        {/* Center content */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
+          <div className="text-2xl font-semibold tracking-tight text-slate-900 tabular-nums leading-none">{value}</div>
+          {subLabel && (
+            <div className="text-xs font-medium text-slate-500 mt-1 leading-tight">({subLabel})</div>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -242,134 +265,136 @@ export default function ActivityAndStepsPage() {
         {/* INTENSITY BREAKDOWN Card */}
         <section
           className={[
-            "relative overflow-hidden rounded-[28px]",
-            "bg-white/90 backdrop-blur-2xl",
-            "border border-white/90",
-            "shadow-[0_24px_60px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.5)]",
-            "px-7 py-6",
+            "relative overflow-hidden rounded-3xl",
+            "bg-white/75 backdrop-blur-xl",
+            "border border-slate-200/50",
+            "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+            "p-6",
           ].join(" ")}
         >
-          {/* Ultra-premium gradient overlay */}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 via-white/85 to-white/70" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 via-transparent to-purple-50/20" />
-          <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/60" />
-          <div className="pointer-events-none absolute inset-[1px] rounded-[27px] ring-1 ring-white/30" />
-          <div className="pointer-events-none absolute -inset-1 bg-gradient-to-br from-blue-100/30 via-purple-100/20 to-transparent blur-xl opacity-50" />
+          {/* Highlight overlay */}
+          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
 
           <div className="relative z-10 space-y-5">
-            <div className="space-y-0.5">
-              <h2 className="sc-section-label">
+            {/* Quiet metadata row */}
+            <div>
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase">
                 ACTIVITY
-              </h2>
-              <p className="sc-body">
-                {activitySourceLabel}
               </p>
-              <p className="sc-body">
-                {wearableLastSyncLabel}
-              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span className="rounded-full bg-slate-50/60 border border-slate-200/50 px-2.5 py-1 text-[11px] text-slate-500">
+                  {activitySourceLabel.startsWith('Source: ') ? activitySourceLabel : `Source: ${activitySourceLabel}`}
+                </span>
+                <span className="rounded-full bg-slate-50/60 border border-slate-200/50 px-2.5 py-1 text-[11px] text-slate-500">
+                  {wearableLastSyncLabel}
+                </span>
+              </div>
             </div>
             
+            {/* Instrument header + ring */}
             <div className="flex items-start justify-between gap-6">
-              <div className="flex-1 space-y-1">
-              <h1 className="text-lg font-bold tracking-tight text-slate-900">
-                  {activeMinutes} Active Minutes
-                </h1>
-                <p className="text-xs text-slate-500 leading-relaxed">
+              <div className="flex-1 space-y-2">
+                <h3 className="text-[22px] font-semibold tracking-tight text-slate-900">
+                  {activeMinutes} <span className="text-slate-900">Active minutes</span>
+                </h3>
+                <p className="text-sm leading-relaxed text-slate-600 max-w-prose">
                   {activeMinutes > 0
                     ? `${activePct}% of daily target`
-                    : 'No activity logged yet today. A 10–15 minute walk is a great place to start.'}
+                    : 'No activity logged yet. A 10–15 minute walk is a great place to start.'}
                 </p>
-                
-                <div className="mt-4 space-y-3">
-                  {[
-                    { 
-                      label: 'Light', 
-                      minutes: intensityBreakdown.light.minutes, 
-                      target: intensityBreakdown.light.target,
-                      color: 'from-blue-500 via-blue-400 to-cyan-400'
-                    },
-                    { 
-                      label: 'Moderate', 
-                      minutes: intensityBreakdown.moderate.minutes, 
-                      target: intensityBreakdown.moderate.target,
-                      color: 'from-indigo-500 via-indigo-400 to-purple-400'
-                    },
-                    { 
-                      label: 'Vigorous', 
-                      minutes: intensityBreakdown.vigorous.minutes, 
-                      target: intensityBreakdown.vigorous.target,
-                      color: 'from-purple-500 via-pink-500 to-rose-400'
-                    },
-                  ].map((item) => {
-                    const pct = percentage(item.minutes, item.target)
-                    // Color coding: green (good), amber (moderate), red (low)
-                    const barColor = pct >= 80 
-                      ? 'from-emerald-500 via-teal-500 to-cyan-500' 
-                      : pct >= 50 
-                        ? 'from-amber-500 via-orange-500 to-yellow-500'
-                        : item.color
-                    
-                    return (
-                      <div key={item.label} className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[12px] text-slate-500">{item.label}</span>
-                          <span className="text-[12px] font-semibold text-slate-700">
-                            {item.minutes}/{item.target} min
-                            {item.target > 0 && (
-                              <span className="ml-1.5 text-[11px] text-slate-500">
-                                ({Math.round(pct)}%)
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                        <div className="relative h-2 w-full rounded-full bg-slate-100/80 border border-slate-200/50 shadow-inner overflow-hidden">
-                          <div 
-                            className={`h-full rounded-full bg-gradient-to-r ${barColor} transition-all duration-300`}
-                            style={{ width: `${Math.min(pct, 100)}%` }}
-                          />
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
               </div>
               
-              <div className="flex-shrink-0">
-                <CircularGauge 
-                  value={activePct} 
-                  max={100} 
-                  label="% of daily"
-                  subLabel=""
-                />
+              {/* Crafted ring */}
+              <div className="relative grid place-items-center flex-shrink-0">
+                <div className="absolute inset-[-18px] rounded-full bg-gradient-to-br from-slate-100/70 to-transparent blur-xl" />
+                <div className="relative h-32 w-32 rounded-full border-[10px] border-slate-200/60 bg-white/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] grid place-items-center">
+                  <p className="text-3xl font-semibold text-slate-900 tabular-nums leading-none">{activePct}</p>
+                </div>
               </div>
             </div>
-            {/* Link to detailed steps page */}
-            <div className="pt-4 mt-2 border-t border-slate-100/70 flex items-center justify-center">
-              <a
-                href="/steps"
-                className="inline-flex items-center justify-center rounded-full px-5 py-1.5 text-[11px] font-semibold bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 text-white shadow-[0_4px_14px_rgba(37,99,235,0.45)] hover:brightness-110 active:scale-95 transition-all"
-              >
-                Open detailed steps view
-              </a>
+            
+            {/* Soft activity rows */}
+            <div className="mt-5 rounded-2xl border border-slate-200/50 bg-white/60 p-2">
+              {[
+                { 
+                  label: 'Light', 
+                  minutes: intensityBreakdown.light.minutes, 
+                  target: intensityBreakdown.light.target,
+                },
+                { 
+                  label: 'Moderate', 
+                  minutes: intensityBreakdown.moderate.minutes, 
+                  target: intensityBreakdown.moderate.target,
+                },
+                { 
+                  label: 'Vigorous', 
+                  minutes: intensityBreakdown.vigorous.minutes, 
+                  target: intensityBreakdown.vigorous.target,
+                },
+              ].map((item, index) => {
+                const pct = percentage(item.minutes, item.target)
+                
+                return (
+                  <React.Fragment key={item.label}>
+                    <div className="rounded-2xl px-4 py-3 bg-slate-50/35">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-slate-700">{item.label}</p>
+                        <p className="text-xs font-semibold text-slate-900 tabular-nums">
+                          {item.minutes}/{item.target} <span className="text-slate-500 font-medium">min</span>
+                          {item.target > 0 && (
+                            <span className="ml-2 text-slate-400 font-medium">({Math.round(pct)}%)</span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="mt-2 h-2 rounded-full bg-slate-200/60 overflow-hidden">
+                        <div 
+                          className="h-full rounded-full bg-slate-400/60 transition-all duration-300"
+                          style={{ width: `${Math.min(pct, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                    {index < 2 && (
+                      <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-2" />
+                    )}
+                  </React.Fragment>
+                )
+              })}
+            </div>
+
+            {/* Calm CTA */}
+            <button
+              onClick={() => router.push('/steps')}
+              className="mt-5 w-full inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 bg-white/70 backdrop-blur border border-slate-200/60 text-sm font-medium text-slate-900 shadow-[0_10px_26px_-16px_rgba(0,0,0,0.20)] hover:bg-white/90 transition"
+            >
+              Open detailed steps
+              <ChevronRight className="h-4 w-4 text-slate-400" />
+            </button>
+
+            {/* Coach micro-insight */}
+            <div className="mt-5 rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/50">
+              <p className="text-xs font-semibold tracking-tight text-slate-900 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-slate-400" />
+                Best next step
+              </p>
+              <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+                A short walk in the next hour can boost alertness without affecting sleep later.
+              </p>
             </div>
           </div>
         </section>
 
-        {/* ACTIVITY LEVEL SELECTOR Card - Ultra Premium Compact */}
+        {/* ACTIVITY LEVEL SELECTOR Card */}
         <section
           className={[
-            "relative overflow-hidden rounded-2xl",
-            "bg-white/95 backdrop-blur-xl",
-            "border border-white/80",
-            "shadow-[0_8px_24px_rgba(15,23,42,0.08),0_0_0_1px_rgba(255,255,255,0.6)]",
-            "px-5 py-4",
+            "relative overflow-hidden rounded-3xl",
+            "bg-white/75 backdrop-blur-xl",
+            "border border-slate-200/50",
+            "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+            "p-6",
           ].join(" ")}
         >
-          {/* Ultra-premium gradient overlay */}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 via-white/90 to-white/85" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-indigo-50/30 via-transparent to-purple-50/20" />
-          <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-white/70" />
-          <div className="pointer-events-none absolute -inset-0.5 bg-gradient-to-br from-indigo-100/20 via-purple-100/10 to-transparent blur-lg opacity-40" />
+          {/* Highlight overlay */}
+          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
 
           <div className="relative z-10">
             <ActivityLevelSelector
@@ -386,48 +411,46 @@ export default function ActivityAndStepsPage() {
         {/* MOVEMENT CONSISTENCY Card */}
         <section
           className={[
-            "relative overflow-hidden rounded-[28px]",
-            "bg-white/90 backdrop-blur-2xl",
-            "border border-white/90",
-            "shadow-[0_24px_60px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.5)]",
-            "px-7 py-6",
+            "relative overflow-hidden rounded-3xl",
+            "bg-white/75 backdrop-blur-xl",
+            "border border-slate-200/50",
+            "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+            "p-6",
           ].join(" ")}
         >
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 via-white/85 to-white/70" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 via-transparent to-purple-50/20" />
-          <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/60" />
-          <div className="pointer-events-none absolute inset-[1px] rounded-[27px] ring-1 ring-white/30" />
-          <div className="pointer-events-none absolute -inset-1 bg-gradient-to-br from-blue-100/30 via-purple-100/20 to-transparent blur-xl opacity-50" />
+          {/* Highlight overlay */}
+          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
 
-          <div className="relative z-10 space-y-4">
-            <div className="space-y-1">
-              <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
+          <div className="relative z-10 space-y-5">
+            {/* Editorial Header */}
+            <div>
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase">
                 MOVEMENT CONSISTENCY
-              </h2>
-            </div>
-            <div className="space-y-1">
-              <h1 className="text-[17px] font-bold tracking-[-0.01em] text-slate-900">
-                {hasConsistencyData ? movementConsistency : '—'}
-              </h1>
-              <p className="text-[12px] text-slate-500 leading-relaxed">
-                {hasConsistencyData ? (
-                  <>
-                    This week
-                    {consistencyData?.weeklyAverageSteps && (
-                      <span className="ml-2 text-[11px] text-slate-400">
-                        • Avg {consistencyData.weeklyAverageSteps.toLocaleString()} steps/day
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  'Log steps for a few days or connect a wearable to see how consistent your movement pattern is.'
-                )}
               </p>
+              <div className="mt-3">
+                <h3 className="text-[22px] font-semibold tracking-tight text-slate-900 tabular-nums">
+                  {hasConsistencyData ? movementConsistency : '—'}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                  {hasConsistencyData ? (
+                    <>
+                      This week
+                      {consistencyData?.weeklyAverageSteps && (
+                        <span className="ml-2 text-slate-400">
+                          • Avg {consistencyData.weeklyAverageSteps.toLocaleString()} steps/day
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    'Log steps for a few days or connect a wearable to see how consistent your movement pattern is.'
+                  )}
+                </p>
+              </div>
             </div>
             
             {/* Day-by-day visualization */}
             {hasConsistencyData && consistencyData && consistencyData.dailyData.length > 0 ? (
-              <div className="space-y-2 pt-2">
+              <div className="space-y-3 pt-2">
                 <div className="flex items-end justify-between gap-1.5">
                   {consistencyData.dailyData.map((day, idx) => {
                     const maxSteps = Math.max(...consistencyData.dailyData.map(d => d.steps), 1)
@@ -436,15 +459,15 @@ export default function ActivityAndStepsPage() {
                     const isWearable = day.source && day.source !== 'Manual entry' && day.source !== 'manual'
                     
                     return (
-                      <div key={idx} className="flex-1 flex flex-col items-center gap-1.5">
+                      <div key={idx} className="flex-1 flex flex-col items-center gap-2">
                         {/* Bar visualization */}
-                        <div className="relative w-full flex items-end justify-center" style={{ height: '40px' }}>
+                        <div className="relative w-full flex items-end justify-center" style={{ height: '48px' }}>
                           {hasData ? (
                             <div
                               className={`w-full rounded-t transition-all duration-200 ${
                                 isWearable
-                                  ? 'bg-gradient-to-t from-indigo-500 to-indigo-400'
-                                  : 'bg-gradient-to-t from-slate-400 to-slate-300'
+                                  ? 'bg-gradient-to-t from-indigo-500/80 to-indigo-400/80'
+                                  : 'bg-gradient-to-t from-slate-400/70 to-slate-300/70'
                               }`}
                               style={{ 
                                 height: `${Math.max(height, 5)}%`,
@@ -453,20 +476,20 @@ export default function ActivityAndStepsPage() {
                               title={`${day.steps.toLocaleString()} steps${day.source ? ` (${day.source})` : ''}`}
                             />
                           ) : (
-                            <div className="w-full h-0.5 bg-slate-200 rounded-full" />
+                            <div className="w-full h-0.5 bg-slate-200/60 rounded-full" />
                           )}
                         </div>
                         
                         {/* Day label */}
-                        <span className={`text-[11px] font-semibold tracking-tight ${
-                          hasData ? 'text-slate-900' : 'text-slate-400'
+                        <span className={`text-xs font-medium tracking-tight ${
+                          hasData ? 'text-slate-700' : 'text-slate-400'
                         }`}>
                           {day.dayLabel}
                         </span>
                         
                         {/* Steps count (small) */}
                         {hasData && day.steps > 0 && (
-                          <span className="text-[9px] text-slate-500 leading-tight">
+                          <span className="text-[10px] text-slate-500 leading-tight tabular-nums">
                             {day.steps > 999 ? `${(day.steps / 1000).toFixed(1)}k` : day.steps}
                           </span>
                         )}
@@ -477,13 +500,13 @@ export default function ActivityAndStepsPage() {
                 
                 {/* Source indicator */}
                 {consistencyData.dailyData.some(d => d.source && d.source !== 'Manual entry' && d.source !== 'manual') && (
-                  <div className="flex items-center justify-center gap-2 pt-1">
+                  <div className="flex items-center justify-center gap-3 pt-2">
                     <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                      <div className="w-2 h-2 rounded-full bg-indigo-500/70" />
                       <span className="text-[10px] text-slate-500">Wearable</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-slate-400" />
+                      <div className="w-2 h-2 rounded-full bg-slate-400/70" />
                       <span className="text-[10px] text-slate-500">Manual</span>
                     </div>
                   </div>
@@ -492,7 +515,7 @@ export default function ActivityAndStepsPage() {
             ) : (
               <div className="flex items-center justify-between gap-2 pt-2">
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => (
-                  <span key={idx} className="text-[13px] font-semibold tracking-tight text-slate-400 flex-1 text-center">
+                  <span key={idx} className="text-xs font-medium text-slate-400 flex-1 text-center">
                     {day}
                   </span>
                 ))}
@@ -513,72 +536,70 @@ export default function ActivityAndStepsPage() {
         {/* TODAY'S SHIFT MOVEMENT PLAN Card */}
         <section
           className={[
-            "relative overflow-hidden rounded-[28px]",
-            "bg-white/90 backdrop-blur-2xl",
-            "border border-white/90",
-            "shadow-[0_24px_60px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.5)]",
-            "px-7 py-6",
+            "relative overflow-hidden rounded-3xl",
+            "bg-white/75 backdrop-blur-xl",
+            "border border-slate-200/50",
+            "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+            "p-6",
           ].join(" ")}
         >
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 via-white/85 to-white/70" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 via-transparent to-purple-50/20" />
-          <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/60" />
-          <div className="pointer-events-none absolute inset-[1px] rounded-[27px] ring-1 ring-white/30" />
-          <div className="pointer-events-none absolute -inset-1 bg-gradient-to-br from-blue-100/30 via-purple-100/20 to-transparent blur-xl opacity-50" />
+          {/* Highlight overlay */}
+          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
 
-          <div className="relative z-10 space-y-4">
-            <div className="space-y-1">
-              <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
-                TODAY'S SHIFT MOVEMENT PLAN
-              </h2>
-            </div>
+          <div className="relative z-10 space-y-5">
+            {/* Editorial Header */}
             <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-[13px] font-semibold tracking-tight text-slate-900">
-                    {movementPlan.title}
-                  </h3>
-                </div>
-                <ul className="space-y-2">
-                  {movementPlan.activities.map((activity, idx) => (
-                    <li key={idx} className="space-y-0.5">
-                      <div className="flex items-start gap-2">
-                        <span className="text-[12px] font-semibold text-slate-700 mt-0.5">
-                          •
-                        </span>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[12px] font-semibold text-slate-900">
-                              {activity.duration} {activity.label}
-                            </span>
-                            {activity.suggestedTime && (
-                              <span className="text-[11px] text-slate-500 bg-slate-100/80 px-2 py-0.5 rounded-md">
-                                {activity.suggestedTime}
-                              </span>
-                            )}
-                          </div>
-                          {activity.description && (
-                            <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
-                              {activity.description}
-                            </p>
-                          )}
-                          <span className="text-[10px] text-slate-400 uppercase tracking-wide">
-                            {activity.timing}
-                          </span>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+              <div className="flex-1">
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase">
+                  TODAY'S SHIFT MOVEMENT PLAN
+                </p>
+                <h3 className="mt-3 text-[17px] font-semibold tracking-tight text-slate-900">
+                  {movementPlan.title}
+                </h3>
               </div>
               <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                <span className="text-[13px] font-semibold tracking-tight text-slate-900">
+                <span className="text-sm font-semibold tracking-tight text-slate-900">
                   {movementPlan.intensity}
                 </span>
-                <span className="text-[10px] text-slate-400 uppercase tracking-wide">
+                <span className="text-[11px] text-slate-500 uppercase tracking-[0.12em]">
                   Intensity
                 </span>
               </div>
+            </div>
+
+            {/* Soft Activity Rows */}
+            <div className="rounded-2xl border border-slate-200/50 bg-white/60 p-2">
+              {movementPlan.activities.map((activity, idx) => (
+                <React.Fragment key={idx}>
+                  <div className="rounded-2xl px-4 py-3 bg-slate-50/35">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="text-sm font-semibold text-slate-900">
+                            {activity.duration} {activity.label}
+                          </span>
+                          {activity.suggestedTime && (
+                            <span className="rounded-full bg-slate-100/70 border border-slate-200/50 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                              {activity.suggestedTime}
+                            </span>
+                          )}
+                        </div>
+                        {activity.description && (
+                          <p className="text-sm text-slate-600 leading-relaxed mb-1.5">
+                            {activity.description}
+                          </p>
+                        )}
+                        <span className="text-xs font-medium text-slate-500 uppercase tracking-[0.12em]">
+                          {activity.timing}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  {idx < movementPlan.activities.length - 1 && (
+                    <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-2" />
+                  )}
+                </React.Fragment>
+              ))}
             </div>
           </div>
         </section>
@@ -586,25 +607,20 @@ export default function ActivityAndStepsPage() {
         {/* Recovery & activity Card */}
         <section
           className={[
-            "relative overflow-hidden rounded-[28px]",
-            "bg-white/90 backdrop-blur-2xl",
-            "border border-white/90",
-            "shadow-[0_24px_60px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.5)]",
-            "px-7 py-6",
+            "relative overflow-hidden rounded-3xl",
+            "bg-white/75 backdrop-blur-xl",
+            "border border-slate-200/50",
+            "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+            "p-6",
           ].join(" ")}
         >
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 via-white/85 to-white/70" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 via-transparent to-purple-50/20" />
-          <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/60" />
-          <div className="pointer-events-none absolute inset-[1px] rounded-[27px] ring-1 ring-white/30" />
-          <div className="pointer-events-none absolute -inset-1 bg-gradient-to-br from-blue-100/30 via-purple-100/20 to-transparent blur-xl opacity-50" />
+          {/* Highlight overlay */}
+          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
 
           <div className="relative z-10 space-y-6">
-            <div className="space-y-1">
-              <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
-                RECOVERY & ACTIVITY
-              </h2>
-            </div>
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase">
+              RECOVERY & ACTIVITY
+            </p>
             
             <div className="grid grid-cols-2 gap-8">
               {/* Recovery */}
@@ -617,13 +633,13 @@ export default function ActivityAndStepsPage() {
                   color={recoveryScore >= 75 ? 'emerald' : recoveryScore >= 50 ? 'blue' : 'amber'}
                 />
                 <div className="space-y-2 w-full">
-                  <h3 className="text-[13px] font-semibold tracking-tight text-slate-900">
+                  <h3 className="text-sm font-semibold tracking-tight text-slate-900">
                     Recovery
                   </h3>
-                  <p className="text-[12px] text-slate-500 leading-relaxed">
+                  <p className="text-sm text-slate-600 leading-relaxed">
                     {hasRecoveryData
                       ? recoveryDescription
-                      : 'Once you have a few nights of sleep and some movement logged, we’ll calculate how well you’re recovering.'}
+                      : 'Log a few nights of sleep to unlock your personalised recovery score.'}
                   </p>
                 </div>
               </div>
@@ -638,10 +654,10 @@ export default function ActivityAndStepsPage() {
                   color={activityScore >= 70 ? 'emerald' : activityScore >= 50 ? 'blue' : activityScore >= 30 ? 'amber' : 'blue'}
                 />
                 <div className="space-y-2 w-full">
-                  <h3 className="text-[13px] font-semibold tracking-tight text-slate-900">
+                  <h3 className="text-sm font-semibold tracking-tight text-slate-900">
                     Activity
                   </h3>
-                  <p className="text-[12px] text-slate-500 leading-relaxed">
+                  <p className="text-sm text-slate-600 leading-relaxed">
                     {hasActivityData
                       ? activityDescription
                       : 'Log steps or connect a wearable to see how your daily movement compares to your target.'}
@@ -655,24 +671,21 @@ export default function ActivityAndStepsPage() {
         {/* Today's Recommendation Card */}
         <section
           className={[
-            "relative overflow-hidden rounded-[28px]",
-            "bg-white/90 backdrop-blur-2xl",
-            "border border-white/90",
-            "shadow-[0_24px_60px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.5)]",
-            "px-7 py-6",
+            "relative overflow-hidden rounded-3xl",
+            "bg-white/75 backdrop-blur-xl",
+            "border border-slate-200/50",
+            "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+            "p-6",
           ].join(" ")}
         >
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 via-white/85 to-white/70" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 via-transparent to-purple-50/20" />
-          <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/60" />
-          <div className="pointer-events-none absolute inset-[1px] rounded-[27px] ring-1 ring-white/30" />
-          <div className="pointer-events-none absolute -inset-1 bg-gradient-to-br from-blue-100/30 via-purple-100/20 to-transparent blur-xl opacity-50" />
+          {/* Highlight overlay */}
+          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
 
-          <div className="relative z-10 space-y-3">
-            <h3 className="text-[13px] font-semibold tracking-tight text-slate-900">
+          <div className="relative z-10 space-y-4">
+            <h3 className="text-[17px] font-semibold tracking-tight text-slate-900">
               Today's Recommendation
             </h3>
-            <p className="text-[12px] text-slate-500 leading-relaxed">
+            <p className="text-sm text-slate-600 leading-relaxed">
               {activityRecommendation}
             </p>
           </div>

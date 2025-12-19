@@ -163,24 +163,28 @@ export function SleepQualityChart({ className = '' }: SleepQualityChartProps) {
   return (
     <>
       <section 
-        className={`relative overflow-hidden rounded-[24px] bg-white/90 backdrop-blur-xl border border-white shadow-[0_20px_55px_rgba(15,23,42,0.08)] px-6 py-6 ${className}`}
+        className={`relative overflow-hidden rounded-3xl bg-white/75 backdrop-blur-xl border border-slate-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] p-6 ${className}`}
       >
-        {/* Premium gradient overlay */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 to-white/55" />
+        {/* Top highlight overlay */}
+        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
         
-        {/* Subtle inner glow */}
-        <div className="pointer-events-none absolute inset-0 rounded-[24px] ring-1 ring-white/50" />
-        
-        <div className="relative z-10">
+        <div className="relative z-10 space-y-5">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-[17px] font-bold tracking-tight text-slate-900">Sleep Quality</h2>
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
+                SLEEP QUALITY
+              </p>
+              <h3 className="mt-2 text-[18px] font-semibold tracking-tight text-slate-900">
+                Sleep Quality
+              </h3>
+            </div>
             <button
               onClick={() => setIsInfoModalOpen(true)}
-              className="p-1.5 rounded-full hover:bg-slate-100/80 transition-colors"
+              className="flex-shrink-0 h-8 w-8 rounded-full bg-transparent text-slate-400 hover:bg-slate-100/60 transition-colors flex items-center justify-center"
               aria-label="Info about sleep quality"
             >
-              <Info className="h-4 w-4 text-slate-500" />
+              <Info className="h-4 w-4" strokeWidth={2} />
             </button>
           </div>
 
@@ -191,108 +195,105 @@ export function SleepQualityChart({ className = '' }: SleepQualityChartProps) {
               </div>
             </div>
           ) : error ? (
-            <div className="h-[200px] flex items-center justify-center">
-              <p className="text-[13px] text-slate-500">{error}</p>
+            <div className="flex flex-col items-center justify-center space-y-2 py-8">
+              <p className="text-sm text-slate-600">{error}</p>
             </div>
           ) : !sleepData ? (
-            <div className="h-[200px] flex flex-col items-center justify-center space-y-2">
-              <p className="text-[13px] text-slate-500 text-center">
+            <div className="flex flex-col items-center justify-center space-y-2 py-8">
+              <p className="text-sm font-medium text-slate-900 text-center">
                 No sleep data available
               </p>
-              <p className="text-[11px] text-slate-400 text-center">
+              <p className="text-sm text-slate-600 text-center leading-relaxed">
                 Log sleep to see your quality metrics
               </p>
             </div>
           ) : (
-            <div className="relative">
-              {/* Circular Gauge - Upper Right - Ultra Premium */}
-              <div className="absolute top-0 right-0">
-                <div className="relative" style={{ width: size, height: size }}>
-                  <svg width={size} height={size} className="transform -rotate-90">
-                    <defs>
-                      {/* Premium gradient for progress */}
-                      <linearGradient id={`gauge-gradient-${sleepData.qualityScore}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor={colors.primary} stopOpacity="1" />
-                        <stop offset="100%" stopColor={colors.secondary} stopOpacity="1" />
-                      </linearGradient>
-                      {/* Subtle glow filter */}
-                      <filter id={`glow-${sleepData.qualityScore}`}>
-                        <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-                        <feMerge>
-                          <feMergeNode in="coloredBlur"/>
-                          <feMergeNode in="SourceGraphic"/>
-                        </feMerge>
-                      </filter>
-                    </defs>
-                    {/* Background circle - ultra subtle */}
-                    <circle
-                      cx={size / 2}
-                      cy={size / 2}
-                      r={radius}
-                      fill="none"
-                      stroke="#f1f5f9"
-                      strokeWidth={strokeWidth}
-                      strokeOpacity="0.6"
-                    />
-                    {/* Progress circle - with gradient and premium styling */}
-                    <circle
-                      cx={size / 2}
-                      cy={size / 2}
-                      r={radius}
-                      fill="none"
-                      stroke={`url(#gauge-gradient-${sleepData.qualityScore})`}
-                      strokeWidth={strokeWidth}
-                      strokeDasharray={circumference}
-                      strokeDashoffset={offset}
-                      strokeLinecap="round"
-                      filter={`url(#glow-${sleepData.qualityScore})`}
-                      style={{
-                        transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
-                      }}
-                    />
-                  </svg>
-                  {/* Center text - premium styling */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-[32px] font-bold text-slate-900 tabular-nums tracking-tight">
-                      {sleepData.qualityScore}
-                    </span>
-                    <span className="text-[11px] text-slate-600 font-medium tracking-wide">
-                      {getQualityLabel(sleepData.qualityScore, sleepData.quality)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Metrics - Below */}
-              <div className="space-y-4 pr-32">
+            <div className="flex items-start gap-6">
+              {/* Left: Metrics */}
+              <div className="flex-1 space-y-4">
                 {/* Sleep Duration */}
                 <div>
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                    SLEEP DURATION
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                    Sleep Duration
                   </p>
-                  <p className="text-[15px] font-semibold text-slate-900">
+                  <p className="text-base font-semibold text-slate-900 tabular-nums">
                     {formatDuration(sleepData.duration)}
                   </p>
                 </div>
 
                 {/* Time Asleep */}
                 <div>
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                    TIME ASLEEP
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                    Time Asleep
                   </p>
-                  <p className="text-[15px] font-semibold text-slate-900">
+                  <p className="text-base font-semibold text-slate-900 tabular-nums">
                     {formatDuration(sleepData.timeAsleep)}
                   </p>
                 </div>
 
                 {/* Sleep Efficiency */}
                 <div>
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                    SLEEP EFFICIENCY
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                    Sleep Efficiency
                   </p>
-                  <p className="text-[15px] font-semibold text-slate-900">
+                  <p className="text-base font-semibold text-slate-900 tabular-nums">
                     {sleepData.efficiency}%
                   </p>
+                </div>
+              </div>
+
+              {/* Right: Circular Gauge - Crafted Instrument */}
+              <div className="flex-shrink-0">
+                <div className="relative grid place-items-center">
+                  {/* Ring container glow */}
+                  <div className="absolute inset-[-18px] rounded-full bg-gradient-to-br from-slate-100/70 to-transparent blur-xl" />
+                  
+                  {/* Ring itself */}
+                  <div className="relative" style={{ width: size, height: size }}>
+                    <svg width={size} height={size} className="transform -rotate-90">
+                      <defs>
+                        {/* Premium gradient for progress */}
+                        <linearGradient id={`gauge-gradient-${sleepData.qualityScore}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor={colors.primary} stopOpacity="0.8" />
+                          <stop offset="100%" stopColor={colors.secondary} stopOpacity="0.8" />
+                        </linearGradient>
+                      </defs>
+                      {/* Background circle */}
+                      <circle
+                        cx={size / 2}
+                        cy={size / 2}
+                        r={radius}
+                        fill="none"
+                        stroke="#E2E8F0"
+                        strokeWidth={strokeWidth}
+                        strokeOpacity="0.6"
+                      />
+                      {/* Progress circle */}
+                      <circle
+                        cx={size / 2}
+                        cy={size / 2}
+                        r={radius}
+                        fill="none"
+                        stroke={`url(#gauge-gradient-${sleepData.qualityScore})`}
+                        strokeWidth={strokeWidth}
+                        strokeDasharray={circumference}
+                        strokeDashoffset={offset}
+                        strokeLinecap="round"
+                        style={{
+                          transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                        }}
+                      />
+                    </svg>
+                    {/* Center text - premium styling */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <p className="text-3xl font-semibold text-slate-900 tabular-nums leading-none">
+                        {sleepData.qualityScore}
+                      </p>
+                      <p className="text-xs font-medium text-slate-500 mt-1">
+                        {getQualityLabel(sleepData.qualityScore, sleepData.quality)}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

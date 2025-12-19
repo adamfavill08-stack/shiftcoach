@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
-import { Moon, X, Pencil, Trash2, Clock, Plus } from "lucide-react";
+import { Moon, X, Pencil, Trash2, Clock, Plus, Sparkles } from "lucide-react";
 import { LogSleepModal } from "@/components/sleep/LogSleepModal";
 import { SleepEditModal } from "@/components/sleep/SleepEditModal";
 import type { SleepType } from '@/lib/sleep/predictSleep';
@@ -87,23 +87,28 @@ function SleepGauge({ totalMinutes, targetMinutes }: { totalMinutes: number | nu
   const angle = (percent / 100) * 360;
 
   return (
-    <div
-      className="relative flex h-[160px] w-[160px] items-center justify-center rounded-full"
-      style={{
-        background: `conic-gradient(#2563EB ${angle}deg, #E5E7EB 0deg)`,
-      }}
-    >
-      <div className="h-[138px] w-[138px] rounded-full bg-white shadow-[inset_0_4px_7px_rgba(148,163,184,0.28)]" />
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-[12px] text-slate-500 tracking-wide">Sleep</span>
-        <span className="mt-[2px] text-[32px] font-semibold leading-none text-slate-900">
-          {hours}
-          <span className="align-top text-[18px] font-normal ml-[2px]">h</span>{" "}
-          {minutes}
-        </span>
-        <span className="mt-[2px] text-[12px] text-slate-500">
-          {percent}% of goal
-        </span>
+    <div className="relative grid place-items-center">
+      {/* Ring container glow */}
+      <div className="absolute inset-[-18px] rounded-full bg-gradient-to-br from-slate-100/70 to-transparent blur-xl" />
+      
+      {/* Ring itself */}
+      <div
+        className="relative flex h-[176px] w-[176px] items-center justify-center rounded-full"
+        style={{
+          background: `conic-gradient(#2563EB ${angle}deg, #E5E7EB 0deg)`,
+        }}
+      >
+        <div className="h-[152px] w-[152px] rounded-full bg-white/60 border border-slate-200/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]" />
+        <div className="absolute inset-2 rounded-full border border-slate-200/40 bg-white/50" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <p className="text-xs font-medium text-slate-500">Sleep</p>
+          <p className="text-3xl font-semibold text-slate-900 tabular-nums leading-none">
+            {hours}<span className="text-base font-semibold align-top">h</span> {minutes}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            {percent}% of goal
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -217,224 +222,118 @@ function SleepSummaryCard({
     return `Last sync: ${diffD} day${diffD > 1 ? "s" : ""} ago`;
   }, [lastWearableSync]);
 
-  // Sleep Matrix stages data with premium gradients
-  // Use real data from API, or show empty (0%) when no sleep data
+  // Calculate percentages for stages
+  const totalStageMinutes = sleepStages 
+    ? (sleepStages.deep + sleepStages.rem + sleepStages.light + sleepStages.awake)
+    : 0;
+  
   const stages = [
     { 
-      label: "Deep", 
-      value: sleepStages?.deep ?? 0, 
-      gradient: { from: "#1e3a8a", to: "#1e40af" },
-      glow: "rgba(30, 64, 175, 0.4)",
+      label: "DEEP", 
+      value: sleepStages?.deep ?? 0,
+      percentage: totalStageMinutes > 0 ? Math.round((sleepStages?.deep ?? 0) / totalStageMinutes * 100) : 0,
       description: "Restorative sleep for physical recovery"
     },
     { 
       label: "REM", 
-      value: sleepStages?.rem ?? 0, 
-      gradient: { from: "#2563eb", to: "#3b82f6" },
-      glow: "rgba(59, 130, 246, 0.4)",
+      value: sleepStages?.rem ?? 0,
+      percentage: totalStageMinutes > 0 ? Math.round((sleepStages?.rem ?? 0) / totalStageMinutes * 100) : 0,
       description: "Dream sleep for memory and learning"
     },
     { 
-      label: "Light", 
-      value: sleepStages?.light ?? 0, 
-      gradient: { from: "#3b82f6", to: "#60a5fa" },
-      glow: "rgba(96, 165, 250, 0.4)",
+      label: "LIGHT", 
+      value: sleepStages?.light ?? 0,
+      percentage: totalStageMinutes > 0 ? Math.round((sleepStages?.light ?? 0) / totalStageMinutes * 100) : 0,
       description: "Transitional sleep between stages"
     },
     { 
-      label: "Awake", 
-      value: sleepStages?.awake ?? 0, 
-      gradient: { from: "#60a5fa", to: "#93c5fd" },
-      glow: "rgba(147, 197, 253, 0.4)",
+      label: "AWAKE", 
+      value: sleepStages?.awake ?? 0,
+      percentage: totalStageMinutes > 0 ? Math.round((sleepStages?.awake ?? 0) / totalStageMinutes * 100) : 0,
       description: "Brief awakenings during sleep"
     },
   ];
 
-  const RingGauge = ({ 
-    value, 
-    gradient, 
-    glow, 
-    label,
-    description
-  }: { 
-    value: number
-    gradient: { from: string; to: string }
-    glow: string
-    label: string
-    description?: string
-  }) => {
-    const size = 72
-    const strokeWidth = 7
-    const radius = (size - strokeWidth) / 2
-    const circumference = 2 * Math.PI * radius
-    const offset = circumference - (value / 100) * circumference
-    const gradientId = `gradient-${label.toLowerCase().replace(/\s+/g, '-')}`
-
-    return (
-      <div className="flex flex-col items-center group">
-        <div className="relative" style={{ width: size, height: size }}>
-          {/* Subtle outer glow on hover */}
-          <div 
-            className="absolute inset-0 rounded-full blur-sm opacity-0 group-hover:opacity-60 transition-opacity duration-300"
-            style={{ 
-              background: `radial-gradient(circle, ${glow}, transparent 80%)`,
-              transform: 'scale(1.15)'
-            }}
-          />
-          
-          <svg
-            width={size}
-            height={size}
-            className="transform -rotate-90 relative z-10"
-          >
-            <defs>
-              <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor={gradient.from} />
-                <stop offset="100%" stopColor={gradient.to} />
-              </linearGradient>
-            </defs>
-            
-            {/* Inner background ring */}
-            <circle
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              fill="none"
-              stroke="#e2e8f0"
-              strokeWidth={strokeWidth - 1}
-            />
-            
-            {/* Progress ring with gradient - clean and premium */}
-            <circle
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              fill="none"
-              stroke={`url(#${gradientId})`}
-              strokeWidth={strokeWidth}
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={offset}
-              style={{
-                transition: 'stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
-              }}
-            />
-          </svg>
-          
-          {/* Center content with premium styling */}
-          <div className="absolute inset-0 flex items-center justify-center z-20">
-            <div className="flex flex-col items-center">
-              <span className="text-[15px] font-bold text-slate-900 leading-none">
-                {value}
-              </span>
-              <span className="text-[9px] font-semibold text-slate-500 mt-0.5">
-                %
-              </span>
-            </div>
-          </div>
-        </div>
-        
-        {/* Label with premium styling */}
-        <span className="mt-3 text-[11px] font-semibold text-slate-700 tracking-wide uppercase">
-          {label}
-        </span>
-        {/* Description */}
-        {description && (
-          <p className="mt-1.5 text-[10px] text-slate-500 leading-relaxed text-center max-w-[80px]">
-            {description}
-          </p>
-        )}
-      </div>
-    )
-  }
-
   return (
-    <ShellCard>
-      <div className="space-y-6">
-        {/* Top section: Header and Log Sleep button */}
-        <div className="flex items-start justify-between gap-6">
-          <div className="flex-1 min-w-0 pr-2 space-y-3">
-            <p className="sc-section-label">
-              Sleep stages
-            </p>
-            <div className="space-y-1">
-              <h1 className="sc-page-title">
-                {totalMinutes ? 'Last night you slept' : 'Log your sleep'}
-              </h1>
-              <p className="sc-body">
-                {totalMinutes ? displayText : wearableLastSyncLabel}
-              </p>
-              <p className="sc-caption">
-                Source: Sleep from Google Fit &amp; ShiftCoach app
-              </p>
-            </div>
+    <section className="relative overflow-hidden rounded-3xl bg-white/75 backdrop-blur-xl border border-slate-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] p-6">
+      {/* Top highlight overlay */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+      
+      <div className="relative z-10 space-y-5">
+        {/* Header */}
+        <div>
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
+            SLEEP STAGES
+          </p>
+          <h3 className="mt-2 text-[18px] font-semibold tracking-tight text-slate-900">
+            {totalMinutes ? 'Last night you slept' : 'Log your sleep'}
+          </h3>
+          <p className="mt-1 text-xs text-slate-500">
+            {totalMinutes ? displayText : wearableLastSyncLabel}
+          </p>
+          <span className="mt-3 inline-flex items-center rounded-full bg-slate-50/60 border border-slate-200/50 px-2.5 py-1 text-[11px] text-slate-500">
+            Source: Google Fit & ShiftCoach
+          </span>
+        </div>
+
+        {/* Main content: Left text + CTA, Right ring */}
+        <div className="flex items-start gap-6">
+          {/* Left: Text + CTA */}
+          <div className="flex-1 space-y-4">
             <button
               onClick={onLogSleep}
-              className="group relative mt-4 inline-flex items-center justify-center gap-2 rounded-full text-white px-6 py-3 text-sm font-semibold transition-all duration-300 hover:scale-105 active:scale-95 overflow-hidden"
-              style={{
-                background: 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)',
-                boxShadow: `
-                  0 4px 16px rgba(14,165,233,0.3),
-                  0 2px 6px rgba(99,102,241,0.2),
-                  inset 0 1px 0 rgba(255,255,255,0.25),
-                  inset 0 -1px 0 rgba(0,0,0,0.1)
-                `,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = `
-                  0 8px 24px rgba(14,165,233,0.4),
-                  0 4px 12px rgba(99,102,241,0.3),
-                  inset 0 1px 0 rgba(255,255,255,0.35),
-                  inset 0 -1px 0 rgba(0,0,0,0.1),
-                  0 0 0 1px rgba(255,255,255,0.1)
-                `
-                e.currentTarget.style.background = 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = `
-                  0 4px 16px rgba(14,165,233,0.3),
-                  0 2px 6px rgba(99,102,241,0.2),
-                  inset 0 1px 0 rgba(255,255,255,0.25),
-                  inset 0 -1px 0 rgba(0,0,0,0.1)
-                `
-                e.currentTarget.style.background = 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)'
-              }}
+              className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 bg-white/70 backdrop-blur border border-slate-200/60 text-sm font-medium text-slate-900 shadow-[0_10px_26px_-16px_rgba(0,0,0,0.20)] hover:bg-white/90 transition"
             >
-              {/* Premium shine effect */}
-              <div 
-                className="absolute inset-0 opacity-0 group-hover:opacity-30 transition-opacity duration-300 pointer-events-none"
-                style={{
-                  background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.6), transparent 60%)',
-                }}
-              />
-              
-              {/* Icon */}
-              <Moon className="relative z-10 w-4 h-4" strokeWidth={2.5} />
-              
-              {/* Text */}
-              <span className="relative z-10 tracking-tight">Log Sleep</span>
+              <Moon className="h-4 w-4 text-slate-400" strokeWidth={2} />
+              Log sleep
             </button>
           </div>
-          <SleepGauge totalMinutes={totalMinutes} targetMinutes={targetMinutes} />
-        </div>
-
-        {/* Bottom section: Sleep Matrix */}
-        <div className="pt-4 border-t border-slate-200/60">
-          <div className="grid grid-cols-2 gap-6">
-            {stages.map((stage) => (
-              <RingGauge
-                key={stage.label}
-                value={stage.value}
-                gradient={stage.gradient}
-                glow={stage.glow}
-                label={stage.label}
-                description={stage.description}
-              />
-            ))}
+          
+          {/* Right: Big ring */}
+          <div className="flex-shrink-0">
+            <SleepGauge totalMinutes={totalMinutes} targetMinutes={targetMinutes} />
           </div>
         </div>
+
+        {/* Soft gradient separator */}
+        <div className="my-5 h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent" />
+
+        {/* Stage chips */}
+        <div className="grid grid-cols-2 gap-4">
+          {stages.map((stage) => (
+            <div
+              key={stage.label}
+              className="rounded-2xl px-4 py-4 bg-slate-50/40 border border-slate-200/30"
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold tracking-wide text-slate-500">{stage.label}</p>
+                <p className="text-sm font-semibold text-slate-900 tabular-nums">{stage.percentage}%</p>
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-slate-200/60 overflow-hidden">
+                <div 
+                  className="h-full rounded-full bg-slate-400/60 transition-all duration-300"
+                  style={{ width: `${stage.percentage}%` }}
+                />
+              </div>
+              <p className="mt-2 text-xs text-slate-600 leading-relaxed">
+                {stage.description}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Today insight footer */}
+        <div className="mt-5 rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/50">
+          <p className="text-xs font-semibold tracking-tight text-slate-900 flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-slate-400" strokeWidth={2} />
+            What to aim for
+          </p>
+          <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+            On shift days, protect your first sleep cycle — that's when deep sleep is most likely.
+          </p>
+        </div>
       </div>
-    </ShellCard>
+    </section>
   );
 }
 
@@ -543,50 +442,53 @@ function ShiftCoachCard() {
   return (
     <section
       className={[
-        "relative overflow-hidden rounded-[24px]",
-        "bg-slate-900 text-slate-50",
-        "px-6 py-5",
-        "shadow-[0_22px_50px_rgba(15,23,42,0.85)]",
+        "relative overflow-hidden rounded-3xl",
+        "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900",
+        "border border-slate-700/50",
+        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+        "p-6",
       ].join(" ")}
     >
-      <div className="relative z-10 space-y-3">
+      {/* Subtle inner glow */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent" />
+      
+      <div className="relative z-10 space-y-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full overflow-hidden flex-shrink-0">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 border border-white/10 flex-shrink-0">
             <img
               src="/bubble-icon.png"
               alt="Shift Coach"
-              className="w-full h-full object-contain brightness-0 invert"
+              className="w-5 h-5 object-contain brightness-0 invert opacity-80"
             />
           </div>
-          <h2 className="text-[13px] font-semibold tracking-[0.18em] uppercase">
-            Shift coach
-          </h2>
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-300 uppercase">
+            Shift Coach
+          </p>
         </div>
 
         {loading ? (
-          <p className="text-[13px] leading-snug text-slate-100/92 animate-pulse">
+          <p className="text-sm leading-relaxed text-slate-200/90 animate-pulse">
             Loading your personalized tip...
           </p>
         ) : error && !tip ? (
-          <p className="text-[13px] leading-snug text-slate-100/92 text-slate-300">
+          <p className="text-sm leading-relaxed text-slate-300/80">
             Unable to load coaching tip. Please try again later.
           </p>
         ) : tip ? (
-          <p className="text-[13px] leading-snug text-slate-100/92">
+          <p className="text-sm leading-relaxed text-slate-100/95">
             {tip}
           </p>
         ) : (
-          <p className="text-[13px] leading-snug text-slate-100/92">
+          <p className="text-sm leading-relaxed text-slate-100/95">
             Keep your sleep schedule consistent to maintain your body clock rhythm.
           </p>
         )}
 
         <button 
           onClick={() => {
-            // Navigate to sleep overview page
             router.push('/sleep/overview')
           }}
-          className="mt-1 text-[12px] font-medium text-slate-100 underline underline-offset-4 decoration-slate-400/70 hover:text-indigo-300 transition-colors"
+          className="text-xs font-medium text-slate-300/90 hover:text-slate-200 transition-colors underline underline-offset-4 decoration-slate-400/50 hover:decoration-slate-300/70"
         >
           Sleep overview
         </button>

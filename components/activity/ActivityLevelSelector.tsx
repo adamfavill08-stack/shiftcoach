@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
+import { Check } from 'lucide-react'
 import { ACTIVITY_LEVELS, type ShiftActivityLevel, getRecoverySuggestion, getEstimatedCaloriesBurned, getActivityImpactLabel } from '@/lib/activity/activityLevels'
 
 type ActivityLevelSelectorProps = {
@@ -184,100 +185,100 @@ WHERE shift_activity_level IS NOT NULL;`
   const activityImpact = selectedLevel ? getActivityImpactLabel(selectedLevel) : 'Not set'
 
   return (
-    <div className={`space-y-3 ${className}`}>
-      {/* Compact Title */}
-      <div className="mb-2">
-        <h2 className="text-[14px] font-bold tracking-tight text-slate-900 mb-0.5">
+    <div className={`space-y-5 ${className}`}>
+      {/* Editorial Header */}
+      <div>
+        <h3 className="text-[17px] font-semibold tracking-tight text-slate-900">
           How demanding was your shift?
-        </h2>
-        <p className="text-[11px] text-slate-500 leading-tight">
+        </h3>
+        <p className="mt-1.5 text-sm leading-relaxed text-slate-600">
           Select to adjust calorie targets
         </p>
       </div>
 
-      {/* Compact Activity Level Buttons */}
-      <div className="grid grid-cols-1 gap-1.5">
-        {(Object.keys(ACTIVITY_LEVELS) as ShiftActivityLevel[]).map((level) => {
+      {/* Soft Activity Level Rows */}
+      <div className="rounded-2xl border border-slate-200/50 bg-white/60 p-2">
+        {(Object.keys(ACTIVITY_LEVELS) as ShiftActivityLevel[]).map((level, index) => {
           const details = ACTIVITY_LEVELS[level]
           const isSelected = selectedLevel === level
           
           return (
-            <button
-              key={level}
-              type="button"
-              onClick={() => handleSelect(level)}
-              disabled={saving}
-              className={`
-                relative overflow-hidden rounded-xl px-3.5 py-2.5 text-left
-                transition-all duration-200
-                ${isSelected
-                  ? 'bg-gradient-to-br from-indigo-500/10 via-indigo-50/80 to-indigo-100/60 border border-indigo-400/40 shadow-[0_2px_8px_rgba(99,102,241,0.15)]'
-                  : 'bg-white/60 backdrop-blur-sm border border-slate-200/40 hover:border-slate-300/60 hover:bg-white/80 hover:shadow-sm'
-                }
-                ${saving ? 'opacity-50 cursor-wait' : 'cursor-pointer active:scale-[0.99]'}
-              `}
-            >
-              {/* Premium selected indicator */}
-              {isSelected && (
-                <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-[0_2px_6px_rgba(99,102,241,0.4)] ring-2 ring-indigo-200/50">
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-3 w-3"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={3}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
+            <React.Fragment key={level}>
+              <button
+                type="button"
+                onClick={() => handleSelect(level)}
+                disabled={saving}
+                className={`
+                  w-full group flex items-start gap-3 rounded-2xl px-4 py-3 text-left
+                  transition-all duration-200
+                  ${isSelected
+                    ? 'bg-slate-100/60 border border-slate-300/50'
+                    : 'bg-slate-50/35 border border-slate-200/30 hover:bg-white/70 hover:border-slate-200/50'
+                  }
+                  ${saving ? 'opacity-50 cursor-wait' : 'cursor-pointer'}
+                `}
+              >
+                {/* Check icon badge */}
+                <div className={`
+                  mt-0.5 h-7 w-7 rounded-full grid place-items-center flex-shrink-0
+                  ${isSelected
+                    ? 'bg-emerald-500/20 border border-emerald-300/50'
+                    : 'bg-white/70 border border-slate-200/60'
+                  }
+                `}>
+                  {isSelected ? (
+                    <Check className="h-4 w-4 text-emerald-600" />
+                  ) : (
+                    <div className="h-2 w-2 rounded-full bg-slate-300" />
+                  )}
                 </div>
-              )}
 
-              <div className="pr-7">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <h3 className={`text-[13px] font-bold tracking-tight leading-tight ${isSelected ? 'text-indigo-900' : 'text-slate-900'}`}>
+                <div className="flex-1 min-w-0">
+                  <h4 className={`text-sm font-semibold ${isSelected ? 'text-slate-900' : 'text-slate-700'}`}>
                     {details.label}
-                  </h3>
+                  </h4>
+                  <p className={`mt-1 text-sm leading-relaxed ${isSelected ? 'text-slate-600' : 'text-slate-500'}`}>
+                    {details.description}
+                  </p>
                 </div>
-                <p className={`text-[10.5px] leading-tight ${isSelected ? 'text-indigo-700/90' : 'text-slate-600'}`}>
-                  {details.description}
-                </p>
-              </div>
-            </button>
+              </button>
+              {index < (Object.keys(ACTIVITY_LEVELS).length - 1) && (
+                <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-2" />
+              )}
+            </React.Fragment>
           )
         })}
       </div>
 
-      {/* Compact Impact Display */}
+      {/* Impact Display */}
       {selectedLevel && (
-        <div className="rounded-xl bg-gradient-to-br from-slate-50/90 via-white/70 to-slate-50/80 backdrop-blur-sm border border-slate-200/50 p-3.5 space-y-2 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.1em]">
+        <div className="rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/50">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-[0.12em]">
               Impact
             </span>
-            <span className="text-[12px] font-bold text-slate-900">
+            <span className="text-sm font-semibold text-slate-900">
               {activityImpact}
             </span>
           </div>
           
           {estimatedCalories > 0 && (
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.1em]">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-[0.12em]">
                 Extra Calories
               </span>
-              <span className="text-[12px] font-bold text-slate-900">
+              <span className="text-sm font-semibold tabular-nums text-slate-900">
                 +{estimatedCalories} kcal
               </span>
             </div>
           )}
 
           {recoverySuggestion && (
-            <div className="pt-1.5 border-t border-slate-200/50">
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.1em] mb-1">
+            <div className="pt-3 border-t border-slate-200/50">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-[0.12em] mb-2">
                 Recovery
               </p>
-              <p className="text-[11px] text-slate-700 leading-tight">
+              <p className="text-sm text-slate-600 leading-relaxed">
                 {recoverySuggestion}
               </p>
             </div>

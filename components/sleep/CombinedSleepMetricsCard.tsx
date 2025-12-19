@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Info } from 'lucide-react'
+import { Info, Sparkles } from 'lucide-react'
 import type { SleepDeficitResponse } from '@/lib/sleep/calculateSleepDeficit'
 import { SleepMetricsInfoModal } from './SleepMetricsInfoModal'
 
@@ -134,16 +134,16 @@ export function CombinedSleepMetricsCard({
   }, [])
 
   const getDeficitStatus = () => {
-    if (!sleepDeficit) return { text: 'No data', color: 'slate', bgColor: 'bg-slate-50', textColor: 'text-slate-700' }
+    if (!sleepDeficit) return { text: 'No data', color: 'slate', bgColor: 'bg-slate-50/70', textColor: 'text-slate-700', borderColor: 'border-slate-200/50' }
     
     const { category } = sleepDeficit
     
     if (category === 'surplus' || category === 'low') {
-      return { text: 'On track', color: 'emerald', bgColor: 'bg-emerald-50', textColor: 'text-emerald-700' }
+      return { text: 'On track', color: 'emerald', bgColor: 'bg-emerald-50/70', textColor: 'text-emerald-700', borderColor: 'border-emerald-200/50' }
     } else if (category === 'medium') {
-      return { text: 'Needs attention', color: 'amber', bgColor: 'bg-amber-50', textColor: 'text-amber-700' }
+      return { text: 'Needs attention', color: 'amber', bgColor: 'bg-amber-50/70', textColor: 'text-amber-700', borderColor: 'border-amber-200/50' }
     } else {
-      return { text: 'High deficit', color: 'rose', bgColor: 'bg-rose-50', textColor: 'text-rose-700' }
+      return { text: 'High deficit', color: 'rose', bgColor: 'bg-rose-50/70', textColor: 'text-rose-700', borderColor: 'border-rose-200/50' }
     }
   }
 
@@ -261,30 +261,28 @@ export function CombinedSleepMetricsCard({
     : 'Not enough data'
 
   return (
-    <section className="relative overflow-hidden rounded-[24px] bg-white/90 backdrop-blur-xl border border-white shadow-[0_20px_55px_rgba(15,23,42,0.08)] px-6 py-6">
-      {/* Premium gradient overlay */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 to-white/55" />
+    <section className="relative overflow-hidden rounded-3xl bg-white/75 backdrop-blur-xl border border-slate-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] p-6">
+      {/* Top highlight overlay */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
       
-      <div className="relative z-10">
+      <div className="relative z-10 space-y-5">
         {/* Header */}
-        <div className="mb-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1">
-              <p className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase mb-1">
-                Sleep Metrics
-              </p>
-              <h2 className="text-lg font-bold tracking-tight text-slate-900">
-                Tonight&apos;s Target & Weekly Overview
-              </h2>
-            </div>
-            <button
-              onClick={() => setIsInfoModalOpen(true)}
-              className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-xl bg-slate-50/80 hover:bg-slate-100/80 border border-slate-200/60 text-slate-600 hover:text-slate-900 transition-all hover:scale-105 active:scale-95"
-              aria-label="Learn more about sleep metrics"
-            >
-              <Info className="h-4 w-4" strokeWidth={2.5} />
-            </button>
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
+              SLEEP METRICS
+            </p>
+            <h3 className="mt-2 text-[18px] font-semibold tracking-tight text-slate-900">
+              Tonight&apos;s Target & Weekly Overview
+            </h3>
           </div>
+          <button
+            onClick={() => setIsInfoModalOpen(true)}
+            className="flex-shrink-0 h-8 w-8 rounded-full bg-transparent text-slate-400 hover:bg-slate-100/60 transition-colors flex items-center justify-center"
+            aria-label="Learn more about sleep metrics"
+          >
+            <Info className="h-4 w-4" strokeWidth={2} />
+          </button>
         </div>
 
         {/* Three-column grid */}
@@ -301,16 +299,16 @@ export function CombinedSleepMetricsCard({
               </div>
             ) : (
               <>
-                <p className="text-[22px] font-bold text-slate-900 leading-tight">
+                <p className="text-[22px] font-semibold text-slate-900 leading-tight tabular-nums">
                   {tonightTarget?.targetHours 
                     ? (tonightTarget.targetHours % 1 === 0 
                         ? tonightTarget.targetHours 
                         : tonightTarget.targetHours.toFixed(1))
                     : '8'}
-                  <span className="ml-1 text-xs font-normal text-slate-500">h</span>
+                  <span className="ml-1 text-xs font-medium text-slate-500">h</span>
                 </p>
                 {tonightTarget?.explanation && (
-                  <p className="mt-1.5 text-[10px] text-slate-600 leading-relaxed line-clamp-2">
+                  <p className="mt-1.5 text-xs text-slate-600 leading-relaxed line-clamp-2">
                     {tonightTarget.explanation}
                   </p>
                 )}
@@ -331,10 +329,10 @@ export function CombinedSleepMetricsCard({
             ) : (
               <>
                 <div className="flex items-center gap-1">
-                  <p className={`text-[22px] font-bold leading-tight ${consistencyColor.textColor}`}>
+                  <p className={`text-[22px] font-semibold leading-tight tabular-nums ${consistencyColor.textColor}`}>
                     {consistencyScore ?? '—'}
                   </p>
-                  <span className="text-xs font-normal text-slate-500">score</span>
+                  <span className="text-xs font-medium text-slate-500">score</span>
                 </div>
                 <div className="mt-2">
                   {sparkline ? (
@@ -346,6 +344,7 @@ export function CombinedSleepMetricsCard({
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
+                        opacity="0.8"
                       />
                       {sparkline.points.map((point, idx) => (
                         <circle
@@ -354,17 +353,18 @@ export function CombinedSleepMetricsCard({
                           cy={point.y}
                           r="1.5"
                           fill={consistencyScore !== null && consistencyScore >= 70 ? '#10b981' : consistencyScore !== null && consistencyScore >= 40 ? '#f59e0b' : '#ef4444'}
+                          opacity="0.8"
                         />
                       ))}
                     </svg>
                   ) : (
-                    <div className="h-5 w-full bg-slate-100 rounded" />
+                    <div className="h-5 w-full bg-slate-200/60 rounded" />
                   )}
                 </div>
                 <div className="mt-1 flex items-center gap-1">
-                  <p className="text-[10px] text-slate-500">{getConsistencyLabel(consistencyScore)}</p>
+                  <p className="text-xs text-slate-500">{getConsistencyLabel(consistencyScore)}</p>
                   {shiftMessage && (
-                    <span className="text-[9px] text-slate-400">• {shiftMessage}</span>
+                    <span className="text-[11px] text-slate-400">• {shiftMessage}</span>
                   )}
                 </div>
               </>
@@ -383,23 +383,23 @@ export function CombinedSleepMetricsCard({
               </div>
             ) : (
               <>
-                <p className="text-[22px] font-bold text-slate-900 leading-tight">
+                <p className="text-[22px] font-semibold text-slate-900 leading-tight tabular-nums">
                   {displayDeficit}
                 </p>
-                <p className="mt-1 text-[10px] text-slate-500 line-clamp-1">
+                <p className="mt-1 text-xs text-slate-500 line-clamp-1">
                   {deficitLabel}
                 </p>
                 {consistencyData && consistencyData.avgSleepHours !== null && (
-                  <p className="mt-0.5 text-[9px] text-slate-400">
+                  <p className="mt-0.5 text-[11px] text-slate-400">
                     Avg: {consistencyData.avgSleepHours.toFixed(1)}h
                   </p>
                 )}
                 {sleepDeficit && (
-                  <div className={`mt-2 inline-flex items-center gap-1.5 rounded-full ${deficitStatus.bgColor} px-2 py-0.5 text-[9px] font-medium ${deficitStatus.textColor}`}>
-                    <span className={`inline-flex h-3 w-3 items-center justify-center rounded-full ${
-                      deficitStatus.color === 'emerald' ? 'bg-emerald-500' : 
-                      deficitStatus.color === 'amber' ? 'bg-amber-500' : 
-                      'bg-rose-500'
+                  <div className={`mt-2 inline-flex items-center gap-1.5 rounded-full border ${deficitStatus.bgColor} ${deficitStatus.borderColor} px-2.5 py-1 text-[11px] font-medium ${deficitStatus.textColor}`}>
+                    <span className={`inline-flex h-2.5 w-2.5 items-center justify-center rounded-full ${
+                      deficitStatus.color === 'emerald' ? 'bg-emerald-500/80' : 
+                      deficitStatus.color === 'amber' ? 'bg-amber-500/80' : 
+                      'bg-rose-500/80'
                     } text-[8px] text-white`}>
                       {deficitStatus.color === 'emerald' ? '✓' : deficitStatus.color === 'amber' ? '!' : '⚠'}
                     </span>
@@ -411,16 +411,20 @@ export function CombinedSleepMetricsCard({
           </div>
         </div>
 
-        {/* Quick Tip */}
+        {/* Quick Tip / Insight Footer */}
         {quickTip && (
-          <div className="mt-4 pt-4 border-t border-slate-100">
-            <div className="flex items-start gap-2">
-              <span className="text-xs mt-0.5">💡</span>
-              <p className="text-[11px] text-slate-600 leading-relaxed">
+          <>
+            <div className="my-5 h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent" />
+            <div className="rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/50">
+              <p className="text-xs font-semibold tracking-tight text-slate-900 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-slate-400" strokeWidth={2} />
+                Quick tip
+              </p>
+              <p className="mt-2 text-sm text-slate-600 leading-relaxed">
                 {quickTip}
               </p>
             </div>
-          </div>
+          </>
         )}
       </div>
 

@@ -115,28 +115,28 @@ export function SleepLogListCard() {
   }
 
   return (
-    <section className="relative overflow-hidden rounded-[24px] bg-white/90 backdrop-blur-xl border border-white shadow-[0_20px_55px_rgba(15,23,42,0.08)] px-6 py-6">
-      {/* Premium gradient overlay */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 to-white/55" />
+    <section className="relative overflow-hidden rounded-3xl bg-white/75 backdrop-blur-xl border border-slate-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] p-6">
+      {/* Top highlight overlay */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
       
-      <div className="relative z-10">
+      <div className="relative z-10 space-y-5">
         {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <p className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase mb-1">
-              Sleep Log
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
+              SLEEP LOG
             </p>
-            <h2 className="text-[17px] font-bold tracking-[-0.01em] text-slate-900">
+            <h3 className="mt-2 text-[18px] font-semibold tracking-tight text-slate-900">
               Recent Sleep Sessions
-            </h2>
+            </h3>
           </div>
           <button
             onClick={() => router.push('/sleep/logs')}
-            className="group relative flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-semibold text-slate-700 bg-slate-50/80 hover:bg-slate-100/80 border border-slate-200/60 transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm hover:shadow-md"
+            className="group flex items-center gap-2 rounded-full px-4 py-2 text-xs font-medium text-slate-700 bg-white/70 backdrop-blur border border-slate-200/60 hover:bg-white/90 transition-colors shadow-[0_8px_20px_-14px_rgba(0,0,0,0.18)]"
           >
-            <Calendar className="h-3.5 w-3.5" strokeWidth={2.5} />
+            <Calendar className="h-4 w-4 text-slate-400" strokeWidth={2} />
             <span>View Logs</span>
-            <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" strokeWidth={2.5} />
+            <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition" strokeWidth={2} />
           </button>
         </div>
 
@@ -144,82 +144,77 @@ export function SleepLogListCard() {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-16 bg-slate-100/60 rounded-xl animate-pulse" />
+              <div key={i} className="h-16 bg-slate-100/60 rounded-2xl animate-pulse" />
             ))}
           </div>
         ) : recentLogs.length === 0 ? (
           <div className="py-8 text-center">
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-slate-100/80 mb-3">
-              <Clock className="h-6 w-6 text-slate-400" strokeWidth={2} />
+            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-slate-50/60 border border-slate-200/50 mb-3">
+              <Clock className="h-5 w-5 text-slate-400" strokeWidth={2} />
             </div>
-            <p className="text-[13px] font-medium text-slate-600 mb-1">No sleep logged yet</p>
-            <p className="text-[11px] text-slate-500">Start logging your sleep to see it here</p>
+            <p className="text-sm font-medium text-slate-900 mb-1">No sleep logged yet</p>
+            <p className="text-sm text-slate-600 leading-relaxed">Start logging your sleep to see it here</p>
           </div>
         ) : (
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             {recentLogs.map((log) => (
               <div
                 key={log.id}
-                className="group relative overflow-hidden rounded-xl border border-slate-200/80 bg-white/90 backdrop-blur-sm px-4 py-3.5 transition-all duration-200 hover:shadow-md hover:border-slate-300/80"
+                className="group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 bg-slate-50/40 hover:bg-white/70 transition-colors"
               >
-                {/* Subtle gradient overlay */}
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                
-                <div className="relative z-10 flex items-center justify-between">
-                  {/* Left: Type indicator and times */}
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    {/* Type indicator dot */}
-                    <div className={`
-                      flex-shrink-0 h-2.5 w-2.5 rounded-full
-                      ${log.type === 'sleep' 
-                        ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)]' 
-                        : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]'
-                      }
-                    `} />
-                    
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className={`
-                          text-[12px] font-bold uppercase tracking-wide
-                          ${log.type === 'sleep' ? 'text-blue-600' : 'text-amber-600'}
-                        `}>
-                          {log.type === 'sleep' ? 'Main Sleep' : 'Nap'}
+                {/* Left: Type indicator and times */}
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  {/* Type indicator dot */}
+                  <div className={`
+                    flex-shrink-0 h-2 w-2 rounded-full
+                    ${log.type === 'sleep' 
+                      ? 'bg-blue-500/80' 
+                      : 'bg-amber-500/80'
+                    }
+                  `} />
+                  
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className={`
+                        text-xs font-semibold uppercase tracking-wide
+                        ${log.type === 'sleep' ? 'text-blue-600' : 'text-amber-600'}
+                      `}>
+                        {log.type === 'sleep' ? 'Main Sleep' : 'Nap'}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        {formatDate(log.start_at)}
+                      </span>
+                      {log.shift_label && log.shift_label !== 'OFF' && (
+                        <span className="text-[11px] font-medium text-slate-700 bg-slate-100/60 border border-slate-200/50 px-2 py-0.5 rounded-full">
+                          {log.shift_label}
                         </span>
-                        <span className="text-[11px] text-slate-500">
-                          {formatDate(log.start_at)}
+                      )}
+                      {(!log.shift_label || log.shift_label === 'OFF') && (
+                        <span className="text-[11px] font-medium text-slate-500 bg-slate-50/60 border border-slate-200/50 px-2 py-0.5 rounded-full">
+                          OFF
                         </span>
-                        {log.shift_label && log.shift_label !== 'OFF' && (
-                          <span className="text-[10px] font-semibold text-slate-600 bg-slate-100/80 px-2 py-0.5 rounded-full">
-                            {log.shift_label}
-                          </span>
-                        )}
-                        {(!log.shift_label || log.shift_label === 'OFF') && (
-                          <span className="text-[10px] font-semibold text-slate-400 bg-slate-50/80 px-2 py-0.5 rounded-full">
-                            OFF
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-[12px] text-slate-600">
-                        <Clock className="h-3.5 w-3.5 text-slate-400" strokeWidth={2} />
-                        <span className="font-medium">
-                          {formatTime(log.start_at)} → {formatTime(log.end_at)}
-                        </span>
-                      </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-600">
+                      <Clock className="h-3.5 w-3.5 text-slate-400" strokeWidth={2} />
+                      <span className="font-medium tabular-nums">
+                        {formatTime(log.start_at)} → {formatTime(log.end_at)}
+                      </span>
                     </div>
                   </div>
+                </div>
 
-                  {/* Right: Duration */}
-                  <div className="flex-shrink-0 ml-4 text-right">
-                    <div className="text-[15px] font-bold text-slate-900">
-                      {formatDuration(log.durationHours)}
-                    </div>
-                    {log.quality && (
-                      <div className="text-[10px] text-slate-500 mt-0.5 capitalize">
-                        {log.quality}
-                      </div>
-                    )}
+                {/* Right: Duration */}
+                <div className="flex-shrink-0 text-right">
+                  <div className="text-sm font-semibold text-slate-900 tabular-nums">
+                    {formatDuration(log.durationHours)}
                   </div>
+                  {log.quality && (
+                    <div className="text-xs text-slate-500 mt-0.5 capitalize">
+                      {log.quality}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -230,10 +225,10 @@ export function SleepLogListCard() {
         {recentLogs.length > 0 && (
           <button
             onClick={() => router.push('/sleep/logs')}
-            className="mt-4 w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-[12px] font-semibold text-slate-700 bg-slate-50/60 hover:bg-slate-100/80 border border-slate-200/60 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+            className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-slate-700 bg-slate-50/60 hover:bg-slate-100/60 border border-slate-200/50 transition-colors"
           >
             <span>View All Sleep Logs</span>
-            <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} />
+            <ChevronRight className="h-4 w-4 text-slate-400" strokeWidth={2} />
           </button>
         )}
       </div>
