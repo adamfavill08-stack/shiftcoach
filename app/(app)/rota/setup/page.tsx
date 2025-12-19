@@ -687,9 +687,8 @@ export default function RotaSetup() {
       : false
 
   return (
-    <div className="w-full px-3 pb-6 pt-4 md:px-6">
-      <div className="mx-auto max-w-5xl">
-        <div className="rounded-[32px] border bg-gradient-to-b from-slate-50 to-white px-5 py-6 md:px-8 shadow-[0_24px_60px_rgba(15,23,42,0.08)]" style={{ borderColor: 'rgba(148,163,184,0.25)', backdropFilter: 'blur(18px)' }}>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+      <div className="mx-auto max-w-md px-4 py-6">
           {/* Header with Clear Button – top of card */}
           <div className="mb-6 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -863,181 +862,158 @@ export default function RotaSetup() {
             </div>
           </div>
 
-          {/* Guided Step Indicator */}
-          <div className="mb-4 rounded-2xl bg-slate-100/80 px-4 py-3">
-            <div className="flex items-center justify-between gap-3 text-[11px] font-medium text-slate-500">
+          {/* Premium Segmented Control Stepper */}
+          <div className="mb-5 rounded-3xl bg-white/70 backdrop-blur-xl border border-slate-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_10px_28px_-18px_rgba(0,0,0,0.12)] p-2">
+            <div className="flex items-center gap-2">
               {/* Step 1 */}
               <div
                 className={[
-                  'flex flex-1 items-center gap-2 rounded-2xl px-3 py-2 transition-all',
-                  currentStep === 1 ? 'bg-white shadow-sm' : 'bg-transparent',
+                  'flex flex-1 flex-col rounded-2xl px-4 py-3 transition-all',
+                  currentStep === 1
+                    ? 'bg-white border border-slate-200/60 shadow-[0_8px_20px_-16px_rgba(0,0,0,0.18)]'
+                    : 'px-4 py-3 rounded-2xl text-slate-500',
                 ].join(' ')}
               >
-                <div className="flex flex-col">
-                  <span
-                    className={
-                      'text-[10px] font-semibold uppercase tracking-[0.18em] ' +
-                      (currentStep === 1 ? 'text-slate-500' : 'text-slate-400')
-                    }
-                  >
-                    Step 1
-                  </span>
-                  <span
-                    className={
-                      'text-sm font-semibold ' + (currentStep === 1 ? 'text-slate-900' : 'text-slate-600')
-                    }
-                  >
-                    Shift hours
-                  </span>
-                </div>
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
+                  STEP 1
+                </p>
+                <p className="mt-1 text-sm font-semibold tracking-tight text-slate-900">
+                  Shift hours
+                </p>
               </div>
 
               {/* Step 2 */}
               <div
                 className={[
-                  'flex flex-1 items-center gap-2 rounded-2xl px-3 py-2 transition-all',
-                  currentStep === 2 ? 'bg-white shadow-sm' : 'bg-transparent',
+                  'flex flex-1 flex-col rounded-2xl px-4 py-3 transition-all',
+                  currentStep === 2
+                    ? 'bg-white border border-slate-200/60 shadow-[0_8px_20px_-16px_rgba(0,0,0,0.18)]'
+                    : 'px-4 py-3 rounded-2xl text-slate-500',
                 ].join(' ')}
               >
-                <div className="flex flex-col">
-                  <span
-                    className={
-                      'text-[10px] font-semibold uppercase tracking-[0.18em] ' +
-                      (currentStep === 2 ? 'text-slate-500' : 'text-slate-400')
-                    }
-                  >
-                    Step 2
-                  </span>
-                  <span
-                    className={
-                      'text-sm font-semibold ' + (currentStep === 2 ? 'text-slate-900' : 'text-slate-600')
-                    }
-                  >
-                    Pattern
-                  </span>
-                </div>
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
+                  STEP 2
+                </p>
+                <p className="mt-1 text-sm font-semibold tracking-tight text-slate-900">
+                  Pattern
+                </p>
               </div>
 
               {/* Step 3 */}
               <div
                 className={[
-                  'flex flex-1 items-center gap-2 rounded-2xl px-3 py-2 transition-all',
-                  currentStep === 3 ? 'bg-white shadow-sm' : 'bg-transparent',
+                  'flex flex-1 flex-col rounded-2xl px-4 py-3 transition-all',
+                  currentStep === 3
+                    ? 'bg-white border border-slate-200/60 shadow-[0_8px_20px_-16px_rgba(0,0,0,0.18)]'
+                    : 'px-4 py-3 rounded-2xl text-slate-500',
                 ].join(' ')}
               >
-                <div className="flex flex-col">
-                  <span
-                    className={
-                      'text-[10px] font-semibold uppercase tracking-[0.18em] ' +
-                      (currentStep === 3 ? 'text-slate-500' : 'text-slate-400')
-                    }
-                  >
-                    Step 3
-                  </span>
-                  <span
-                    className={
-                      'text-sm font-semibold ' + (currentStep === 3 ? 'text-slate-900' : 'text-slate-600')
-                    }
-                  >
-                    Times &amp; sync
-                  </span>
-                </div>
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
+                  STEP 3
+                </p>
+                <p className="mt-1 text-sm font-semibold tracking-tight text-slate-900">
+                  Times &amp; sync
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Guided Canvas Content */}
-          <div className="rounded-[24px] border border-slate-100 bg-white/95 p-6 shadow-[0_4px_14px_rgba(15,23,42,0.03)]">
-            {/* STEP 1 – SHIFT HOURS */}
-            {currentStep === 1 && (
-              <div>
-                <h2 className="mb-1 text-[15px] font-semibold tracking-tight text-slate-900">
-                  Select shift hours
-                </h2>
-                <p className="mb-4 text-xs text-slate-500">
-                  Pick the shift length you work most often. You can fine‑tune exact start/finish times later.
-                </p>
+          {/* Premium Glass Card */}
+          <div className="mt-5 relative overflow-hidden rounded-3xl bg-white/75 backdrop-blur-xl border border-slate-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] p-6">
+            {/* Highlight overlay */}
+            <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+            
+            <div className="relative z-10">
+              {/* STEP 1 – SHIFT HOURS */}
+              {currentStep === 1 && (
+                <div>
+                  <h1 className="text-[22px] font-semibold tracking-tight text-slate-900">
+                    Select shift hours
+                  </h1>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600 max-w-prose">
+                    Pick the shift length you work most often. You can fine-tune exact start/finish times later.
+                  </p>
                 
-                <div className="space-y-4">
-                  {/* Primary, most common options */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    {[
-                      { id: '12h', label: '12hr', value: '12h' as ShiftLength },
-                      { id: '8h', label: '8hr', value: '8h' as ShiftLength },
-                      { id: '10h', label: '10hr', value: '10h' as ShiftLength },
-                      { id: 'custom', label: 'Custom', value: 'custom' as ShiftLength },
-                    ].map((option) => {
-                      const isSelected = selectedShiftHours === option.value
-                      return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedShiftHours(option.value)
-                            if (option.value !== 'custom') {
-                              setCustomHours('')
-                            }
-                          }}
-                          className={[
-                            'group relative rounded-full border px-4 py-1.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98]',
-                            isSelected
-                              ? 'border-sky-500 bg-gradient-to-r from-sky-500 to-indigo-500 text-white shadow-md shadow-sky-500/30'
-                              : 'border-slate-200 bg-white text-slate-700 hover:border-sky-400 hover:bg-sky-50 hover:text-sky-700',
-                          ].join(' ')}
-                        >
-                          {option.label}
-                          {option.value === '12h' && (
-                            <span className="ml-2 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-700 border border-sky-100">
-                              Most common
-                            </span>
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
+                  <div className="mt-5 space-y-4">
+                    {/* Primary, most common options - Choice Chips */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {[
+                        { id: '12h', label: '12hr', value: '12h' as ShiftLength },
+                        { id: '8h', label: '8hr', value: '8h' as ShiftLength },
+                        { id: '10h', label: '10hr', value: '10h' as ShiftLength },
+                        { id: 'custom', label: 'Custom', value: 'custom' as ShiftLength },
+                      ].map((option) => {
+                        const isSelected = selectedShiftHours === option.value
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedShiftHours(option.value)
+                              if (option.value !== 'custom') {
+                                setCustomHours('')
+                              }
+                            }}
+                            className={[
+                              'inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2',
+                              isSelected
+                                ? 'bg-white/80 border border-emerald-200/50 shadow-[0_10px_26px_-18px_rgba(0,0,0,0.18)] text-slate-800'
+                                : 'bg-slate-50/40 border border-slate-200/40 text-slate-800 hover:bg-white/80 hover:border-slate-200/60',
+                            ].join(' ')}
+                          >
+                            {option.label}
+                            {option.value === '12h' && (
+                              <span className="rounded-full px-2.5 py-1 text-[11px] font-medium bg-emerald-100/60 border border-emerald-200/50 text-emerald-700/80">
+                                Most common
+                              </span>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
 
-                  {/* Secondary options, hidden behind a simple link to reduce clutter */}
-                  <div className="space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowAllShiftLengths((prev) => !prev)}
-                      className="text-xs font-semibold text-sky-700 hover:text-sky-800 underline underline-offset-4"
-                    >
-                      {showAllShiftLengths ? 'Hide less common shift lengths' : 'Show less common shift lengths'}
-                    </button>
+                    {/* Secondary options, hidden behind a subtle text button */}
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowAllShiftLengths((prev) => !prev)}
+                        className="mt-4 text-sm font-medium text-slate-600 hover:text-slate-900 transition"
+                      >
+                        {showAllShiftLengths ? 'Hide less common shift lengths' : 'Show less common shift lengths'}
+                      </button>
 
-                    {showAllShiftLengths && (
-                      <div className="flex flex-wrap items-center gap-2">
-                        {[
-                          { id: '24h', label: '24hr', value: '24h' as ShiftLength },
-                          { id: '16h', label: '16hr', value: '16h' as ShiftLength },
-                          { id: '6h', label: '6hr', value: '6h' as ShiftLength },
-                          { id: '4h', label: '4hr', value: '4h' as ShiftLength },
-                        ].map((option) => {
-                          const isSelected = selectedShiftHours === option.value
-                          return (
-                            <button
-                              key={option.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedShiftHours(option.value)
-                                if (option.value !== 'custom') {
-                                  setCustomHours('')
-                                }
-                              }}
-                              className={[
-                                'group relative rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-[0.98]',
-                                isSelected
-                                  ? 'border-sky-500 bg-gradient-to-r from-sky-500 to-indigo-500 text-white shadow-md shadow-sky-500/30'
-                                  : 'border-slate-200 bg-white text-slate-700 hover:border-sky-400 hover:bg-sky-50 hover:text-sky-700',
-                              ].join(' ')}
-                            >
-                              {option.label}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )}
+                      {showAllShiftLengths && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          {[
+                            { id: '24h', label: '24hr', value: '24h' as ShiftLength },
+                            { id: '16h', label: '16hr', value: '16h' as ShiftLength },
+                            { id: '6h', label: '6hr', value: '6h' as ShiftLength },
+                            { id: '4h', label: '4hr', value: '4h' as ShiftLength },
+                          ].map((option) => {
+                            const isSelected = selectedShiftHours === option.value
+                            return (
+                              <button
+                                key={option.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedShiftHours(option.value)
+                                  if (option.value !== 'custom') {
+                                    setCustomHours('')
+                                  }
+                                }}
+                                className={[
+                                  'inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2',
+                                  isSelected
+                                    ? 'bg-white/80 border border-emerald-200/50 shadow-[0_10px_26px_-18px_rgba(0,0,0,0.18)] text-slate-800'
+                                    : 'bg-slate-50/40 border border-slate-200/40 text-slate-800 hover:bg-white/80 hover:border-slate-200/60',
+                                ].join(' ')}
+                              >
+                                {option.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
                   </div>
 
                   {/* Custom Hours Input */}
@@ -1066,60 +1042,80 @@ export default function RotaSetup() {
                   )}
                 </div>
 
-                {/* Navigation inside the Select shift hours card */}
-                <div className="mt-5 pt-4 flex items-center justify-between border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep((prev) => (prev > 1 ? ((prev - 1) as SetupStep) : prev))}
-                    disabled={currentStep === 1}
-                    className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep((prev) => (prev < 3 ? ((prev + 1) as SetupStep) : prev))}
-                    disabled={!canContinue}
-                    className="rounded-full px-5 py-2 text-sm font-semibold text-white shadow-md shadow-sky-500/40 transition-all bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Continue
-                  </button>
-                </div>
+                  {/* CalAI Magic Hint */}
+                  <div className="mt-5 rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/50">
+                    <p className="text-xs font-semibold tracking-tight text-slate-900 flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-slate-400" />
+                      Why we ask
+                    </p>
+                    <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+                      Shift length helps ShiftCoach predict energy dips and suggest the best meal and sleep timing.
+                    </p>
+                  </div>
+
+                  {/* Navigation inside the Select shift hours card */}
+                  <div className="mt-6 pt-5 flex items-center justify-between border-t border-slate-200/50">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep((prev) => (prev > 1 ? ((prev - 1) as SetupStep) : prev))}
+                      disabled={currentStep === 1}
+                      className="rounded-full px-5 py-3 bg-white/60 backdrop-blur border border-slate-200/60 text-sm font-medium text-slate-700 hover:bg-white/90 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep((prev) => (prev < 3 ? ((prev + 1) as SetupStep) : prev))}
+                      disabled={!canContinue}
+                      className="rounded-full px-6 py-3 bg-slate-900 text-white text-sm font-semibold shadow-[0_14px_30px_-18px_rgba(0,0,0,0.35)] hover:opacity-95 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Continue
+                    </button>
+                  </div>
               </div>
             )}
 
             {/* STEP 2 & 3 – PATTERN + DETAIL */}
             {currentStep >= 2 && (
-              <div>
-                <h2 className="mb-2 text-base font-semibold tracking-tight text-slate-900">Select Shift Pattern</h2>
+              <div className="relative z-10">
+                {currentStep === 2 && (
+                  <>
+                    <h1 className="text-[22px] font-semibold tracking-tight text-slate-900">
+                      Select Shift Pattern
+                    </h1>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-600 max-w-prose">
+                      Choose the pattern that matches your work schedule.
+                    </p>
+                  </>
+                )}
                 {!selectedShiftHours ? (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 text-center">
-                    <p className="text-sm text-slate-500">
+                  <div className="mt-5 rounded-2xl border border-slate-200/50 bg-slate-50/40 p-6 text-center">
+                    <p className="text-sm text-slate-600">
                       Please select your shift hours first to see available patterns
                     </p>
                   </div>
                 ) : selectedShiftHours === 'custom' ? (
-                  <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-6 text-center shadow-sm">
-                    <h3 className="mb-1 text-sm font-semibold text-slate-900">Custom patterns</h3>
-                    <p className="text-xs text-slate-500">
+                  <div className="mt-5 rounded-2xl border border-slate-200/50 bg-gradient-to-br from-slate-50/70 to-white p-6 text-center">
+                    <h3 className="mb-2 text-sm font-semibold text-slate-900">Custom patterns</h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
                       A full custom pattern builder is coming soon. For now, choose the shift length that&apos;s
                       closest to your real pattern and we&apos;ll keep things simple.
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="mt-5 space-y-5">
                     {/* STEP 2 – Pattern selector */}
                     {currentStep === 2 && (
                       <>
                         <div className="relative">
-                          <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
-                            Shift Pattern
+                          <label className="mb-3 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                            SHIFT PATTERN
                           </label>
                           <div className="relative">
                             <select
                               value={selectedPattern || ''}
                               onChange={(e) => setSelectedPattern(e.target.value)}
-                              className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 py-3 pr-10 text-sm font-semibold text-slate-900 shadow-sm transition-all focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
+                              className="w-full appearance-none rounded-2xl border border-slate-200/60 bg-white/80 backdrop-blur px-4 py-3.5 pr-10 text-sm font-semibold text-slate-900 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_12px_-8px_rgba(0,0,0,0.12)] transition-all focus:border-slate-300/60 focus:outline-none focus:ring-2 focus:ring-slate-300/40 focus:ring-offset-2 hover:border-slate-300/60"
                             >
                               <option value="">Select a pattern...</option>
                               {availablePatterns.map((pattern) => (
@@ -1129,26 +1125,26 @@ export default function RotaSetup() {
                               ))}
                             </select>
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                              <ChevronDown className="h-5 w-5 text-slate-400" strokeWidth={2} />
+                              <ChevronDown className="h-4 w-4 text-slate-400" strokeWidth={2} />
                             </div>
                           </div>
                         </div>
 
                         {selectedPattern && (
-                          <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 shadow-sm">
-                            <p className="text-sm text-slate-600">
+                          <div className="rounded-2xl border border-slate-200/50 bg-gradient-to-br from-slate-50/70 to-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_12px_-8px_rgba(0,0,0,0.12)]">
+                            <p className="text-sm text-slate-600 leading-relaxed">
                               {availablePatterns.find((p) => p.id === selectedPattern)?.description}
                             </p>
                             {availablePatterns.find((p) => p.id === selectedPattern)?.commonIn &&
                               availablePatterns.find((p) => p.id === selectedPattern)!.commonIn!.length > 0 && (
-                                <div className="mt-3 flex flex-wrap gap-2">
+                                <div className="mt-4 flex flex-wrap items-center gap-2">
                                   <span className="text-xs font-medium text-slate-500">Common in:</span>
                                   {availablePatterns
                                     .find((p) => p.id === selectedPattern)!
                                     .commonIn!.map((location) => (
                                       <span
                                         key={location}
-                                        className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-600"
+                                        className="rounded-full bg-slate-100/70 border border-slate-200/50 px-2.5 py-1 text-[11px] font-medium text-slate-600"
                                       >
                                         {location}
                                       </span>
@@ -1467,13 +1463,13 @@ export default function RotaSetup() {
             )}
           </div>
 
-          {/* Guided navigation controls – for steps 2 and 3 only, stay at bottom of canvas */}
+          {/* Navigation controls – for steps 2 and 3 only, stay at bottom of card */}
           {currentStep >= 2 && (
-            <div className="mt-6 pt-4 flex items-center justify-between border-t border-slate-100">
+            <div className="mt-6 pt-5 flex items-center justify-between border-t border-slate-200/50">
               <button
                 type="button"
                 onClick={() => setCurrentStep((prev) => (prev > 1 ? ((prev - 1) as SetupStep) : prev))}
-                className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-50 active:scale-95"
+                className="rounded-full px-5 py-3 bg-white/60 backdrop-blur border border-slate-200/60 text-sm font-medium text-slate-700 hover:bg-white/90 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2"
               >
                 Back
               </button>
@@ -1482,7 +1478,7 @@ export default function RotaSetup() {
                   type="button"
                   onClick={() => setCurrentStep((prev) => (prev < 3 ? ((prev + 1) as SetupStep) : prev))}
                   disabled={!canContinue}
-                  className="rounded-full px-5 py-2 text-sm font-semibold text-white shadow-md shadow-sky-500/40 transition-all bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-full px-6 py-3 bg-slate-900 text-white text-sm font-semibold shadow-[0_14px_30px_-18px_rgba(0,0,0,0.35)] hover:opacity-95 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Continue
                 </button>
