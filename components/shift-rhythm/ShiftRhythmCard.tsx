@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronRight, Info, X, Clock, UtensilsCrossed, AlertCircle, Sparkles } from "lucide-react";
+import { ChevronRight, Info, X, Clock, UtensilsCrossed, AlertCircle, Sparkles, MessageSquareText } from "lucide-react";
 import { MoodFocus } from "@/components/dashboard/MoodFocus";
 import { useGoalChange } from "@/lib/hooks/useGoalChange";
 import { ShiftLagCard } from "@/components/shiftlag/ShiftLagCard";
@@ -47,12 +47,9 @@ function ShiftRhythmCard({ score, circadian, socialJetlag, shiftLag, bingeRisk, 
   const [isLoadingMood, setIsLoadingMood] = useState(true);
   const [lastWearableSync, setLastWearableSync] = useState<number | null>(null);
   
-  // State for Why You Have This Score card data
+  // Fetch sleep deficit for Next Best Actions card
   const [sleepDeficit, setSleepDeficit] = useState<any>(null);
-  const [sleepLogs, setSleepLogs] = useState<any[]>([]);
-  const [shifts, setShifts] = useState<any[]>([]);
   
-  // Fetch sleep deficit, sleep logs, and shifts for Why You Have This Score card
   useEffect(() => {
     const fetchCardData = async () => {
       try {
@@ -63,32 +60,6 @@ function ShiftRhythmCard({ score, circadian, socialJetlag, shiftLag, bingeRisk, 
         }
       } catch (err) {
         console.error('[ShiftRhythmCard] Failed to fetch sleep deficit:', err);
-      }
-      
-      // Fetch sleep logs (last 7 days)
-      try {
-        const sevenDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-        const today = new Date().toISOString().slice(0, 10);
-        const res = await fetch(`/api/sleep/history?from=${sevenDaysAgo}&to=${today}`, { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          setSleepLogs(json.items ?? []);
-        }
-      } catch (err) {
-        console.error('[ShiftRhythmCard] Failed to fetch sleep logs:', err);
-      }
-      
-      // Fetch shifts (last 7 days)
-      try {
-        const sevenDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-        const today = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10); // Include today
-        const res = await fetch(`/api/shifts?from=${sevenDaysAgo}&to=${today}`, { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          setShifts(json.shifts ?? []);
-        }
-      } catch (err) {
-        console.error('[ShiftRhythmCard] Failed to fetch shifts:', err);
       }
     };
     
@@ -275,15 +246,6 @@ function ShiftRhythmCard({ score, circadian, socialJetlag, shiftLag, bingeRisk, 
       {/* DETAILED MEAL TIMES CARD */}
       <DetailedMealTimesCard />
 
-      {/* WHY YOU HAVE THIS SCORE CARD */}
-      <WhyYouHaveThisScoreCard 
-        circadian={circadian}
-        sleepDeficit={sleepDeficit}
-        sleepLogs={sleepLogs}
-        shifts={shifts}
-        score={displayScore}
-      />
-
       {/* BINGE RISK CARD */}
       {bingeRisk ? (
         <BingeRiskCard bingeRisk={bingeRisk} />
@@ -297,9 +259,6 @@ function ShiftRhythmCard({ score, circadian, socialJetlag, shiftLag, bingeRisk, 
 
       {/* SHIFT LAG CARD */}
       <ShiftLagCard />
-
-      {/* ADJUSTED MEAL TIMES CARD */}
-      <AdjustedMealTimesCard />
 
       {/* MOOD & FOCUS */}
       {!isLoadingMood && (
@@ -368,25 +327,22 @@ function BodyClockCard({
   return (
     <section
       className={[
-        "relative overflow-hidden rounded-[28px]",
-        "bg-white/85 backdrop-blur-2xl",
-        "border border-white/80",
-        "shadow-[0_24px_60px_rgba(15,23,42,0.12)]",
-        "px-7 py-7",
+        "relative overflow-hidden rounded-3xl",
+        "bg-white/75 backdrop-blur-xl",
+        "border border-slate-200/50",
+        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+        "p-6",
       ].join(" ")}
     >
-      {/* Ultra-premium gradient overlay */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/95 via-white/80 to-white/60" />
-      
-      {/* Subtle inner glow */}
-      <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/50" />
+      {/* Highlight overlay */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
 
-      <div className="relative z-10 space-y-3">
+      <div className="relative z-10">
         {/* TOP: Last synced label */}
-        <div className="flex items-center justify-end mb-1">
-          <p className="text-[11px] text-slate-400">
-            {wearableLastSyncLabel}
-          </p>
+        <div className="flex items-center justify-end mb-4">
+          <span className="rounded-full bg-slate-50/60 border border-slate-200/50 px-2.5 py-1 text-[11px] text-slate-500">
+            Last sync: {wearableLastSyncLabel}
+          </span>
         </div>
 
         {/* Info Card */}
@@ -431,31 +387,39 @@ function BodyClockCard({
         )}
 
         {/* MAIN ROW: Heading + Alignment factors on LEFT, Gauge on RIGHT */}
-        <div className="flex items-start gap-5 -mt-2">
+        <div className="flex items-start gap-6">
           {/* LEFT: Heading + Alignment factors */}
-          <div className="flex-1 space-y-3 min-w-0">
-            <div className="space-y-0.5">
-              <h1 className="text-lg font-bold tracking-tight text-slate-900 leading-tight">
-                {headingText}
-              </h1>
-              <p className="text-xs text-slate-500 leading-relaxed">
+          <div className="flex-1 space-y-5 min-w-0">
+            <div>
+              <h3 className="text-[20px] font-semibold tracking-tight text-slate-900 leading-tight">
+                {noData ? (
+                  <>
+                    Your body clock score
+                    <br />
+                    is coming soon
+                  </>
+                ) : (
+                  headingText
+                )}
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed text-slate-600 max-w-[22ch]">
                 {noData
                   ? "Log a few nights of sleep and add your shifts to unlock your Body Clock score."
                   : "Based on your latest sleep, shifts and daytime patterns."}
               </p>
             </div>
 
-            <div className="mt-2 space-y-2">
-              <p className="text-xs font-bold text-slate-900 tracking-tight">
+            {/* Alignment factors as insight chip */}
+            <div className="rounded-2xl bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/50 p-4">
+              <p className="text-xs font-semibold tracking-tight text-slate-900">
                 Alignment factors
               </p>
               {noData ? (
-                <p className="text-[11px] text-slate-500">
-                  Once you&apos;ve logged some sleep and added your rota, you&apos;ll see how
-                  latest shift, sleep timing and consistency are affecting your score.
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                  Once you&apos;ve logged sleep and shifts, you&apos;ll see how timing and consistency affect your score.
                 </p>
               ) : (
-                <div className="space-y-1.5 text-xs">
+                <div className="mt-2 space-y-1.5 text-xs">
                   {factors.map((f) => (
                     <div
                       key={f.label}
@@ -489,12 +453,9 @@ function BodyClockCard({
             {/* View Progress button under the gauge */}
             <Link
               href="/progress"
-              className="mt-4 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-[12px] font-semibold text-white shadow-[0_4px_14px_rgba(37,99,235,0.35)] bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-600 hover:to-indigo-600 active:scale-95 transition-all duration-200"
+              className="mt-4 inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 bg-slate-900 text-white text-xs font-semibold tracking-wide shadow-[0_10px_26px_-14px_rgba(0,0,0,0.35)] hover:opacity-95 transition-opacity"
             >
-              <span className="tracking-[0.12em] uppercase">
-                View progress
-              </span>
-              <ChevronRight className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
+              View progress <ChevronRight className="h-4 w-4 opacity-80" strokeWidth={2} />
             </Link>
           </div>
         </div>
@@ -515,25 +476,25 @@ function BingeRiskCard({ bingeRisk }: { bingeRisk: { score: number; level: "low"
   const riskColors = {
     low: {
       gauge: 'from-emerald-500 to-teal-500',
-      badge: 'bg-emerald-50/90 border-emerald-200/60 text-emerald-700',
-      driver: 'bg-emerald-50/90 border-emerald-200/60 text-emerald-700'
+      badge: 'bg-emerald-50/70 border-emerald-200/50 text-emerald-700',
+      driver: 'bg-emerald-50/60 border-emerald-200/40 text-emerald-700'
     },
     medium: {
       gauge: 'from-amber-500 to-orange-500',
-      badge: 'bg-amber-50/90 border-amber-200/60 text-amber-700',
-      driver: 'bg-amber-50/90 border-amber-200/60 text-amber-700'
+      badge: 'bg-amber-50/70 border-amber-200/50 text-amber-700',
+      driver: 'bg-amber-50/60 border-amber-200/40 text-amber-700'
     },
     high: {
       gauge: 'from-rose-500 to-red-600',
-      badge: 'bg-rose-50/90 border-rose-200/60 text-rose-700',
-      driver: 'bg-rose-50/90 border-rose-200/60 text-rose-700'
+      badge: 'bg-rose-50/70 border-rose-200/50 text-rose-700',
+      driver: 'bg-rose-50/60 border-rose-200/40 text-rose-700'
     }
   };
 
   const colors = riskColors[riskLevel];
-  const size = 140;
-  const radius = 60;
-  const stroke = 6; // Thinner dial
+  const size = 144; // h-36 = 144px
+  const radius = 64;
+  const stroke = 6;
   const normalizedRadius = radius - stroke / 2;
   const circumference = normalizedRadius * 2 * Math.PI;
   const offset = circumference * (1 - riskScore / 100);
@@ -541,108 +502,112 @@ function BingeRiskCard({ bingeRisk }: { bingeRisk: { score: number; level: "low"
   return (
     <section
       className={[
-        "relative overflow-hidden rounded-[28px]",
-        "bg-white/85 backdrop-blur-2xl",
-        "border border-white/80",
-        "shadow-[0_24px_60px_rgba(15,23,42,0.12)]",
-        "px-7 py-6",
+        "relative overflow-hidden rounded-3xl",
+        "bg-white/75 backdrop-blur-xl",
+        "border border-slate-200/50",
+        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+        "p-6",
       ].join(" ")}
     >
-      {/* Ultra-premium gradient overlay */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/95 via-white/80 to-white/60" />
-      
-      {/* Subtle inner glow */}
-      <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/50" />
+      {/* Highlight overlay */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
 
-      <div className="relative z-10">
+      <div className="relative z-10 space-y-5">
         {/* Title */}
-        <p className="sc-section-label mb-5">
-          Binge risk
-        </p>
+        <h3 className="text-[17px] font-semibold tracking-tight text-slate-900">
+          Binge Risk
+        </h3>
 
         {/* Main content: Gauge on left, Drivers on right */}
         <div className="flex items-start gap-6">
           {/* LEFT: Circular gauge */}
           <div className="flex-shrink-0">
-            <div className="relative flex h-[140px] w-[140px] items-center justify-center">
-              {/* Additional subtle inner glow (no coloured outer glow) */}
-              <div className="absolute inset-[8px] rounded-full bg-gradient-to-br from-white/40 via-transparent to-transparent pointer-events-none" />
+            <div className="relative grid place-items-center">
+              {/* Ring container glow */}
+              <div className="absolute inset-[-18px] rounded-full bg-gradient-to-br from-slate-100/70 to-transparent blur-xl" />
               
-              <svg height={size} width={size} viewBox={`0 0 ${size} ${size}`} className="relative z-10">
-                <defs>
-                  {/* Ultra-premium track gradient - more subtle */}
-                  <linearGradient id="bingeRiskTrackGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#F8F9FA" />
-                    <stop offset="50%" stopColor="#F1F5F9" />
-                    <stop offset="100%" stopColor="#E2E8F0" />
-                  </linearGradient>
-                  
-                  {/* Ultra-premium active gradient - refined colors */}
-                  <linearGradient id="bingeRiskActiveGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#F87171" />
-                    <stop offset="50%" stopColor="#EF4444" />
-                    <stop offset="100%" stopColor="#DC2626" />
-                  </linearGradient>
-                  
-                  {/* Inner shadow for depth */}
-                  <filter id="bingeRiskInnerShadow">
-                    <feGaussianBlur in="SourceAlpha" stdDeviation="1"/>
-                    <feOffset dx="0" dy="1" result="offsetblur"/>
-                    <feComponentTransfer>
-                      <feFuncA type="linear" slope="0.3"/>
-                    </feComponentTransfer>
-                    <feMerge>
-                      <feMergeNode/>
-                      <feMergeNode in="SourceGraphic"/>
-                    </feMerge>
-                  </filter>
-                </defs>
+              {/* Ring itself */}
+              <div className="relative h-36 w-36 rounded-full bg-white/60 border border-slate-200/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                <div className="absolute inset-2 rounded-full border border-slate-200/40 bg-white/50" />
                 
-                {/* Background track - ultra-premium subtle */}
-                <circle
-                  cx={size / 2}
-                  cy={size / 2}
-                  r={normalizedRadius}
-                  fill="none"
-                  stroke="url(#bingeRiskTrackGradient)"
-                  strokeWidth={stroke}
-                  opacity={0.6}
-                />
-                
-                {/* Active arc with premium gradient - no shadow, thinner */}
-                <circle
-                  cx={size / 2}
-                  cy={size / 2}
-                  r={normalizedRadius}
-                  fill="none"
-                  stroke="url(#bingeRiskActiveGradient)"
-                  strokeWidth={stroke}
-                  strokeLinecap="round"
-                  strokeDasharray={circumference}
-                  strokeDashoffset={offset}
-                  transform={`rotate(-90 ${size / 2} ${size / 2})`}
-                />
-              </svg>
+                {/* SVG ring overlay */}
+                <svg 
+                  height={144} 
+                  width={144} 
+                  viewBox={`0 0 144 144`} 
+                  className="absolute inset-0"
+                >
+                  <defs>
+                    <linearGradient id="bingeRiskTrackGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#E2E8F0" stopOpacity="0.6" />
+                      <stop offset="100%" stopColor="#CBD5E1" stopOpacity="0.4" />
+                    </linearGradient>
+                    <linearGradient id="bingeRiskActiveGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      {riskLevel === 'low' ? (
+                        <>
+                          <stop offset="0%" stopColor="#10B981" stopOpacity="0.8" />
+                          <stop offset="100%" stopColor="#059669" stopOpacity="0.8" />
+                        </>
+                      ) : riskLevel === 'medium' ? (
+                        <>
+                          <stop offset="0%" stopColor="#F59E0B" stopOpacity="0.8" />
+                          <stop offset="100%" stopColor="#D97706" stopOpacity="0.8" />
+                        </>
+                      ) : (
+                        <>
+                          <stop offset="0%" stopColor="#EF4444" stopOpacity="0.8" />
+                          <stop offset="100%" stopColor="#DC2626" stopOpacity="0.8" />
+                        </>
+                      )}
+                    </linearGradient>
+                  </defs>
+                  
+                  {/* Background track */}
+                  <circle
+                    cx={72}
+                    cy={72}
+                    r={normalizedRadius}
+                    fill="none"
+                    stroke="url(#bingeRiskTrackGradient)"
+                    strokeWidth={stroke}
+                  />
+                  
+                  {/* Active arc */}
+                  <circle
+                    cx={72}
+                    cy={72}
+                    r={normalizedRadius}
+                    fill="none"
+                    stroke="url(#bingeRiskActiveGradient)"
+                    strokeWidth={stroke}
+                    strokeLinecap="round"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={offset}
+                    transform={`rotate(-90 72 72)`}
+                  />
+                </svg>
 
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center z-20">
-                <span className="text-[28px] font-bold leading-none text-slate-900 tracking-tight">
-                  {riskScore}
-                </span>
-                <span className="mt-1 text-[10px] text-slate-500 tracking-wide font-medium">
-                  risk
-                </span>
+                {/* Center text */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                  <p className="text-3xl font-semibold text-slate-900 tabular-nums leading-none">
+                    {riskScore}
+                  </p>
+                  <p className="text-xs font-medium text-slate-500 mt-0.5">
+                    risk
+                  </p>
+                </div>
               </div>
             </div>
           </div>
 
           {/* RIGHT: Key drivers */}
-          <div className="flex-1 space-y-4 min-w-0">
+          <div className="flex-1 space-y-3 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold text-slate-900 tracking-tight">
+              <p className="text-xs font-semibold tracking-tight text-slate-900">
                 Key drivers
-              </span>
-              <span className={`px-2.5 py-1 rounded-lg border text-[10px] font-semibold tracking-wide ${colors.badge}`}>
-                Today - {riskLevel.charAt(0).toUpperCase() + riskLevel.slice(1)}
+              </p>
+              <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium border ${colors.badge}`}>
+                Today · {riskLevel.charAt(0).toUpperCase() + riskLevel.slice(1)}
               </span>
             </div>
 
@@ -650,7 +615,7 @@ function BingeRiskCard({ bingeRisk }: { bingeRisk: { score: number; level: "low"
               {drivers.map((driver, index) => (
                 <div
                   key={index}
-                  className={`px-3 py-1.5 rounded-lg border text-[11px] font-medium ${colors.driver}`}
+                  className={`rounded-xl px-3 py-2 text-xs font-medium border ${colors.driver}`}
                 >
                   {driver}
                 </div>
@@ -660,7 +625,7 @@ function BingeRiskCard({ bingeRisk }: { bingeRisk: { score: number; level: "low"
         </div>
 
         {/* Explanation text - full width */}
-        <p className="text-[11px] leading-relaxed text-slate-600 mt-5">
+        <p className="text-sm leading-relaxed text-slate-600">
           {explanation}
         </p>
       </div>
@@ -830,64 +795,73 @@ function CircadianPhaseDial() {
 /* -------------------- CIRCadian GAUGE -------------------- */
 
 function CircadianGauge({ score }: { score: number }) {
-  const size = 200;
-  const radius = 92;
-  const stroke = 10;
+  const size = 176; // h-44 = 176px
+  const radius = 80;
+  const stroke = 8;
   const normalizedRadius = radius - stroke / 2;
   const circumference = normalizedRadius * 2 * Math.PI;
   const capped = Math.min(Math.max(score, 0), 100);
   const offset = circumference * (1 - capped / 100);
 
   return (
-    <div className="relative flex h-[200px] w-[200px] items-center justify-center">
-      {/* Outer glow effect */}
-      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-50/50 to-indigo-50/30 blur-xl" />
+    <div className="relative grid place-items-center">
+      {/* Ring container glow */}
+      <div className="absolute inset-[-18px] rounded-full bg-gradient-to-br from-slate-100/70 to-transparent blur-xl" />
       
-      <svg height={size} width={size} viewBox={`0 0 ${size} ${size}`} className="relative z-10">
-        {/* background track with subtle gradient */}
-        <defs>
-          <linearGradient id="trackGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#F1F5F9" />
-            <stop offset="100%" stopColor="#E2E8F0" />
-          </linearGradient>
-          <linearGradient id="activeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#2563EB" />
-            <stop offset="100%" stopColor="#1E40AF" />
-          </linearGradient>
-        </defs>
+      {/* Ring itself */}
+      <div className="relative h-44 w-44 rounded-full bg-white/60 border border-slate-200/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+        <div className="absolute inset-2 rounded-full border border-slate-200/40 bg-white/50" />
         
-        {/* background track */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={normalizedRadius}
-          fill="none"
-          stroke="url(#trackGradient)"
-          strokeWidth={stroke}
-        />
-        {/* active arc with gradient */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={normalizedRadius}
-          fill="none"
-          stroke="url(#activeGradient)"
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          style={{ filter: 'drop-shadow(0 2px 4px rgba(37, 99, 235, 0.3))' }}
-        />
-      </svg>
+        {/* SVG ring overlay */}
+        <svg 
+          height={size} 
+          width={size} 
+          viewBox={`0 0 ${size} ${size}`} 
+          className="absolute inset-0"
+        >
+          <defs>
+            <linearGradient id="trackGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#E2E8F0" stopOpacity="0.6" />
+              <stop offset="100%" stopColor="#CBD5E1" stopOpacity="0.4" />
+            </linearGradient>
+            <linearGradient id="activeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#6366F1" stopOpacity="0.8" />
+              <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0.8" />
+            </linearGradient>
+          </defs>
+          
+          {/* Background track */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={normalizedRadius}
+            fill="none"
+            stroke="url(#trackGradient)"
+            strokeWidth={stroke}
+          />
+          
+          {/* Active arc with gradient */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={normalizedRadius}
+            fill="none"
+            stroke="url(#activeGradient)"
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          />
+        </svg>
 
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center z-20">
-        <span className="text-[10px] text-slate-500 tracking-wider font-medium">
-          Body Clock
-        </span>
-        <span className="mt-[2px] text-[30px] font-bold leading-none text-slate-900 tracking-tight">
-          {Math.round(capped)}
-        </span>
+        {/* Center text */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+          <p className="text-xs font-medium text-slate-500">Body Clock</p>
+          <p className="text-3xl font-semibold text-slate-900 tabular-nums leading-none mt-0.5">
+            {Math.round(capped)}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -2522,43 +2496,39 @@ function NextBestActionsCard({ sleepDeficit, circadian }: NextBestActionsCardPro
   return (
     <section
       className={[
-        "relative overflow-hidden rounded-[28px]",
-        "bg-white/85 backdrop-blur-2xl",
-        "border border-white/80",
-        "shadow-[0_24px_60px_rgba(15,23,42,0.12)]",
-        "px-7 py-6",
+        "relative overflow-hidden rounded-3xl",
+        "bg-white/75 backdrop-blur-xl",
+        "border border-slate-200/50",
+        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+        "p-6",
       ].join(" ")}
     >
-      {/* Ultra-premium gradient overlay */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/95 via-white/80 to-white/60" />
-      
-      {/* Subtle inner glow */}
-      <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/50" />
+      {/* Highlight overlay */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
 
       <div className="relative z-10 space-y-5">
         {/* Sleep Debt Header */}
         <div className="flex items-center justify-between">
-          <span className="text-[13px] font-bold text-slate-700">Sleep Debt</span>
-          <span className="text-[14px] font-bold text-slate-900">{displayDebt}</span>
+          <h3 className="text-[17px] font-semibold tracking-tight text-slate-900">Sleep Debt</h3>
+          <span className="text-base font-semibold tabular-nums text-slate-900">{displayDebt}</span>
         </div>
 
         {/* Next Best Actions */}
         <div className="space-y-3">
           {actions.map((action, index) => (
-            <div key={index} className="relative overflow-hidden flex items-start gap-4 rounded-2xl bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-xl px-5 py-4 border border-white/90 shadow-[0_4px_12px_rgba(15,23,42,0.04)]">
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-50/50 via-transparent to-transparent" />
+            <div key={index} className="relative overflow-hidden flex items-start gap-3 rounded-2xl bg-slate-50/50 border border-slate-200/40 px-4 py-4">
               {action.icon === 'ai' ? (
-                <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 text-[13px] font-bold tracking-wide text-white shadow-lg shadow-indigo-500/30">
-                  SC
+                <div className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white border border-slate-200/60 text-slate-500">
+                  <span className="text-xs font-semibold tracking-tight text-indigo-600">SC</span>
                 </div>
               ) : (
-                <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/30">
+                <div className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white border border-slate-200/60 text-slate-500">
                   <svg
                     viewBox="0 0 24 24"
-                    className="w-5 h-5"
+                    className="w-4 h-4 text-emerald-600"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth={3}
+                    strokeWidth={2.5}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   >
@@ -2567,10 +2537,10 @@ function NextBestActionsCard({ sleepDeficit, circadian }: NextBestActionsCardPro
                 </div>
               )}
               <div className="relative z-10 flex-1 pt-0.5">
-                <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-slate-400 mb-1.5">
+                <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">
                   Next best action
                 </p>
-                <p className="text-[13px] font-semibold leading-relaxed text-slate-900">
+                <p className="text-sm leading-relaxed text-slate-900">
                   {action.text}
                 </p>
               </div>
@@ -2803,79 +2773,95 @@ function BlogSection() {
 
   const effectivePosts = posts && posts.length ? posts : blogPosts;
 
+  // Determine shift type for personalization (simplified - you can enhance this)
+  const getPersonalizationChip = (index: number) => {
+    if (index === 0) {
+      return (
+        <span className="rounded-full bg-emerald-100/60 text-emerald-700/80 border border-emerald-200/50 px-2.5 py-1 text-[11px] font-medium">
+          For night shifts
+        </span>
+      );
+    }
+    if (index === 1) {
+      return (
+        <span className="rounded-full bg-slate-100/60 text-slate-700/80 border border-slate-200/50 px-2.5 py-1 text-[11px] font-medium">
+          Quick read
+        </span>
+      );
+    }
+    return null;
+  };
+
   return (
     <section
       className={[
-        "relative overflow-hidden rounded-[28px]",
-        "bg-white/90 backdrop-blur-2xl",
-        "border border-white/90",
-        "shadow-[0_24px_60px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.5)]",
-        "px-7 py-6",
+        "relative overflow-hidden rounded-3xl",
+        "bg-white/75 backdrop-blur-xl",
+        "border border-slate-200/50",
+        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+        "p-6",
       ].join(" ")}
     >
-      {/* Ultra-premium gradient overlay with multiple layers */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 via-white/85 to-white/70" />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 via-transparent to-purple-50/20" />
-      
-      {/* Enhanced inner glow */}
-      <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/60" />
-      <div className="pointer-events-none absolute inset-[1px] rounded-[27px] ring-1 ring-white/30" />
-      
-      {/* Ambient glow effect */}
-      <div className="pointer-events-none absolute -inset-1 bg-gradient-to-br from-blue-100/30 via-purple-100/20 to-transparent blur-xl opacity-50" />
+      {/* Highlight overlay */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
 
       <div className="relative z-10 space-y-5">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <h2 className="sc-section-label">
-              ShiftCoach Blog
-            </h2>
-            <p className="sc-body mt-0.5">
-              Tips and advice for shift workers
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
+              SHIFTCOACH BLOG
+            </p>
+            <p className="mt-1 text-sm text-slate-600">
+              Tips and guidance tailored to your shifts
             </p>
           </div>
-          <div className="relative flex items-center justify-center">
-            <div className="relative h-16 w-16">
-              <Image
-                src="/blog-icon3.png"
-                alt="Blog"
-                width={64}
-                height={64}
-                className="h-full w-full object-contain"
-              />
-            </div>
+          <div className="h-10 w-10 rounded-2xl bg-slate-50/60 border border-slate-200/50 grid place-items-center flex-shrink-0">
+            <MessageSquareText className="h-5 w-5 text-slate-400" strokeWidth={2} />
           </div>
         </div>
 
         {/* Blog list */}
-        <div className="space-y-0 border-t border-slate-200/70 pt-3">
-          {effectivePosts.map((post) => {
+        <div className="mt-5 space-y-3">
+          {effectivePosts.map((post, index) => {
             const href = (post as any).url || `/blog/${post.slug}`;
+            const chip = getPersonalizationChip(index);
             return (
-            <Link
-              key={post.slug}
-              href={href}
-              className="relative flex items-center justify-between py-4 px-2 -mx-2 rounded-xl border-b border-slate-100/80 last:border-b-0 transition-all group hover:bg-gradient-to-r hover:from-blue-50/30 hover:via-transparent hover:to-purple-50/20"
-            >
-              {/* Hover glow effect */}
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              
-              <div className="flex-1 min-w-0 pr-5 relative z-10">
-                <p className="text-[14px] font-semibold text-slate-900 leading-snug group-hover:text-blue-600 transition-colors duration-200">
-                  {post.title}
-                </p>
-                <p className="text-[12px] text-slate-500 mt-1.5 leading-relaxed">
-                  {post.description}
-                </p>
-              </div>
-              <div className="relative z-10 flex-shrink-0">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200/60 shadow-sm group-hover:bg-gradient-to-br group-hover:from-blue-50 group-hover:to-indigo-50 group-hover:border-blue-200/60 transition-all duration-200">
-                  <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-blue-600 transition-colors duration-200" strokeWidth={2.5} />
-                </div>
-              </div>
-            </Link>
-          )})}
+              <React.Fragment key={post.slug}>
+                <Link
+                  href={href}
+                  className="group flex items-center justify-between gap-4 rounded-2xl px-4 py-4 bg-slate-50/40 border border-slate-200/30 hover:bg-white/70 hover:border-slate-200/50 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                      <h3 className="text-[15px] font-semibold tracking-tight text-slate-900 leading-snug">
+                        {post.title}
+                      </h3>
+                      {chip}
+                    </div>
+                    <p className="mt-1 text-sm text-slate-600 leading-relaxed line-clamp-2 max-w-[42ch]">
+                      {post.description}
+                    </p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-slate-400 transition flex-shrink-0" strokeWidth={2} />
+                </Link>
+                {index < effectivePosts.length - 1 && (
+                  <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent" />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        {/* AI Summary Footer */}
+        <div className="mt-5 rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/50">
+          <p className="text-xs font-semibold tracking-tight text-slate-900 flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-slate-400" strokeWidth={2} />
+            Today's recommended read
+          </p>
+          <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+            Based on your recent shifts, focus on fatigue management and meal timing to protect sleep.
+          </p>
         </div>
       </div>
     </section>

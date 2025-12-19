@@ -54,53 +54,67 @@ export function MoodFocus({
   mood=3, focus=3, onChange
 }:{ mood?:number; focus?:number; onChange?:(m:number,f:number)=>void }) {
   const [activeInfo, setActiveInfo] = useState<InfoKind | null>(null)
+  const [hasInteracted, setHasInteracted] = useState({ mood: false, focus: false })
   const isLow = useMemo(() => (mood <= 2 || focus <= 2), [mood, focus])
   // Signal header to light bell
   useMemo(() => { try { localStorage.setItem('mf-low', isLow ? '1' : '0') } catch {} }, [isLow])
+  
+  const handleMoodChange = (v: number) => {
+    setHasInteracted(prev => ({ ...prev, mood: true }))
+    onChange?.(v, focus)
+  }
+  
+  const handleFocusChange = (v: number) => {
+    setHasInteracted(prev => ({ ...prev, focus: true }))
+    onChange?.(mood, v)
+  }
+  
   return (
     <section
       className={[
-        "relative overflow-hidden rounded-[28px]",
-        "bg-white/90 backdrop-blur-2xl",
-        "border border-white/90",
-        "shadow-[0_24px_60px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.5)]",
-        "px-7 py-6",
-        "flex flex-col gap-5",
+        "relative rounded-3xl",
+        "bg-white/80 backdrop-blur-xl",
+        "border border-slate-200/50",
+        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-16px_rgba(0,0,0,0.12)]",
+        "p-6",
       ].join(" ")}
     >
-      {/* Ultra-premium gradient overlay with multiple layers */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 via-white/85 to-white/70" />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 via-transparent to-purple-50/20" />
+      {/* Optional highlight overlay */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/60 via-transparent to-transparent" />
       
-      {/* Enhanced inner glow */}
-      <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/60" />
-      <div className="pointer-events-none absolute inset-[1px] rounded-[27px] ring-1 ring-white/30" />
-      
-      {/* Ambient glow effect */}
-      <div className="pointer-events-none absolute -inset-1 bg-gradient-to-br from-blue-100/30 via-purple-100/20 to-transparent blur-xl opacity-50" />
-      
-      <div className="relative z-10 space-y-5">
+      <div className="relative z-10 space-y-6">
         {/* Header */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
-                Mood & Focus
-              </h2>
-              <p className="text-[12px] text-slate-500 leading-relaxed mt-0.5">
-                Today
-              </p>
-            </div>
-          </div>
-          <p className="text-[11px] text-slate-500 leading-relaxed max-w-sm">
-            Use the sliders to log how you feel right now. Low scores tell ShiftCoach to protect your sleep, simplify your day and adjust your plan around tougher shifts.
+        <div>
+          <h3 className="text-[17px] font-semibold tracking-tight text-slate-900">
+            Mood & Focus
+          </h3>
+          <p className="mt-1 text-xs font-medium text-slate-500">
+            Today
+          </p>
+          <p className="mt-3 text-sm leading-relaxed text-slate-600 max-w-prose">
+            Log how you feel right now. Lower scores help ShiftCoach protect your sleep,
+            simplify your day, and adapt your plan around tougher shifts.
           </p>
         </div>
         
         {/* Sliders */}
         <div className="space-y-4">
-          <SliderRow label="Mood" iconType="mood" value={mood} onChange={v => onChange?.(v, focus)} onInfo={()=>setActiveInfo('mood')} />
-          <SliderRow label="Focus" iconType="focus" value={focus} onChange={v => onChange?.(mood, v)} onInfo={()=>setActiveInfo('focus')} />
+          <SliderRow 
+            label="Mood" 
+            iconType="mood" 
+            value={mood} 
+            onChange={handleMoodChange} 
+            onInfo={()=>setActiveInfo('mood')}
+            hasInteracted={hasInteracted.mood}
+          />
+          <SliderRow 
+            label="Focus" 
+            iconType="focus" 
+            value={focus} 
+            onChange={handleFocusChange} 
+            onInfo={()=>setActiveInfo('focus')}
+            hasInteracted={hasInteracted.focus}
+          />
         </div>
       </div>
 
@@ -185,81 +199,109 @@ export function MoodFocus({
   )
 }
 
-function SliderRow({ label, iconType, value, onChange, onInfo }: { label: string; iconType: 'mood' | 'focus'; value: number; onChange: (v: number) => void; onInfo: ()=>void }) {
+function SliderRow({ 
+  label, 
+  iconType, 
+  value, 
+  onChange, 
+  onInfo,
+  hasInteracted 
+}: { 
+  label: string
+  iconType: 'mood' | 'focus'
+  value: number
+  onChange: (v: number) => void
+  onInfo: ()=>void
+  hasInteracted: boolean
+}) {
   const percentage = ((value - 1) / 4) * 100 // Scale 1-5 to 0-100%
+  
+  const getContextualMessage = () => {
+    if (!hasInteracted) return null
+    if (label === 'Focus' && value <= 2) {
+      return 'Low focus days trigger lighter cognitive loads.'
+    }
+    if (label === 'Mood' && value <= 2) {
+      return 'Lower mood signals the need for gentler planning.'
+    }
+    return null
+  }
 
   return (
-    <div className="flex items-center gap-4 transition-all">
-      {/* Left */}
-      <div className="flex items-center gap-3 flex-shrink-0">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200/60 shadow-sm">
-          {iconType === 'mood' ? (
-            <Smile className="h-5 w-5 text-slate-700" strokeWidth={2.5} />
-          ) : (
-            <Brain className="h-5 w-5 text-slate-700" strokeWidth={2.5} />
-          )}
+    <div className="rounded-2xl bg-slate-50/50 border border-slate-200/40 px-4 py-4">
+      <div className="flex items-center gap-4">
+        {/* Left – icon */}
+        <div className="flex-shrink-0">
+          <div className="h-9 w-9 rounded-xl bg-white border border-slate-200/60 flex items-center justify-center">
+            {iconType === 'mood' ? (
+              <Smile className="h-4 w-4 text-slate-400" strokeWidth={2} />
+            ) : (
+              <Brain className="h-4 w-4 text-slate-400" strokeWidth={2} />
+            )}
+          </div>
         </div>
-        <span className="text-[13px] font-semibold tracking-tight text-slate-900">{label}</span>
-      </div>
 
-      {/* Center – slider */}
-      <div className="flex-1 min-w-0">
-        <div className="relative h-3">
-          {/* Track background */}
-          <div className="relative h-3 w-full rounded-full bg-gradient-to-r from-slate-100/90 to-slate-100/60 overflow-hidden border border-slate-200/50 shadow-inner">
-            {/* Filled gradient */}
-            <div 
-              className="h-full rounded-full bg-gradient-to-r from-purple-500 via-indigo-500 to-sky-400 transition-all duration-200 shadow-[0_2px_4px_rgba(139,92,246,0.3)]" 
-              style={{ width: `${percentage}%` }}
-            >
-              {/* Gradient shine overlay */}
-              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+        {/* Center – label and slider */}
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-700">{label}</span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-white/70 border border-slate-200/60 px-2.5 py-1 text-xs font-medium text-slate-700 tabular-nums">
+                {value} / 5
+              </span>
+              <button
+                type="button"
+                onClick={onInfo}
+                className="h-8 w-8 rounded-full bg-transparent text-slate-400 hover:bg-slate-100/60 transition-colors flex items-center justify-center"
+                aria-label={`${label} help`}
+              >
+                <Info className="h-4 w-4" strokeWidth={2} />
+              </button>
             </div>
           </div>
+          
+          {/* Slider */}
+          <div className="relative">
+            <div className="relative h-2 rounded-full bg-slate-200/60">
+              {/* Filled track */}
+              <div 
+                className="h-full rounded-full bg-gradient-to-r from-indigo-400/80 to-violet-500/80 transition-all duration-200" 
+                style={{ width: `${percentage}%` }}
+              />
+            </div>
+            
+            {/* Invisible but functional range input */}
+            <input
+              type="range"
+              min={1}
+              max={5}
+              step={1}
+              value={value}
+              onChange={(e) => onChange(Number(e.target.value))}
+              className="absolute inset-0 w-full h-2 cursor-pointer z-10 opacity-0 outline-none"
+              style={{ WebkitAppearance: 'none', appearance: 'none', background: 'transparent' }}
+            />
 
-          {/* Invisible but functional range */}
-          <input
-            type="range"
-            min={1}
-            max={5}
-            step={1}
-            value={value}
-            onChange={(e) => onChange(Number(e.target.value))}
-            className="absolute inset-0 w-full h-4 -top-0.5 cursor-pointer z-20 opacity-0 outline-none"
-            style={{ WebkitAppearance: 'none', appearance: 'none', background: 'transparent' }}
-          />
-
-          {/* Premium thumb */}
-          <div
-            className="absolute top-1/2 -translate-y-1/2 h-5 w-5 rounded-full border-2 border-white bg-gradient-to-br from-sky-400 to-indigo-500 shadow-[0_0_0_4px_rgba(56,189,248,0.25),0_2px_8px_rgba(99,102,241,0.3)] transition-all duration-150 pointer-events-none z-30"
-            style={{ left: `calc(${percentage}% - 10px)` }}
-          >
-            {/* Thumb inner glow */}
-            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/40 via-transparent to-transparent" />
+            {/* Thumb */}
+            <div
+              className="absolute top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-white border border-slate-300 shadow-[0_2px_8px_rgba(0,0,0,0.15)] transition-all duration-150 pointer-events-none z-20"
+              style={{ left: `calc(${percentage}% - 10px)` }}
+            />
           </div>
+          
+          {/* Low / High labels */}
+          <div className="flex justify-between text-[11px] text-slate-500">
+            <span>Low</span>
+            <span>High</span>
+          </div>
+          
+          {/* Contextual micro-copy */}
+          {getContextualMessage() && (
+            <p className="mt-2 text-xs text-slate-500">
+              {getContextualMessage()}
+            </p>
+          )}
         </div>
-        {/* Optional low/high labels */}
-        <div className="flex justify-between mt-1.5 text-[10px] text-slate-500 font-medium">
-          <span>Low</span>
-          <span>High</span>
-        </div>
-      </div>
-
-      {/* Right – score pill + info */}
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <span
-          className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200/60 shadow-sm text-slate-700"
-        >
-          {value}/5
-        </span>
-        <button
-          type="button"
-          onClick={onInfo}
-          className="h-7 w-7 flex items-center justify-center rounded-lg bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200/60 shadow-sm text-slate-500 hover:text-slate-700 hover:bg-gradient-to-br hover:from-blue-50 hover:to-indigo-50 hover:border-blue-200/60 transition-all duration-200 hover:scale-105 active:scale-95"
-          aria-label={`${label} help`}
-        >
-          <Info className="h-3.5 w-3.5" strokeWidth={2.5} />
-        </button>
       </div>
     </div>
   )
