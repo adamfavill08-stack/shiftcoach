@@ -120,6 +120,7 @@ export function CaloriesPage({ summary }: CaloriesPageProps) {
           unit="mg"
         />
       </div>
+      </div>
     </div>
   )
 }
