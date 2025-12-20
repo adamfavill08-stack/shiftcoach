@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { Mail, Lock } from 'lucide-react'
 
 export default function SignIn() {
   const [email, setEmail] = useState('')
@@ -87,61 +88,79 @@ export default function SignIn() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 flex items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md">
-        {/* Premium Card Container */}
-        <div className="relative overflow-hidden rounded-2xl bg-white/90 backdrop-blur-xl border border-white/90 shadow-[0_8px_24px_rgba(15,23,42,0.08),0_0_0_1px_rgba(255,255,255,0.5)]">
-          {/* Premium gradient overlay */}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 via-white/90 to-white/85" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 via-transparent to-indigo-50/20" />
+    <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 relative overflow-hidden flex items-center justify-center px-6 py-12">
+      {/* Soft aurora blobs - very subtle */}
+      <div className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-emerald-200/18 blur-3xl" />
+      <div className="pointer-events-none absolute top-24 -right-24 h-72 w-72 rounded-full bg-indigo-200/15 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 left-1/3 h-72 w-72 rounded-full bg-cyan-200/12 blur-3xl" />
+
+      <div className="w-full max-w-md relative z-10">
+        {/* Glass sheet card */}
+        <div className="relative mx-auto max-w-md rounded-3xl overflow-hidden bg-white/75 backdrop-blur-xl border border-slate-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_18px_50px_-22px_rgba(0,0,0,0.18)] p-7">
+          {/* Glass highlight overlay */}
+          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
           
-          {/* Enhanced inner glow */}
-          <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-white/60" />
-          
-          <div className="relative z-10 px-8 py-10">
+          <div className="relative z-10">
             {/* Logo and Tagline */}
-            <div className="text-center mb-8">
-              <div className="flex justify-center mb-4">
+            <div className="text-center">
+              <div className="flex justify-center">
                 <Image
                   src="/scpremium-logo.svg"
                   alt="ShiftCoach Logo"
-                  width={200}
-                  height={50}
-                  className="object-contain"
+                  width={240}
+                  height={60}
+                  className="object-contain h-14"
                   priority
                 />
               </div>
-              <p className="text-sm font-medium text-slate-600 mt-3">
+              <p className="mt-4 text-sm leading-relaxed text-slate-600 max-w-[36ch] mx-auto">
                 Dedicated to shift worker health and wellbeing.
+              </p>
+              
+              {/* CalAI magic: OS-like status pill */}
+              <span className="mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 bg-slate-50/60 border border-slate-200/50 text-[11px] text-slate-600">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/60" />
+                Personalized for your shifts
+              </span>
+            </div>
+
+            {/* Welcome Text - calmer hierarchy */}
+            <div className="mt-7">
+              <p className="text-[18px] font-semibold tracking-tight text-slate-900">
+                Welcome back
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Sign in to continue your plan.
               </p>
             </div>
 
-            {/* Welcome Text */}
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-clip-text text-transparent mb-6 text-center">
-              Welcome back
-            </h1>
-
             {/* Form */}
-            <form onSubmit={submit} className="space-y-4">
+            <form onSubmit={submit} className="mt-6 space-y-4">
               <div>
-                <input
-                  className="w-full border rounded-xl px-4 py-3.5 bg-white/80 backdrop-blur-sm border-slate-200/60 placeholder-slate-400 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm"
-                  placeholder="Email"
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                />
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                  <input
+                    className="w-full h-12 rounded-2xl pl-11 pr-4 bg-white/70 border border-slate-200/60 placeholder:text-slate-400 text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]"
+                    placeholder="Email"
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
               </div>
               <div>
-                <input
-                  className="w-full border rounded-xl px-4 py-3.5 bg-white/80 backdrop-blur-sm border-slate-200/60 placeholder-slate-400 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm"
-                  placeholder="Password"
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                />
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                  <input
+                    className="w-full h-12 rounded-2xl pl-11 pr-4 bg-white/70 border border-slate-200/60 placeholder:text-slate-400 text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]"
+                    placeholder="Password"
+                    type="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
               </div>
               {err && (
                 <div className="p-3 rounded-xl bg-red-50 border border-red-200/50">
@@ -150,21 +169,21 @@ export default function SignIn() {
               )}
               <button
                 disabled={busy}
-                className="w-full rounded-xl py-3.5 font-semibold text-white bg-gradient-to-r from-blue-500 via-indigo-600 to-blue-600 hover:from-blue-600 hover:via-indigo-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_12px_rgba(59,130,246,0.3)] hover:shadow-[0_6px_16px_rgba(59,130,246,0.4)]"
+                className="w-full h-12 rounded-2xl text-sm font-semibold text-white bg-slate-900 shadow-[0_18px_40px_-22px_rgba(0,0,0,0.35)] hover:opacity-95 active:scale-[0.99] transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {busy ? 'Signing in…' : 'Sign In'}
               </button>
               <div className="flex flex-col sm:flex-row justify-between items-center gap-3 text-sm pt-2">
                 <Link
-                  className="text-slate-600 hover:text-slate-900 transition-colors font-medium"
+                  className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
                   href="/auth/reset"
                 >
                   Forgot password?
                 </Link>
-                <span className="text-slate-500">
+                <span className="text-sm text-slate-500">
                   No account?{' '}
                   <Link
-                    className="text-blue-600 hover:text-blue-700 font-semibold transition-colors"
+                    className="text-sm font-semibold text-slate-900 hover:opacity-80 transition-opacity"
                     href="/auth/sign-up"
                   >
                     Create one

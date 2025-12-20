@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { useAuth } from '@/components/AuthProvider'
 
 export default function SplashPage() {
@@ -38,10 +39,13 @@ export default function SplashPage() {
           }`}
         >
           <div className="flex justify-center mb-6">
-            <img
+            <Image
               src="/scpremium-logo.svg"
               alt="ShiftCoach"
+              width={200}
+              height={80}
               className="h-20 w-auto"
+              priority
             />
           </div>
           <p className="text-xs sm:text-sm font-medium text-slate-600 tracking-tight leading-relaxed max-w-xs mx-auto">
@@ -66,10 +70,13 @@ export default function SplashPage() {
             showContent ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          <img
+          <Image
             src="/groupsc.png"
             alt="Group of shift workers"
+            width={800}
+            height={600}
             className="w-full h-auto max-h-[60vh] object-contain"
+            priority
           />
         </div>
       </div>

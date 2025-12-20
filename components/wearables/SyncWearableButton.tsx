@@ -32,9 +32,20 @@ export default function SyncWearableButton() {
     try {
       setState('syncing')
       const res = await fetch('/api/wearables/sync', { method: 'POST' })
-      if (!res.ok) throw new Error(await res.text())
+      const data = await res.json().catch(() => ({}))
 
-      const { lastSyncedAt: serverTs } = await res.json().catch(() => ({}))
+      // Check if user needs to connect Google Fit first
+      if (data.error === 'no_google_fit_connection') {
+        // Redirect to Google Fit OAuth
+        window.location.href = '/api/google-fit/auth'
+        return
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Sync failed')
+      }
+
+      const { lastSyncedAt: serverTs } = data
       const ts = serverTs ? new Date(serverTs).getTime() : Date.now()
       localStorage.setItem('wearables:lastSyncedAt', String(ts))
       setLastSyncedAt(ts)
