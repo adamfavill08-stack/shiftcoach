@@ -60,15 +60,15 @@ function SleepGauge({ totalMinutes, targetMinutes }: { totalMinutes: number | nu
         background: `conic-gradient(#2563EB ${angle}deg, #E5E7EB 0deg)`,
       }}
     >
-      <div className="h-[138px] w-[138px] rounded-full bg-white shadow-[inset_0_4px_7px_rgba(148,163,184,0.28)]" />
+      <div className="h-[138px] w-[138px] rounded-full bg-white dark:bg-slate-900/50 shadow-[inset_0_4px_7px_rgba(148,163,184,0.28)] dark:shadow-[inset_0_4px_7px_rgba(0,0,0,0.3)]" />
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-xs text-slate-500 tracking-wide">Sleep</span>
-        <span className="mt-[2px] text-[32px] font-semibold leading-none text-slate-900">
+        <span className="text-xs text-slate-500 dark:text-slate-400 tracking-wide">Sleep</span>
+        <span className="mt-[2px] text-[32px] font-semibold leading-none text-slate-900 dark:text-slate-100">
           {hours}
           <span className="align-top text-[18px] font-normal ml-[2px]">h</span>{" "}
           {minutes}
         </span>
-        <span className="mt-[2px] text-xs text-slate-500">
+        <span className="mt-[2px] text-xs text-slate-500 dark:text-slate-400">
           {percent}% of goal
         </span>
       </div>

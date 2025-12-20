@@ -77,14 +77,14 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
 
   if (!post) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50">
+      <main className="min-h-screen bg-gradient-to-b from-slate-50 dark:from-slate-950 via-white dark:via-slate-900 to-slate-50 dark:to-slate-950">
         <div className="max-w-[440px] mx-auto min-h-screen px-5 pb-12 pt-6">
           <div className="text-center py-12">
-            <h1 className="text-xl font-bold text-slate-900 mb-2">Article not found</h1>
-            <p className="text-slate-500 mb-6">The article you're looking for doesn't exist.</p>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">Article not found</h1>
+            <p className="text-slate-500 dark:text-slate-400 mb-6">The article you're looking for doesn't exist.</p>
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
+              className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
             >
               <ChevronLeft className="w-4 h-4" />
               Back to dashboard
@@ -96,38 +96,41 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50">
+    <main className="min-h-screen bg-gradient-to-b from-slate-50 dark:from-slate-950 via-white dark:via-slate-900 to-slate-50 dark:to-slate-950">
       <div className="max-w-[440px] mx-auto min-h-screen px-5 pb-12 pt-6">
         {/* Header */}
         <header className="flex items-center gap-3 mb-6">
           <Link
             href="/dashboard"
-            className="p-2 rounded-xl bg-white/90 backdrop-blur-xl border border-white/80 text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.08)] transition-all hover:bg-white hover:shadow-[0_4px_12px_rgba(15,23,42,0.12)] active:scale-95"
+            className="p-2 rounded-xl bg-white/90 dark:bg-slate-800/50 backdrop-blur-xl border border-white/80 dark:border-slate-700/40 text-slate-700 dark:text-slate-300 shadow-[0_2px_8px_rgba(15,23,42,0.08)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)] transition-all hover:bg-white dark:hover:bg-slate-800/70 hover:shadow-[0_4px_12px_rgba(15,23,42,0.12)] dark:hover:shadow-[0_6px_16px_rgba(0,0,0,0.4)] active:scale-95"
             aria-label="Back to dashboard"
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
-          <h1 className="text-lg font-semibold text-slate-900">Blog</h1>
+          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Blog</h1>
         </header>
 
         {/* Article */}
-        <article className="relative overflow-hidden rounded-xl bg-white/90 backdrop-blur-2xl border border-white/90 shadow-[0_8px_24px_rgba(15,23,42,0.08),0_0_0_1px_rgba(255,255,255,0.5)]">
+        <article className="relative overflow-hidden rounded-xl bg-white/90 dark:bg-slate-900/45 backdrop-blur-2xl border border-white/90 dark:border-slate-700/40 shadow-[0_8px_24px_rgba(15,23,42,0.08),0_0_0_1px_rgba(255,255,255,0.5)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]">
           {/* Premium gradient overlay */}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 via-white/90 to-white/85" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 via-transparent to-purple-50/20" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 dark:from-slate-900/70 via-white/90 dark:via-slate-900/50 to-white/85 dark:to-slate-950/60" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 dark:from-blue-950/20 via-transparent to-purple-50/20 dark:to-purple-950/20" />
+          
+          {/* Subtle colored glow hints - dark mode only */}
+          <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
           
           {/* Enhanced inner glow */}
-          <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-white/60" />
+          <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-white/60 dark:ring-slate-600/30" />
           
           <div className="relative z-10 px-6 py-6">
-            <h2 className="text-[22px] font-bold tracking-tight text-slate-900 mb-2">
+            <h2 className="text-[22px] font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-2">
               {post.title}
             </h2>
-            <p className="text-[14px] text-slate-500 mb-6 leading-relaxed">
+            <p className="text-[14px] text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
               {post.description}
             </p>
-            <div className="prose prose-sm max-w-none">
-              <p className="text-[14px] leading-relaxed text-slate-700 whitespace-pre-line">
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <p className="text-[14px] leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-line">
                 {post.content}
               </p>
             </div>

@@ -6,6 +6,7 @@ import { QuickAddSheet } from '@/components/quick-add/QuickAddSheet'
 import { EventNotificationLoader } from '@/components/notifications/EventNotificationLoader'
 import { ToastContainer } from '@/components/ui/Toast'
 import { ErrorSuppressor } from '@/components/ErrorSuppressor'
+import { ThemeProvider } from '@/components/providers/theme-provider'
 
 export const metadata: Metadata = {
   title: 'ShiftCoach - Health App for Shift Workers',
@@ -26,10 +27,6 @@ export const viewport: Viewport = {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  // Theme Status: Currently only light theme is supported
-  // See lib/theme/config.ts for theme configuration
-  // Additional themes (dark, system) will be added in the future
-  
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -43,13 +40,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             --safe-area-inset-right: env(safe-area-inset-right, 0px);
           }
         ` }} />
-        {/* Ensure dark class is never added - light mode only */}
-        {/* Current theme: light (see lib/theme/config.ts) */}
+        {/* Prevent flash of incorrect theme - must run before React hydrates */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
-                document.documentElement.classList.remove('dark');
+                try {
+                  const theme = localStorage.getItem('theme');
+                  const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  const shouldBeDark = theme === 'dark' || (theme === 'system' && systemPrefersDark) || (!theme && systemPrefersDark);
+                  
+                  if (shouldBeDark) {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                  }
+                } catch (e) {
+                  // Fallback: detect system preference
+                  if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    document.documentElement.classList.add('dark');
+                  }
+                }
               })();
             `,
           }}
@@ -128,18 +139,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className="theme-transition min-h-screen flex items-stretch justify-center antialiased font-sans" suppressHydrationWarning>
+      <body className="theme-transition min-h-screen flex items-stretch justify-center antialiased font-sans bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 text-slate-900 dark:text-slate-100" suppressHydrationWarning>
         {/* Phone-width preview on desktop */}
         <div className="w-full max-w-[430px] min-h-screen shadow-2xl">
           <ErrorSuppressor />
-          <AuthProvider>
-            <QuickAddProvider>
-              <EventNotificationLoader />
-              {children}
-              <QuickAddSheet />
-              <ToastContainer />
-            </QuickAddProvider>
-          </AuthProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <QuickAddProvider>
+                <EventNotificationLoader />
+                {children}
+                <QuickAddSheet />
+                <ToastContainer />
+              </QuickAddProvider>
+            </AuthProvider>
+          </ThemeProvider>
         </div>
       </body>
     </html>

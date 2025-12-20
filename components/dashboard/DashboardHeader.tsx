@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Bell, Calendar, MoreHorizontal } from 'lucide-react'
+import { Bell, Calendar, MoreHorizontal, MessageCircle } from 'lucide-react'
 
 import { CoachChatModal } from '@/components/modals/CoachChatModal'
 import { NotificationModal } from '@/components/notifications/NotificationModal'
@@ -170,190 +170,77 @@ export default function DashboardHeader() {
     }
   }, [])
 
-  // Helper function to convert hex color to RGB for opacity
-  const hexToRgb = (hex: string) => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-    return result
-      ? {
-          r: parseInt(result[1], 16),
-          g: parseInt(result[2], 16),
-          b: parseInt(result[3], 16),
-        }
-      : null
-  }
-
   const getDayStyle = (shift: Shift, isToday: boolean) => {
     const dateStr = shift.date
     const event = events.get(dateStr)
     const label = shift.label?.toUpperCase() || ''
     
-    // Debug logging for today
-    if (isToday) {
-      console.log('[DashboardHeader] Today style check:', {
-        date: dateStr,
-        label: label || 'null/empty',
-        rawLabel: shift.label,
-        hasEvent: !!event,
-        eventType: event?.type,
-      })
-    }
+    // Check if day has shift (not off day)
+    const hasShift = label && label !== 'OFF' && label !== ''
     
-    // Logo color - always use this for text (matches ShiftCoach logo)
-    const LOGO_TEXT_COLOR = '#334155' // slate-700 - matches logo and icon colors
+    // Determine shift color (muted, soft)
+    let borderColor = 'border-slate-200/60 dark:border-slate-700/50' // default
+    let bgColor = 'bg-white/70 dark:bg-slate-900/45'
+    let borderWidth = 'border' // default thin
     
-    // Priority 1: Check for events (holidays take priority over shifts)
+    // Priority 1: Events (holidays, etc.)
     if (event) {
-      // Use event color or default based on type
-      const EVENT_TYPE_COLORS: Record<string, string> = {
-        holiday: '#FCD34D', // Yellow for holidays
-        overtime: '#F97316',
-        training: '#22C55E',
-        personal: '#A855F7',
-        other: '#64748B',
+      const EVENT_COLORS: Record<string, string> = {
+        holiday: 'border-yellow-300/50 dark:border-yellow-400/40',
+        overtime: 'border-orange-300/50 dark:border-orange-400/40',
+        training: 'border-emerald-300/50 dark:border-emerald-400/40',
+        personal: 'border-purple-300/50 dark:border-purple-400/40',
+        other: 'border-slate-300/50 dark:border-slate-600/40',
       }
-      const eventColor = event.color || EVENT_TYPE_COLORS[event.type || 'other'] || '#FCD34D'
-      const rgb = hexToRgb(eventColor)
-      
-      // For today with event, use event color but keep today indicator
-      if (isToday) {
-        return {
-          circle: '',
-          circleBg: '',
-          letter: '',
-          number: 'text-slate-900 font-bold',
-          customStyle: {
-            borderColor: eventColor,
-            borderWidth: '2px',
-            boxShadow: `0 0 0 1px ${eventColor}33`,
-            backgroundColor: 'transparent', // Match header background
-            textColor: LOGO_TEXT_COLOR, // Always use logo color for text
-          },
-        }
-      }
-      
-      // Event color styling
-      return {
-        circle: '',
-        circleBg: '',
-        letter: '',
-        number: 'text-slate-700 font-semibold',
-        customStyle: {
-          borderColor: `${eventColor}99`,
-          borderWidth: '2px',
-          backgroundColor: 'transparent', // Match header background
-          textColor: LOGO_TEXT_COLOR, // Always use logo color for text
-        },
-      }
+      borderColor = EVENT_COLORS[event.type || 'other'] || 'border-slate-300/50 dark:border-slate-600/40'
+      bgColor = 'bg-white/80 dark:bg-slate-900/50'
+      borderWidth = 'border-2' // thicker for shifts/events
+    }
+    // Priority 2: Shift types
+    else if (label === 'NIGHT' || label.includes('NIGHT')) {
+      borderColor = 'border-red-300/50 dark:border-red-400/40' // muted red
+      bgColor = 'bg-white/80 dark:bg-slate-900/50'
+      borderWidth = 'border-2' // thicker
+    } else if (label === 'DAY' || label.includes('DAY')) {
+      borderColor = 'border-blue-300/50 dark:border-blue-400/40' // muted blue
+      bgColor = 'bg-white/80 dark:bg-slate-900/50'
+      borderWidth = 'border-2' // thicker
+    } else if (label === 'MORNING' || label.includes('MORNING')) {
+      borderColor = 'border-blue-300/50 dark:border-blue-400/40' // muted blue
+      bgColor = 'bg-white/80 dark:bg-slate-900/50'
+      borderWidth = 'border-2' // thicker
+    } else if (label === 'AFTERNOON' || label.includes('AFTERNOON')) {
+      borderColor = 'border-indigo-300/50 dark:border-indigo-400/40' // muted indigo
+      bgColor = 'bg-white/80 dark:bg-slate-900/50'
+      borderWidth = 'border-2' // thicker
+    } else if (label === 'EVENING' || label.includes('EVENING')) {
+      borderColor = 'border-purple-300/50 dark:border-purple-400/40' // muted purple
+      bgColor = 'bg-white/80 dark:bg-slate-900/50'
+      borderWidth = 'border-2' // thicker
     }
     
-    // Priority 2: Shift colors (only if no event)
-    // Determine shift color based on label first, then apply today styling
-    
-    // Night shift - red circle (matches calendar)
-    if (label === 'NIGHT' || label.includes('NIGHT')) {
-      return {
-        circle: '',
-        circleBg: '',
-        letter: '',
-        number: isToday ? 'text-slate-900 font-bold' : 'text-slate-700 font-semibold',
-        customStyle: {
-          backgroundColor: 'transparent',
-          textColor: LOGO_TEXT_COLOR,
-          // TEST: If today, use bright green to verify code is running
-          borderColor: isToday ? '#22c55e' : 'rgba(239,68,68,0.6)', // green-500 for today (TEST), red for others
-          borderWidth: isToday ? '3px' : '2px', // Thicker for today
-          boxShadow: isToday ? '0 0 0 2px rgba(34,197,94,0.3)' : undefined,
-        },
+    // Today gets slightly stronger border but still soft
+    if (isToday) {
+      if (hasShift || event) {
+        // Make border slightly more visible for today with shift
+        borderColor = borderColor.replace(/\/(\d+)$/, (match, num) => {
+          const opacity = parseInt(num)
+          return `/${Math.max(20, opacity - 20)}` // Increase visibility slightly
+        })
+        borderWidth = 'border-2' // keep thicker for today
+      } else {
+        // Today but no shift - use soft slate
+        borderColor = 'border-slate-900/15 dark:border-slate-600/30'
+        borderWidth = 'border-2' // thicker even for off days when today
       }
+      bgColor = 'bg-white/90 dark:bg-slate-800/60'
     }
     
-    // Day shift - blue circle (matches calendar)
-    if (label === 'DAY' || label.includes('DAY')) {
-      return {
-        circle: '',
-        circleBg: '',
-        letter: '',
-        number: isToday ? 'text-slate-900 font-bold' : 'text-slate-700 font-semibold',
-        customStyle: {
-          backgroundColor: 'transparent',
-          textColor: LOGO_TEXT_COLOR,
-          // TEST: If today, use bright purple to verify code is running
-          borderColor: isToday ? '#a855f7' : 'rgba(59,130,246,0.6)', // purple-500 for today (TEST), blue for others
-          borderWidth: isToday ? '3px' : '2px', // Thicker for today
-          boxShadow: isToday ? '0 0 0 2px rgba(168,85,247,0.3)' : undefined,
-        },
-      }
-    }
-    
-    // Morning shift - blue circle (matches calendar)
-    if (label === 'MORNING' || label.includes('MORNING')) {
-      return {
-        circle: '',
-        circleBg: '',
-        letter: '',
-        number: isToday ? 'text-slate-900 font-bold' : 'text-slate-700 font-semibold',
-        customStyle: {
-          backgroundColor: 'transparent',
-          textColor: LOGO_TEXT_COLOR,
-          borderColor: isToday ? '#3b82f6' : 'rgba(59,130,246,0.6)', // blue-500 with opacity
-          borderWidth: isToday ? '2.5px' : '2px',
-          boxShadow: isToday ? '0 0 0 1px rgba(59,130,246,0.1)' : undefined,
-        },
-      }
-    }
-    
-    // Afternoon shift - purple/indigo circle (matches calendar)
-    if (label === 'AFTERNOON' || label.includes('AFTERNOON')) {
-      return {
-        circle: '',
-        circleBg: '',
-        letter: '',
-        number: isToday ? 'text-slate-900 font-bold' : 'text-slate-700 font-semibold',
-        customStyle: {
-          backgroundColor: 'transparent',
-          textColor: LOGO_TEXT_COLOR,
-          borderColor: isToday ? '#6366f1' : 'rgba(99,102,241,0.6)', // indigo-500 with opacity
-          borderWidth: isToday ? '2.5px' : '2px',
-          boxShadow: isToday ? '0 0 0 1px rgba(99,102,241,0.1)' : undefined,
-        },
-      }
-    }
-    
-    // Off days or no shift - grayed out (no circle)
-    if (label === 'OFF' || !label || label === '') {
-      if (isToday) {
-        console.log('[DashboardHeader] Today is OFF or no shift - using gray border')
-      }
-      return {
-        circle: '',
-        circleBg: '',
-        letter: 'text-slate-400',
-        number: isToday ? 'text-slate-900 font-bold' : 'text-slate-400',
-        customStyle: {
-          backgroundColor: 'transparent',
-          textColor: '#94a3b8', // slate-400 for off days
-          ...(isToday && {
-            borderColor: '#cbd5e1', // light gray border for today (off day)
-            borderWidth: '2.5px',
-            boxShadow: '0 0 0 1px rgba(203,213,225,0.2)',
-          }),
-        },
-      }
-    }
-    
-    // Custom/other shifts - yellow circle (fallback)
     return {
-      circle: '',
-      circleBg: '',
-      letter: '',
-      number: isToday ? 'text-slate-900 font-bold' : 'text-slate-700 font-semibold',
-      customStyle: {
-        backgroundColor: 'transparent',
-        textColor: LOGO_TEXT_COLOR,
-        borderColor: isToday ? '#eab308' : 'rgba(234,179,8,0.6)', // yellow-500 with opacity
-        borderWidth: isToday ? '2.5px' : '2px',
-        boxShadow: isToday ? '0 0 0 1px rgba(234,179,8,0.1)' : undefined,
-      },
+      border: `${borderWidth} ${borderColor}`,
+      bg: `${bgColor} backdrop-blur`,
+      letterColor: hasShift || event ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400 dark:text-slate-500',
+      numberColor: hasShift || event ? 'text-slate-500 dark:text-slate-400' : 'text-slate-400 dark:text-slate-500',
     }
   }
 
@@ -367,84 +254,116 @@ export default function DashboardHeader() {
     return date.getDate()
   }
 
+  // Get today's shift label for context cue
+  const todayShiftLabel = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    const todayShift = shifts.find(s => s.date === today)
+    if (!todayShift || !todayShift.label || todayShift.label === 'OFF' || todayShift.label === 'off') {
+      return 'Day Off'
+    }
+    // Format label nicely
+    const label = todayShift.label.toLowerCase()
+    if (label.includes('night')) return 'Night shift'
+    if (label.includes('day')) return 'Day shift'
+    if (label.includes('morning')) return 'Morning shift'
+    if (label.includes('afternoon')) return 'Afternoon shift'
+    if (label.includes('evening')) return 'Evening shift'
+    return todayShift.label.charAt(0).toUpperCase() + todayShift.label.slice(1).toLowerCase()
+  }, [shifts])
+
+  // Icon button base styles - standardized
+  const iconBtn = "h-9 w-9 rounded-full grid place-items-center hover:bg-slate-100/70 dark:hover:bg-slate-800/50 active:scale-[0.98] transition group"
+
   return (
     <>
-      <header className="px-5 pt-6 safe-top" style={{ paddingTop: 'calc(1.5rem + env(safe-area-inset-top))' }}>
-        {/* Premium Header Rail */}
-        <div className="flex h-14 items-center justify-between px-4">
-            <Image
-              src="/Faviconnew.png"
-              alt="ShiftCoach Icon"
-              width={60}
-              height={60}
-              className="object-contain"
-              priority
-            />
-            
-            {/* Button clusters */}
-            <div className="flex items-center gap-4">
-              {/* Left cluster: Refresh/Sync */}
-              <div className="flex items-center gap-2">
-                <SyncWearableButton />
-              </div>
+      <header 
+        className="sticky top-0 z-50 bg-white/70 dark:bg-slate-900/45 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-700/40 safe-top" 
+        style={{ paddingTop: 'calc(env(safe-area-inset-top))' }}
+      >
+        {/* Top highlight overlay */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white/70 dark:from-slate-900/70 to-transparent" />
+        
+        {/* Bottom fade overlay */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-b from-transparent to-white/70 dark:to-slate-900/70" />
+        
+        <div className="mx-auto max-w-md px-4 relative">
+          <div className="h-14 flex items-center justify-between">
+            {/* Left: Brand button - unified with cluster language */}
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="h-10 w-10 rounded-full bg-white/60 dark:bg-slate-900/40 backdrop-blur border border-slate-200/50 dark:border-slate-700/40 shadow-[0_8px_20px_-16px_rgba(0,0,0,0.14)] grid place-items-center hover:bg-white/80 dark:hover:bg-slate-800/50 active:scale-[0.98] transition"
+              aria-label="ShiftCoach"
+            >
+              <Image
+                src="/Faviconnew.png"
+                alt="ShiftCoach"
+                width={36}
+                height={36}
+                className="h-9 w-9 object-contain"
+                priority
+              />
+            </button>
+
+            {/* Center: Context cue - tightened editorial style */}
+            <div className="hidden sm:inline-flex items-center gap-2 rounded-full px-3 py-1 bg-white/50 dark:bg-slate-900/40 backdrop-blur border border-slate-200/40 dark:border-slate-700/40 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+              Today <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" /> {todayShiftLabel}
+            </div>
+
+            {/* Right: Pill cluster - slimmer and more system */}
+            <div className="inline-flex items-center gap-1 rounded-full bg-white/60 dark:bg-slate-900/40 backdrop-blur border border-slate-200/50 dark:border-slate-700/40 shadow-[0_8px_20px_-16px_rgba(0,0,0,0.14)] px-1.5 py-1">
+              <SyncWearableButton />
               
-              {/* Right cluster: Calendar + Bell + Coach + Settings */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => router.push('/rota')}
-                  className="flex items-center justify-center h-10 w-10 rounded-full bg-white/60 border border-slate-200/50 shadow-none hover:bg-white/85 transition-transform active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2"
-                  aria-label="Calendar"
-                  type="button"
-                >
-                  <Calendar className="h-5 w-5 text-slate-500" strokeWidth={2} />
-                </button>
-                <button
-                  onClick={() => setIsNotificationModalOpen(true)}
-                  className="relative flex items-center justify-center h-10 w-10 rounded-full bg-white/60 border border-slate-200/50 shadow-none hover:bg-white/85 transition-transform active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2"
-                  aria-label="Notifications"
-                  type="button"
-                >
-                  <Bell className="h-5 w-5 text-slate-500" strokeWidth={2} />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-rose-500/80 ring-2 ring-white" />
-                  )}
-                </button>
-                {coachEnabled !== false && (
-                  <button
-                    onClick={() => setIsCoachChatOpen(true)}
-                    className="flex items-center justify-center h-10 w-10 rounded-full bg-white/60 border border-slate-200/50 shadow-none hover:bg-white/85 transition-transform active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2"
-                    aria-label="Chat with your coach"
-                    type="button"
-                  >
-                    <Image
-                      src="/bubble-icon.png"
-                      alt="Shift Coach"
-                      width={28}
-                      height={28}
-                      className="w-5 h-5 object-contain"
-                      style={{
-                        filter:
-                          'brightness(0) saturate(100%) invert(31%) sepia(6%) saturate(747%) hue-rotate(169deg) brightness(95%) contrast(88%)',
-                      }}
-                    />
-                  </button>
+              <button
+                onClick={() => router.push('/rota')}
+                className={iconBtn}
+                aria-label="Calendar"
+                type="button"
+              >
+                <Calendar className="h-4 w-4 text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200" />
+              </button>
+              
+              <button
+                onClick={() => setIsNotificationModalOpen(true)}
+                className={`${iconBtn} relative`}
+                aria-label="Notifications"
+                type="button"
+              >
+                <Bell className="h-4 w-4 text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-rose-400/70 dark:bg-rose-500/80 ring-2 ring-white dark:ring-slate-900" />
                 )}
+              </button>
+              
+              {coachEnabled !== false && (
                 <button
-                  onClick={() => router.push('/settings')}
-                  className="flex items-center justify-center h-10 w-10 rounded-full bg-white/60 border border-slate-200/50 shadow-none hover:bg-white/85 transition-transform active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2"
-                  aria-label="More options"
+                  onClick={() => setIsCoachChatOpen(true)}
+                  className={iconBtn}
+                  aria-label="Chat with your coach"
                   type="button"
                 >
-                  <MoreHorizontal className="h-5 w-5 text-slate-500" strokeWidth={2} />
+                  <MessageCircle className="h-4 w-4 text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200" />
                 </button>
-              </div>
+              )}
+              
+              <button
+                onClick={() => router.push('/settings')}
+                className={iconBtn}
+                aria-label="More options"
+                type="button"
+              >
+                <MoreHorizontal className="h-4 w-4 text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200" />
+              </button>
             </div>
           </div>
+        </div>
         
         {/* Calendar preview - integrated into header */}
-        <div className="bg-transparent rounded-2xl px-4 py-3.5">
+        <div className="mx-auto max-w-md bg-transparent rounded-2xl px-4 py-3.5 relative">
+          {/* Faint baseline to anchor the row */}
+          <div className="absolute left-0 right-0 top-5 h-px bg-gradient-to-r from-transparent via-slate-200/60 dark:via-slate-700/50 to-transparent" />
+          
           {loadingShifts ? (
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-3 relative">
               {[...Array(7)].map((_, i) => (
                 <div key={i} className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
                   <div className="w-8 h-8 rounded-full bg-slate-200 animate-pulse" />
@@ -453,49 +372,39 @@ export default function DashboardHeader() {
               ))}
             </div>
           ) : (
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2 relative">
               {shifts.map((shift) => {
                 const isToday = shift.date === new Date().toISOString().slice(0, 10)
                 const style = getDayStyle(shift, isToday)
                 const dayLetter = formatDayLetter(shift.date)
                 const dayNumber = formatDayNumber(shift.date)
+                const hasShift = shift.label && shift.label.toUpperCase() !== 'OFF' && shift.label !== ''
+                const event = events.get(shift.date)
+                const isSelected = hasShift || !!event
                 
                 return (
                   <div
                     key={shift.date}
                     className="flex flex-col items-center gap-1.5 flex-1 min-w-0"
                   >
-                    {/* Day letter in circle - ultra premium styling */}
-                    <div
-                      className={`flex items-center justify-center rounded-full transition-all ${
-                        isToday ? 'w-8 h-8' : 'w-7 h-7'
-                      } ${
-                        style.circleBg || ''
-                      } ${
-                        style.customStyle || style.circle
-                          ? 'shadow-[0_1px_3px_rgba(0,0,0,0.08)] backdrop-blur-sm'
-                          : ''
-                      }`}
-                      style={{
-                        borderColor: style.customStyle?.borderColor || undefined,
-                        borderWidth: style.customStyle?.borderWidth || undefined,
-                        borderStyle: style.customStyle?.borderColor ? 'solid' : undefined,
-                        boxShadow: style.customStyle?.boxShadow || undefined,
-                        backgroundColor: style.customStyle?.backgroundColor || 'transparent',
-                      }}
-                    >
-                      <span 
-                        className={`text-[10px] leading-none`}
-                        style={{
-                          color: style.customStyle?.textColor || '#334155', // Default to logo color
-                          fontWeight: '500'
-                        }}
+                    {/* Day letter in circle - CalAI premium styling */}
+                    <div className="relative">
+                      <button
+                        className={`relative flex items-center justify-center rounded-full w-8 h-8 ${style.border} ${style.bg} hover:bg-white/90 dark:hover:bg-slate-800/60 active:scale-[0.98] transition-transform transition-colors`}
                       >
-                        {dayLetter}
-                      </span>
+                        <span className={`text-[12px] font-semibold ${style.letterColor} leading-none`}>
+                          {dayLetter}
+                        </span>
+                        
+                        {/* Today dot indicator */}
+                        {isToday && (
+                          <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-rose-500/80 dark:bg-rose-400/70 ring-2 ring-white dark:ring-slate-900" />
+                        )}
+                      </button>
                     </div>
+                    
                     {/* Day number */}
-                    <span className={`text-xs ${style.number} leading-none tracking-tight`}>
+                    <span className={`text-xs font-medium tabular-nums ${style.numberColor} leading-none`}>
                       {dayNumber}
                     </span>
                   </div>

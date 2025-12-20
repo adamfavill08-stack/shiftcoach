@@ -84,8 +84,8 @@ export function SocialJetlagInfoModal({
           elements.push(
             <ul key={`list-${idx}`} className="space-y-2 mb-3 ml-2">
               {currentList.map((item, i) => (
-                <li key={i} className="text-[13px] text-slate-700 leading-relaxed flex items-start gap-2">
-                  <span className="text-indigo-500 mt-1">•</span>
+                <li key={i} className="text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed flex items-start gap-2">
+                  <span className="text-indigo-500 dark:text-indigo-400 mt-1">•</span>
                   <span>{item}</span>
                 </li>
               ))}
@@ -95,7 +95,7 @@ export function SocialJetlagInfoModal({
         }
         if (trimmed) {
           elements.push(
-            <p key={`para-${idx}`} className="text-[13px] text-slate-700 leading-relaxed mb-3">
+            <p key={`para-${idx}`} className="text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed mb-3">
               {trimmed}
             </p>
           )
@@ -107,8 +107,8 @@ export function SocialJetlagInfoModal({
       elements.push(
         <ul key="list-final" className="space-y-2 mb-3 ml-2">
           {currentList.map((item, i) => (
-            <li key={i} className="text-[13px] text-slate-700 leading-relaxed flex items-start gap-2">
-              <span className="text-indigo-500 mt-1">•</span>
+            <li key={i} className="text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed flex items-start gap-2">
+              <span className="text-indigo-500 dark:text-indigo-400 mt-1">•</span>
               <span>{item}</span>
             </li>
           ))}
@@ -137,22 +137,28 @@ export function SocialJetlagInfoModal({
       />
       
       <div
-        className="relative w-full max-w-md max-h-[90vh] bg-white rounded-t-[32px] sm:rounded-[32px] shadow-2xl overflow-hidden flex flex-col"
+        className="relative w-full max-w-md max-h-[90vh] bg-white dark:bg-slate-900/95 backdrop-blur-xl rounded-t-[32px] sm:rounded-[32px] shadow-2xl dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] overflow-hidden flex flex-col border border-slate-200/50 dark:border-slate-700/40"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Premium gradient overlay */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/95 dark:from-slate-900/70 via-white/90 dark:via-slate-900/50 to-white/85 dark:to-slate-950/60" />
+        
+        {/* Inner ring for premium feel */}
+        <div className="pointer-events-none absolute inset-0 rounded-t-[32px] sm:rounded-[32px] ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
+        
         {/* Header */}
-        <div className="relative z-10 flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100/80 bg-gradient-to-b from-white to-slate-50/50">
+        <div className="relative z-10 flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100/80 dark:border-slate-700/50 bg-gradient-to-b from-white dark:from-slate-900/70 to-slate-50/50 dark:to-slate-900/50">
           <div>
-            <h2 className="text-[19px] font-bold tracking-tight text-slate-900">
+            <h2 className="text-[19px] font-bold tracking-tight text-slate-900 dark:text-slate-100">
               Social Jetlag Explained
             </h2>
-            <p className="mt-0.5 text-[12px] text-slate-500">
+            <p className="mt-0.5 text-[12px] text-slate-500 dark:text-slate-400">
               Understanding your sleep timing shift
             </p>
           </div>
           <button
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50/80 hover:bg-slate-100/80 border border-slate-200/60 text-slate-600 hover:text-slate-900 transition-all hover:scale-105 active:scale-95"
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50/80 dark:bg-slate-800/50 hover:bg-slate-100/80 dark:hover:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/40 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-all hover:scale-105 active:scale-95"
           >
             <X className="h-4 w-4" strokeWidth={2.5} />
           </button>
@@ -162,53 +168,53 @@ export function SocialJetlagInfoModal({
         <div className="relative z-10 flex-1 overflow-y-auto px-6 py-6 space-y-6">
           {/* What is Social Jetlag */}
           <section>
-            <h3 className="text-[15px] font-bold text-slate-900 mb-2 flex items-center gap-2">
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600 text-[12px] font-bold">
+            <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 mb-2 flex items-center gap-2">
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 text-[12px] font-bold">
                 1
               </span>
               What is Social Jetlag?
             </h3>
-            <p className="text-[13px] text-slate-700 leading-relaxed mb-3">
+            <p className="text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed mb-3">
               Social jetlag measures how much your current sleep timing has shifted away from your usual sleep pattern. For shift workers, this is especially important because your sleep schedule naturally changes when you switch between day and night shifts.
             </p>
-            <p className="text-[12px] text-slate-600 leading-relaxed">
+            <p className="text-[12px] text-slate-600 dark:text-slate-300 leading-relaxed">
               Unlike regular jetlag from travel, social jetlag happens when your body clock gets out of sync with your usual rhythm due to shift changes, irregular schedules, or lifestyle factors.
             </p>
           </section>
 
           {/* How it's calculated */}
           <section>
-            <h3 className="text-[15px] font-bold text-slate-900 mb-2 flex items-center gap-2">
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-blue-100 text-blue-600 text-[12px] font-bold">
+            <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 mb-2 flex items-center gap-2">
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-[12px] font-bold">
                 2
               </span>
               How It&apos;s Calculated
             </h3>
-            <p className="text-[13px] text-slate-700 leading-relaxed mb-3">
+            <p className="text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed mb-3">
               ShiftCoach calculates social jetlag using your sleep data:
             </p>
             <ul className="space-y-1.5 mb-3 ml-8">
-              <li className="text-[12px] text-slate-600 flex items-start gap-2">
-                <span className="text-slate-400 mt-1">•</span>
+              <li className="text-[12px] text-slate-600 dark:text-slate-300 flex items-start gap-2">
+                <span className="text-slate-400 dark:text-slate-500 mt-1">•</span>
                 <span>Groups your sleep by &quot;ShiftCoach days&quot; (07:00 → 07:00, not midnight to midnight)</span>
               </li>
-              <li className="text-[12px] text-slate-600 flex items-start gap-2">
-                <span className="text-slate-400 mt-1">•</span>
+              <li className="text-[12px] text-slate-600 dark:text-slate-300 flex items-start gap-2">
+                <span className="text-slate-400 dark:text-slate-500 mt-1">•</span>
                 <span>For each day, calculates your sleep midpoint (halfway between your first sleep start and last sleep end)</span>
               </li>
-              <li className="text-[12px] text-slate-600 flex items-start gap-2">
-                <span className="text-slate-400 mt-1">•</span>
+              <li className="text-[12px] text-slate-600 dark:text-slate-300 flex items-start gap-2">
+                <span className="text-slate-400 dark:text-slate-500 mt-1">•</span>
                 <span>Establishes a baseline from the median midpoint of your previous 7-10 stable days</span>
               </li>
-              <li className="text-[12px] text-slate-600 flex items-start gap-2">
-                <span className="text-slate-400 mt-1">•</span>
+              <li className="text-[12px] text-slate-600 dark:text-slate-300 flex items-start gap-2">
+                <span className="text-slate-400 dark:text-slate-500 mt-1">•</span>
                 <span>Compares today&apos;s midpoint to your baseline to find the misalignment in hours</span>
               </li>
             </ul>
             {(baselineMidpointClock !== undefined || currentMidpointClock !== undefined) && (
-              <div className="mt-3 p-3 rounded-xl bg-slate-50/80 border border-slate-200/60">
-                <p className="text-[11px] font-semibold text-slate-600 mb-2">Your Current Data:</p>
-                <div className="space-y-1 text-[12px] text-slate-700">
+              <div className="mt-3 p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/30 border border-slate-200/60 dark:border-slate-700/40">
+                <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-2">Your Current Data:</p>
+                <div className="space-y-1 text-[12px] text-slate-700 dark:text-slate-300">
                   {baselineMidpointClock !== undefined && (
                     <p>Baseline midpoint: <span className="font-semibold">{formatTime(baselineMidpointClock)}</span></p>
                   )}
@@ -223,67 +229,67 @@ export function SocialJetlagInfoModal({
 
           {/* Score Categories */}
           <section>
-            <h3 className="text-[15px] font-bold text-slate-900 mb-2 flex items-center gap-2">
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 text-[12px] font-bold">
+            <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 mb-2 flex items-center gap-2">
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 text-[12px] font-bold">
                 3
               </span>
               Score Categories
             </h3>
             <ul className="space-y-2 mb-3 ml-8">
-              <li className="text-[12px] text-slate-600 flex items-start gap-2">
-                <span className="text-emerald-500 mt-1 font-bold">•</span>
+              <li className="text-[12px] text-slate-600 dark:text-slate-300 flex items-start gap-2">
+                <span className="text-emerald-500 dark:text-emerald-400 mt-1 font-bold">•</span>
                 <div>
-                  <span className="font-semibold text-slate-900">Low (0-1.5h):</span> Your sleep timing has stayed close to your usual rhythm. This is ideal for maintaining your body clock.
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">Low (0-1.5h):</span> Your sleep timing has stayed close to your usual rhythm. This is ideal for maintaining your body clock.
                 </div>
               </li>
-              <li className="text-[12px] text-slate-600 flex items-start gap-2">
-                <span className="text-amber-500 mt-1 font-bold">•</span>
+              <li className="text-[12px] text-slate-600 dark:text-slate-300 flex items-start gap-2">
+                <span className="text-amber-500 dark:text-amber-400 mt-1 font-bold">•</span>
                 <div>
-                  <span className="font-semibold text-slate-900">Moderate (1.5-3.5h):</span> Your sleep midpoint has shifted noticeably, likely due to recent shift changes. Some adjustment may be needed.
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">Moderate (1.5-3.5h):</span> Your sleep midpoint has shifted noticeably, likely due to recent shift changes. Some adjustment may be needed.
                 </div>
               </li>
-              <li className="text-[12px] text-slate-600 flex items-start gap-2">
-                <span className="text-rose-500 mt-1 font-bold">•</span>
+              <li className="text-[12px] text-slate-600 dark:text-slate-300 flex items-start gap-2">
+                <span className="text-rose-500 dark:text-rose-400 mt-1 font-bold">•</span>
                 <div>
-                  <span className="font-semibold text-slate-900">High (&gt;3.5h):</span> Your body clock is significantly shifted from your usual pattern. This often happens after switching between day and night shifts.
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">High (&gt;3.5h):</span> Your body clock is significantly shifted from your usual pattern. This often happens after switching between day and night shifts.
                 </div>
               </li>
             </ul>
-            <p className="text-[12px] text-slate-500 italic">
+            <p className="text-[12px] text-slate-500 dark:text-slate-400 italic">
               For shift workers, some variation is normal when switching shifts. The goal is to minimize large swings and help your body adapt more smoothly.
             </p>
           </section>
 
           {/* AI Suggestions */}
-          <section className="pt-4 border-t border-slate-200/60">
+          <section className="pt-4 border-t border-slate-200/60 dark:border-slate-700/50">
             <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="h-4 w-4 text-indigo-600" strokeWidth={2.5} />
-              <h3 className="text-[15px] font-bold text-slate-900">
+              <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" strokeWidth={2.5} />
+              <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">
                 Personalized Suggestions
               </h3>
             </div>
             {loadingSuggestions ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 text-indigo-600 animate-spin" />
-                <span className="ml-2 text-[13px] text-slate-600">Generating suggestions...</span>
+                <Loader2 className="h-5 w-5 text-indigo-600 dark:text-indigo-400 animate-spin" />
+                <span className="ml-2 text-[13px] text-slate-600 dark:text-slate-300">Generating suggestions...</span>
               </div>
             ) : suggestions ? (
-              <div className="bg-gradient-to-br from-indigo-50/50 to-blue-50/30 rounded-xl p-4 border border-indigo-100/60">
+              <div className="bg-gradient-to-br from-indigo-50/50 dark:from-indigo-950/30 to-blue-50/30 dark:to-blue-950/30 rounded-xl p-4 border border-indigo-100/60 dark:border-indigo-800/40">
                 <div className="space-y-2">
                   {formatSuggestions(suggestions)}
                 </div>
               </div>
             ) : (
-              <p className="text-[12px] text-slate-500">Unable to load suggestions at this time.</p>
+              <p className="text-[12px] text-slate-500 dark:text-slate-400">Unable to load suggestions at this time.</p>
             )}
           </section>
         </div>
 
         {/* Footer */}
-        <div className="relative z-10 px-6 pb-6 pt-4 border-t border-slate-100/80 bg-gradient-to-b from-transparent to-slate-50/50">
+        <div className="relative z-10 px-6 pb-6 pt-4 border-t border-slate-100/80 dark:border-slate-700/50 bg-gradient-to-b from-transparent to-slate-50/50 dark:to-slate-900/50">
           <button
             onClick={onClose}
-            className="w-full h-11 rounded-xl bg-gradient-to-r from-indigo-500 via-blue-500 to-indigo-600 text-[13px] font-bold text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)] transition-all hover:shadow-[0_6px_16px_rgba(99,102,241,0.4)] hover:scale-[1.02] active:scale-[0.98]"
+            className="w-full h-11 rounded-xl bg-gradient-to-r from-indigo-500 via-blue-500 to-indigo-600 dark:from-indigo-600 dark:via-blue-600 dark:to-indigo-700 text-[13px] font-bold text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)] dark:shadow-[0_4px_12px_rgba(99,102,241,0.5)] transition-all hover:shadow-[0_6px_16px_rgba(99,102,241,0.4)] dark:hover:shadow-[0_6px_16px_rgba(99,102,241,0.6)] hover:scale-[1.02] active:scale-[0.98]"
           >
             Got it
           </button>

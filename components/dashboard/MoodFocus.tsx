@@ -73,25 +73,25 @@ export function MoodFocus({
     <section
       className={[
         "relative rounded-3xl",
-        "bg-white/80 backdrop-blur-xl",
-        "border border-slate-200/50",
-        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-16px_rgba(0,0,0,0.12)]",
+        "bg-white/80 dark:bg-slate-900/45 backdrop-blur-xl",
+        "border border-slate-200/50 dark:border-slate-700/40",
+        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-16px_rgba(0,0,0,0.12)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.12)]",
         "p-6",
       ].join(" ")}
     >
       {/* Optional highlight overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/60 via-transparent to-transparent" />
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/60 dark:from-slate-900/50 via-transparent to-transparent" />
       
       <div className="relative z-10 space-y-6">
         {/* Header */}
         <div>
-          <h3 className="text-[17px] font-semibold tracking-tight text-slate-900">
+          <h3 className="text-[17px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
             Mood & Focus
           </h3>
-          <p className="mt-1 text-xs font-medium text-slate-500">
+          <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
             Today
           </p>
-          <p className="mt-3 text-sm leading-relaxed text-slate-600 max-w-prose">
+          <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300 max-w-prose">
             Log how you feel right now. Lower scores help ShiftCoach protect your sleep,
             simplify your day, and adapt your plan around tougher shifts.
           </p>
@@ -228,15 +228,15 @@ function SliderRow({
   }
 
   return (
-    <div className="rounded-2xl bg-slate-50/50 border border-slate-200/40 px-4 py-4">
+    <div className="rounded-2xl bg-slate-50/50 dark:bg-slate-800/35 border border-slate-200/40 dark:border-slate-700/30 px-4 py-4">
       <div className="flex items-center gap-4">
         {/* Left – icon */}
         <div className="flex-shrink-0">
-          <div className="h-9 w-9 rounded-xl bg-white border border-slate-200/60 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-xl bg-white dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 flex items-center justify-center">
             {iconType === 'mood' ? (
-              <Smile className="h-4 w-4 text-slate-400" strokeWidth={2} />
+              <Smile className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
             ) : (
-              <Brain className="h-4 w-4 text-slate-400" strokeWidth={2} />
+              <Brain className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
             )}
           </div>
         </div>
@@ -244,15 +244,15 @@ function SliderRow({
         {/* Center – label and slider */}
         <div className="flex-1 min-w-0 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-700">{label}</span>
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{label}</span>
             <div className="flex items-center gap-2">
-              <span className="rounded-full bg-white/70 border border-slate-200/60 px-2.5 py-1 text-xs font-medium text-slate-700 tabular-nums">
+              <span className="rounded-full bg-white/70 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 tabular-nums">
                 {value} / 5
               </span>
               <button
                 type="button"
                 onClick={onInfo}
-                className="h-8 w-8 rounded-full bg-transparent text-slate-400 hover:bg-slate-100/60 transition-colors flex items-center justify-center"
+                className="h-8 w-8 rounded-full bg-transparent text-slate-400 dark:text-slate-500 hover:bg-slate-100/60 dark:hover:bg-slate-800/50 transition-colors flex items-center justify-center"
                 aria-label={`${label} help`}
               >
                 <Info className="h-4 w-4" strokeWidth={2} />
@@ -262,7 +262,7 @@ function SliderRow({
           
           {/* Slider */}
           <div className="relative">
-            <div className="relative h-2 rounded-full bg-slate-200/60">
+            <div className="relative h-2 rounded-full bg-slate-200/60 dark:bg-slate-700/50">
               {/* Filled track */}
               <div 
                 className="h-full rounded-full bg-gradient-to-r from-indigo-400/80 to-violet-500/80 transition-all duration-200" 
@@ -284,20 +284,20 @@ function SliderRow({
 
             {/* Thumb */}
             <div
-              className="absolute top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-white border border-slate-300 shadow-[0_2px_8px_rgba(0,0,0,0.15)] transition-all duration-150 pointer-events-none z-20"
+              className="absolute top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 shadow-[0_2px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all duration-150 pointer-events-none z-20"
               style={{ left: `calc(${percentage}% - 10px)` }}
             />
           </div>
           
           {/* Low / High labels */}
-          <div className="flex justify-between text-[11px] text-slate-500">
+          <div className="flex justify-between text-[11px] text-slate-500 dark:text-slate-400">
             <span>Low</span>
             <span>High</span>
           </div>
           
           {/* Contextual micro-copy */}
           {getContextualMessage() && (
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
               {getContextualMessage()}
             </p>
           )}

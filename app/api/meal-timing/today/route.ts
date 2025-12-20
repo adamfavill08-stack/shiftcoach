@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
 
     const shiftLabelFormatted = todayShift
       ? `${shiftLabel} shift${shiftStartTime && shiftEndTime ? ` · ${shiftStartTime}–${shiftEndTime}` : ''}`
-      : 'Off day'
+      : 'Day Off'
 
     // Find next meal
     const now = new Date()

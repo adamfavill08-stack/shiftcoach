@@ -459,7 +459,7 @@ function ShiftRhythmCard({ score, circadian, sleepDeficit, socialJetlag, shiftLa
       {socialJetlag ? (
         <SocialJetlagCard />
       ) : (
-        <div className="text-xs text-slate-400 p-4 text-center">
+        <div className="text-xs text-slate-400 dark:text-slate-500 p-4 text-center">
           Social Jetlag data loading...
         </div>
       )}
@@ -481,7 +481,7 @@ function ShiftRhythmCard({ score, circadian, sleepDeficit, socialJetlag, shiftLa
 
       {/* Disclaimer */}
       <div className="pt-4">
-        <p className="text-[11px] leading-relaxed text-slate-500 text-center">
+        <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400 text-center">
           Shift Coach is a coaching tool and does not provide medical advice. For medical conditions, pregnancy or complex health issues, please check your plan with a registered professional.
         </p>
       </div>
@@ -520,23 +520,23 @@ function BodyClockCard({
     <section
       className={[
         "relative overflow-hidden rounded-[28px]",
-        "bg-white/85 backdrop-blur-2xl",
-        "border border-white/80",
-        "shadow-[0_24px_60px_rgba(15,23,42,0.12)]",
+        "bg-white/85 dark:bg-slate-900/45 backdrop-blur-2xl",
+        "border border-white/80 dark:border-slate-700/40",
+        "shadow-[0_24px_60px_rgba(15,23,42,0.12)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.4)]",
         "px-7 py-7",
       ].join(" ")}
     >
       {/* Ultra-premium gradient overlay */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/95 via-white/80 to-white/60" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/95 dark:from-slate-900/60 via-white/80 dark:via-slate-900/50 to-white/60 dark:to-slate-900/40" />
       
       {/* Subtle inner glow */}
-      <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/50" />
+      <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/50 dark:ring-slate-700/30" />
 
       <div className="relative z-10 space-y-5">
         {/* TOP LEFT: Body clock title + info */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
-            <p className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
+            <p className="text-[13px] font-bold tracking-[0.15em] text-slate-400 dark:text-slate-500 uppercase">
               Body clock
             </p>
             <Tooltip
@@ -553,7 +553,7 @@ function BodyClockCard({
           </div>
           <button
             onClick={() => setShowInfo(true)}
-            className="text-[11px] text-slate-500 hover:text-slate-700 rounded-lg px-2 py-1 hover:bg-slate-100/80 transition-colors"
+            className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg px-2 py-1 hover:bg-slate-100/80 dark:hover:bg-slate-800/50 transition-colors"
             type="button"
           >
             How it works
@@ -562,11 +562,11 @@ function BodyClockCard({
 
         {/* Info Card */}
         {showInfo && (
-          <div className="relative z-20 mt-2 rounded-xl bg-gradient-to-br from-slate-50 to-white border border-slate-200/70 p-4 space-y-3 shadow-lg">
+          <div className="relative z-20 mt-2 rounded-xl bg-gradient-to-br from-slate-50 dark:from-slate-900/60 to-white dark:to-slate-900/50 border border-slate-200/70 dark:border-slate-700/40 p-4 space-y-3 shadow-lg dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-[14px] font-bold text-slate-900">How your Body Clock score works</h3>
-                <p className="mt-1 text-[11px] text-slate-600">
+                <h3 className="text-[14px] font-bold text-slate-900 dark:text-slate-100">How your Body Clock score works</h3>
+                <p className="mt-1 text-[11px] text-slate-600 dark:text-slate-300">
                   Your score uses circadian science: it looks at when you sleep and wake, how often shifts move your schedule,
                   and how consistent your pattern is compared with a healthy 24‑hour rhythm.
                 </p>
@@ -590,9 +590,9 @@ function BodyClockCard({
                 and lots of light / food in your biological night, which push your clock out of sync.
               </p>
             </div>
-            <div className="pt-2 border-t border-slate-200/70">
-              <p className="text-[11px] font-semibold text-slate-900 mb-1">How to improve:</p>
-              <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-600">
+            <div className="pt-2 border-t border-slate-200/70 dark:border-slate-700/50">
+              <p className="text-[11px] font-semibold text-slate-900 dark:text-slate-100 mb-1">How to improve:</p>
+              <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-300">
                 <li>Keep your main sleep and wake time as consistent as your rota allows.</li>
                 <li>Group similar shifts together when possible (blocks of days or nights).</li>
                 <li>Get daylight after waking, and keep light and heavy meals out of your deepest “body night”.</li>
@@ -606,12 +606,12 @@ function BodyClockCard({
           {/* LEFT: Heading + Alignment factors */}
           <div className="flex-1 space-y-4 min-w-0">
             <div className="space-y-1">
-              <h1 className="text-lg font-bold tracking-tight text-slate-900 leading-tight">
+              <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 leading-tight">
                 {inSync
                   ? "Your body clock is in sync"
                   : "Your body clock is out of sync"}
               </h1>
-              <p className="text-xs text-slate-500 leading-relaxed">
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                 Based on your latest sleep, shifts and daytime patterns.
               </p>
               <p className="text-[11px] text-slate-400 leading-relaxed">
@@ -620,7 +620,7 @@ function BodyClockCard({
             </div>
 
             <div className="mt-2 space-y-2">
-              <p className="text-[12px] font-bold text-slate-900 tracking-tight">
+              <p className="text-[12px] font-bold text-slate-900 dark:text-slate-100 tracking-tight">
                 Alignment factors
               </p>
               <div className="space-y-1.5 text-[12px]">
@@ -641,7 +641,7 @@ function BodyClockCard({
                       </span>
                       {f.label}
                     </span>
-                    <span className="font-bold text-slate-900 ml-3 flex-shrink-0">
+                    <span className="font-bold text-slate-900 dark:text-slate-100 ml-3 flex-shrink-0">
                       {f.displayValue}
                     </span>
                   </div>
@@ -656,13 +656,13 @@ function BodyClockCard({
             
             {/* ShiftLag Card - Ultra Premium Square */}
             {shiftLag && (
-              <div className="relative overflow-hidden rounded-[16px] bg-white/90 backdrop-blur-xl border border-white/80 shadow-[0_12px_40px_rgba(15,23,42,0.08)] px-3 py-3 w-[110px] h-[110px] flex flex-col justify-between">
+              <div className="relative overflow-hidden rounded-[16px] bg-white/90 dark:bg-slate-900/50 backdrop-blur-xl border border-white/80 dark:border-slate-700/40 shadow-[0_12px_40px_rgba(15,23,42,0.08)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.3)] px-3 py-3 w-[110px] h-[110px] flex flex-col justify-between">
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 to-white/55" />
                 <div className="pointer-events-none absolute inset-0 rounded-[16px] ring-1 ring-white/50" />
                 
                 <div className="relative z-10 flex flex-col justify-between h-full">
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-[0.15em]">
+                    <span className="text-[9px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em]">
                       ShiftLag
                     </span>
                     <div
@@ -682,10 +682,10 @@ function BodyClockCard({
                     </div>
                   </div>
                   <div className="flex flex-col items-center justify-center flex-1">
-                    <span className="text-[26px] font-bold text-slate-900 tabular-nums leading-none">
+                    <span className="text-[26px] font-bold text-slate-900 dark:text-slate-100 tabular-nums leading-none">
                       {shiftLag.score}
                     </span>
-                    <span className="text-[10px] text-slate-500 mt-0.5">/100</span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">/100</span>
                   </div>
                 </div>
               </div>
@@ -834,7 +834,7 @@ function CircadianPhaseDial() {
               transform: "translateX(-50%)",
             }}
           >
-            <span className="text-[11px] font-medium text-slate-600">
+            <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
               Alertness Rise
             </span>
           </div>
@@ -847,7 +847,7 @@ function CircadianPhaseDial() {
               left: "15%",
             }}
           >
-            <span className="text-[11px] font-medium text-slate-600">
+            <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
               Melatonin Rise
             </span>
           </div>
@@ -912,10 +912,10 @@ function CircadianGauge({ score }: { score: number }) {
       </svg>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center z-20">
-        <span className="text-[10px] text-slate-500 tracking-wider font-medium">
+        <span className="text-[10px] text-slate-500 dark:text-slate-400 tracking-wider font-medium">
           Circadian phase
         </span>
-        <span className="mt-[2px] text-[30px] font-bold leading-none text-slate-900 tracking-tight">
+        <span className="mt-[2px] text-[30px] font-bold leading-none text-slate-900 dark:text-slate-100 tracking-tight">
           {Math.round(capped)}
         </span>
       </div>
@@ -951,7 +951,7 @@ function WhyYouHaveThisScoreCard({
     <section
       className={[
         "relative overflow-hidden rounded-[28px]",
-        "bg-white/85 backdrop-blur-2xl",
+        "bg-white/85 dark:bg-slate-900/45 backdrop-blur-2xl",
         "border border-white/80",
         "shadow-[0_24px_60px_rgba(15,23,42,0.12)]",
         "px-7 py-6",
@@ -966,10 +966,10 @@ function WhyYouHaveThisScoreCard({
       <div className="relative z-10 space-y-6">
         {/* Header */}
         <div className="space-y-1">
-          <h2 className="text-lg font-bold tracking-tight text-slate-900">
+          <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Why You Have This Score
           </h2>
-          <div className="h-0.5 w-12 rounded-full bg-gradient-to-r from-slate-300 to-transparent" />
+          <div className="h-0.5 w-12 rounded-full bg-gradient-to-r from-slate-300 dark:from-slate-700/50 to-transparent" />
         </div>
 
         {/* Factors Section */}
@@ -978,19 +978,19 @@ function WhyYouHaveThisScoreCard({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex flex-col">
-                <span className="text-[13px] font-bold tracking-tight text-slate-700">Sleep Consistency</span>
-                <span className="text-[11px] text-slate-400">
+                <span className="text-[13px] font-bold tracking-tight text-slate-700 dark:text-slate-300">Sleep Consistency</span>
+                <span className="text-[11px] text-slate-400 dark:text-slate-500">
                   {wearableLastSyncLabel}
                 </span>
               </div>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-[16px] font-bold text-slate-900">
+                <span className="text-[16px] font-bold text-slate-900 dark:text-slate-100">
                   {sleepConsistencyDisplay !== null ? sleepConsistencyDisplay : '—'}
                 </span>
-                <span className="text-[12px] font-semibold text-slate-500">%</span>
+                <span className="text-[12px] font-semibold text-slate-500 dark:text-slate-400">%</span>
               </div>
             </div>
-            <div className="relative h-3 w-full rounded-full bg-gradient-to-r from-slate-100/90 to-slate-100/60 overflow-hidden border border-slate-200/50 shadow-inner">
+            <div className="relative h-3 w-full rounded-full bg-gradient-to-r from-slate-100/90 dark:from-slate-800/50 to-slate-100/60 dark:to-slate-800/40 overflow-hidden border border-slate-200/50 dark:border-slate-700/40 shadow-inner">
               <div 
                 className="h-full rounded-full bg-gradient-to-r from-slate-500 via-slate-600 to-slate-700 shadow-[0_2px_4px_rgba(15,23,42,0.2)]"
                 style={{ width: `${sleepConsistencyDisplay !== null ? Math.max(sleepConsistencyDisplay, 5) : 5}%` }}
@@ -1002,13 +1002,13 @@ function WhyYouHaveThisScoreCard({
           {/* Wake Time Consistency */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-[13px] font-bold tracking-tight text-slate-700">Wake Time Consistency</span>
+                <span className="text-[13px] font-bold tracking-tight text-slate-700 dark:text-slate-300">Wake Time Consistency</span>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-[16px] font-bold text-slate-900">20</span>
-                <span className="text-[12px] font-semibold text-slate-500">%</span>
+                <span className="text-[16px] font-bold text-slate-900 dark:text-slate-100">20</span>
+                <span className="text-[12px] font-semibold text-slate-500 dark:text-slate-400">%</span>
               </div>
             </div>
-            <div className="relative h-3 w-full rounded-full bg-gradient-to-r from-slate-100/90 to-slate-100/60 overflow-hidden border border-slate-200/50 shadow-inner">
+            <div className="relative h-3 w-full rounded-full bg-gradient-to-r from-slate-100/90 dark:from-slate-800/50 to-slate-100/60 dark:to-slate-800/40 overflow-hidden border border-slate-200/50 dark:border-slate-700/40 shadow-inner">
               <div 
                 className="h-full rounded-full bg-gradient-to-r from-slate-600 via-slate-700 to-slate-800 shadow-[0_2px_4px_rgba(15,23,42,0.2)]"
                 style={{ width: '20%' }}
@@ -1020,11 +1020,11 @@ function WhyYouHaveThisScoreCard({
           {/* Light Exposure */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-[13px] font-bold tracking-tight text-slate-700">Light Exposure</span>
+                <span className="text-[13px] font-bold tracking-tight text-slate-700 dark:text-slate-300">Light Exposure</span>
             </div>
-            <div className="relative h-32 w-full rounded-2xl bg-gradient-to-br from-slate-50/95 via-white/80 to-slate-50/90 backdrop-blur-xl border border-slate-200/70 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.06)] overflow-hidden">
+            <div className="relative h-32 w-full rounded-2xl bg-gradient-to-br from-slate-50/95 dark:from-slate-900/50 via-white/80 dark:via-slate-900/40 to-slate-50/90 dark:to-slate-900/50 backdrop-blur-xl border border-slate-200/70 dark:border-slate-700/40 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.06)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.3)] overflow-hidden">
               {/* Subtle inner glow */}
-              <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-br from-white/40 dark:from-slate-900/30 via-transparent to-transparent" />
               
               <svg viewBox="0 0 300 100" className="h-full w-full relative z-10" preserveAspectRatio="xMidYMid meet">
                 <defs>
@@ -1081,7 +1081,7 @@ function WhyYouHaveThisScoreCard({
         </div>
 
         {/* Metrics Section */}
-        <div className="pt-5 space-y-4 border-t border-slate-200/70">
+        <div className="pt-5 space-y-4 border-t border-slate-200/70 dark:border-slate-700/50">
           {/* Social Jetlag */}
           {socialJetlag && (
             <div className={`group relative overflow-hidden flex items-center justify-between rounded-xl backdrop-blur-sm px-4 py-3.5 border shadow-[0_4px_12px_rgba(15,23,42,0.03)] transition-all ${
@@ -1114,7 +1114,7 @@ function WhyYouHaveThisScoreCard({
                   {jetlagCategory === 'high' ? 'High' : jetlagCategory === 'moderate' ? 'Moderate' : 'Low'}
                 </span>
                 {jetlagDisplay && (
-                  <span className="text-[13px] font-bold text-slate-900">{jetlagDisplay}</span>
+                  <span className="text-[13px] font-bold text-slate-900 dark:text-slate-100">{jetlagDisplay}</span>
                 )}
               </div>
             </div>
@@ -1132,7 +1132,7 @@ function WhyYouHaveThisScoreCard({
             </div>
             <div className="relative z-10 flex items-center gap-3">
               <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider">Moderate</span>
-              <span className="text-[13px] font-bold text-slate-900">1h 20 m 24 hour</span>
+              <span className="text-[13px] font-bold text-slate-900 dark:text-slate-100">1h 20 m 24 hour</span>
             </div>
           </div>
         </div>
@@ -1148,47 +1148,50 @@ function NextBestActionsCard() {
     <section
       className={[
         "relative overflow-hidden rounded-[28px]",
-        "bg-white/85 backdrop-blur-2xl",
-        "border border-white/80",
-        "shadow-[0_24px_60px_rgba(15,23,42,0.12)]",
+        "bg-white/85 dark:bg-slate-900/45 backdrop-blur-2xl",
+        "border border-white/80 dark:border-slate-700/40",
+        "shadow-[0_24px_60px_rgba(15,23,42,0.12)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
         "px-7 py-6",
       ].join(" ")}
     >
       {/* Ultra-premium gradient overlay */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/95 via-white/80 to-white/60" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/95 dark:from-slate-900/70 via-white/80 dark:via-slate-900/50 to-white/60 dark:to-slate-950/60" />
+      
+      {/* Subtle colored glow hints - dark mode only */}
+      <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
       
       {/* Subtle inner glow */}
-      <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/50" />
+      <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/50 dark:ring-slate-600/30" />
 
       <div className="relative z-10 space-y-5">
         {/* Sleep Debt Header */}
         <div className="flex items-center justify-between">
-          <span className="text-[13px] font-bold text-slate-700">Sleep Debt</span>
-          <span className="text-[14px] font-bold text-slate-900">1h 20 m</span>
+          <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300">Sleep Debt</span>
+          <span className="text-[14px] font-bold text-slate-900 dark:text-slate-100">1h 20 m</span>
         </div>
 
         {/* Next Best Actions */}
         <div className="space-y-3">
           {/* Action 1 */}
-          <div className="relative overflow-hidden flex items-start gap-4 rounded-2xl bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-xl px-5 py-4 border border-white/90 shadow-[0_4px_12px_rgba(15,23,42,0.04)]">
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-50/50 via-transparent to-transparent" />
-            <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 text-[13px] font-bold tracking-wide text-white shadow-lg shadow-indigo-500/30">
+          <div className="relative overflow-hidden flex items-start gap-4 rounded-2xl bg-gradient-to-br from-white/90 dark:from-slate-800/35 to-white/70 dark:to-slate-800/25 backdrop-blur-xl px-5 py-4 border border-white/90 dark:border-slate-700/40 shadow-[0_4px_12px_rgba(15,23,42,0.04)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)]">
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-50/50 dark:from-slate-800/30 via-transparent to-transparent" />
+            <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 dark:from-indigo-600 to-indigo-600 dark:to-indigo-700 text-[13px] font-bold tracking-wide text-white shadow-lg shadow-indigo-500/30 dark:shadow-indigo-500/50">
               SC
             </div>
             <div className="relative z-10 flex-1 pt-0.5">
-              <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-slate-400 mb-1.5">
+              <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-slate-400 dark:text-slate-500 mb-1.5">
                 Next best action
               </p>
-              <p className="text-[13px] font-semibold leading-relaxed text-slate-900">
+              <p className="text-[13px] font-semibold leading-relaxed text-slate-900 dark:text-slate-100">
                 Dim lights in 30 minutes to help align your body clock.
               </p>
             </div>
           </div>
 
           {/* Action 2 */}
-          <div className="relative overflow-hidden flex items-start gap-4 rounded-2xl bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-xl px-5 py-4 border border-white/90 shadow-[0_4px_12px_rgba(15,23,42,0.04)]">
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-50/50 via-transparent to-transparent" />
-            <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/30">
+          <div className="relative overflow-hidden flex items-start gap-4 rounded-2xl bg-gradient-to-br from-white/90 dark:from-slate-800/35 to-white/70 dark:to-slate-800/25 backdrop-blur-xl px-5 py-4 border border-white/90 dark:border-slate-700/40 shadow-[0_4px_12px_rgba(15,23,42,0.04)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)]">
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-50/50 dark:from-slate-800/30 via-transparent to-transparent" />
+            <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 dark:from-emerald-600 to-emerald-600 dark:to-emerald-700 text-white shadow-lg shadow-emerald-500/30 dark:shadow-emerald-500/50">
               <svg
                 viewBox="0 0 24 24"
                 className="w-5 h-5"
@@ -1202,10 +1205,10 @@ function NextBestActionsCard() {
               </svg>
             </div>
             <div className="relative z-10 flex-1 pt-0.5">
-              <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-slate-400 mb-1.5">
+              <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-slate-400 dark:text-slate-500 mb-1.5">
                 Next best action
               </p>
-              <p className="text-[13px] font-semibold leading-relaxed text-slate-900">
+              <p className="text-[13px] font-semibold leading-relaxed text-slate-900 dark:text-slate-100">
                 This shift has a minute on your circadian alignment
               </p>
             </div>
@@ -1266,14 +1269,14 @@ function MiniCard({
     <section
       className={[
         "relative overflow-hidden rounded-[24px]",
-        "bg-white/90 backdrop-blur-xl",
-        "border border-white/80",
-        "shadow-[0_20px_50px_rgba(15,23,42,0.08)]",
+        "bg-white/90 dark:bg-slate-900/45 backdrop-blur-xl",
+        "border border-white/80 dark:border-slate-700/40",
+        "shadow-[0_20px_50px_rgba(15,23,42,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)]",
         "px-5 py-4",
         className,
       ].join(" ")}
     >
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/60 to-white/40" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/60 dark:from-slate-900/50 to-white/40 dark:to-slate-900/30" />
       <div className="relative z-10">{children}</div>
     </section>
   );
@@ -1282,8 +1285,8 @@ function MiniCard({
 function KeyTimeRow({ label, time }: { label: string; time: string }) {
   return (
     <div className="flex items-center justify-between py-1">
-      <span className="text-[12px] font-semibold text-slate-500 uppercase tracking-wide">{label}</span>
-      <span className="text-[14px] font-bold text-slate-900 tracking-tight">{time}</span>
+      <span className="text-[12px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{label}</span>
+      <span className="text-[14px] font-bold text-slate-900 dark:text-slate-100 tracking-tight">{time}</span>
     </div>
   );
 }
@@ -1395,7 +1398,7 @@ function BlogSection() {
     <section
       className={[
         "relative overflow-hidden rounded-[28px]",
-        "bg-white/90 backdrop-blur-2xl",
+        "bg-white/90 dark:bg-slate-900/45 backdrop-blur-2xl",
         "border border-white/90",
         "shadow-[0_24px_60px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.5)]",
         "px-7 py-6",
@@ -1419,7 +1422,7 @@ function BlogSection() {
             <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
               ShiftCoach Blog
             </h2>
-            <p className="text-[12px] text-slate-500 leading-relaxed mt-0.5">
+            <p className="text-[12px] text-slate-500 dark:text-slate-400 leading-relaxed mt-0.5">
               Tips and advice for shift workers
             </p>
           </div>
@@ -1437,7 +1440,7 @@ function BlogSection() {
         </div>
 
         {/* Blog list */}
-        <div className="space-y-0 border-t border-slate-200/70 pt-3">
+        <div className="space-y-0 border-t border-slate-200/70 dark:border-slate-700/50 pt-3">
           {blogPosts.map((post, index) => (
             <Link
               key={post.slug}
@@ -1448,15 +1451,15 @@ function BlogSection() {
               <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               
               <div className="flex-1 min-w-0 pr-5 relative z-10">
-                <p className="text-[14px] font-semibold text-slate-900 leading-snug group-hover:text-blue-600 transition-colors duration-200">
+                <p className="text-[14px] font-semibold text-slate-900 dark:text-slate-100 leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200">
                   {post.title}
                 </p>
-                <p className="text-[12px] text-slate-500 mt-1.5 leading-relaxed">
+                <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
                   {post.description}
                 </p>
               </div>
               <div className="relative z-10 flex-shrink-0">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200/60 shadow-sm group-hover:bg-gradient-to-br group-hover:from-blue-50 group-hover:to-indigo-50 group-hover:border-blue-200/60 transition-all duration-200">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-slate-50 dark:from-slate-800/50 to-slate-100 dark:to-slate-800/60 border border-slate-200/60 dark:border-slate-700/40 shadow-sm group-hover:bg-gradient-to-br group-hover:from-blue-50 dark:group-hover:from-blue-950/30 group-hover:to-indigo-50 dark:group-hover:to-indigo-950/30 group-hover:border-blue-200/60 dark:group-hover:border-blue-800/40 transition-all duration-200">
                   <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-blue-600 transition-colors duration-200" strokeWidth={2.5} />
                 </div>
               </div>

@@ -261,24 +261,30 @@ export function CombinedSleepMetricsCard({
     : 'Not enough data'
 
   return (
-    <section className="relative overflow-hidden rounded-3xl bg-white/75 backdrop-blur-xl border border-slate-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] p-6">
+    <section className="relative overflow-hidden rounded-3xl bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 text-slate-900 dark:text-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-6">
       {/* Top highlight overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+      
+      {/* Subtle colored glow hints - dark mode only */}
+      <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
+      
+      {/* Inner ring for premium feel */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
       
       <div className="relative z-10 space-y-5">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400">
               SLEEP METRICS
             </p>
-            <h3 className="mt-2 text-[18px] font-semibold tracking-tight text-slate-900">
+            <h3 className="mt-2 text-[18px] font-semibold tracking-tight">
               Tonight&apos;s Target & Weekly Overview
             </h3>
           </div>
           <button
             onClick={() => setIsInfoModalOpen(true)}
-            className="flex-shrink-0 h-8 w-8 rounded-full bg-transparent text-slate-400 hover:bg-slate-100/60 transition-colors flex items-center justify-center"
+            className="flex-shrink-0 h-8 w-8 rounded-full bg-transparent text-slate-400 dark:text-slate-500 hover:bg-slate-100/60 dark:hover:bg-slate-800/50 transition-colors flex items-center justify-center"
             aria-label="Learn more about sleep metrics"
           >
             <Info className="h-4 w-4" strokeWidth={2} />
@@ -414,13 +420,13 @@ export function CombinedSleepMetricsCard({
         {/* Quick Tip / Insight Footer */}
         {quickTip && (
           <>
-            <div className="my-5 h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent" />
-            <div className="rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/50">
-              <p className="text-xs font-semibold tracking-tight text-slate-900 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-slate-400" strokeWidth={2} />
+            <div className="my-5 h-px bg-gradient-to-r from-transparent via-slate-200/70 dark:via-slate-700/50 to-transparent" />
+            <div className="rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 dark:from-slate-800/50 to-white dark:to-slate-900/50 border border-slate-200/50 dark:border-slate-700/40">
+              <p className="text-xs font-semibold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
                 Quick tip
               </p>
-              <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                 {quickTip}
               </p>
             </div>

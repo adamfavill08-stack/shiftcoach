@@ -188,16 +188,16 @@ WHERE shift_activity_level IS NOT NULL;`
     <div className={`space-y-5 ${className}`}>
       {/* Editorial Header */}
       <div>
-        <h3 className="text-[17px] font-semibold tracking-tight text-slate-900">
+        <h3 className="text-[17px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
           How demanding was your shift?
         </h3>
-        <p className="mt-1.5 text-sm leading-relaxed text-slate-600">
+        <p className="mt-1.5 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
           Select to adjust calorie targets
         </p>
       </div>
 
       {/* Soft Activity Level Rows */}
-      <div className="rounded-2xl border border-slate-200/50 bg-white/60 p-2">
+      <div className="rounded-2xl border border-slate-200/50 dark:border-slate-700/40 bg-white/60 dark:bg-slate-800/50 backdrop-blur-xl p-2 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_20px_-16px_rgba(0,0,0,0.14)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.3)]">
         {(Object.keys(ACTIVITY_LEVELS) as ShiftActivityLevel[]).map((level, index) => {
           const details = ACTIVITY_LEVELS[level]
           const isSelected = selectedLevel === level
@@ -209,41 +209,41 @@ WHERE shift_activity_level IS NOT NULL;`
                 onClick={() => handleSelect(level)}
                 disabled={saving}
                 className={`
-                  w-full group flex items-start gap-3 rounded-2xl px-4 py-3 text-left
-                  transition-all duration-200
+                  w-full group flex items-start gap-3 rounded-2xl px-4 py-3.5 text-left
+                  transition-all duration-200 active:scale-[0.99]
                   ${isSelected
-                    ? 'bg-slate-100/60 border border-slate-300/50'
-                    : 'bg-slate-50/35 border border-slate-200/30 hover:bg-white/70 hover:border-slate-200/50'
+                    ? 'bg-gradient-to-r from-emerald-50/70 dark:from-emerald-950/30 via-emerald-50/50 dark:via-emerald-950/20 to-transparent border border-emerald-200/60 dark:border-emerald-800/40 shadow-[0_2px_8px_rgba(16,185,129,0.08)] dark:shadow-[0_2px_8px_rgba(16,185,129,0.15)]'
+                    : 'bg-slate-50/35 dark:bg-slate-800/30 border border-slate-200/30 dark:border-slate-700/40 hover:bg-white/70 dark:hover:bg-slate-800/50 hover:border-slate-200/50 dark:hover:border-slate-600/50'
                   }
                   ${saving ? 'opacity-50 cursor-wait' : 'cursor-pointer'}
                 `}
               >
                 {/* Check icon badge */}
                 <div className={`
-                  mt-0.5 h-7 w-7 rounded-full grid place-items-center flex-shrink-0
+                  mt-0.5 h-8 w-8 rounded-full grid place-items-center flex-shrink-0 transition-all
                   ${isSelected
-                    ? 'bg-emerald-500/20 border border-emerald-300/50'
-                    : 'bg-white/70 border border-slate-200/60'
+                    ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 dark:from-emerald-500 dark:to-emerald-600 border border-emerald-400/50 dark:border-emerald-600/50 shadow-sm'
+                    : 'bg-white/70 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 group-hover:border-slate-300/60 dark:group-hover:border-slate-600/60'
                   }
                 `}>
                   {isSelected ? (
-                    <Check className="h-4 w-4 text-emerald-600" />
+                    <Check className="h-4 w-4 text-white" strokeWidth={2.5} />
                   ) : (
-                    <div className="h-2 w-2 rounded-full bg-slate-300" />
+                    <div className="h-2.5 w-2.5 rounded-full bg-slate-300 dark:bg-slate-600" />
                   )}
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <h4 className={`text-sm font-semibold ${isSelected ? 'text-slate-900' : 'text-slate-700'}`}>
+                  <h4 className={`text-sm font-semibold transition-colors ${isSelected ? 'text-slate-900 dark:text-slate-100' : 'text-slate-700 dark:text-slate-300'}`}>
                     {details.label}
                   </h4>
-                  <p className={`mt-1 text-sm leading-relaxed ${isSelected ? 'text-slate-600' : 'text-slate-500'}`}>
+                  <p className={`mt-1 text-sm leading-relaxed transition-colors ${isSelected ? 'text-slate-600 dark:text-slate-400' : 'text-slate-500 dark:text-slate-500'}`}>
                     {details.description}
                   </p>
                 </div>
               </button>
               {index < (Object.keys(ACTIVITY_LEVELS).length - 1) && (
-                <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-2" />
+                <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 dark:via-slate-700/50 to-transparent my-2" />
               )}
             </React.Fragment>
           )
@@ -252,33 +252,33 @@ WHERE shift_activity_level IS NOT NULL;`
 
       {/* Impact Display */}
       {selectedLevel && (
-        <div className="rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/50">
+        <div className="rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 dark:from-slate-800/50 to-white dark:to-slate-900/50 border border-slate-200/50 dark:border-slate-700/40 backdrop-blur-xl shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_20px_-16px_rgba(0,0,0,0.14)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.3)]">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-[0.12em]">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-[0.12em]">
               Impact
             </span>
-            <span className="text-sm font-semibold text-slate-900">
+            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
               {activityImpact}
             </span>
           </div>
           
           {estimatedCalories > 0 && (
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-[0.12em]">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-[0.12em]">
                 Extra Calories
               </span>
-              <span className="text-sm font-semibold tabular-nums text-slate-900">
+              <span className="text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
                 +{estimatedCalories} kcal
               </span>
             </div>
           )}
 
           {recoverySuggestion && (
-            <div className="pt-3 border-t border-slate-200/50">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-[0.12em] mb-2">
+            <div className="pt-3 border-t border-slate-200/50 dark:border-slate-700/40">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-[0.12em] mb-2">
                 Recovery
               </p>
-              <p className="text-sm text-slate-600 leading-relaxed">
+              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                 {recoverySuggestion}
               </p>
             </div>

@@ -19,25 +19,17 @@ export function AiCoachCard({
     <>
       {/* Coach card - nested glass style */}
       <div
-        className="rounded-3xl backdrop-blur-2xl border px-3 py-3"
-        style={{
-          backgroundColor: 'var(--card-subtle)',
-          borderColor: 'var(--border-subtle)',
-        }}
+        className="rounded-3xl backdrop-blur-2xl border border-slate-200/50 dark:border-slate-700/40 px-3 py-3 bg-white/60 dark:bg-slate-800/50"
       >
         <section
-          className="rounded-2xl backdrop-blur-xl border px-4 py-3 flex items-center justify-between gap-3 transition-all duration-150 hover:scale-[1.01] active:scale-[0.99]"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-          }}
+          className="rounded-2xl backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 px-4 py-3 flex items-center justify-between gap-3 transition-all duration-150 hover:scale-[1.01] active:scale-[0.99] bg-white/75 dark:bg-slate-900/45"
         >
           <div className="flex items-start gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">💡</div>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/40">💡</div>
             <div className="flex flex-col">
-              <p className="text-xs font-semibold tracking-wide uppercase" style={{ color: 'var(--text-soft)' }}>AI Coach</p>
-              <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>{headline}</p>
-              <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--text-soft)' }}>{subtitle}</p>
+              <p className="text-xs font-semibold tracking-wide uppercase text-slate-600 dark:text-slate-400">AI Coach</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{headline}</p>
+              <p className="text-xs mt-1 leading-relaxed text-slate-600 dark:text-slate-400">{subtitle}</p>
             </div>
           </div>
 

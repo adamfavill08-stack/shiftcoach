@@ -88,17 +88,17 @@ export default function SignIn() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 relative overflow-hidden flex items-center justify-center px-6 py-12">
+    <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 relative overflow-hidden flex items-center justify-center px-6 py-12">
       {/* Soft aurora blobs - very subtle */}
-      <div className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-emerald-200/18 blur-3xl" />
-      <div className="pointer-events-none absolute top-24 -right-24 h-72 w-72 rounded-full bg-indigo-200/15 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-24 left-1/3 h-72 w-72 rounded-full bg-cyan-200/12 blur-3xl" />
+      <div className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-emerald-200/18 dark:bg-emerald-500/8 blur-3xl" />
+      <div className="pointer-events-none absolute top-24 -right-24 h-72 w-72 rounded-full bg-indigo-200/15 dark:bg-indigo-500/6 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 left-1/3 h-72 w-72 rounded-full bg-cyan-200/12 dark:bg-cyan-500/5 blur-3xl" />
 
       <div className="w-full max-w-md relative z-10">
         {/* Glass sheet card */}
-        <div className="relative mx-auto max-w-md rounded-3xl overflow-hidden bg-white/75 backdrop-blur-xl border border-slate-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_18px_50px_-22px_rgba(0,0,0,0.18)] p-7">
+        <div className="relative mx-auto max-w-md rounded-3xl overflow-hidden bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_18px_50px_-22px_rgba(0,0,0,0.18)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),0_18px_50px_-22px_rgba(0,0,0,0.5)] p-7">
           {/* Glass highlight overlay */}
-          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/70 via-transparent to-transparent" />
           
           <div className="relative z-10">
             {/* Logo and Tagline */}
@@ -113,23 +113,23 @@ export default function SignIn() {
                   priority
                 />
               </div>
-              <p className="mt-4 text-sm leading-relaxed text-slate-600 max-w-[36ch] mx-auto">
+              <p className="mt-4 text-sm leading-relaxed text-slate-600 dark:text-slate-400 max-w-[36ch] mx-auto">
                 Dedicated to shift worker health and wellbeing.
               </p>
               
               {/* CalAI magic: OS-like status pill */}
-              <span className="mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 bg-slate-50/60 border border-slate-200/50 text-[11px] text-slate-600">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/60" />
+              <span className="mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 bg-slate-50/60 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-700/40 text-[11px] text-slate-600 dark:text-slate-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/60 dark:bg-emerald-400/60" />
                 Personalized for your shifts
               </span>
             </div>
 
             {/* Welcome Text - calmer hierarchy */}
             <div className="mt-7">
-              <p className="text-[18px] font-semibold tracking-tight text-slate-900">
+              <p className="text-[18px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                 Welcome back
               </p>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 Sign in to continue your plan.
               </p>
             </div>
@@ -138,9 +138,9 @@ export default function SignIn() {
             <form onSubmit={submit} className="mt-6 space-y-4">
               <div>
                 <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
                   <input
-                    className="w-full h-12 rounded-2xl pl-11 pr-4 bg-white/70 border border-slate-200/60 placeholder:text-slate-400 text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]"
+                    className="w-full h-12 rounded-2xl pl-11 pr-4 bg-white/70 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/40 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-900 dark:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/50 dark:focus-visible:ring-slate-600/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] dark:shadow-[inset_0_1px_0_rgba(0,0,0,0.2)]"
                     placeholder="Email"
                     type="email"
                     value={email}
@@ -151,9 +151,9 @@ export default function SignIn() {
               </div>
               <div>
                 <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
                   <input
-                    className="w-full h-12 rounded-2xl pl-11 pr-4 bg-white/70 border border-slate-200/60 placeholder:text-slate-400 text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]"
+                    className="w-full h-12 rounded-2xl pl-11 pr-4 bg-white/70 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/40 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-900 dark:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/50 dark:focus-visible:ring-slate-600/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] dark:shadow-[inset_0_1px_0_rgba(0,0,0,0.2)]"
                     placeholder="Password"
                     type="password"
                     value={password}
@@ -163,27 +163,27 @@ export default function SignIn() {
                 </div>
               </div>
               {err && (
-                <div className="p-3 rounded-xl bg-red-50 border border-red-200/50">
-                  <p className="text-red-600 text-sm font-medium">{err}</p>
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200/50 dark:border-red-800/40">
+                  <p className="text-red-600 dark:text-red-400 text-sm font-medium">{err}</p>
                 </div>
               )}
               <button
                 disabled={busy}
-                className="w-full h-12 rounded-2xl text-sm font-semibold text-white bg-slate-900 shadow-[0_18px_40px_-22px_rgba(0,0,0,0.35)] hover:opacity-95 active:scale-[0.99] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-12 rounded-2xl text-sm font-semibold text-white bg-slate-900 dark:bg-slate-100 dark:text-slate-900 shadow-[0_18px_40px_-22px_rgba(0,0,0,0.35)] dark:shadow-[0_18px_40px_-22px_rgba(255,255,255,0.1)] hover:opacity-95 dark:hover:opacity-90 active:scale-[0.99] transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {busy ? 'Signing in…' : 'Sign In'}
               </button>
               <div className="flex flex-col sm:flex-row justify-between items-center gap-3 text-sm pt-2">
                 <Link
-                  className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+                  className="text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
                   href="/auth/reset"
                 >
                   Forgot password?
                 </Link>
-                <span className="text-sm text-slate-500">
+                <span className="text-sm text-slate-500 dark:text-slate-400">
                   No account?{' '}
                   <Link
-                    className="text-sm font-semibold text-slate-900 hover:opacity-80 transition-opacity"
+                    className="text-sm font-semibold text-slate-900 dark:text-slate-100 hover:opacity-80 transition-opacity"
                     href="/auth/sign-up"
                   >
                     Create one

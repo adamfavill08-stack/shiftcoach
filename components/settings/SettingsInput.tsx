@@ -106,27 +106,25 @@ export function SettingsInput({
         max={max}
         className={`
           w-20 rounded-full border px-3 py-1 text-xs
-          focus:outline-none focus:ring-2 focus:ring-sky-400/50
+          focus:outline-none focus:ring-2 focus:ring-sky-400/50 dark:focus:ring-sky-400/50
           disabled:opacity-50 disabled:cursor-not-allowed
           transition-all
+          bg-white/70 dark:bg-slate-800/50
+          border-slate-200/60 dark:border-slate-700/40
+          text-slate-900 dark:text-slate-100
           ${className}
         `}
-        style={{
-          backgroundColor: 'var(--card-subtle)',
-          borderColor: 'var(--border-subtle)',
-          color: 'var(--text-main)',
-        }}
       />
       {unit && (
-        <span className="text-xs" style={{ color: 'var(--text-soft)' }}>
+        <span className="text-xs text-slate-500 dark:text-slate-400">
           {unit}
         </span>
       )}
       {isLoading && (
-        <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--text-soft)' }} />
+        <Loader2 className="w-4 h-4 animate-spin text-slate-400 dark:text-slate-500" />
       )}
       {showSuccess && !isLoading && (
-        <CheckCircle2 className="w-4 h-4 text-green-500" />
+        <CheckCircle2 className="w-4 h-4 text-green-500 dark:text-green-400" />
       )}
     </div>
   )

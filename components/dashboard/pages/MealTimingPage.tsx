@@ -9,18 +9,18 @@ interface MealTimingPageProps {
 
 export function MealTimingPage({ summary }: MealTimingPageProps) {
   return (
-    <div className="flex h-full flex-col rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900/90 to-slate-900/60 p-6 text-slate-50 shadow-[0_20px_50px_rgba(10,16,28,0.45)]">
+    <div className="flex h-full flex-col rounded-3xl bg-gradient-to-br from-slate-900 dark:from-slate-950 via-slate-900/90 dark:via-slate-900/95 to-slate-900/60 dark:to-slate-950/90 p-6 text-slate-50 dark:text-slate-100 shadow-[0_20px_50px_rgba(10,16,28,0.45)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5)] border border-slate-800/50 dark:border-slate-700/40">
       <header className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Meal timing coach</h2>
-          <p className="text-xs text-slate-400">Dial in pre & post shift slots</p>
+          <h2 className="text-lg font-semibold text-slate-50 dark:text-slate-100">Meal timing coach</h2>
+          <p className="text-xs text-slate-400 dark:text-slate-400">Dial in pre & post shift slots</p>
         </div>
-        <UtensilsCrossed className="h-5 w-5 text-slate-400" />
+        <UtensilsCrossed className="h-5 w-5 text-slate-400 dark:text-slate-500" />
       </header>
 
-      <div className="mt-4 rounded-2xl bg-white/10 p-4">
-        <p className="text-xs uppercase tracking-[0.2em] text-slate-300">Today&apos;s shift</p>
-        <div className="mt-1 text-lg font-semibold capitalize">
+      <div className="mt-4 rounded-2xl bg-white/10 dark:bg-slate-800/50 border border-white/10 dark:border-slate-700/40 p-4">
+        <p className="text-xs uppercase tracking-[0.2em] text-slate-300 dark:text-slate-400">Today&apos;s shift</p>
+        <div className="mt-1 text-lg font-semibold capitalize text-slate-50 dark:text-slate-100">
           {summary.shiftType || 'Off shift'}
         </div>
       </div>
@@ -30,17 +30,17 @@ export function MealTimingPage({ summary }: MealTimingPageProps) {
           summary.recommended.map((meal) => (
             <div
               key={meal.id}
-              className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3"
+              className="flex items-center justify-between rounded-2xl bg-white/5 dark:bg-slate-800/50 border border-white/10 dark:border-slate-700/40 px-4 py-3 hover:bg-white/10 dark:hover:bg-slate-800/70 transition-colors"
             >
               <div>
-                <p className="text-sm font-semibold">{meal.label}</p>
-                <p className="text-xs text-slate-300">Ideal around {meal.suggestedTime}</p>
+                <p className="text-sm font-semibold text-slate-50 dark:text-slate-100">{meal.label}</p>
+                <p className="text-xs text-slate-300 dark:text-slate-400">Ideal around {meal.suggestedTime}</p>
               </div>
-              <ChevronRight className="h-4 w-4 text-slate-400" />
+              <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500" />
             </div>
           ))
         ) : (
-          <p className="text-sm text-slate-300">
+          <p className="text-sm text-slate-300 dark:text-slate-400">
             Log a rota and a few meals to start seeing personalised timing windows.
           </p>
         )}

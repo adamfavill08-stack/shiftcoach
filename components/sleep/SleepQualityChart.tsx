@@ -163,25 +163,28 @@ export function SleepQualityChart({ className = '' }: SleepQualityChartProps) {
   return (
     <>
       <section 
-        className={`relative overflow-hidden rounded-3xl bg-white/75 backdrop-blur-xl border border-slate-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] p-6 ${className}`}
+        className={`relative overflow-hidden rounded-3xl bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 text-slate-900 dark:text-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-6 ${className}`}
       >
         {/* Top highlight overlay */}
-        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+        
+        {/* Inner ring for premium feel */}
+        <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
         
         <div className="relative z-10 space-y-5">
           {/* Header */}
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400">
                 SLEEP QUALITY
               </p>
-              <h3 className="mt-2 text-[18px] font-semibold tracking-tight text-slate-900">
+              <h3 className="mt-2 text-[18px] font-semibold tracking-tight">
                 Sleep Quality
               </h3>
             </div>
             <button
               onClick={() => setIsInfoModalOpen(true)}
-              className="flex-shrink-0 h-8 w-8 rounded-full bg-transparent text-slate-400 hover:bg-slate-100/60 transition-colors flex items-center justify-center"
+              className="flex-shrink-0 h-8 w-8 rounded-full bg-transparent text-slate-400 dark:text-slate-500 hover:bg-slate-100/60 dark:hover:bg-slate-800/50 transition-colors flex items-center justify-center"
               aria-label="Info about sleep quality"
             >
               <Info className="h-4 w-4" strokeWidth={2} />
@@ -196,14 +199,14 @@ export function SleepQualityChart({ className = '' }: SleepQualityChartProps) {
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center space-y-2 py-8">
-              <p className="text-sm text-slate-600">{error}</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">{error}</p>
             </div>
           ) : !sleepData ? (
             <div className="flex flex-col items-center justify-center space-y-2 py-8">
-              <p className="text-sm font-medium text-slate-900 text-center">
+              <p className="text-sm font-medium text-slate-900 dark:text-slate-100 text-center">
                 No sleep data available
               </p>
-              <p className="text-sm text-slate-600 text-center leading-relaxed">
+              <p className="text-sm text-slate-600 dark:text-slate-300 text-center leading-relaxed">
                 Log sleep to see your quality metrics
               </p>
             </div>
@@ -213,30 +216,30 @@ export function SleepQualityChart({ className = '' }: SleepQualityChartProps) {
               <div className="flex-1 space-y-4">
                 {/* Sleep Duration */}
                 <div>
-                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
                     Sleep Duration
                   </p>
-                  <p className="text-base font-semibold text-slate-900 tabular-nums">
+                  <p className="text-base font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
                     {formatDuration(sleepData.duration)}
                   </p>
                 </div>
 
                 {/* Time Asleep */}
                 <div>
-                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
                     Time Asleep
                   </p>
-                  <p className="text-base font-semibold text-slate-900 tabular-nums">
+                  <p className="text-base font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
                     {formatDuration(sleepData.timeAsleep)}
                   </p>
                 </div>
 
                 {/* Sleep Efficiency */}
                 <div>
-                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
                     Sleep Efficiency
                   </p>
-                  <p className="text-base font-semibold text-slate-900 tabular-nums">
+                  <p className="text-base font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
                     {sleepData.efficiency}%
                   </p>
                 </div>
@@ -245,9 +248,6 @@ export function SleepQualityChart({ className = '' }: SleepQualityChartProps) {
               {/* Right: Circular Gauge - Crafted Instrument */}
               <div className="flex-shrink-0">
                 <div className="relative grid place-items-center">
-                  {/* Ring container glow */}
-                  <div className="absolute inset-[-18px] rounded-full bg-gradient-to-br from-slate-100/70 to-transparent blur-xl" />
-                  
                   {/* Ring itself */}
                   <div className="relative" style={{ width: size, height: size }}>
                     <svg width={size} height={size} className="transform -rotate-90">
@@ -306,30 +306,33 @@ export function SleepQualityChart({ className = '' }: SleepQualityChartProps) {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           {/* Backdrop */}
           <div 
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm"
             onClick={() => setIsInfoModalOpen(false)}
           />
           
           {/* Modal */}
-          <div className="relative w-full max-w-md bg-white/95 backdrop-blur-xl rounded-[28px] border border-white shadow-[0_24px_60px_rgba(15,23,42,0.25)] max-h-[90vh] overflow-hidden">
+          <div className="relative w-full max-w-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-[28px] border border-white dark:border-slate-700/40 shadow-[0_24px_60px_rgba(15,23,42,0.25)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5)] max-h-[90vh] overflow-hidden">
             {/* Premium gradient overlay */}
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/95 via-white/90 to-white/85" />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/95 dark:from-slate-900/70 via-white/90 dark:via-slate-900/50 to-white/85 dark:to-slate-950/60" />
+            
+            {/* Inner ring */}
+            <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
             
             {/* Content */}
             <div className="relative z-10 overflow-y-auto max-h-[90vh]">
               {/* Header */}
-              <div className="sticky top-0 bg-white/95 backdrop-blur-xl border-b border-slate-200/60 px-6 py-5 flex items-center justify-between">
+              <div className="sticky top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-700/40 px-6 py-5 flex items-center justify-between">
                 <div>
-                  <h2 className="text-[20px] font-bold tracking-tight text-slate-900">
+                  <h2 className="text-[20px] font-bold tracking-tight text-slate-900 dark:text-slate-100">
                     Sleep Quality
                   </h2>
-                  <p className="text-[12px] text-slate-500 mt-1">
+                  <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-1">
                     Understanding your sleep metrics
                   </p>
                 </div>
                 <button
                   onClick={() => setIsInfoModalOpen(false)}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50/80 hover:bg-slate-100/80 border border-slate-200/60 text-slate-600 hover:text-slate-900 transition-all hover:scale-105 active:scale-95"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50/80 dark:bg-slate-800/50 hover:bg-slate-100/80 dark:hover:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/40 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-all hover:scale-105 active:scale-95"
                   aria-label="Close"
                 >
                   <X className="h-5 w-5" strokeWidth={2.5} />
@@ -339,47 +342,47 @@ export function SleepQualityChart({ className = '' }: SleepQualityChartProps) {
               {/* Body */}
               <div className="px-6 py-6 space-y-6">
                 <div>
-                  <h3 className="text-[15px] font-bold text-slate-900 mb-3">
+                  <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 mb-3">
                     What is Sleep Quality?
                   </h3>
-                  <p className="text-[13px] text-slate-700 leading-relaxed mb-3">
+                  <p className="text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed mb-3">
                     Your sleep quality score (0-100) reflects how well you slept based on your quality rating, 
                     sleep efficiency, and time asleep.
                   </p>
                 </div>
 
                 <div>
-                  <h3 className="text-[15px] font-bold text-slate-900 mb-3">
+                  <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 mb-3">
                     Sleep Duration
                   </h3>
-                  <p className="text-[13px] text-slate-700 leading-relaxed">
+                  <p className="text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed">
                     The total time you spent in bed, from when you went to sleep until you woke up.
                   </p>
                 </div>
 
                 <div>
-                  <h3 className="text-[15px] font-bold text-slate-900 mb-3">
+                  <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 mb-3">
                     Time Asleep
                   </h3>
-                  <p className="text-[13px] text-slate-700 leading-relaxed">
+                  <p className="text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed">
                     The actual time you were asleep, excluding any time spent awake during the night.
                   </p>
                 </div>
 
                 <div>
-                  <h3 className="text-[15px] font-bold text-slate-900 mb-3">
+                  <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 mb-3">
                     Sleep Efficiency
                   </h3>
-                  <p className="text-[13px] text-slate-700 leading-relaxed">
+                  <p className="text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed">
                     The percentage of time in bed that you were actually asleep. Higher is better - aim for 85% or more.
                   </p>
                 </div>
 
                 <div>
-                  <h3 className="text-[15px] font-bold text-slate-900 mb-3">
+                  <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 mb-3">
                     How to Improve
                   </h3>
-                  <ul className="list-disc list-inside space-y-2 text-[13px] text-slate-700 leading-relaxed">
+                  <ul className="list-disc list-inside space-y-2 text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed">
                     <li>Maintain a consistent sleep schedule, even on days off</li>
                     <li>Create a dark, quiet, and cool sleep environment</li>
                     <li>Avoid screens and bright lights 1-2 hours before bed</li>

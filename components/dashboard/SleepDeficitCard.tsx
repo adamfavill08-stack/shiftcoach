@@ -63,11 +63,11 @@ export function SleepDeficitCard({ data: propData, loading: propLoading }: Sleep
     const { category } = data
     
     if (category === 'surplus' || category === 'low') {
-      return { text: 'On track', color: 'emerald', bgColor: 'bg-emerald-50', textColor: 'text-emerald-700', iconBg: 'bg-emerald-500' }
+      return { text: 'On track', color: 'emerald', bgColor: 'bg-emerald-50 dark:bg-emerald-950/30', textColor: 'text-emerald-700 dark:text-emerald-300', iconBg: 'bg-emerald-500' }
     } else if (category === 'medium') {
-      return { text: 'Needs attention', color: 'amber', bgColor: 'bg-amber-50', textColor: 'text-amber-700', iconBg: 'bg-amber-500' }
+      return { text: 'Needs attention', color: 'amber', bgColor: 'bg-amber-50 dark:bg-amber-950/30', textColor: 'text-amber-700 dark:text-amber-300', iconBg: 'bg-amber-500' }
     } else {
-      return { text: 'High deficit', color: 'rose', bgColor: 'bg-rose-50', textColor: 'text-rose-700', iconBg: 'bg-rose-500' }
+      return { text: 'High deficit', color: 'rose', bgColor: 'bg-rose-50 dark:bg-rose-950/30', textColor: 'text-rose-700 dark:text-rose-300', iconBg: 'bg-rose-500' }
     }
   }
 
@@ -108,27 +108,27 @@ export function SleepDeficitCard({ data: propData, loading: propLoading }: Sleep
   const explanation = hasData ? getExplanation(data.category) : ''
 
   return (
-    <div className="rounded-[24px] bg-white/95 border border-white shadow-[0_16px_40px_rgba(15,23,42,0.06)] px-5 py-4">
-      <h3 className="text-[13px] font-semibold tracking-tight text-slate-900">
+    <div className="rounded-[24px] bg-white/95 dark:bg-slate-900/45 border border-white dark:border-slate-700/40 shadow-[0_16px_40px_rgba(15,23,42,0.06)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.3)] px-5 py-4">
+      <h3 className="text-[13px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
         Sleep deficit
       </h3>
 
       {loading ? (
         <div className="mt-2 space-y-2">
-          <div className="h-6 w-24 bg-slate-200 animate-pulse rounded" />
-          <div className="h-4 w-16 bg-slate-200 animate-pulse rounded" />
-          <div className="mt-3 h-6 w-20 bg-slate-200 animate-pulse rounded-full" />
+          <div className="h-6 w-24 bg-slate-200 dark:bg-slate-700/50 animate-pulse rounded" />
+          <div className="h-4 w-16 bg-slate-200 dark:bg-slate-700/50 animate-pulse rounded" />
+          <div className="mt-3 h-6 w-20 bg-slate-200 dark:bg-slate-700/50 animate-pulse rounded-full" />
         </div>
       ) : (
         <>
-          <p className="mt-2 text-[24px] font-semibold text-slate-900 leading-tight">
+          <p className="mt-2 text-[24px] font-semibold text-slate-900 dark:text-slate-100 leading-tight">
             {displayValue}
           </p>
-          <p className="mt-1 text-[11px] text-slate-500">{displayLabel}</p>
+          <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{displayLabel}</p>
 
           {/* Explanation text */}
           {explanation && (
-            <p className="mt-2 text-[11px] text-slate-600 leading-relaxed">
+            <p className="mt-2 text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
               {explanation}
             </p>
           )}

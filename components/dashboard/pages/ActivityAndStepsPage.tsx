@@ -42,12 +42,9 @@ function CircularGauge({ value, max, label, subLabel, color = 'emerald' }: {
 
   return (
     <div className="relative h-28 w-28 flex-shrink-0 mx-auto">
-      {/* Subtle outer glow */}
-      <div className="absolute inset-[-8px] rounded-full bg-gradient-to-br from-slate-100/50 to-transparent blur-md pointer-events-none" />
-      
       {/* Ring container */}
-      <div className="relative h-28 w-28 rounded-full bg-white/60 border border-slate-200/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-        <div className="absolute inset-2 rounded-full border border-slate-200/40 bg-white/50" />
+      <div className="relative h-28 w-28 rounded-full bg-white/60 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[inset_0_1px_0_rgba(0,0,0,0.2)]">
+        <div className="absolute inset-2 rounded-full border border-slate-200/40 dark:border-slate-700/30 bg-white/50 dark:bg-slate-900/40" />
         
         <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full transform -rotate-90">
           <defs>
@@ -81,7 +78,6 @@ function CircularGauge({ value, max, label, subLabel, color = 'emerald' }: {
             strokeDasharray={`${strokeLength} ${circumference - strokeLength}`}
             strokeLinecap="round"
             style={{
-              filter: `drop-shadow(0 2px 4px ${strokeColor}30)`,
               transition: 'stroke-dasharray 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           />
@@ -89,9 +85,9 @@ function CircularGauge({ value, max, label, subLabel, color = 'emerald' }: {
         
         {/* Center content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
-          <div className="text-2xl font-semibold tracking-tight text-slate-900 tabular-nums leading-none">{value}</div>
+          <div className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 tabular-nums leading-none">{value}</div>
           {subLabel && (
-            <div className="text-xs font-medium text-slate-500 mt-1 leading-tight">({subLabel})</div>
+            <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 leading-tight">({subLabel})</div>
           )}
         </div>
       </div>
@@ -259,33 +255,41 @@ export default function ActivityAndStepsPage() {
   }
 
   return (
-    <div className="min-h-full w-full bg-slate-50">
+    <div className="min-h-full w-full bg-transparent">
       <div className="mx-auto flex w-full max-w-[760px] flex-col gap-6 px-4 pb-24 pt-6">
         
         {/* INTENSITY BREAKDOWN Card */}
         <section
           className={[
             "relative overflow-hidden rounded-3xl",
-            "bg-white/75 backdrop-blur-xl",
-            "border border-slate-200/50",
+            "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
+            "border border-slate-200/50 dark:border-slate-700/40",
+            "text-slate-900 dark:text-slate-100",
             "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+            "dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
             "p-6",
           ].join(" ")}
         >
           {/* Highlight overlay */}
-          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+          
+          {/* Subtle colored glow hints - dark mode only */}
+          <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
+          
+          {/* Inner ring for premium feel */}
+          <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
 
           <div className="relative z-10 space-y-5">
             {/* Quiet metadata row */}
             <div>
-              <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase">
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400 uppercase">
                 ACTIVITY
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
-                <span className="rounded-full bg-slate-50/60 border border-slate-200/50 px-2.5 py-1 text-[11px] text-slate-500">
+                <span className="rounded-full bg-slate-50/60 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/40 px-2.5 py-1 text-[11px] text-slate-500 dark:text-slate-400">
                   {activitySourceLabel.startsWith('Source: ') ? activitySourceLabel : `Source: ${activitySourceLabel}`}
                 </span>
-                <span className="rounded-full bg-slate-50/60 border border-slate-200/50 px-2.5 py-1 text-[11px] text-slate-500">
+                <span className="rounded-full bg-slate-50/60 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/40 px-2.5 py-1 text-[11px] text-slate-500 dark:text-slate-400">
                   {wearableLastSyncLabel}
                 </span>
               </div>
@@ -294,10 +298,10 @@ export default function ActivityAndStepsPage() {
             {/* Instrument header + ring */}
             <div className="flex items-start justify-between gap-6">
               <div className="flex-1 space-y-2">
-                <h3 className="text-[22px] font-semibold tracking-tight text-slate-900">
-                  {activeMinutes} <span className="text-slate-900">Active minutes</span>
+                <h3 className="text-[22px] font-semibold tracking-tight">
+                  {activeMinutes} <span>Active minutes</span>
                 </h3>
-                <p className="text-sm leading-relaxed text-slate-600 max-w-prose">
+                <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300 max-w-prose">
                   {activeMinutes > 0
                     ? `${activePct}% of daily target`
                     : 'No activity logged yet. A 10–15 minute walk is a great place to start.'}
@@ -306,15 +310,14 @@ export default function ActivityAndStepsPage() {
               
               {/* Crafted ring */}
               <div className="relative grid place-items-center flex-shrink-0">
-                <div className="absolute inset-[-18px] rounded-full bg-gradient-to-br from-slate-100/70 to-transparent blur-xl" />
-                <div className="relative h-32 w-32 rounded-full border-[10px] border-slate-200/60 bg-white/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] grid place-items-center">
-                  <p className="text-3xl font-semibold text-slate-900 tabular-nums leading-none">{activePct}</p>
+                <div className="relative h-32 w-32 rounded-full border-[10px] border-slate-200/60 dark:border-slate-700/40 bg-white/60 dark:bg-slate-800/50 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[inset_0_1px_0_rgba(0,0,0,0.2)] grid place-items-center">
+                  <p className="text-3xl font-semibold text-slate-900 dark:text-slate-100 tabular-nums leading-none">{activePct}</p>
                 </div>
               </div>
             </div>
             
             {/* Soft activity rows */}
-            <div className="mt-5 rounded-2xl border border-slate-200/50 bg-white/60 p-2">
+            <div className="mt-5 rounded-2xl border border-slate-200/50 dark:border-slate-700/40 bg-white/60 dark:bg-slate-800/50 p-2">
               {[
                 { 
                   label: 'Light', 
@@ -336,25 +339,25 @@ export default function ActivityAndStepsPage() {
                 
                 return (
                   <React.Fragment key={item.label}>
-                    <div className="rounded-2xl px-4 py-3 bg-slate-50/35">
+                    <div className="rounded-2xl px-4 py-3 bg-slate-50/35 dark:bg-slate-800/30">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium text-slate-700">{item.label}</p>
-                        <p className="text-xs font-semibold text-slate-900 tabular-nums">
-                          {item.minutes}/{item.target} <span className="text-slate-500 font-medium">min</span>
+                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{item.label}</p>
+                        <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
+                          {item.minutes}/{item.target} <span className="text-slate-500 dark:text-slate-400 font-medium">min</span>
                           {item.target > 0 && (
-                            <span className="ml-2 text-slate-400 font-medium">({Math.round(pct)}%)</span>
+                            <span className="ml-2 text-slate-400 dark:text-slate-500 font-medium">({Math.round(pct)}%)</span>
                           )}
                         </p>
                       </div>
-                      <div className="mt-2 h-2 rounded-full bg-slate-200/60 overflow-hidden">
+                      <div className="mt-2 h-2 rounded-full bg-slate-200/60 dark:bg-slate-700/50 overflow-hidden">
                         <div 
-                          className="h-full rounded-full bg-slate-400/60 transition-all duration-300"
+                          className="h-full rounded-full bg-slate-400/60 dark:bg-slate-500/60 transition-all duration-300"
                           style={{ width: `${Math.min(pct, 100)}%` }}
                         />
                       </div>
                     </div>
                     {index < 2 && (
-                      <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-2" />
+                      <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 dark:via-slate-700/50 to-transparent my-2" />
                     )}
                   </React.Fragment>
                 )
@@ -364,19 +367,19 @@ export default function ActivityAndStepsPage() {
             {/* Calm CTA */}
             <button
               onClick={() => router.push('/steps')}
-              className="mt-5 w-full inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 bg-white/70 backdrop-blur border border-slate-200/60 text-sm font-medium text-slate-900 shadow-[0_10px_26px_-16px_rgba(0,0,0,0.20)] hover:bg-white/90 transition"
+              className="mt-5 w-full inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 bg-white/70 dark:bg-slate-800/50 backdrop-blur border border-slate-200/60 dark:border-slate-700/40 text-sm font-medium text-slate-900 dark:text-slate-100 shadow-[0_10px_26px_-16px_rgba(0,0,0,0.20)] dark:shadow-[0_10px_26px_-16px_rgba(0,0,0,0.3)] hover:bg-white/90 dark:hover:bg-slate-800/70 transition"
             >
               Open detailed steps
-              <ChevronRight className="h-4 w-4 text-slate-400" />
+              <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500" />
             </button>
 
             {/* Coach micro-insight */}
-            <div className="mt-5 rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/50">
-              <p className="text-xs font-semibold tracking-tight text-slate-900 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-slate-400" />
+            <div className="mt-5 rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 dark:from-slate-800/50 to-white dark:to-slate-900/50 border border-slate-200/50 dark:border-slate-700/40">
+              <p className="text-xs font-semibold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-slate-400 dark:text-slate-500" />
                 Best next step
               </p>
-              <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                 A short walk in the next hour can boost alertness without affecting sleep later.
               </p>
             </div>
@@ -387,14 +390,22 @@ export default function ActivityAndStepsPage() {
         <section
           className={[
             "relative overflow-hidden rounded-3xl",
-            "bg-white/75 backdrop-blur-xl",
-            "border border-slate-200/50",
+            "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
+            "border border-slate-200/50 dark:border-slate-700/40",
+            "text-slate-900 dark:text-slate-100",
             "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+            "dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
             "p-6",
           ].join(" ")}
         >
           {/* Highlight overlay */}
-          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+          
+          {/* Subtle colored glow hints - dark mode only */}
+          <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
+          
+          {/* Inner ring for premium feel */}
+          <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
 
           <div className="relative z-10">
             <ActivityLevelSelector
@@ -412,26 +423,34 @@ export default function ActivityAndStepsPage() {
         <section
           className={[
             "relative overflow-hidden rounded-3xl",
-            "bg-white/75 backdrop-blur-xl",
-            "border border-slate-200/50",
+            "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
+            "border border-slate-200/50 dark:border-slate-700/40",
+            "text-slate-900 dark:text-slate-100",
             "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+            "dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
             "p-6",
           ].join(" ")}
         >
           {/* Highlight overlay */}
-          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+          
+          {/* Subtle colored glow hints - dark mode only */}
+          <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
+          
+          {/* Inner ring for premium feel */}
+          <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
 
           <div className="relative z-10 space-y-5">
             {/* Editorial Header */}
             <div>
-              <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase">
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400 uppercase">
                 MOVEMENT CONSISTENCY
               </p>
               <div className="mt-3">
-                <h3 className="text-[22px] font-semibold tracking-tight text-slate-900 tabular-nums">
+                <h3 className="text-[22px] font-semibold tracking-tight tabular-nums">
                   {hasConsistencyData ? movementConsistency : '—'}
                 </h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                   {hasConsistencyData ? (
                     <>
                       This week
@@ -537,66 +556,74 @@ export default function ActivityAndStepsPage() {
         <section
           className={[
             "relative overflow-hidden rounded-3xl",
-            "bg-white/75 backdrop-blur-xl",
-            "border border-slate-200/50",
+            "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
+            "border border-slate-200/50 dark:border-slate-700/40",
+            "text-slate-900 dark:text-slate-100",
             "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+            "dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
             "p-6",
           ].join(" ")}
         >
           {/* Highlight overlay */}
-          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+          
+          {/* Subtle colored glow hints - dark mode only */}
+          <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
+          
+          {/* Inner ring for premium feel */}
+          <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
 
           <div className="relative z-10 space-y-5">
             {/* Editorial Header */}
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase">
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400 uppercase">
                   TODAY'S SHIFT MOVEMENT PLAN
                 </p>
-                <h3 className="mt-3 text-[17px] font-semibold tracking-tight text-slate-900">
+                <h3 className="mt-3 text-[17px] font-semibold tracking-tight">
                   {movementPlan.title}
                 </h3>
               </div>
               <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                <span className="text-sm font-semibold tracking-tight text-slate-900">
+                <span className="text-sm font-semibold tracking-tight">
                   {movementPlan.intensity}
                 </span>
-                <span className="text-[11px] text-slate-500 uppercase tracking-[0.12em]">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-[0.12em]">
                   Intensity
                 </span>
               </div>
             </div>
 
             {/* Soft Activity Rows */}
-            <div className="rounded-2xl border border-slate-200/50 bg-white/60 p-2">
+            <div className="rounded-2xl border border-slate-200/50 dark:border-slate-700/40 bg-white/60 dark:bg-slate-800/50 p-2">
               {movementPlan.activities.map((activity, idx) => (
                 <React.Fragment key={idx}>
-                  <div className="rounded-2xl px-4 py-3 bg-slate-50/35">
+                  <div className="rounded-2xl px-4 py-3 bg-slate-50/35 dark:bg-slate-800/30">
                     <div className="flex items-start gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <span className="text-sm font-semibold text-slate-900">
+                          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                             {activity.duration} {activity.label}
                           </span>
                           {activity.suggestedTime && (
-                            <span className="rounded-full bg-slate-100/70 border border-slate-200/50 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                            <span className="rounded-full bg-slate-100/70 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/40 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-slate-300">
                               {activity.suggestedTime}
                             </span>
                           )}
                         </div>
                         {activity.description && (
-                          <p className="text-sm text-slate-600 leading-relaxed mb-1.5">
+                          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-1.5">
                             {activity.description}
                           </p>
                         )}
-                        <span className="text-xs font-medium text-slate-500 uppercase tracking-[0.12em]">
+                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-[0.12em]">
                           {activity.timing}
                         </span>
                       </div>
                     </div>
                   </div>
                   {idx < movementPlan.activities.length - 1 && (
-                    <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-2" />
+                    <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 dark:via-slate-700/50 to-transparent my-2" />
                   )}
                 </React.Fragment>
               ))}
@@ -608,17 +635,25 @@ export default function ActivityAndStepsPage() {
         <section
           className={[
             "relative overflow-hidden rounded-3xl",
-            "bg-white/75 backdrop-blur-xl",
-            "border border-slate-200/50",
+            "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
+            "border border-slate-200/50 dark:border-slate-700/40",
+            "text-slate-900 dark:text-slate-100",
             "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+            "dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
             "p-6",
           ].join(" ")}
         >
           {/* Highlight overlay */}
-          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+          
+          {/* Subtle colored glow hints - dark mode only */}
+          <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
+          
+          {/* Inner ring for premium feel */}
+          <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
 
           <div className="relative z-10 space-y-6">
-            <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase">
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400 uppercase">
               RECOVERY & ACTIVITY
             </p>
             
@@ -633,10 +668,10 @@ export default function ActivityAndStepsPage() {
                   color={recoveryScore >= 75 ? 'emerald' : recoveryScore >= 50 ? 'blue' : 'amber'}
                 />
                 <div className="space-y-2 w-full">
-                  <h3 className="text-sm font-semibold tracking-tight text-slate-900">
+                  <h3 className="text-sm font-semibold tracking-tight">
                     Recovery
                   </h3>
-                  <p className="text-sm text-slate-600 leading-relaxed">
+                  <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                     {hasRecoveryData
                       ? recoveryDescription
                       : 'Log a few nights of sleep to unlock your personalised recovery score.'}
@@ -654,10 +689,10 @@ export default function ActivityAndStepsPage() {
                   color={activityScore >= 70 ? 'emerald' : activityScore >= 50 ? 'blue' : activityScore >= 30 ? 'amber' : 'blue'}
                 />
                 <div className="space-y-2 w-full">
-                  <h3 className="text-sm font-semibold tracking-tight text-slate-900">
+                  <h3 className="text-sm font-semibold tracking-tight">
                     Activity
                   </h3>
-                  <p className="text-sm text-slate-600 leading-relaxed">
+                  <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                     {hasActivityData
                       ? activityDescription
                       : 'Log steps or connect a wearable to see how your daily movement compares to your target.'}
@@ -672,20 +707,28 @@ export default function ActivityAndStepsPage() {
         <section
           className={[
             "relative overflow-hidden rounded-3xl",
-            "bg-white/75 backdrop-blur-xl",
-            "border border-slate-200/50",
+            "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
+            "border border-slate-200/50 dark:border-slate-700/40",
+            "text-slate-900 dark:text-slate-100",
             "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+            "dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
             "p-6",
           ].join(" ")}
         >
           {/* Highlight overlay */}
-          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+          
+          {/* Subtle colored glow hints - dark mode only */}
+          <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
+          
+          {/* Inner ring for premium feel */}
+          <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
 
           <div className="relative z-10 space-y-4">
-            <h3 className="text-[17px] font-semibold tracking-tight text-slate-900">
+            <h3 className="text-[17px] font-semibold tracking-tight">
               Today's Recommendation
             </h3>
-            <p className="text-sm text-slate-600 leading-relaxed">
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
               {activityRecommendation}
             </p>
           </div>

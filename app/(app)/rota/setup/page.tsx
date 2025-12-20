@@ -687,7 +687,7 @@ export default function RotaSetup() {
       : false
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 dark:from-slate-950 to-white dark:to-slate-900">
       <div className="mx-auto max-w-md px-4 py-6">
           {/* Header with Clear Button – top of card */}
           <div className="mb-6 flex items-center justify-between">
@@ -698,18 +698,18 @@ export default function RotaSetup() {
                   router.push('/rota')
                   router.refresh()
                 }}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-900 active:scale-95 transition-all"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700/40 hover:bg-slate-50 dark:hover:bg-slate-800/70 hover:text-slate-900 dark:hover:text-slate-100 active:scale-95 transition-all"
                 aria-label="Back to calendar"
               >
                 <ChevronLeft className="h-4 w-4" strokeWidth={2.5} />
               </button>
-              <h2 className="text-lg font-semibold tracking-tight text-slate-900">Rota Setup</h2>
+              <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">Rota Setup</h2>
             </div>
             <button
               type="button"
               onClick={handleClearRota}
               disabled={clearing}
-              className="inline-flex items-center gap-1.5 rounded-full bg-red-500 px-4 py-1 text-xs font-semibold text-white transition-all hover:bg-red-600 active:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-full bg-red-500 dark:bg-red-600 px-4 py-1 text-xs font-semibold text-white transition-all hover:bg-red-600 dark:hover:bg-red-700 active:bg-red-700 dark:active:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm dark:shadow-[0_4px_12px_rgba(239,68,68,0.3)]"
             >
               <Trash2 className="h-3.5 w-3.5" strokeWidth={2.5} />
               <span>{clearing ? 'Clearing…' : 'Clear rota'}</span>
@@ -718,21 +718,21 @@ export default function RotaSetup() {
 
           {/* Today's Shift Info */}
           {showPreview && todayShiftInfo && (
-            <div className="mb-4 rounded-xl border-2 border-sky-300 bg-gradient-to-br from-sky-50 to-indigo-50 p-3">
+            <div className="mb-4 rounded-xl border-2 border-sky-300 dark:border-sky-600/50 bg-gradient-to-br from-sky-50 dark:from-sky-950/30 to-indigo-50 dark:to-indigo-950/30 p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-400">
                     {todayShiftInfo.isWorking ? 'Working Today' : 'Off Today'}
                   </p>
-                  <p className="mt-1 text-sm font-bold text-slate-900">
+                  <p className="mt-1 text-sm font-bold text-slate-900 dark:text-slate-100">
                     {todayShiftInfo.label}
                   </p>
-                  <p className="mt-0.5 text-xs text-slate-600">
+                  <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
                     Day {todayShiftInfo.dayInCycle} of {getPatternSlots(selectedPattern || '').length} in cycle
                   </p>
                 </div>
                 {todayShiftInfo.isWorking && (
-                  <div className="rounded-full bg-sky-500 p-2">
+                  <div className="rounded-full bg-sky-500 dark:bg-sky-600 p-2">
                     <Clock className="h-4 w-4 text-white" />
                   </div>
                 )}
@@ -741,24 +741,26 @@ export default function RotaSetup() {
           )}
 
           {/* Mini Calendar Preview */}
-          <div className="mb-6 rounded-[28px] bg-white/95 p-4 shadow-inner shadow-slate-100">
+          <div className="mb-6 rounded-[28px] bg-white/95 dark:bg-slate-900/45 p-4 border border-slate-200/50 dark:border-slate-700/40">
+            
+            <div className="relative z-10">
             {/* Calendar Header */}
             <div className="mb-4 flex items-center justify-between">
               <button
                 type="button"
                 onClick={goToPrevMonth}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-600 transition-all duration-200 hover:bg-slate-100 active:scale-95"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/50 active:scale-95"
                 aria-label="Previous month"
               >
                 <ChevronLeft className="h-4 w-4" strokeWidth={2.5} />
               </button>
 
-              <h3 className="text-sm font-semibold tracking-tight text-slate-900 antialiased">{monthLabel}</h3>
+              <h3 className="text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100 antialiased">{monthLabel}</h3>
 
               <button
                 type="button"
                 onClick={goToNextMonth}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-600 transition-all duration-200 hover:bg-slate-100 active:scale-95"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/50 active:scale-95"
                 aria-label="Next month"
               >
                 <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
@@ -771,7 +773,7 @@ export default function RotaSetup() {
               <div className="grid grid-cols-7 gap-1">
                 {weekdayLabels.map((label, idx) => (
                   <div key={`${label}-${idx}`} className="text-center">
-                    <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wide antialiased">
+                    <span className="text-[9px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide antialiased">
                       {label}
                     </span>
                   </div>
@@ -796,10 +798,10 @@ export default function RotaSetup() {
                             className={[
                               'flex h-7 w-7 items-center justify-center rounded-lg text-[10px] font-semibold transition-all antialiased',
                               isToday
-                                ? 'bg-sky-500 text-white shadow-sm shadow-sky-500/30'
+                                ? 'bg-sky-500 dark:bg-sky-600 text-white shadow-sm shadow-sky-500/30 dark:shadow-sky-500/40'
                                 : day.isCurrentMonth
-                                  ? 'text-slate-900 hover:bg-slate-50'
-                                  : 'text-slate-300',
+                                  ? 'text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                                  : 'text-slate-300 dark:text-slate-600',
                             ].join(' ')}
                           >
                             {day.dayNumber}
@@ -822,16 +824,16 @@ export default function RotaSetup() {
                       return (
                         <div key={`block-${day.date}`} className="flex flex-col gap-0.5 items-stretch">
                           {previewShift && (
-                            previewShift.type === 'off' ? (
+                              previewShift.type === 'off' ? (
                               <div
                                 className={[
-                                  'rounded-md px-1 py-0.5 text-center min-h-[12px] flex items-center justify-center border border-slate-200',
-                                  isToday ? 'border-sky-500 border-2 bg-sky-50' : 'bg-slate-50',
+                                  'rounded-md px-1 py-0.5 text-center min-h-[12px] flex items-center justify-center border border-slate-200 dark:border-slate-700/40',
+                                  isToday ? 'border-sky-500 dark:border-sky-600 border-2 bg-sky-50 dark:bg-sky-950/30' : 'bg-slate-50 dark:bg-slate-800/50',
                                 ].join(' ')}
                               >
                                 <span className={[
                                   'text-[8px] font-medium leading-tight block truncate antialiased',
-                                  isToday ? 'text-sky-700' : 'text-slate-500',
+                                  isToday ? 'text-sky-700 dark:text-sky-400' : 'text-slate-500 dark:text-slate-400',
                                 ].join(' ')}>
                                   {previewShift.label}
                                 </span>
@@ -860,24 +862,25 @@ export default function RotaSetup() {
                 </div>
               ))}
             </div>
+            </div>
           </div>
 
           {/* Premium Segmented Control Stepper */}
-          <div className="mb-5 rounded-3xl bg-white/70 backdrop-blur-xl border border-slate-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_10px_28px_-18px_rgba(0,0,0,0.12)] p-2">
+          <div className="mb-5 rounded-3xl bg-white/70 dark:bg-slate-900/45 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_10px_28px_-18px_rgba(0,0,0,0.12)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5)] p-2">
             <div className="flex items-center gap-2">
               {/* Step 1 */}
               <div
                 className={[
                   'flex flex-1 flex-col rounded-2xl px-4 py-3 transition-all',
                   currentStep === 1
-                    ? 'bg-white border border-slate-200/60 shadow-[0_8px_20px_-16px_rgba(0,0,0,0.18)]'
-                    : 'px-4 py-3 rounded-2xl text-slate-500',
+                    ? 'bg-white dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 shadow-[0_8px_20px_-16px_rgba(0,0,0,0.18)] dark:shadow-[0_8px_20px_-16px_rgba(0,0,0,0.4)]'
+                    : 'px-4 py-3 rounded-2xl text-slate-500 dark:text-slate-400',
                 ].join(' ')}
               >
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400">
                   STEP 1
                 </p>
-                <p className="mt-1 text-sm font-semibold tracking-tight text-slate-900">
+                <p className="mt-1 text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                   Shift hours
                 </p>
               </div>
@@ -887,14 +890,14 @@ export default function RotaSetup() {
                 className={[
                   'flex flex-1 flex-col rounded-2xl px-4 py-3 transition-all',
                   currentStep === 2
-                    ? 'bg-white border border-slate-200/60 shadow-[0_8px_20px_-16px_rgba(0,0,0,0.18)]'
-                    : 'px-4 py-3 rounded-2xl text-slate-500',
+                    ? 'bg-white dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 shadow-[0_8px_20px_-16px_rgba(0,0,0,0.18)] dark:shadow-[0_8px_20px_-16px_rgba(0,0,0,0.4)]'
+                    : 'px-4 py-3 rounded-2xl text-slate-500 dark:text-slate-400',
                 ].join(' ')}
               >
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400">
                   STEP 2
                 </p>
-                <p className="mt-1 text-sm font-semibold tracking-tight text-slate-900">
+                <p className="mt-1 text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                   Pattern
                 </p>
               </div>
@@ -904,14 +907,14 @@ export default function RotaSetup() {
                 className={[
                   'flex flex-1 flex-col rounded-2xl px-4 py-3 transition-all',
                   currentStep === 3
-                    ? 'bg-white border border-slate-200/60 shadow-[0_8px_20px_-16px_rgba(0,0,0,0.18)]'
-                    : 'px-4 py-3 rounded-2xl text-slate-500',
+                    ? 'bg-white dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 shadow-[0_8px_20px_-16px_rgba(0,0,0,0.18)] dark:shadow-[0_8px_20px_-16px_rgba(0,0,0,0.4)]'
+                    : 'px-4 py-3 rounded-2xl text-slate-500 dark:text-slate-400',
                 ].join(' ')}
               >
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400">
                   STEP 3
                 </p>
-                <p className="mt-1 text-sm font-semibold tracking-tight text-slate-900">
+                <p className="mt-1 text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                   Times &amp; sync
                 </p>
               </div>
@@ -919,18 +922,21 @@ export default function RotaSetup() {
           </div>
 
           {/* Premium Glass Card */}
-          <div className="mt-5 relative overflow-hidden rounded-3xl bg-white/75 backdrop-blur-xl border border-slate-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] p-6">
+          <div className="mt-5 relative overflow-hidden rounded-3xl bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5)] p-6">
             {/* Highlight overlay */}
-            <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+            <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+            
+            {/* Inner ring */}
+            <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
             
             <div className="relative z-10">
               {/* STEP 1 – SHIFT HOURS */}
               {currentStep === 1 && (
                 <div>
-                  <h1 className="text-[22px] font-semibold tracking-tight text-slate-900">
+                  <h1 className="text-[22px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                     Select shift hours
                   </h1>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600 max-w-prose">
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400 max-w-prose">
                     Pick the shift length you work most often. You can fine-tune exact start/finish times later.
                   </p>
                 
@@ -955,15 +961,15 @@ export default function RotaSetup() {
                               }
                             }}
                             className={[
-                              'inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2',
+                              'inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 dark:focus-visible:ring-slate-600/60 focus-visible:ring-offset-2',
                               isSelected
-                                ? 'bg-white/80 border border-emerald-200/50 shadow-[0_10px_26px_-18px_rgba(0,0,0,0.18)] text-slate-800'
-                                : 'bg-slate-50/40 border border-slate-200/40 text-slate-800 hover:bg-white/80 hover:border-slate-200/60',
+                                ? 'bg-white/80 dark:bg-slate-800/50 border border-emerald-200/50 dark:border-emerald-800/40 shadow-[0_10px_26px_-18px_rgba(0,0,0,0.18)] dark:shadow-[0_10px_26px_-18px_rgba(0,0,0,0.4)] text-slate-800 dark:text-slate-100'
+                                : 'bg-slate-50/40 dark:bg-slate-800/30 border border-slate-200/40 dark:border-slate-700/40 text-slate-800 dark:text-slate-200 hover:bg-white/80 dark:hover:bg-slate-800/50 hover:border-slate-200/60 dark:hover:border-slate-600/60',
                             ].join(' ')}
                           >
                             {option.label}
                             {option.value === '12h' && (
-                              <span className="rounded-full px-2.5 py-1 text-[11px] font-medium bg-emerald-100/60 border border-emerald-200/50 text-emerald-700/80">
+                              <span className="rounded-full px-2.5 py-1 text-[11px] font-medium bg-emerald-100/60 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-800/40 text-emerald-700/80 dark:text-emerald-300">
                                 Most common
                               </span>
                             )}
@@ -977,7 +983,7 @@ export default function RotaSetup() {
                       <button
                         type="button"
                         onClick={() => setShowAllShiftLengths((prev) => !prev)}
-                        className="mt-4 text-sm font-medium text-slate-600 hover:text-slate-900 transition"
+                        className="mt-4 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition"
                       >
                         {showAllShiftLengths ? 'Hide less common shift lengths' : 'Show less common shift lengths'}
                       </button>
@@ -1018,8 +1024,8 @@ export default function RotaSetup() {
 
                   {/* Custom Hours Input */}
                   {selectedShiftHours === 'custom' && (
-                    <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 shadow-sm">
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-700/40 bg-gradient-to-br from-slate-50 dark:from-slate-800/50 to-white dark:to-slate-900/50 p-4 shadow-sm dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)]">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
                         Enter Your Shift Hours
                       </label>
                       <div className="flex items-center gap-3">
@@ -1031,11 +1037,11 @@ export default function RotaSetup() {
                           value={customHours}
                           onChange={(e) => setCustomHours(e.target.value)}
                           placeholder="e.g., 10, 14, 10.5"
-                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-sm transition-all focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 px-4 py-3 text-sm font-semibold text-slate-900 dark:text-slate-100 shadow-sm transition-all focus:border-sky-400 dark:focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400/20 dark:focus:ring-sky-500/30"
                         />
-                        <span className="text-sm font-semibold text-slate-600">hours</span>
+                        <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">hours</span>
                       </div>
-                      <p className="mt-2 text-xs text-slate-500">
+                      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                         Enter the number of hours you work per shift (e.g., 10, 14, 10.5)
                       </p>
                     </div>
@@ -1043,23 +1049,23 @@ export default function RotaSetup() {
                 </div>
 
                   {/* CalAI Magic Hint */}
-                  <div className="mt-5 rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/50">
-                    <p className="text-xs font-semibold tracking-tight text-slate-900 flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-slate-400" />
+                  <div className="mt-5 rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 dark:from-slate-800/50 to-white dark:to-slate-900/50 border border-slate-200/50 dark:border-slate-700/40">
+                    <p className="text-xs font-semibold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-slate-400 dark:text-slate-500" />
                       Why we ask
                     </p>
-                    <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                       Shift length helps ShiftCoach predict energy dips and suggest the best meal and sleep timing.
                     </p>
                   </div>
 
                   {/* Navigation inside the Select shift hours card */}
-                  <div className="mt-6 pt-5 flex items-center justify-between border-t border-slate-200/50">
+                  <div className="mt-6 pt-5 flex items-center justify-between border-t border-slate-200/50 dark:border-slate-700/40">
                     <button
                       type="button"
                       onClick={() => setCurrentStep((prev) => (prev > 1 ? ((prev - 1) as SetupStep) : prev))}
                       disabled={currentStep === 1}
-                      className="rounded-full px-5 py-3 bg-white/60 backdrop-blur border border-slate-200/60 text-sm font-medium text-slate-700 hover:bg-white/90 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-full px-5 py-3 bg-white/60 dark:bg-slate-800/50 backdrop-blur border border-slate-200/60 dark:border-slate-700/40 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-white/90 dark:hover:bg-slate-800/70 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 dark:focus-visible:ring-slate-600/60 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Back
                     </button>
@@ -1067,7 +1073,7 @@ export default function RotaSetup() {
                       type="button"
                       onClick={() => setCurrentStep((prev) => (prev < 3 ? ((prev + 1) as SetupStep) : prev))}
                       disabled={!canContinue}
-                      className="rounded-full px-6 py-3 bg-slate-900 text-white text-sm font-semibold shadow-[0_14px_30px_-18px_rgba(0,0,0,0.35)] hover:opacity-95 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="rounded-full px-6 py-3 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-semibold shadow-[0_14px_30px_-18px_rgba(0,0,0,0.35)] dark:shadow-[0_14px_30px_-18px_rgba(255,255,255,0.1)] hover:opacity-95 dark:hover:opacity-90 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 dark:focus-visible:ring-slate-600/60 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       Continue
                     </button>
@@ -1080,24 +1086,24 @@ export default function RotaSetup() {
               <div className="relative z-10">
                 {currentStep === 2 && (
                   <>
-                    <h1 className="text-[22px] font-semibold tracking-tight text-slate-900">
+                    <h1 className="text-[22px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                       Select Shift Pattern
                     </h1>
-                    <p className="mt-2 text-sm leading-relaxed text-slate-600 max-w-prose">
+                    <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400 max-w-prose">
                       Choose the pattern that matches your work schedule.
                     </p>
                   </>
                 )}
                 {!selectedShiftHours ? (
-                  <div className="mt-5 rounded-2xl border border-slate-200/50 bg-slate-50/40 p-6 text-center">
-                    <p className="text-sm text-slate-600">
+                  <div className="mt-5 rounded-2xl border border-slate-200/50 dark:border-slate-700/40 bg-slate-50/40 dark:bg-slate-800/50 p-6 text-center">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
                       Please select your shift hours first to see available patterns
                     </p>
                   </div>
                 ) : selectedShiftHours === 'custom' ? (
-                  <div className="mt-5 rounded-2xl border border-slate-200/50 bg-gradient-to-br from-slate-50/70 to-white p-6 text-center">
-                    <h3 className="mb-2 text-sm font-semibold text-slate-900">Custom patterns</h3>
-                    <p className="text-sm text-slate-600 leading-relaxed">
+                  <div className="mt-5 rounded-2xl border border-slate-200/50 dark:border-slate-700/40 bg-gradient-to-br from-slate-50/70 dark:from-slate-800/50 to-white dark:to-slate-900/50 p-6 text-center">
+                    <h3 className="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100">Custom patterns</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                       A full custom pattern builder is coming soon. For now, choose the shift length that&apos;s
                       closest to your real pattern and we&apos;ll keep things simple.
                     </p>
@@ -1108,14 +1114,14 @@ export default function RotaSetup() {
                     {currentStep === 2 && (
                       <>
                         <div className="relative">
-                          <label className="mb-3 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          <label className="mb-3 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
                             SHIFT PATTERN
                           </label>
                           <div className="relative">
                             <select
                               value={selectedPattern || ''}
                               onChange={(e) => setSelectedPattern(e.target.value)}
-                              className="w-full appearance-none rounded-2xl border border-slate-200/60 bg-white/80 backdrop-blur px-4 py-3.5 pr-10 text-sm font-semibold text-slate-900 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_12px_-8px_rgba(0,0,0,0.12)] transition-all focus:border-slate-300/60 focus:outline-none focus:ring-2 focus:ring-slate-300/40 focus:ring-offset-2 hover:border-slate-300/60"
+                              className="w-full appearance-none rounded-2xl border border-slate-200/60 dark:border-slate-700/40 bg-white/80 dark:bg-slate-800/50 backdrop-blur px-4 py-3.5 pr-10 text-sm font-semibold text-slate-900 dark:text-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_12px_-8px_rgba(0,0,0,0.12)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)] transition-all focus:border-slate-300/60 dark:focus:border-slate-600/60 focus:outline-none focus:ring-2 focus:ring-slate-300/40 dark:focus:ring-slate-600/40 focus:ring-offset-2 hover:border-slate-300/60 dark:hover:border-slate-600/60"
                             >
                               <option value="">Select a pattern...</option>
                               {availablePatterns.map((pattern) => (
@@ -1125,26 +1131,26 @@ export default function RotaSetup() {
                               ))}
                             </select>
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                              <ChevronDown className="h-4 w-4 text-slate-400" strokeWidth={2} />
+                              <ChevronDown className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
                             </div>
                           </div>
                         </div>
 
                         {selectedPattern && (
-                          <div className="rounded-2xl border border-slate-200/50 bg-gradient-to-br from-slate-50/70 to-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_12px_-8px_rgba(0,0,0,0.12)]">
-                            <p className="text-sm text-slate-600 leading-relaxed">
+                          <div className="rounded-2xl border border-slate-200/50 dark:border-slate-700/40 bg-gradient-to-br from-slate-50/70 dark:from-slate-800/50 to-white dark:to-slate-900/50 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_12px_-8px_rgba(0,0,0,0.12)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)]">
+                            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                               {availablePatterns.find((p) => p.id === selectedPattern)?.description}
                             </p>
                             {availablePatterns.find((p) => p.id === selectedPattern)?.commonIn &&
                               availablePatterns.find((p) => p.id === selectedPattern)!.commonIn!.length > 0 && (
                                 <div className="mt-4 flex flex-wrap items-center gap-2">
-                                  <span className="text-xs font-medium text-slate-500">Common in:</span>
+                                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Common in:</span>
                                   {availablePatterns
                                     .find((p) => p.id === selectedPattern)!
                                     .commonIn!.map((location) => (
                                       <span
                                         key={location}
-                                        className="rounded-full bg-slate-100/70 border border-slate-200/50 px-2.5 py-1 text-[11px] font-medium text-slate-600"
+                                        className="rounded-full bg-slate-100/70 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/40 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-slate-300"
                                       >
                                         {location}
                                       </span>
@@ -1160,21 +1166,21 @@ export default function RotaSetup() {
                     {currentStep === 3 && selectedPattern && (
                       <div className="space-y-4">
                         {/* Compact pattern summary pill */}
-                        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
+                        <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700/40 bg-slate-50/80 dark:bg-slate-800/50 px-3 py-2">
                           <div className="flex flex-col">
-                            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]">
+                            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-[0.16em]">
                               Pattern
                             </span>
-                            <span className="text-sm font-semibold text-slate-900">
+                            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                               {availablePatterns.find((p) => p.id === selectedPattern)?.label || 'Selected pattern'}
                             </span>
                           </div>
-                          <span className="text-[11px] text-slate-500">Step 3 of 3</span>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400">Step 3 of 3</span>
                         </div>
 
                         {/* Tabs */}
                         <div className="rounded-xl bg-transparent p-3">
-                          <div className="mb-3 flex items-center gap-2 rounded-full bg-white/70 p-1">
+                          <div className="mb-3 flex items-center gap-2 rounded-full bg-white/70 dark:bg-slate-800/50 p-1">
                             {(['times', 'commute', 'today'] as DetailTab[]).map((tab) => {
                               const label =
                                 tab === 'times' ? 'Times' : tab === 'commute' ? 'Commute' : 'Today';
@@ -1187,8 +1193,8 @@ export default function RotaSetup() {
                                   className={[
                                     'flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-all',
                                     active
-                                      ? 'bg-slate-900 text-white shadow-sm'
-                                      : 'text-slate-500 hover:text-slate-900',
+                                      ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-sm'
+                                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200',
                                   ].join(' ')}
                                 >
                                   {label}
@@ -1202,15 +1208,15 @@ export default function RotaSetup() {
                             <div className="space-y-3 pt-1">
                               <div className="flex items-center justify-between">
                                 <div>
-                                  <h3 className="text-sm font-semibold text-slate-900">Set shift times</h3>
-                                  <p className="mt-0.5 text-xs text-slate-500">
+                                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Set shift times</h3>
+                                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                                     Start and end for each type in your pattern.
                                   </p>
                                 </div>
                                 <button
                                   type="button"
                                   onClick={() => setShowTimeConfig((prev) => !prev)}
-                                  className="rounded-full border border-slate-300 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                                  className="rounded-full border border-slate-300 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 px-3 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800/70"
                                 >
                                   {showTimeConfig ? 'Hide' : 'Configure'}
                                 </button>
@@ -1231,16 +1237,16 @@ export default function RotaSetup() {
                                     const isNightShift = shiftType === 'night' || shiftType === 'evening';
 
                                     return (
-                                      <div key={shiftType} className="rounded-lg border border-slate-200 bg-white p-3">
+                                      <div key={shiftType} className="rounded-lg border border-slate-200 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 p-3">
                                         <div className="mb-2 flex items-center gap-2">
                                           <Icon className={`h-4 w-4 ${shiftTypeConfig.color}`} />
-                                          <span className="text-sm font-semibold text-slate-900">
+                                          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                                             {shiftTypeConfig.label}
                                           </span>
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
                                           <div>
-                                            <label className="mb-1 block text-xs font-medium text-slate-500">
+                                            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
                                               Start
                                             </label>
                                             <input
@@ -1252,11 +1258,11 @@ export default function RotaSetup() {
                                                   [shiftType]: { ...prev[shiftType], start: e.target.value },
                                                 }))
                                               }
-                                              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
+                                              className="w-full rounded-lg border border-slate-200 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 px-3 py-2 text-sm font-medium text-slate-900 dark:text-slate-100 shadow-sm focus:border-sky-400 dark:focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400/20 dark:focus:ring-sky-500/30"
                                             />
                                           </div>
                                           <div>
-                                            <label className="mb-1 block text-xs font-medium text-slate-500">
+                                            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
                                               End
                                             </label>
                                             <input
@@ -1268,10 +1274,10 @@ export default function RotaSetup() {
                                                   [shiftType]: { ...prev[shiftType], end: e.target.value },
                                                 }))
                                               }
-                                              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
+                                              className="w-full rounded-lg border border-slate-200 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 px-3 py-2 text-sm font-medium text-slate-900 dark:text-slate-100 shadow-sm focus:border-sky-400 dark:focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400/20 dark:focus:ring-sky-500/30"
                                             />
                                             {isNightShift && (
-                                              <p className="mt-1 text-xs text-slate-400">(Next day if after midnight)</p>
+                                              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">(Next day if after midnight)</p>
                                             )}
                                           </div>
                                         </div>
@@ -1280,8 +1286,8 @@ export default function RotaSetup() {
                                   })}
 
                                   {getRelevantShiftTypes.length === 0 && (
-                                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-center">
-                                      <p className="text-sm text-slate-500">
+                                    <div className="rounded-lg border border-slate-200 dark:border-slate-700/40 bg-slate-50 dark:bg-slate-800/50 p-4 text-center">
+                                      <p className="text-sm text-slate-500 dark:text-slate-400">
                                         Select a pattern to configure shift times.
                                       </p>
                                     </div>
@@ -1294,21 +1300,21 @@ export default function RotaSetup() {
                           {/* Commute tab */}
                           {detailTab === 'commute' && (
                             <div className="space-y-3 pt-1">
-                              <h3 className="text-sm font-semibold text-slate-900">Commuting settings</h3>
-                              <p className="text-xs text-slate-500">
+                              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Commuting settings</h3>
+                              <p className="text-xs text-slate-500 dark:text-slate-400">
                                 We&apos;ll use this to fine‑tune your sleep and activity recommendations.
                               </p>
 
                               <div className="space-y-4">
                                 {/* Commute To Work */}
-                                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                                <div className="rounded-lg border border-slate-200 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 p-3">
                                   <div className="mb-3 flex items-center gap-2">
-                                    <Car className="h-4 w-4 text-sky-500" />
-                                    <span className="text-sm font-semibold text-slate-900">To work</span>
+                                    <Car className="h-4 w-4 text-sky-500 dark:text-sky-400" />
+                                    <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">To work</span>
                                   </div>
                                   <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                      <label className="mb-1 block text-xs font-medium text-slate-500">
+                                      <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
                                         Time (minutes)
                                       </label>
                                       <input
@@ -1322,12 +1328,12 @@ export default function RotaSetup() {
                                             minutes: e.target.value,
                                           }))
                                         }
-                                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
+                                        className="w-full rounded-lg border border-slate-200 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 px-3 py-2 text-sm font-medium text-slate-900 dark:text-slate-100 shadow-sm focus:border-sky-400 dark:focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400/20 dark:focus:ring-sky-500/30"
                                         placeholder="30"
                                       />
                                     </div>
                                     <div>
-                                      <label className="mb-1 block text-xs font-medium text-slate-500">
+                                      <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
                                         Method
                                       </label>
                                       <select
@@ -1338,7 +1344,7 @@ export default function RotaSetup() {
                                             method: e.target.value,
                                           }))
                                         }
-                                        className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
+                                        className="w-full appearance-none rounded-lg border border-slate-200 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 px-3 py-2 text-sm font-medium text-slate-900 dark:text-slate-100 shadow-sm focus:border-sky-400 dark:focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400/20 dark:focus:ring-sky-500/30"
                                       >
                                         <option value="walk">Walk</option>
                                         <option value="bike">Bike</option>
@@ -1351,14 +1357,14 @@ export default function RotaSetup() {
                                 </div>
 
                                 {/* Commute From Work */}
-                                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                                <div className="rounded-lg border border-slate-200 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 p-3">
                                   <div className="mb-3 flex items-center gap-2">
-                                    <Car className="h-4 w-4 text-indigo-500" />
-                                    <span className="text-sm font-semibold text-slate-900">From work</span>
+                                    <Car className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
+                                    <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">From work</span>
                                   </div>
                                   <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                      <label className="mb-1 block text-xs font-medium text-slate-500">
+                                      <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
                                         Time (minutes)
                                       </label>
                                       <input
@@ -1372,12 +1378,12 @@ export default function RotaSetup() {
                                             minutes: e.target.value,
                                           }))
                                         }
-                                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
+                                        className="w-full rounded-lg border border-slate-200 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 px-3 py-2 text-sm font-medium text-slate-900 dark:text-slate-100 shadow-sm focus:border-sky-400 dark:focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400/20 dark:focus:ring-sky-500/30"
                                         placeholder="30"
                                       />
                                     </div>
                                     <div>
-                                      <label className="mb-1 block text-xs font-medium text-slate-500">
+                                      <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
                                         Method
                                       </label>
                                       <select
@@ -1388,7 +1394,7 @@ export default function RotaSetup() {
                                             method: e.target.value,
                                           }))
                                         }
-                                        className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
+                                        className="w-full appearance-none rounded-lg border border-slate-200 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 px-3 py-2 text-sm font-medium text-slate-900 dark:text-slate-100 shadow-sm focus:border-sky-400 dark:focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400/20 dark:focus:ring-sky-500/30"
                                       >
                                         <option value="walk">Walk</option>
                                         <option value="bike">Bike</option>
@@ -1408,17 +1414,17 @@ export default function RotaSetup() {
                             <div className="space-y-4 pt-1">
                               {patternCycleOptions.length > 0 && (
                                 <div className="rounded-xl bg-transparent p-0">
-                                  <label className="mb-2 block text-sm font-semibold text-slate-900">
+                                  <label className="mb-2 block text-sm font-semibold text-slate-900 dark:text-slate-100">
                                     Where are you in your pattern today?
                                   </label>
-                                  <p className="mb-3 text-xs text-slate-500">
+                                  <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
                                     Select today&apos;s shift or rest day so your calendar and coach stay in sync.
                                   </p>
                                   <div className="relative">
                                     <select
                                       value={selectedTodayPosition || ''}
                                       onChange={(e) => setSelectedTodayPosition(parseInt(e.target.value))}
-                                      className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 py-3 pr-10 text-sm font-semibold text-slate-900 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
+                                      className="w-full appearance-none rounded-xl border border-slate-200 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 px-4 py-3 pr-10 text-sm font-semibold text-slate-900 dark:text-slate-100 shadow-sm focus:border-sky-400 dark:focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400/20 dark:focus:ring-sky-500/30"
                                     >
                                       <option value="">Select your position today...</option>
                                       {patternCycleOptions.map((option) => (
@@ -1428,7 +1434,7 @@ export default function RotaSetup() {
                                       ))}
                                     </select>
                                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                                      <ChevronDown className="h-5 w-5 text-slate-400" strokeWidth={2} />
+                                      <ChevronDown className="h-5 w-5 text-slate-400 dark:text-slate-500" strokeWidth={2} />
                                     </div>
                                   </div>
                                 </div>
@@ -1439,7 +1445,7 @@ export default function RotaSetup() {
                                 <button
                                   type="button"
                                   onClick={handlePreview}
-                                  className="flex-1 rounded-xl border-2 border-sky-500 bg-white px-4 py-3 text-sm font-semibold text-sky-600 shadow-sm transition-all hover:bg-sky-50 active:scale-95"
+                                  className="flex-1 rounded-xl border-2 border-sky-500 dark:border-sky-600 bg-white dark:bg-slate-800/50 px-4 py-3 text-sm font-semibold text-sky-600 dark:text-sky-400 shadow-sm transition-all hover:bg-sky-50 dark:hover:bg-slate-800/70 active:scale-95"
                                 >
                                   Preview on calendar
                                 </button>
@@ -1447,7 +1453,7 @@ export default function RotaSetup() {
                                   type="button"
                                   onClick={handleSavePattern}
                                   disabled={saving}
-                                  className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-sky-500/30 transition-all hover:from-sky-600 hover:to-indigo-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                                  className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 dark:from-sky-600 to-indigo-500 dark:to-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-sky-500/30 dark:shadow-sky-500/40 transition-all hover:from-sky-600 dark:hover:from-sky-700 hover:to-indigo-600 dark:hover:to-indigo-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                   {saving ? 'Saving…' : 'Save pattern'}
                                 </button>
@@ -1465,11 +1471,11 @@ export default function RotaSetup() {
 
           {/* Navigation controls – for steps 2 and 3 only, stay at bottom of card */}
           {currentStep >= 2 && (
-            <div className="mt-6 pt-5 flex items-center justify-between border-t border-slate-200/50">
+            <div className="mt-6 pt-5 flex items-center justify-between border-t border-slate-200/50 dark:border-slate-700/40">
               <button
                 type="button"
                 onClick={() => setCurrentStep((prev) => (prev > 1 ? ((prev - 1) as SetupStep) : prev))}
-                className="rounded-full px-5 py-3 bg-white/60 backdrop-blur border border-slate-200/60 text-sm font-medium text-slate-700 hover:bg-white/90 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2"
+                className="rounded-full px-5 py-3 bg-white/60 dark:bg-slate-800/50 backdrop-blur border border-slate-200/60 dark:border-slate-700/40 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-white/90 dark:hover:bg-slate-800/70 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 dark:focus-visible:ring-slate-600/60 focus-visible:ring-offset-2"
               >
                 Back
               </button>
@@ -1478,7 +1484,7 @@ export default function RotaSetup() {
                   type="button"
                   onClick={() => setCurrentStep((prev) => (prev < 3 ? ((prev + 1) as SetupStep) : prev))}
                   disabled={!canContinue}
-                  className="rounded-full px-6 py-3 bg-slate-900 text-white text-sm font-semibold shadow-[0_14px_30px_-18px_rgba(0,0,0,0.35)] hover:opacity-95 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-full px-6 py-3 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-semibold shadow-[0_14px_30px_-18px_rgba(0,0,0,0.35)] dark:shadow-[0_14px_30px_-18px_rgba(255,255,255,0.1)] hover:opacity-95 dark:hover:opacity-90 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 dark:focus-visible:ring-slate-600/60 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Continue
                 </button>
@@ -1490,24 +1496,32 @@ export default function RotaSetup() {
 
       {/* Pattern Confirmation Modal */}
       {showPatternConfirmation && recognizedPattern && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-[32px] border border-slate-200/80 bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-[32px] border border-slate-200/80 dark:border-slate-700/40 bg-white dark:bg-slate-900/95 p-6 shadow-2xl dark:shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
+            {/* Premium gradient overlay */}
+            <div className="pointer-events-none absolute inset-0 rounded-[32px] bg-gradient-to-b from-white/98 dark:from-slate-900/70 via-white/90 dark:via-slate-900/50 to-white/85 dark:to-slate-950/60" />
+            <div className="pointer-events-none absolute inset-0 rounded-[32px] bg-gradient-to-br from-blue-50/20 dark:from-blue-950/15 via-transparent to-indigo-50/20 dark:to-indigo-950/15" />
+            
+            {/* Inner ring */}
+            <div className="pointer-events-none absolute inset-0 rounded-[32px] ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
+            
+            <div className="relative z-10">
             <div className="mb-4 flex items-center gap-3">
-              <div className="rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 p-2">
+              <div className="rounded-full bg-gradient-to-br from-sky-500 dark:from-sky-600 to-indigo-500 dark:to-indigo-600 p-2">
                 <Sparkles className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold tracking-tight text-slate-900">Implement Pattern</h3>
-                <p className="text-xs text-slate-500">Confirm your shift pattern details</p>
+                <h3 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">Implement Pattern</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Confirm your shift pattern details</p>
               </div>
             </div>
 
             {/* Pattern Preview */}
-            <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <div className="mb-4 rounded-xl border border-slate-200 dark:border-slate-700/40 bg-slate-50 dark:bg-slate-800/50 p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                 Recognized Pattern ({recognizedPattern.cycleLength} days)
               </p>
-              <p className="text-sm font-medium text-slate-900">
+              <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
                 {recognizedPattern.cycle
                   .map((s) => {
                     if (s === 'day') return 'Day'
@@ -1521,14 +1535,14 @@ export default function RotaSetup() {
             {/* Date Options */}
             <div className="space-y-4">
               <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                   Start Date
                 </label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-sm transition-all focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 px-4 py-2.5 text-sm font-medium text-slate-900 dark:text-slate-100 shadow-sm transition-all focus:border-sky-400 dark:focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400/20 dark:focus:ring-sky-500/30"
                 />
               </div>
 
@@ -1543,9 +1557,9 @@ export default function RotaSetup() {
                         setEndDate('')
                       }
                     }}
-                    className="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400"
+                    className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-sky-500 dark:text-sky-400 focus:ring-sky-400 dark:focus:ring-sky-500"
                   />
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                     No End Date (Continue Forever)
                   </span>
                 </label>
@@ -1553,7 +1567,7 @@ export default function RotaSetup() {
 
               {!noEndDate && (
                 <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                     End Date
                   </label>
                   <input
@@ -1561,7 +1575,7 @@ export default function RotaSetup() {
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     min={startDate}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-sm transition-all focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 px-4 py-2.5 text-sm font-medium text-slate-900 dark:text-slate-100 shadow-sm transition-all focus:border-sky-400 dark:focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400/20 dark:focus:ring-sky-500/30"
                   />
                 </div>
               )}
@@ -1572,14 +1586,14 @@ export default function RotaSetup() {
               <button
                 type="button"
                 onClick={() => setShowPatternConfirmation(false)}
-                className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-50 active:scale-95"
+                className="flex-1 rounded-xl border border-slate-300 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 shadow-sm transition-all hover:bg-slate-50 dark:hover:bg-slate-800/70 active:scale-95"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleImplementPattern}
-                className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-sky-500/30 transition-all hover:from-sky-600 hover:to-indigo-600 active:scale-95"
+                className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 dark:from-sky-600 to-indigo-500 dark:to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-sky-500/30 dark:shadow-sky-500/40 transition-all hover:from-sky-600 dark:hover:from-sky-700 hover:to-indigo-600 dark:hover:to-indigo-700 active:scale-95"
               >
                 <span className="flex items-center justify-center gap-2">
                   <Check className="h-4 w-4" />
@@ -1587,34 +1601,43 @@ export default function RotaSetup() {
                 </span>
               </button>
             </div>
+            </div>
           </div>
         </div>
       )}
 
       {/* Clear Rota Confirmation Modal */}
       {showClearConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-[32px] border border-slate-200/80 bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-[32px] border border-slate-200/80 dark:border-slate-700/40 bg-white dark:bg-slate-900/95 p-6 shadow-2xl dark:shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
+            {/* Premium gradient overlay */}
+            <div className="pointer-events-none absolute inset-0 rounded-[32px] bg-gradient-to-b from-white/98 dark:from-slate-900/70 via-white/90 dark:via-slate-900/50 to-white/85 dark:to-slate-950/60" />
+            <div className="pointer-events-none absolute inset-0 rounded-[32px] bg-gradient-to-br from-red-50/20 dark:from-red-950/15 via-transparent to-transparent" />
+            
+            {/* Inner ring */}
+            <div className="pointer-events-none absolute inset-0 rounded-[32px] ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
+            
+            <div className="relative z-10">
             <div className="mb-4 flex items-center gap-3">
-              <div className="rounded-full bg-gradient-to-br from-red-500 to-red-600 p-2">
+              <div className="rounded-full bg-gradient-to-br from-red-500 dark:from-red-600 to-red-600 dark:to-red-700 p-2">
                 <Trash2 className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold tracking-tight text-slate-900">Clear Rota</h3>
-                <p className="text-xs text-slate-500">This will remove your shift pattern</p>
+                <h3 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">Clear Rota</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">This will remove your shift pattern</p>
               </div>
             </div>
 
-            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3">
-              <p className="text-sm font-medium text-red-900">
+            <div className="mb-4 rounded-xl border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-950/30 p-3">
+              <p className="text-sm font-medium text-red-900 dark:text-red-300">
                 Are you sure you want to clear your rota? This will:
               </p>
-              <ul className="mt-2 list-disc list-inside space-y-1 text-xs text-red-700">
+              <ul className="mt-2 list-disc list-inside space-y-1 text-xs text-red-700 dark:text-red-400">
                 <li>Delete your shift pattern configuration</li>
                 <li>Remove all future shifts from your calendar</li>
                 <li>Reset all rota settings</li>
               </ul>
-              <p className="mt-2 text-xs font-semibold text-red-800">
+              <p className="mt-2 text-xs font-semibold text-red-800 dark:text-red-400">
                 This action cannot be undone.
               </p>
             </div>
@@ -1623,7 +1646,7 @@ export default function RotaSetup() {
               <button
                 type="button"
                 onClick={() => setShowClearConfirm(false)}
-                className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-50 active:scale-95"
+                className="flex-1 rounded-xl border border-slate-300 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 shadow-sm transition-all hover:bg-slate-50 dark:hover:bg-slate-800/70 active:scale-95"
               >
                 Cancel
               </button>
@@ -1631,10 +1654,11 @@ export default function RotaSetup() {
                 type="button"
                 onClick={handleClearRota}
                 disabled={clearing}
-                className="flex-1 rounded-xl bg-gradient-to-r from-red-500 to-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-red-500/30 transition-all hover:from-red-600 hover:to-red-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 rounded-xl bg-gradient-to-r from-red-500 dark:from-red-600 to-red-600 dark:to-red-700 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-red-500/30 dark:shadow-red-500/40 transition-all hover:from-red-600 dark:hover:from-red-700 hover:to-red-700 dark:hover:to-red-800 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {clearing ? 'Clearing...' : 'Clear Rota'}
               </button>
+            </div>
             </div>
           </div>
         </div>

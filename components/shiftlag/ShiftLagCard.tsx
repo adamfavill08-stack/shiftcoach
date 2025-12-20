@@ -29,12 +29,9 @@ function RingGauge({
   return (
     <div className="flex flex-col items-center">
       <div className="relative grid place-items-center" style={{ width: size, height: size }}>
-        {/* Ring container glow */}
-        <div className="absolute inset-[-8px] rounded-full bg-gradient-to-br from-slate-100/50 to-transparent blur-md" />
-        
         {/* Ring container */}
-        <div className="relative h-16 w-16 rounded-full bg-white/60 border border-slate-200/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-          <div className="absolute inset-1.5 rounded-full border border-slate-200/40 bg-white/50" />
+        <div className="relative h-16 w-16 rounded-full bg-white/60 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[inset_0_1px_0_rgba(0,0,0,0.2)]">
+          <div className="absolute inset-1.5 rounded-full border border-slate-200/40 dark:border-slate-700/30 bg-white/50 dark:bg-slate-900/40" />
           
           {/* SVG ring overlay */}
           <svg
@@ -79,10 +76,10 @@ function RingGauge({
           
           {/* Center content */}
           <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
-            <span className="text-sm font-semibold text-slate-900 tabular-nums leading-none">
+            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 tabular-nums leading-none">
               {value}
             </span>
-            <span className="text-[9px] font-medium text-slate-500 mt-0.5">
+            <span className="text-[9px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
               /{maxValue}
             </span>
           </div>
@@ -90,7 +87,7 @@ function RingGauge({
       </div>
       
       {/* Label */}
-      <span className="mt-2.5 text-[11px] font-medium text-slate-600 text-center">
+      <span className="mt-2.5 text-[11px] font-medium text-slate-600 dark:text-slate-300 text-center">
         {label}
       </span>
     </div>
@@ -182,24 +179,24 @@ export function ShiftLagCard() {
     switch (level) {
       case 'low':
         return {
-          bg: 'bg-emerald-50/70',
-          text: 'text-emerald-700',
-          border: 'border-emerald-200/50',
-          badge: 'bg-emerald-50/70 border-emerald-200/50 text-emerald-700',
+          bg: 'bg-emerald-50/70 dark:bg-emerald-950/30',
+          text: 'text-emerald-700 dark:text-emerald-300',
+          border: 'border-emerald-200/50 dark:border-emerald-800/40',
+          badge: 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200/50 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-300',
         }
       case 'moderate':
         return {
-          bg: 'bg-amber-50/70',
-          text: 'text-amber-700',
-          border: 'border-amber-200/50',
-          badge: 'bg-amber-50/70 border-amber-200/50 text-amber-700',
+          bg: 'bg-amber-50/70 dark:bg-amber-950/30',
+          text: 'text-amber-700 dark:text-amber-300',
+          border: 'border-amber-200/50 dark:border-amber-800/40',
+          badge: 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-200/50 dark:border-amber-800/40 text-amber-700 dark:text-amber-300',
         }
       case 'high':
         return {
-          bg: 'bg-rose-50/70',
-          text: 'text-rose-700',
-          border: 'border-rose-200/50',
-          badge: 'bg-rose-50/70 border-rose-200/50 text-rose-700',
+          bg: 'bg-rose-50/70 dark:bg-rose-950/30',
+          text: 'text-rose-700 dark:text-rose-300',
+          border: 'border-rose-200/50 dark:border-rose-800/40',
+          badge: 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200/50 dark:border-rose-800/40 text-rose-700 dark:text-rose-300',
         }
     }
   }
@@ -207,21 +204,27 @@ export function ShiftLagCard() {
   const colors = data ? getLevelColor(data.level) : null
 
   return (
-    <section className="relative overflow-hidden rounded-3xl bg-white/75 backdrop-blur-xl border border-slate-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] p-6">
+    <section className="relative overflow-hidden rounded-3xl bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 text-slate-900 dark:text-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-6">
       {/* Highlight overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+      
+      {/* Subtle colored glow hints - dark mode only */}
+      <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
+      
+      {/* Inner ring for premium feel */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
       
       <div className="relative z-10 space-y-5">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <h3 className="text-[17px] font-semibold tracking-tight text-slate-900">
+            <h3 className="text-[17px] font-semibold tracking-tight">
               Jet lag from your shifts
             </h3>
           </div>
           <button
             onClick={() => setIsInfoModalOpen(true)}
-            className="flex-shrink-0 h-8 w-8 rounded-full bg-transparent text-slate-400 hover:bg-slate-100/60 transition-colors flex items-center justify-center"
+            className="flex-shrink-0 h-8 w-8 rounded-full bg-transparent text-slate-400 dark:text-slate-500 hover:bg-slate-100/60 dark:hover:bg-slate-800/50 transition-colors flex items-center justify-center"
             aria-label="Learn more about ShiftLag"
           >
             <Info className="h-4 w-4" strokeWidth={2} />
@@ -231,28 +234,28 @@ export function ShiftLagCard() {
         {loading ? (
           <div className="h-[180px] flex items-center justify-center">
             <div className="animate-pulse space-y-3 w-full">
-              <div className="h-8 w-24 bg-slate-200 rounded mx-auto" />
-              <div className="h-4 w-full bg-slate-200 rounded" />
+              <div className="h-8 w-24 bg-slate-200 dark:bg-slate-700/50 rounded mx-auto" />
+              <div className="h-4 w-full bg-slate-200 dark:bg-slate-700/50 rounded" />
             </div>
           </div>
         ) : error ? (
-          <div className="rounded-2xl bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/50 p-4">
+          <div className="rounded-2xl bg-gradient-to-br from-slate-50/70 dark:from-slate-800/50 to-white dark:to-slate-900/50 border border-slate-200/50 dark:border-slate-700/40 p-4">
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0">
-                <div className="h-8 w-8 rounded-full bg-amber-100/80 border border-amber-200/60 flex items-center justify-center">
-                  <span className="text-amber-600 text-xs font-semibold">ℹ</span>
+                <div className="h-8 w-8 rounded-full bg-amber-100/80 dark:bg-amber-900/40 border border-amber-200/60 dark:border-amber-800/40 flex items-center justify-center">
+                  <span className="text-amber-600 dark:text-amber-400 text-xs font-semibold">ℹ</span>
                 </div>
               </div>
               <div className="flex-1">
-                <p className="text-xs font-semibold text-slate-900 mb-1">ShiftLag</p>
-                <p className="text-sm text-slate-600 leading-relaxed">{error}</p>
+                <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 mb-1">ShiftLag</p>
+                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{error}</p>
               </div>
             </div>
           </div>
         ) : !data || (data.score === 0 && data.explanation.includes('Track a few days')) ? (
-          <div className="flex flex-col items-center justify-center text-center text-slate-600 space-y-2 py-8">
-            <p className="text-sm font-medium text-slate-900">Not enough data yet</p>
-            <p className="text-sm leading-relaxed text-slate-600 max-w-[22ch]">
+          <div className="flex flex-col items-center justify-center text-center text-slate-600 dark:text-slate-300 space-y-2 py-8">
+            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Not enough data yet</p>
+            <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300 max-w-[22ch]">
               Track a few days of sleep and shifts to unlock your ShiftLag score.
             </p>
           </div>
@@ -261,24 +264,24 @@ export function ShiftLagCard() {
             {/* Main score and level */}
             <div className="flex items-center justify-between">
               <div className="flex items-baseline gap-2">
-                <span className="text-[32px] font-semibold text-slate-900 tabular-nums">
+                <span className="text-[32px] font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
                   {data.score}
                 </span>
-                <span className="text-base font-medium text-slate-500">/ 100</span>
+                <span className="text-base font-medium text-slate-500 dark:text-slate-400">/ 100</span>
               </div>
-              <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium border ${colors?.badge || 'bg-slate-50/70 border-slate-200/50 text-slate-700'}`}>
+              <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium border ${colors?.badge || 'bg-slate-50/70 dark:bg-slate-800/50 border-slate-200/50 dark:border-slate-700/40 text-slate-700 dark:text-slate-300'}`}>
                 {data.level}
               </span>
             </div>
 
             {/* Explanation */}
-            <p className="text-sm leading-relaxed text-slate-600">
+            <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
               {data.explanation}
             </p>
 
             {/* Score Component Rings */}
-            <div className="pt-4 border-t border-slate-200/50">
-              <p className="text-xs font-semibold tracking-tight text-slate-900 mb-4">
+            <div className="pt-4 border-t border-slate-200/50 dark:border-slate-700/50">
+              <p className="text-xs font-semibold tracking-tight text-slate-900 dark:text-slate-100 mb-4">
                 Score Components
               </p>
               <div className="grid grid-cols-3 gap-4">
@@ -312,18 +315,18 @@ export function ShiftLagCard() {
             </div>
 
             {/* Sub-metrics */}
-            <div className="pt-3 border-t border-slate-200/50 space-y-2">
+            <div className="pt-3 border-t border-slate-200/50 dark:border-slate-700/50 space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-600">Sleep debt (7 days)</span>
-                <span className="font-semibold tabular-nums text-slate-900">{data.drivers.sleepDebt}</span>
+                <span className="text-slate-600 dark:text-slate-300">Sleep debt (7 days)</span>
+                <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">{data.drivers.sleepDebt}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-600">Night work during biological night</span>
-                <span className="font-semibold tabular-nums text-slate-900">{data.drivers.misalignment}</span>
+                <span className="text-slate-600 dark:text-slate-300">Night work during biological night</span>
+                <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">{data.drivers.misalignment}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-600">Shift start variation</span>
-                <span className="font-semibold tabular-nums text-slate-900">{data.drivers.instability}</span>
+                <span className="text-slate-600 dark:text-slate-300">Shift start variation</span>
+                <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">{data.drivers.instability}</span>
               </div>
             </div>
           </div>

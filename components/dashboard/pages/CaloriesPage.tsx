@@ -17,7 +17,17 @@ export function CaloriesPage({ summary }: CaloriesPageProps) {
   const macros = summary?.macros
 
   return (
-    <div className="flex h-full flex-col rounded-3xl bg-white/95 p-6 text-slate-900 shadow-lg shadow-slate-900/10 dark:bg-slate-900/95 dark:text-slate-50 dark:shadow-slate-900/40">
+    <div className="relative flex h-full flex-col rounded-3xl bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 p-6 text-slate-900 dark:text-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]">
+      {/* Highlight overlay */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+      
+      {/* Subtle colored glow hints - dark mode only */}
+      <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
+      
+      {/* Inner ring for premium feel */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
+      
+      <div className="relative z-10">
       <header className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-1.5">
@@ -38,16 +48,16 @@ export function CaloriesPage({ summary }: CaloriesPageProps) {
         <Flame className="h-5 w-5 text-slate-400 dark:text-slate-500" />
       </header>
 
-      <div className="mt-6 rounded-2xl bg-slate-900/90 p-5 text-white dark:bg-slate-800">
-        <p className="text-xs uppercase tracking-[0.2em] text-slate-300">Adjusted calories</p>
+      <div className="mt-6 rounded-2xl bg-slate-900/90 dark:bg-slate-800/70 p-5 text-white">
+        <p className="text-xs uppercase tracking-[0.2em] text-slate-300 dark:text-slate-400">Adjusted calories</p>
         <div className="mt-2 flex items-baseline gap-2">
           <span className="text-3xl font-semibold">
             {adjusted != null ? adjusted.toLocaleString() : '—'}
           </span>
-          <span className="text-sm text-slate-300">kcal</span>
+          <span className="text-sm text-slate-300 dark:text-slate-400">kcal</span>
         </div>
         <ProgressBar className="mt-4" progress={progress} />
-        <p className="mt-3 text-xs text-slate-300">
+        <p className="mt-3 text-xs text-slate-300 dark:text-slate-400">
           Consumed {consumed != null ? consumed.toLocaleString() : 0} kcal so far
         </p>
       </div>
@@ -64,12 +74,12 @@ export function CaloriesPage({ summary }: CaloriesPageProps) {
             return (
               <div
                 key={key}
-                className="rounded-2xl border border-slate-200/60 px-4 py-3 dark:border-slate-700/60"
+                className="rounded-2xl border border-slate-200/60 dark:border-slate-700/40 bg-white/50 dark:bg-slate-800/30 px-4 py-3"
               >
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
                   {macro.label}
                 </p>
-                <p className="mt-2 text-sm font-semibold">
+                <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
                   {macro.consumed != null ? `${Math.round(macro.consumed)} g` : '—'}
                 </p>
                 <p className="text-[11px] text-slate-400 dark:text-slate-500">
@@ -129,12 +139,12 @@ function HydrationCard({
 }) {
   const ratio = target ? Math.min((consumed ?? 0) / target, 1.2) : null
   return (
-    <div className="flex items-center justify-between rounded-2xl border border-slate-200/60 px-4 py-3 dark:border-slate-700/60">
+    <div className="flex items-center justify-between rounded-2xl border border-slate-200/60 dark:border-slate-700/40 bg-white/50 dark:bg-slate-800/30 px-4 py-3">
       <div>
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
           {label}
         </p>
-        <p className="text-sm font-semibold">
+        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
           {consumed != null ? `${Math.round(consumed)} ${unit}` : '—'}
         </p>
         <p className="text-[11px] text-slate-400 dark:text-slate-500">
@@ -143,7 +153,7 @@ function HydrationCard({
       </div>
       <Icon className="h-6 w-6 text-slate-400 dark:text-slate-500" />
       {ratio != null && (
-        <div className="ml-3 h-12 w-12 rounded-full border border-slate-200/70 dark:border-slate-700/70">
+        <div className="ml-3 h-12 w-12 rounded-full border border-slate-200/70 dark:border-slate-700/50">
           <div className="relative h-full w-full">
             <svg viewBox="0 0 36 36" className="h-full w-full">
               <path
@@ -156,7 +166,7 @@ function HydrationCard({
                 a 15.9155 15.9155 0 0 1 0 -31.831"
               />
               <path
-                className="text-sky-500"
+                className="text-sky-500 dark:text-sky-400"
                 stroke="currentColor"
                 strokeWidth="3.5"
                 strokeLinecap="round"
@@ -167,12 +177,17 @@ function HydrationCard({
                 a 15.9155 15.9155 0 0 1 0 -31.831"
               />
             </svg>
-            <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-slate-500 dark:text-slate-200">
+            <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-slate-500 dark:text-slate-300">
               {Math.round(ratio * 100)}%
             </span>
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+      </div>
     </div>
   )
 }

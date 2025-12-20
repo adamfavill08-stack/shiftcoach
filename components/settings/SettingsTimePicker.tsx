@@ -68,28 +68,18 @@ export function SettingsTimePicker({
           value={hours}
           onChange={(e) => handleTimeChange(e.target.value, minutes)}
           disabled={disabled || isLoading}
-          className="rounded-full border px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-sky-400/50 disabled:opacity-50"
-          style={{
-            backgroundColor: 'var(--card-subtle)',
-            borderColor: 'var(--border-subtle)',
-            color: 'var(--text-main)',
-          }}
+          className="rounded-full border px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-sky-400/50 dark:focus:ring-sky-400/50 disabled:opacity-50 bg-white/70 dark:bg-slate-800/50 border-slate-200/60 dark:border-slate-700/40 text-slate-900 dark:text-slate-100"
         >
           {hourOptions.map(h => (
             <option key={h} value={h}>{h}</option>
           ))}
         </select>
-        <span className="text-xs" style={{ color: 'var(--text-soft)' }}>:</span>
+        <span className="text-xs text-slate-500 dark:text-slate-400">:</span>
         <select
           value={minutes}
           onChange={(e) => handleTimeChange(hours, e.target.value)}
           disabled={disabled || isLoading}
-          className="rounded-full border px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-sky-400/50 disabled:opacity-50"
-          style={{
-            backgroundColor: 'var(--card-subtle)',
-            borderColor: 'var(--border-subtle)',
-            color: 'var(--text-main)',
-          }}
+          className="rounded-full border px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-sky-400/50 dark:focus:ring-sky-400/50 disabled:opacity-50 bg-white/70 dark:bg-slate-800/50 border-slate-200/60 dark:border-slate-700/40 text-slate-900 dark:text-slate-100"
         >
           {minuteOptions.map(m => (
             <option key={m} value={m}>{m}</option>
@@ -97,10 +87,10 @@ export function SettingsTimePicker({
         </select>
       </div>
       {isLoading && (
-        <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--text-soft)' }} />
+        <Loader2 className="w-4 h-4 animate-spin text-slate-400 dark:text-slate-500" />
       )}
       {showSuccess && !isLoading && (
-        <CheckCircle2 className="w-4 h-4 text-green-500" />
+        <CheckCircle2 className="w-4 h-4 text-green-500 dark:text-green-400" />
       )}
     </div>
   )

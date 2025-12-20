@@ -388,16 +388,16 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-50 pb-6 pt-10 text-center text-sm text-slate-500 dark:bg-slate-950 dark:text-slate-400">
+      <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 pb-6 pt-10 text-center text-sm text-slate-500 dark:text-slate-400">
         Preparing your ShiftCoach dashboard…
       </main>
     )
   }
 
   return (
-    <div className="bg-[#F5F5F7] min-h-screen flex justify-center">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 flex justify-center">
       <div className="w-full max-w-md">
-        <main className="min-h-screen pb-6">
+        <main className="min-h-screen pb-6 bg-transparent">
           <div id="phone-root" className="pb-4 relative">
             <DashboardHeader />
             <DashboardPager pages={pages} />

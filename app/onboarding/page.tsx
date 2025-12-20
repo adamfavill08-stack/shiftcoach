@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
@@ -51,6 +51,22 @@ export default function OnboardingPage() {
   const [weightUnit, setWeightUnit] = useState<'kg' | 'lb' | 'st+lb'>('st+lb')
   const [stoneInput, setStoneInput] = useState<number | ''>('')
   const [poundsInput, setPoundsInput] = useState<number | ''>('')
+  // Local state for kg input to allow free typing
+  const [kgInputValue, setKgInputValue] = useState<string>('')
+  
+  // Sync kgInputValue with weight_kg only when switching TO kg unit
+  const prevWeightUnitRef = useRef(weightUnit)
+  useEffect(() => {
+    if (weightUnit === 'kg' && prevWeightUnitRef.current !== 'kg') {
+      // User just switched to kg, initialize the input value
+      if (weight_kg !== '' && weight_kg !== null) {
+        setKgInputValue(String(weight_kg))
+      } else {
+        setKgInputValue('')
+      }
+    }
+    prevWeightUnitRef.current = weightUnit
+  }, [weightUnit, weight_kg])
 
   // For dev mode without user, use a valid UUID from dev-user.ts
   // In production or with a real user, use the actual user
@@ -221,14 +237,30 @@ export default function OnboardingPage() {
     }
 
     if (!response.ok) {
-      console.error('[onboarding] Save failed')
-      console.error('[onboarding] Response status:', response.status)
-      console.error('[onboarding] Response statusText:', response.statusText)
-      console.error('[onboarding] Response data:', data)
-      console.error('[onboarding] Full error object:', JSON.stringify(data, null, 2))
-      console.error('[onboarding] Profile data sent:', JSON.stringify(profile, null, 2))
+      // Extract error message from response
+      let errorMessage = `Failed to save profile (${response.status})`
       
-      const errorMessage = data?.error || data?.message || data?.details || `Server error (${response.status})`
+      if (data) {
+        if (data.error) {
+          errorMessage = data.error
+        } else if (data.message) {
+          errorMessage = data.message
+        } else if (data.details) {
+          errorMessage = typeof data.details === 'string' ? data.details : JSON.stringify(data.details)
+        } else if (data.hint) {
+          errorMessage = data.hint
+        }
+      }
+      
+      // Log for debugging (but don't let it break the UI)
+      try {
+        console.error('[onboarding] Save failed')
+        console.error('[onboarding] Response status:', response.status)
+        console.error('[onboarding] Response data:', data)
+      } catch (e) {
+        // Ignore console errors
+      }
+      
       setErr(errorMessage)
       setBusy(false)
       return
@@ -270,8 +302,8 @@ export default function OnboardingPage() {
   // Show loading state while checking authentication
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
-        <div className="text-slate-500">Loading…</div>
+      <main className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center px-4">
+        <div className="text-slate-500 dark:text-slate-400">Loading…</div>
       </main>
     )
   }
@@ -286,47 +318,40 @@ export default function OnboardingPage() {
   const progress = (step / totalSteps) * 100
 
   return (
-    <main className="min-h-screen bg-slate-100 flex items-center justify-center px-4 py-8">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 dark:from-slate-950 via-blue-50/30 dark:via-slate-900 to-slate-50 dark:to-slate-950 flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
-        {/* Premium White Card Container */}
-        <div className="relative overflow-hidden rounded-2xl bg-white shadow-lg">
-          {/* Premium gradient overlay */}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/95 to-white/85" />
+        {/* Premium Glass-on-Paper Card Container */}
+        <div className="relative overflow-hidden rounded-3xl bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]">
+          {/* Highlight overlay */}
+          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
           
-          {/* Subtle inner glow */}
-          <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-white/50" />
+          {/* Subtle colored glow hints - dark mode only */}
+          <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
+          
+          {/* Inner ring for premium feel */}
+          <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
+          
+          {/* Inner glow */}
+          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-white/40 dark:bg-slate-800/20 opacity-30" />
           
           <div className="relative z-10">
             {/* Header */}
-            <div className="pt-8 pb-6 px-6 text-center border-b border-slate-100">
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900 mb-1">Welcome to ShiftCoach</h1>
-              <p className="text-sm text-slate-500">Let's set up your profile</p>
+            <div className="pt-8 pb-6 px-6 text-center border-b border-slate-200/50 dark:border-slate-700/40">
+              <h1 className="text-[22px] font-semibold tracking-tight text-slate-900 dark:text-slate-100 mb-1.5">Welcome to ShiftCoach</h1>
+              <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">Let's set up your profile</p>
             </div>
 
             {/* Progress Bar */}
-            <div className="px-6 pt-6 pb-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-slate-500">Step {step} of {totalSteps}</span>
-                <span className="text-xs font-medium text-slate-500">{Math.round(progress)}%</span>
+            <div className="px-6 pt-6 pb-5">
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 tabular-nums">Step {step} of {totalSteps}</span>
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 tabular-nums">{Math.round(progress)}%</span>
               </div>
-              <div className="h-2 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+              <div className="h-2 rounded-full bg-slate-200/60 dark:bg-slate-800/50 overflow-hidden">
                 <div 
-                  className="h-full rounded-full transition-all duration-500 ease-out relative overflow-hidden"
-                  style={{ 
-                    width: `${progress}%`,
-                    background: 'linear-gradient(90deg, #0ea5e9 0%, #6366f1 100%)',
-                    boxShadow: '0 2px 8px rgba(14,165,233,0.4), inset 0 1px 0 rgba(255,255,255,0.3)'
-                  }}
-                >
-                  {/* Shine effect */}
-                  <div 
-                    className="absolute inset-0 opacity-40"
-                    style={{
-                      background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%)',
-                      animation: 'shimmer 2.5s ease-in-out infinite'
-                    }}
-                  />
-                </div>
+                  className="h-full rounded-full transition-all duration-500 ease-out bg-slate-900 dark:bg-slate-100"
+                  style={{ width: `${progress}%` }}
+                />
               </div>
             </div>
 
@@ -335,9 +360,9 @@ export default function OnboardingPage() {
               {step === 1 && (
                 <div className="space-y-5">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-900 mb-2">Name</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Name</label>
                     <input
-                      className="w-full border rounded-xl px-4 py-3 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      className="w-full rounded-2xl px-4 py-3 bg-white/70 dark:bg-slate-800/50 backdrop-blur border border-slate-200/60 dark:border-slate-700/40 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-400/50 dark:focus:ring-slate-500/50 focus:border-slate-300/60 dark:focus:border-slate-600/60 transition-all text-sm"
                       type="text"
                       placeholder="Enter your name"
                       value={name}
@@ -345,17 +370,17 @@ export default function OnboardingPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-900 mb-2">Gender</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2.5">Gender</label>
                     <div className="grid grid-cols-3 gap-2">
                       {(['male', 'female', 'other'] as const).map((option) => (
                         <button
                           key={option}
                           type="button"
                           onClick={() => setSex(option)}
-                          className={`py-3 px-4 rounded-xl border-2 font-medium text-sm transition-all ${
+                          className={`py-3 px-4 rounded-2xl border font-medium text-sm transition-all ${
                             sex === option
-                              ? 'border-blue-500 bg-blue-50 text-blue-700'
-                              : 'border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                              ? 'border-slate-300/50 dark:border-slate-600/50 bg-slate-100/60 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100'
+                              : 'border-slate-200/40 dark:border-slate-700/40 bg-slate-50/40 dark:bg-slate-800/30 text-slate-700 dark:text-slate-300 hover:border-slate-200/60 dark:hover:border-slate-600/60 hover:bg-white/70 dark:hover:bg-slate-800/50'
                           }`}
                         >
                           {option === 'male' ? 'Male' : option === 'female' ? 'Female' : 'Other'}
@@ -364,14 +389,14 @@ export default function OnboardingPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-900 mb-2">
-                      Date of Birth <span className="text-slate-400 font-normal">(optional)</span>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      Date of Birth <span className="text-slate-400 dark:text-slate-500 font-normal">(optional)</span>
                     </label>
                     <input
-                      className={`w-full border rounded-xl px-4 py-3 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
+                      className={`w-full rounded-2xl px-4 py-3 bg-white/70 dark:bg-slate-800/50 backdrop-blur border text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 transition-all text-sm ${
                         fieldErrors.dateOfBirth 
-                          ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                          : 'border-slate-200 focus:ring-blue-500 focus:border-transparent'
+                          ? 'border-red-300/60 dark:border-red-700/40 focus:ring-red-400/50 dark:focus:ring-red-500/50 focus:border-red-300/60 dark:focus:border-red-700/40' 
+                          : 'border-slate-200/60 dark:border-slate-700/40 focus:ring-slate-400/50 dark:focus:ring-slate-500/50 focus:border-slate-300/60 dark:focus:border-slate-600/60'
                       }`}
                       type="date"
                       value={dateOfBirth}
@@ -396,21 +421,21 @@ export default function OnboardingPage() {
                       min={new Date(new Date().setFullYear(new Date().getFullYear() - 120)).toISOString().split('T')[0]}
                     />
                     {fieldErrors.dateOfBirth && (
-                      <p className="text-xs text-red-600 mt-1">{fieldErrors.dateOfBirth}</p>
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-1.5">{fieldErrors.dateOfBirth}</p>
                     )}
                     {!fieldErrors.dateOfBirth && (
-                      <p className="text-xs text-slate-500 mt-1">You must be at least 13 years old</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">You must be at least 13 years old</p>
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-900 mb-2">
-                      Age <span className="text-slate-400 font-normal">(optional)</span>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      Age <span className="text-slate-400 dark:text-slate-500 font-normal">(optional)</span>
                     </label>
                     <input
-                      className={`w-full border rounded-xl px-4 py-3 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
+                      className={`w-full rounded-2xl px-4 py-3 bg-white/70 dark:bg-slate-800/50 backdrop-blur border text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                         fieldErrors.age 
-                          ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                          : 'border-slate-200 focus:ring-blue-500 focus:border-transparent'
+                          ? 'border-red-300/60 dark:border-red-700/40 focus:ring-red-400/50 dark:focus:ring-red-500/50 focus:border-red-300/60 dark:focus:border-red-700/40' 
+                          : 'border-slate-200/60 dark:border-slate-700/40 focus:ring-slate-400/50 dark:focus:ring-slate-500/50 focus:border-slate-300/60 dark:focus:border-slate-600/60'
                       }`}
                       type="number"
                       value={age}
@@ -437,10 +462,10 @@ export default function OnboardingPage() {
                       max={120}
                     />
                     {fieldErrors.age && (
-                      <p className="text-xs text-red-600 mt-1">{fieldErrors.age}</p>
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-1.5">{fieldErrors.age}</p>
                     )}
                     {!fieldErrors.age && (
-                      <p className="text-xs text-slate-500 mt-1">Must be between 13 and 120</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">Must be between 13 and 120</p>
                     )}
                   </div>
                 </div>
@@ -449,17 +474,17 @@ export default function OnboardingPage() {
               {step === 2 && (
                 <div className="space-y-5">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-900 mb-2">Measurement Units</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2.5">Measurement Units</label>
                     <div className="grid grid-cols-2 gap-2">
                       {(['metric', 'imperial'] as const).map((unit) => (
                         <button
                           key={unit}
                           type="button"
                           onClick={() => setUnits(unit)}
-                          className={`py-3 px-4 rounded-xl border-2 font-medium text-sm transition-all ${
+                          className={`py-3 px-4 rounded-2xl border font-medium text-sm transition-all ${
                             units === unit
-                              ? 'border-blue-500 bg-blue-50 text-blue-700'
-                              : 'border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                              ? 'border-slate-300/50 dark:border-slate-600/50 bg-slate-100/60 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100'
+                              : 'border-slate-200/40 dark:border-slate-700/40 bg-slate-50/40 dark:bg-slate-800/30 text-slate-700 dark:text-slate-300 hover:border-slate-200/60 dark:hover:border-slate-600/60 hover:bg-white/70 dark:hover:bg-slate-800/50'
                           }`}
                         >
                           {unit === 'metric' ? 'Metric (cm, kg)' : 'Imperial (ft/in)'}
@@ -471,12 +496,12 @@ export default function OnboardingPage() {
                   {units === 'metric' ? (
                     <>
                       <div>
-                        <label className="block text-sm font-semibold text-slate-900 mb-2">Height (cm)</label>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Height (cm)</label>
                         <input
-                          className={`w-full border rounded-xl px-4 py-3 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
+                          className={`w-full rounded-2xl px-4 py-3 bg-white/70 dark:bg-slate-800/50 backdrop-blur border text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                             fieldErrors.height_cm 
-                              ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                              : 'border-slate-200 focus:ring-blue-500 focus:border-transparent'
+                              ? 'border-red-300/60 dark:border-red-700/40 focus:ring-red-400/50 dark:focus:ring-red-500/50 focus:border-red-300/60 dark:focus:border-red-700/40' 
+                              : 'border-slate-200/60 dark:border-slate-700/40 focus:ring-slate-400/50 dark:focus:ring-slate-500/50 focus:border-slate-300/60 dark:focus:border-slate-600/60'
                           }`}
                           type="number"
                           placeholder="175"
@@ -503,14 +528,14 @@ export default function OnboardingPage() {
                           step={1}
                         />
                         {fieldErrors.height_cm && (
-                          <p className="text-xs text-red-600 mt-1">{fieldErrors.height_cm}</p>
+                          <p className="text-xs text-red-600 dark:text-red-400 mt-1.5">{fieldErrors.height_cm}</p>
                         )}
                         {!fieldErrors.height_cm && (
-                          <p className="text-xs text-slate-500 mt-1">Enter your height in centimeters</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">Enter your height in centimeters</p>
                         )}
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-slate-900 mb-2">Weight</label>
+                        <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Weight</label>
                         {/* Weight Unit Selector */}
                         <div className="flex gap-2 mb-3">
                           {(['kg', 'lb', 'st+lb'] as const).map((unit) => (
@@ -524,6 +549,7 @@ export default function OnboardingPage() {
                                   setWeightLb('')
                                   setStoneInput('')
                                   setPoundsInput('')
+                                  setKgInputValue(weight_kg === '' ? '' : String(weight_kg))
                                 } else if (unit === 'lb') {
                                   setStoneInput('')
                                   setPoundsInput('')
@@ -531,10 +557,10 @@ export default function OnboardingPage() {
                                   setWeightLb('')
                                 }
                               }}
-                              className={`flex-1 py-2 px-3 text-sm font-medium rounded-lg border-2 transition-all ${
+                              className={`flex-1 py-2 px-3 text-sm font-medium rounded-2xl border transition-all ${
                                 weightUnit === unit
-                                  ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                  : 'border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                                  ? 'border-slate-300/50 dark:border-slate-600/50 bg-slate-100/60 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100'
+                                  : 'border-slate-200/40 dark:border-slate-700/40 bg-slate-50/40 dark:bg-slate-800/30 text-slate-700 dark:text-slate-300 hover:border-slate-200/60 dark:hover:border-slate-600/60 hover:bg-white/70 dark:hover:bg-slate-800/50'
                               }`}
                             >
                               {unit === 'st+lb' ? 'st+lb' : unit.toUpperCase()}
@@ -546,12 +572,12 @@ export default function OnboardingPage() {
                         {weightUnit === 'st+lb' ? (
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-xs text-slate-600 mb-1">Stone</label>
+                              <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Stone</label>
                               <input
-                                className={`w-full border rounded-xl px-3 py-2.5 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
+                                className={`w-full rounded-2xl px-3 py-2.5 bg-white/70 dark:bg-slate-800/50 backdrop-blur border text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                                   fieldErrors.weight 
-                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                                    : 'border-slate-200 focus:ring-blue-500 focus:border-transparent'
+                                    ? 'border-red-300/60 dark:border-red-700/40 focus:ring-red-400/50 dark:focus:ring-red-500/50 focus:border-red-300/60 dark:focus:border-red-700/40' 
+                                    : 'border-slate-200/60 dark:border-slate-700/40 focus:ring-slate-400/50 dark:focus:ring-slate-500/50 focus:border-slate-300/60 dark:focus:border-slate-600/60'
                                 }`}
                                 type="number"
                                 placeholder="10"
@@ -577,12 +603,12 @@ export default function OnboardingPage() {
                               />
                             </div>
                             <div>
-                              <label className="block text-xs text-slate-600 mb-1">Pounds</label>
+                              <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Pounds</label>
                               <input
-                                className={`w-full border rounded-xl px-3 py-2.5 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
+                                className={`w-full rounded-2xl px-3 py-2.5 bg-white/70 dark:bg-slate-800/50 backdrop-blur border text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                                   fieldErrors.weight 
-                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                                    : 'border-slate-200 focus:ring-blue-500 focus:border-transparent'
+                                    ? 'border-red-300/60 dark:border-red-700/40 focus:ring-red-400/50 dark:focus:ring-red-500/50 focus:border-red-300/60 dark:focus:border-red-700/40' 
+                                    : 'border-slate-200/60 dark:border-slate-700/40 focus:ring-slate-400/50 dark:focus:ring-slate-500/50 focus:border-slate-300/60 dark:focus:border-slate-600/60'
                                 }`}
                                 type="number"
                                 placeholder="5"
@@ -611,10 +637,10 @@ export default function OnboardingPage() {
                         ) : weightUnit === 'lb' ? (
                           <>
                             <input
-                              className={`w-full border rounded-xl px-4 py-3 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
+                              className={`w-full rounded-2xl px-4 py-3 bg-white/70 dark:bg-slate-800/50 backdrop-blur border text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                                 fieldErrors.weight 
-                                  ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                                  : 'border-slate-200 focus:ring-blue-500 focus:border-transparent'
+                                  ? 'border-red-300/60 dark:border-red-700/40 focus:ring-red-400/50 dark:focus:ring-red-500/50 focus:border-red-300/60 dark:focus:border-red-700/40' 
+                                  : 'border-slate-200/60 dark:border-slate-700/40 focus:ring-slate-400/50 dark:focus:ring-slate-500/50 focus:border-slate-300/60 dark:focus:border-slate-600/60'
                               }`}
                               type="number"
                               placeholder="154"
@@ -642,31 +668,44 @@ export default function OnboardingPage() {
                         ) : (
                           <>
                             <input
-                              className={`w-full border rounded-xl px-4 py-3 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
+                              key={`kg-input-${weightUnit}`}
+                              className={`w-full rounded-2xl px-4 py-3 bg-white/70 dark:bg-slate-800/50 backdrop-blur border text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                                 fieldErrors.weight 
-                                  ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                                  : 'border-slate-200 focus:ring-blue-500 focus:border-transparent'
+                                  ? 'border-red-300/60 dark:border-red-700/40 focus:ring-red-400/50 dark:focus:ring-red-500/50 focus:border-red-300/60 dark:focus:border-red-700/40' 
+                                  : 'border-slate-200/60 dark:border-slate-700/40 focus:ring-slate-400/50 dark:focus:ring-slate-500/50 focus:border-slate-300/60 dark:focus:border-slate-600/60'
                               }`}
                               type="number"
                               placeholder="70"
-                              value={weight_kg}
+                              value={kgInputValue}
                               min={30}
                               max={300}
                               step={0.1}
+                              autoComplete="off"
                               onChange={(e) => {
-                                setFieldErrors(prev => ({ ...prev, weight: '' }))
                                 const value = e.target.value
-                                if (value === '') {
+                                // Always update the input value immediately
+                                setKgInputValue(value)
+                                setFieldErrors(prev => ({ ...prev, weight: '' }))
+                                
+                                if (value === '' || value === '.') {
                                   setWeight_kg('')
                                   return
                                 }
+                                
+                                // Parse and update weight_kg for validation
                                 const kg = parseFloat(value)
-                                if (isNaN(kg)) {
-                                  setWeight_kg('')
-                                  return
+                                if (!isNaN(kg) && isFinite(kg)) {
+                                  setWeight_kg(kg)
+                                  if (kg < 30 || kg > 300) {
+                                    setFieldErrors(prev => ({ ...prev, weight: 'Weight must be between 30kg and 300kg' }))
+                                  }
                                 }
-                                setWeight_kg(kg)
-                                if (kg < 30 || kg > 300) {
+                              }}
+                              onBlur={(e) => {
+                                // Validate on blur
+                                const value = e.target.value
+                                const kg = parseFloat(value)
+                                if (!isNaN(kg) && (kg < 30 || kg > 300)) {
                                   setFieldErrors(prev => ({ ...prev, weight: 'Weight must be between 30kg and 300kg' }))
                                 }
                               }}
@@ -674,22 +713,22 @@ export default function OnboardingPage() {
                           </>
                         )}
                         {fieldErrors.weight && (
-                          <p className="text-xs text-red-600 mt-1">{fieldErrors.weight}</p>
+                          <p className="text-xs text-red-600 dark:text-red-400 mt-1.5">{fieldErrors.weight}</p>
                         )}
                       </div>
                     </>
                   ) : (
                     <>
                       <div>
-                        <label className="block text-sm font-semibold text-slate-900 mb-2">Height</label>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Height</label>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-xs text-slate-600 mb-1">Feet</label>
+                            <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Feet</label>
                             <input
-                              className={`w-full border rounded-xl px-4 py-3 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
+                              className={`w-full rounded-2xl px-4 py-3 bg-white/70 dark:bg-slate-800/50 backdrop-blur border text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                                 fieldErrors.height 
-                                  ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                                  : 'border-slate-200 focus:ring-blue-500 focus:border-transparent'
+                                  ? 'border-red-300/60 dark:border-red-700/40 focus:ring-red-400/50 dark:focus:ring-red-500/50 focus:border-red-300/60 dark:focus:border-red-700/40' 
+                                  : 'border-slate-200/60 dark:border-slate-700/40 focus:ring-slate-400/50 dark:focus:ring-slate-500/50 focus:border-slate-300/60 dark:focus:border-slate-600/60'
                               }`}
                               type="number"
                               placeholder="5"
@@ -712,12 +751,12 @@ export default function OnboardingPage() {
                             />
                           </div>
                           <div>
-                            <label className="block text-xs text-slate-600 mb-1">Inches</label>
+                            <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Inches</label>
                             <input
-                              className={`w-full border rounded-xl px-4 py-3 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
+                              className={`w-full rounded-2xl px-4 py-3 bg-white/70 dark:bg-slate-800/50 backdrop-blur border text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                                 fieldErrors.height 
-                                  ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                                  : 'border-slate-200 focus:ring-blue-500 focus:border-transparent'
+                                  ? 'border-red-300/60 dark:border-red-700/40 focus:ring-red-400/50 dark:focus:ring-red-500/50 focus:border-red-300/60 dark:focus:border-red-700/40' 
+                                  : 'border-slate-200/60 dark:border-slate-700/40 focus:ring-slate-400/50 dark:focus:ring-slate-500/50 focus:border-slate-300/60 dark:focus:border-slate-600/60'
                               }`}
                               type="number"
                               placeholder="10"
@@ -741,14 +780,14 @@ export default function OnboardingPage() {
                           </div>
                         </div>
                         {fieldErrors.height && (
-                          <p className="text-xs text-red-600 mt-1">{fieldErrors.height}</p>
+                          <p className="text-xs text-red-600 dark:text-red-400 mt-1.5">{fieldErrors.height}</p>
                         )}
                         {!fieldErrors.height && (
-                          <p className="text-xs text-slate-500 mt-1">Enter your height in feet and inches</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">Enter your height in feet and inches</p>
                         )}
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-slate-900 mb-2">Weight</label>
+                        <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Weight</label>
                         {/* Weight Unit Selector */}
                         <div className="flex gap-2 mb-3">
                           {(['kg', 'lb', 'st+lb'] as const).map((unit) => (
@@ -762,6 +801,7 @@ export default function OnboardingPage() {
                                   setWeightLb('')
                                   setStoneInput('')
                                   setPoundsInput('')
+                                  setKgInputValue(weight_kg === '' ? '' : String(weight_kg))
                                 } else if (unit === 'lb') {
                                   setStoneInput('')
                                   setPoundsInput('')
@@ -769,10 +809,10 @@ export default function OnboardingPage() {
                                   setWeightLb('')
                                 }
                               }}
-                              className={`flex-1 py-2 px-3 text-sm font-medium rounded-lg border-2 transition-all ${
+                              className={`flex-1 py-2 px-3 text-sm font-medium rounded-2xl border transition-all ${
                                 weightUnit === unit
-                                  ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                  : 'border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                                  ? 'border-slate-300/50 dark:border-slate-600/50 bg-slate-100/60 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100'
+                                  : 'border-slate-200/40 dark:border-slate-700/40 bg-slate-50/40 dark:bg-slate-800/30 text-slate-700 dark:text-slate-300 hover:border-slate-200/60 dark:hover:border-slate-600/60 hover:bg-white/70 dark:hover:bg-slate-800/50'
                               }`}
                             >
                               {unit === 'st+lb' ? 'st+lb' : unit.toUpperCase()}
@@ -784,12 +824,12 @@ export default function OnboardingPage() {
                         {weightUnit === 'st+lb' ? (
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-xs text-slate-600 mb-1">Stone</label>
+                              <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Stone</label>
                               <input
-                                className={`w-full border rounded-xl px-3 py-2.5 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
+                                className={`w-full rounded-2xl px-3 py-2.5 bg-white/70 dark:bg-slate-800/50 backdrop-blur border text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                                   fieldErrors.weight 
-                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                                    : 'border-slate-200 focus:ring-blue-500 focus:border-transparent'
+                                    ? 'border-red-300/60 dark:border-red-700/40 focus:ring-red-400/50 dark:focus:ring-red-500/50 focus:border-red-300/60 dark:focus:border-red-700/40' 
+                                    : 'border-slate-200/60 dark:border-slate-700/40 focus:ring-slate-400/50 dark:focus:ring-slate-500/50 focus:border-slate-300/60 dark:focus:border-slate-600/60'
                                 }`}
                                 type="number"
                                 placeholder="10"
@@ -815,12 +855,12 @@ export default function OnboardingPage() {
                               />
                             </div>
                             <div>
-                              <label className="block text-xs text-slate-600 mb-1">Pounds</label>
+                              <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Pounds</label>
                               <input
-                                className={`w-full border rounded-xl px-3 py-2.5 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
+                                className={`w-full rounded-2xl px-3 py-2.5 bg-white/70 dark:bg-slate-800/50 backdrop-blur border text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                                   fieldErrors.weight 
-                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                                    : 'border-slate-200 focus:ring-blue-500 focus:border-transparent'
+                                    ? 'border-red-300/60 dark:border-red-700/40 focus:ring-red-400/50 dark:focus:ring-red-500/50 focus:border-red-300/60 dark:focus:border-red-700/40' 
+                                    : 'border-slate-200/60 dark:border-slate-700/40 focus:ring-slate-400/50 dark:focus:ring-slate-500/50 focus:border-slate-300/60 dark:focus:border-slate-600/60'
                                 }`}
                                 type="number"
                                 placeholder="5"
@@ -849,10 +889,10 @@ export default function OnboardingPage() {
                         ) : weightUnit === 'lb' ? (
                           <>
                             <input
-                              className={`w-full border rounded-xl px-4 py-3 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
+                              className={`w-full rounded-2xl px-4 py-3 bg-white/70 dark:bg-slate-800/50 backdrop-blur border text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                                 fieldErrors.weight 
-                                  ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                                  : 'border-slate-200 focus:ring-blue-500 focus:border-transparent'
+                                  ? 'border-red-300/60 dark:border-red-700/40 focus:ring-red-400/50 dark:focus:ring-red-500/50 focus:border-red-300/60 dark:focus:border-red-700/40' 
+                                  : 'border-slate-200/60 dark:border-slate-700/40 focus:ring-slate-400/50 dark:focus:ring-slate-500/50 focus:border-slate-300/60 dark:focus:border-slate-600/60'
                               }`}
                               type="number"
                               placeholder="154"
@@ -880,10 +920,10 @@ export default function OnboardingPage() {
                         ) : (
                           <>
                             <input
-                              className={`w-full border rounded-xl px-4 py-3 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
+                              className={`w-full rounded-2xl px-4 py-3 bg-white/70 dark:bg-slate-800/50 backdrop-blur border text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                                 fieldErrors.weight 
-                                  ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                                  : 'border-slate-200 focus:ring-blue-500 focus:border-transparent'
+                                  ? 'border-red-300/60 dark:border-red-700/40 focus:ring-red-400/50 dark:focus:ring-red-500/50 focus:border-red-300/60 dark:focus:border-red-700/40' 
+                                  : 'border-slate-200/60 dark:border-slate-700/40 focus:ring-slate-400/50 dark:focus:ring-slate-500/50 focus:border-slate-300/60 dark:focus:border-slate-600/60'
                               }`}
                               type="number"
                               placeholder="70"
@@ -911,7 +951,7 @@ export default function OnboardingPage() {
                           </>
                         )}
                         {fieldErrors.weight && (
-                          <p className="text-xs text-red-600 mt-1">{fieldErrors.weight}</p>
+                          <p className="text-xs text-red-600 dark:text-red-400 mt-1.5">{fieldErrors.weight}</p>
                         )}
                       </div>
                     </>
@@ -922,17 +962,17 @@ export default function OnboardingPage() {
               {step === 3 && (
                 <div className="space-y-5">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-900 mb-2">Goal</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2.5">Goal</label>
                     <div className="grid grid-cols-3 gap-2">
                       {(['lose', 'maintain', 'gain'] as const).map((option) => (
                         <button
                           key={option}
                           type="button"
                           onClick={() => setGoal(option)}
-                          className={`py-3 px-4 rounded-xl border-2 font-medium text-sm transition-all ${
+                          className={`py-3 px-4 rounded-2xl border font-medium text-sm transition-all ${
                             goal === option
-                              ? 'border-blue-500 bg-blue-50 text-blue-700'
-                              : 'border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                              ? 'border-slate-300/50 dark:border-slate-600/50 bg-slate-100/60 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100'
+                              : 'border-slate-200/40 dark:border-slate-700/40 bg-slate-50/40 dark:bg-slate-800/30 text-slate-700 dark:text-slate-300 hover:border-slate-200/60 dark:hover:border-slate-600/60 hover:bg-white/70 dark:hover:bg-slate-800/50'
                           }`}
                         >
                           {option === 'lose' ? 'Lose' : option === 'maintain' ? 'Maintain' : 'Gain'}
@@ -941,12 +981,12 @@ export default function OnboardingPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-900 mb-2">Sleep Goal (hours)</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Sleep Goal (hours)</label>
                     <input
-                      className={`w-full border rounded-xl px-4 py-3 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
+                      className={`w-full rounded-2xl px-4 py-3 bg-white/70 dark:bg-slate-800/50 backdrop-blur border text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                         fieldErrors.sleep_goal_h 
-                          ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                          : 'border-slate-200 focus:ring-blue-500 focus:border-transparent'
+                          ? 'border-red-300/60 dark:border-red-700/40 focus:ring-red-400/50 dark:focus:ring-red-500/50 focus:border-red-300/60 dark:focus:border-red-700/40' 
+                          : 'border-slate-200/60 dark:border-slate-700/40 focus:ring-slate-400/50 dark:focus:ring-slate-500/50 focus:border-slate-300/60 dark:focus:border-slate-600/60'
                       }`}
                       type="number"
                       step="0.5"
@@ -966,19 +1006,19 @@ export default function OnboardingPage() {
                       }}
                     />
                     {fieldErrors.sleep_goal_h && (
-                      <p className="text-xs text-red-600 mt-1">{fieldErrors.sleep_goal_h}</p>
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-1.5">{fieldErrors.sleep_goal_h}</p>
                     )}
                     {!fieldErrors.sleep_goal_h && (
-                      <p className="text-xs text-slate-500 mt-1">Recommended: 7-9 hours for adults</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">Recommended: 7-9 hours for adults</p>
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-900 mb-2">Water Goal (L)</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Water Goal (L)</label>
                     <input
-                      className={`w-full border rounded-xl px-4 py-3 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
+                      className={`w-full rounded-2xl px-4 py-3 bg-white/70 dark:bg-slate-800/50 backdrop-blur border text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                         fieldErrors.water_goal_ml 
-                          ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                          : 'border-slate-200 focus:ring-blue-500 focus:border-transparent'
+                          ? 'border-red-300/60 dark:border-red-700/40 focus:ring-red-400/50 dark:focus:ring-red-500/50 focus:border-red-300/60 dark:focus:border-red-700/40' 
+                          : 'border-slate-200/60 dark:border-slate-700/40 focus:ring-slate-400/50 dark:focus:ring-slate-500/50 focus:border-slate-300/60 dark:focus:border-slate-600/60'
                       }`}
                       type="number"
                       step="0.1"
@@ -1005,26 +1045,26 @@ export default function OnboardingPage() {
                       }}
                     />
                     {fieldErrors.water_goal_ml && (
-                      <p className="text-xs text-red-600 mt-1">{fieldErrors.water_goal_ml}</p>
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-1.5">{fieldErrors.water_goal_ml}</p>
                     )}
                     {!fieldErrors.water_goal_ml && (
-                      <p className="text-xs text-slate-500 mt-1">Recommended: 2.0–3.0L per day based on scientific guidelines</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">Recommended: 2.0–3.0L per day based on scientific guidelines</p>
                     )}
                   </div>
                   {err && (
-                    <div className="p-3 rounded-xl bg-red-50 border border-red-200">
-                      <p className="text-sm text-red-700">{err}</p>
+                    <div className="p-4 rounded-2xl bg-red-50/70 dark:bg-red-950/30 border border-red-200/50 dark:border-red-800/40">
+                      <p className="text-sm text-red-700 dark:text-red-300 leading-relaxed">{err}</p>
                     </div>
                   )}
                 </div>
               )}
 
               {/* Navigation Buttons */}
-              <div className="flex items-center justify-between gap-3 mt-6 pt-6 border-t border-slate-100">
+              <div className="flex items-center justify-between gap-3 mt-6 pt-6 border-t border-slate-200/50 dark:border-slate-700/40">
                 {step > 1 ? (
                   <button
                     onClick={() => setStep(step - 1)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-all"
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-full border border-slate-200/60 dark:border-slate-700/40 bg-white/70 dark:bg-slate-800/50 backdrop-blur text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-white/90 dark:hover:bg-slate-800/70 transition-all"
                   >
                     <ChevronLeft className="w-4 h-4" />
                     Back
@@ -1035,87 +1075,19 @@ export default function OnboardingPage() {
                 {step < totalSteps ? (
                   <button
                     onClick={handleNextStep}
-                    className="group relative flex items-center gap-2 px-6 py-2.5 rounded-full font-semibold text-white transition-all duration-300 hover:scale-105 active:scale-95 overflow-hidden ml-auto"
-                    style={{
-                      background: 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)',
-                      boxShadow: `
-                        0 4px 16px rgba(14,165,233,0.3),
-                        0 2px 6px rgba(99,102,241,0.2),
-                        inset 0 1px 0 rgba(255,255,255,0.25),
-                        inset 0 -1px 0 rgba(0,0,0,0.1)
-                      `,
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.boxShadow = `
-                        0 8px 24px rgba(14,165,233,0.4),
-                        0 4px 12px rgba(99,102,241,0.3),
-                        inset 0 1px 0 rgba(255,255,255,0.35),
-                        inset 0 -1px 0 rgba(0,0,0,0.1),
-                        0 0 0 1px rgba(255,255,255,0.1)
-                      `
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.boxShadow = `
-                        0 4px 16px rgba(14,165,233,0.3),
-                        0 2px 6px rgba(99,102,241,0.2),
-                        inset 0 1px 0 rgba(255,255,255,0.25),
-                        inset 0 -1px 0 rgba(0,0,0,0.1)
-                      `
-                    }}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-semibold shadow-[0_10px_26px_-14px_rgba(0,0,0,0.35)] dark:shadow-[0_10px_26px_-14px_rgba(255,255,255,0.1)] hover:opacity-95 transition-all ml-auto"
                   >
-                    {/* Premium shine effect */}
-                    <div 
-                      className="absolute inset-0 opacity-0 group-hover:opacity-30 transition-opacity duration-300 pointer-events-none"
-                      style={{
-                        background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.6), transparent 60%)',
-                      }}
-                    />
-                    <span className="relative z-10">Continue</span>
-                    <ChevronRight className="w-4 h-4 relative z-10" />
+                    Continue
+                    <ChevronRight className="w-4 h-4" />
                   </button>
                 ) : (
                   <button
                     onClick={submit}
                     disabled={busy}
-                    className="group relative flex items-center gap-2 px-6 py-2.5 rounded-full font-semibold text-white transition-all duration-300 hover:scale-105 active:scale-95 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ml-auto"
-                    style={{
-                      background: 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)',
-                      boxShadow: `
-                        0 4px 16px rgba(14,165,233,0.3),
-                        0 2px 6px rgba(99,102,241,0.2),
-                        inset 0 1px 0 rgba(255,255,255,0.25),
-                        inset 0 -1px 0 rgba(0,0,0,0.1)
-                      `,
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!busy) {
-                        e.currentTarget.style.boxShadow = `
-                          0 8px 24px rgba(14,165,233,0.4),
-                          0 4px 12px rgba(99,102,241,0.3),
-                          inset 0 1px 0 rgba(255,255,255,0.35),
-                          inset 0 -1px 0 rgba(0,0,0,0.1),
-                          0 0 0 1px rgba(255,255,255,0.1)
-                        `
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.boxShadow = `
-                        0 4px 16px rgba(14,165,233,0.3),
-                        0 2px 6px rgba(99,102,241,0.2),
-                        inset 0 1px 0 rgba(255,255,255,0.25),
-                        inset 0 -1px 0 rgba(0,0,0,0.1)
-                      `
-                    }}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-semibold shadow-[0_10px_26px_-14px_rgba(0,0,0,0.35)] dark:shadow-[0_10px_26px_-14px_rgba(255,255,255,0.1)] hover:opacity-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
                   >
-                    {/* Premium shine effect */}
-                    <div 
-                      className="absolute inset-0 opacity-0 group-hover:opacity-30 transition-opacity duration-300 pointer-events-none"
-                      style={{
-                        background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.6), transparent 60%)',
-                      }}
-                    />
-                    <span className="relative z-10">{busy ? 'Saving…' : 'Complete Setup'}</span>
-                    {!busy && <ChevronRight className="w-4 h-4 relative z-10" />}
+                    {busy ? 'Saving…' : 'Complete Setup'}
+                    {!busy && <ChevronRight className="w-4 h-4" />}
                   </button>
                 )}
               </div>

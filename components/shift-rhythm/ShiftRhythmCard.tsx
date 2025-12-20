@@ -328,56 +328,64 @@ function BodyClockCard({
     <section
       className={[
         "relative overflow-hidden rounded-3xl",
-        "bg-white/75 backdrop-blur-xl",
-        "border border-slate-200/50",
+        "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
+        "border border-slate-200/50 dark:border-slate-700/40",
+        "text-slate-900 dark:text-slate-100",
         "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+        "dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
         "p-6",
       ].join(" ")}
     >
       {/* Highlight overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+      
+      {/* Subtle colored glow hints - dark mode only */}
+      <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
+      
+      {/* Inner ring for premium feel */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
 
       <div className="relative z-10">
         {/* TOP: Last synced label */}
         <div className="flex items-center justify-end mb-4">
-          <span className="rounded-full bg-slate-50/60 border border-slate-200/50 px-2.5 py-1 text-[11px] text-slate-500">
+          <span className="rounded-full bg-slate-50/60 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/40 px-2.5 py-1 text-[11px] text-slate-500 dark:text-slate-400">
             Last sync: {wearableLastSyncLabel}
           </span>
         </div>
 
         {/* Info Card */}
         {showInfo && (
-          <div className="relative z-20 mt-2 rounded-xl bg-gradient-to-br from-slate-50 to-white border border-slate-200/70 p-4 space-y-3 shadow-lg">
+          <div className="relative z-20 mt-2 rounded-xl bg-gradient-to-br from-slate-50 dark:from-slate-900/60 to-white dark:to-slate-900/50 border border-slate-200/70 dark:border-slate-700/40 p-4 space-y-3 shadow-lg dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-[14px] font-bold text-slate-900">How your Body Clock score works</h3>
-                <p className="mt-1 text-[11px] text-slate-600">
+                <h3 className="text-[14px] font-bold text-slate-900 dark:text-slate-100">How your Body Clock score works</h3>
+                <p className="mt-1 text-[11px] text-slate-600 dark:text-slate-300">
                   Your score uses circadian science: it tracks when you sleep and wake, how often shifts move your schedule,
                   and how regular your pattern is compared with a healthy 24‑hour rhythm.
                 </p>
               </div>
               <button
                 onClick={() => setShowInfo(false)}
-                className="p-1 rounded-md hover:bg-slate-100/70 transition-colors"
+                className="p-1 rounded-md hover:bg-slate-100/70 dark:hover:bg-slate-800/50 transition-colors"
                 aria-label="Close body clock info"
                 type="button"
               >
-                <X className="h-3.5 w-3.5 text-slate-400" />
+                <X className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
               </button>
             </div>
-            <div className="space-y-1.5 text-[11px] text-slate-600 leading-relaxed">
+            <div className="space-y-1.5 text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
               <p>
-                <span className="font-semibold text-slate-900">High score (70+):</span> means your main sleep window, wake time and light exposure
+                <span className="font-semibold text-slate-900 dark:text-slate-100">High score (70+):</span> means your main sleep window, wake time and light exposure
                 are close to a stable circadian rhythm, so melatonin and cortisol stay in a healthier pattern.
               </p>
               <p>
-                <span className="font-semibold text-slate-900">Lower score:</span> usually means irregular sleep, quick turnarounds, or lots of light and food
+                <span className="font-semibold text-slate-900 dark:text-slate-100">Lower score:</span> usually means irregular sleep, quick turnarounds, or lots of light and food
                 in your biological night — all signals that push your internal clock out of sync.
               </p>
             </div>
-            <div className="pt-2 border-t border-slate-200/70">
-              <p className="text-[11px] font-semibold text-slate-900 mb-1">How to improve:</p>
-              <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-600">
+            <div className="pt-2 border-t border-slate-200/70 dark:border-slate-700/50">
+              <p className="text-[11px] font-semibold text-slate-900 dark:text-slate-100 mb-1">How to improve:</p>
+              <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-300">
                 <li>Keep your main sleep and wake time as consistent as your rota allows.</li>
                 <li>Group similar shifts together when possible (blocks of days or nights).</li>
                 <li>Get daylight after waking, and keep light and heavy meals out of your deepest “body night”.</li>
@@ -391,7 +399,7 @@ function BodyClockCard({
           {/* LEFT: Heading + Alignment factors */}
           <div className="flex-1 space-y-5 min-w-0">
             <div>
-              <h3 className="text-[20px] font-semibold tracking-tight text-slate-900 leading-tight">
+              <h3 className="text-[20px] font-semibold tracking-tight text-slate-900 dark:text-slate-100 leading-tight">
                 {noData ? (
                   <>
                     Your body clock score
@@ -402,7 +410,7 @@ function BodyClockCard({
                   headingText
                 )}
               </h3>
-              <p className="mt-3 text-sm leading-relaxed text-slate-600 max-w-[22ch]">
+              <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300 max-w-[22ch]">
                 {noData
                   ? "Log a few nights of sleep and add your shifts to unlock your Body Clock score."
                   : "Based on your latest sleep, shifts and daytime patterns."}
@@ -410,12 +418,12 @@ function BodyClockCard({
             </div>
 
             {/* Alignment factors as insight chip */}
-            <div className="rounded-2xl bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/50 p-4">
-              <p className="text-xs font-semibold tracking-tight text-slate-900">
+            <div className="rounded-2xl bg-gradient-to-br from-slate-50/70 dark:from-slate-800/50 to-white dark:to-slate-900/50 border border-slate-200/50 dark:border-slate-700/40 p-4">
+              <p className="text-xs font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                 Alignment factors
               </p>
               {noData ? (
-                <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                   Once you&apos;ve logged sleep and shifts, you&apos;ll see how timing and consistency affect your score.
                 </p>
               ) : (
@@ -425,19 +433,19 @@ function BodyClockCard({
                       key={f.label}
                       className="flex items-center justify-between py-0.5"
                     >
-                      <span className="truncate text-slate-700">
+                      <span className="truncate text-slate-700 dark:text-slate-300">
                         <span
                           className={
                             f.deltaSign === "+"
-                              ? "mr-1.5 font-bold text-emerald-600"
-                              : "mr-1.5 font-bold text-rose-600"
+                              ? "mr-1.5 font-bold text-emerald-600 dark:text-emerald-400"
+                              : "mr-1.5 font-bold text-rose-600 dark:text-rose-400"
                           }
                         >
                           {f.deltaSign}
                         </span>
                         {f.label}
                       </span>
-                      <span className="font-bold text-slate-900 ml-3 flex-shrink-0">
+                      <span className="font-bold text-slate-900 dark:text-slate-100 ml-3 flex-shrink-0">
                         {f.displayValue}
                       </span>
                     </div>
@@ -453,7 +461,7 @@ function BodyClockCard({
             {/* View Progress button under the gauge */}
             <Link
               href="/progress"
-              className="mt-4 inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 bg-slate-900 text-white text-xs font-semibold tracking-wide shadow-[0_10px_26px_-14px_rgba(0,0,0,0.35)] hover:opacity-95 transition-opacity"
+              className="mt-4 inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold tracking-wide shadow-[0_10px_26px_-14px_rgba(0,0,0,0.35)] dark:shadow-[0_10px_26px_-14px_rgba(255,255,255,0.1)] hover:opacity-95 dark:hover:opacity-90 transition-opacity"
             >
               View progress <ChevronRight className="h-4 w-4 opacity-80" strokeWidth={2} />
             </Link>
@@ -476,18 +484,18 @@ function BingeRiskCard({ bingeRisk }: { bingeRisk: { score: number; level: "low"
   const riskColors = {
     low: {
       gauge: 'from-emerald-500 to-teal-500',
-      badge: 'bg-emerald-50/70 border-emerald-200/50 text-emerald-700',
-      driver: 'bg-emerald-50/60 border-emerald-200/40 text-emerald-700'
+      badge: 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200/50 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-300',
+      driver: 'bg-emerald-50/60 dark:bg-emerald-950/25 border-emerald-200/40 dark:border-emerald-800/30 text-emerald-700 dark:text-emerald-300'
     },
     medium: {
       gauge: 'from-amber-500 to-orange-500',
-      badge: 'bg-amber-50/70 border-amber-200/50 text-amber-700',
-      driver: 'bg-amber-50/60 border-amber-200/40 text-amber-700'
+      badge: 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-200/50 dark:border-amber-800/40 text-amber-700 dark:text-amber-300',
+      driver: 'bg-amber-50/60 dark:bg-amber-950/25 border-amber-200/40 dark:border-amber-800/30 text-amber-700 dark:text-amber-300'
     },
     high: {
       gauge: 'from-rose-500 to-red-600',
-      badge: 'bg-rose-50/70 border-rose-200/50 text-rose-700',
-      driver: 'bg-rose-50/60 border-rose-200/40 text-rose-700'
+      badge: 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200/50 dark:border-rose-800/40 text-rose-700 dark:text-rose-300',
+      driver: 'bg-rose-50/60 dark:bg-rose-950/25 border-rose-200/40 dark:border-rose-800/30 text-rose-700 dark:text-rose-300'
     }
   };
 
@@ -503,18 +511,26 @@ function BingeRiskCard({ bingeRisk }: { bingeRisk: { score: number; level: "low"
     <section
       className={[
         "relative overflow-hidden rounded-3xl",
-        "bg-white/75 backdrop-blur-xl",
-        "border border-slate-200/50",
+        "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
+        "border border-slate-200/50 dark:border-slate-700/40",
+        "text-slate-900 dark:text-slate-100",
         "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+        "dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
         "p-6",
       ].join(" ")}
     >
       {/* Highlight overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+      
+      {/* Subtle colored glow hints - dark mode only */}
+      <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
+      
+      {/* Inner ring for premium feel */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
 
       <div className="relative z-10 space-y-5">
         {/* Title */}
-        <h3 className="text-[17px] font-semibold tracking-tight text-slate-900">
+        <h3 className="text-[17px] font-semibold tracking-tight">
           Binge Risk
         </h3>
 
@@ -524,11 +540,11 @@ function BingeRiskCard({ bingeRisk }: { bingeRisk: { score: number; level: "low"
           <div className="flex-shrink-0">
             <div className="relative grid place-items-center">
               {/* Ring container glow */}
-              <div className="absolute inset-[-18px] rounded-full bg-gradient-to-br from-slate-100/70 to-transparent blur-xl" />
+              <div className="absolute inset-[-18px] rounded-full bg-gradient-to-br from-slate-100/70 dark:from-slate-800/30 to-transparent blur-xl" />
               
               {/* Ring itself */}
-              <div className="relative h-36 w-36 rounded-full bg-white/60 border border-slate-200/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-                <div className="absolute inset-2 rounded-full border border-slate-200/40 bg-white/50" />
+              <div className="relative h-36 w-36 rounded-full bg-white/60 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[inset_0_1px_0_rgba(0,0,0,0.2)]">
+                <div className="absolute inset-2 rounded-full border border-slate-200/40 dark:border-slate-700/30 bg-white/50 dark:bg-slate-900/40" />
                 
                 {/* SVG ring overlay */}
                 <svg 
@@ -589,10 +605,10 @@ function BingeRiskCard({ bingeRisk }: { bingeRisk: { score: number; level: "low"
 
                 {/* Center text */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                  <p className="text-3xl font-semibold text-slate-900 tabular-nums leading-none">
+                  <p className="text-3xl font-semibold text-slate-900 dark:text-slate-100 tabular-nums leading-none">
                     {riskScore}
                   </p>
-                  <p className="text-xs font-medium text-slate-500 mt-0.5">
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
                     risk
                   </p>
                 </div>
@@ -603,7 +619,7 @@ function BingeRiskCard({ bingeRisk }: { bingeRisk: { score: number; level: "low"
           {/* RIGHT: Key drivers */}
           <div className="flex-1 space-y-3 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-xs font-semibold tracking-tight text-slate-900">
+              <p className="text-xs font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                 Key drivers
               </p>
               <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium border ${colors.badge}`}>
@@ -625,7 +641,7 @@ function BingeRiskCard({ bingeRisk }: { bingeRisk: { score: number; level: "low"
         </div>
 
         {/* Explanation text - full width */}
-        <p className="text-sm leading-relaxed text-slate-600">
+        <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
           {explanation}
         </p>
       </div>
@@ -769,7 +785,7 @@ function CircadianPhaseDial() {
               transform: "translateX(-50%)",
             }}
           >
-            <span className="text-[11px] font-medium text-slate-600">
+            <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
               Alertness Rise
             </span>
           </div>
@@ -782,7 +798,7 @@ function CircadianPhaseDial() {
               left: "15%",
             }}
           >
-            <span className="text-[11px] font-medium text-slate-600">
+            <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
               Melatonin Rise
             </span>
           </div>
@@ -806,11 +822,11 @@ function CircadianGauge({ score }: { score: number }) {
   return (
     <div className="relative grid place-items-center">
       {/* Ring container glow */}
-      <div className="absolute inset-[-18px] rounded-full bg-gradient-to-br from-slate-100/70 to-transparent blur-xl" />
+      <div className="absolute inset-[-18px] rounded-full bg-gradient-to-br from-slate-100/70 dark:from-slate-800/30 to-transparent blur-xl" />
       
       {/* Ring itself */}
-      <div className="relative h-44 w-44 rounded-full bg-white/60 border border-slate-200/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-        <div className="absolute inset-2 rounded-full border border-slate-200/40 bg-white/50" />
+      <div className="relative h-44 w-44 rounded-full bg-white/60 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[inset_0_1px_0_rgba(0,0,0,0.2)]">
+        <div className="absolute inset-2 rounded-full border border-slate-200/40 dark:border-slate-700/30 bg-white/50 dark:bg-slate-900/40" />
         
         {/* SVG ring overlay */}
         <svg 
@@ -857,8 +873,8 @@ function CircadianGauge({ score }: { score: number }) {
 
         {/* Center text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <p className="text-xs font-medium text-slate-500">Body Clock</p>
-          <p className="text-3xl font-semibold text-slate-900 tabular-nums leading-none mt-0.5">
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Body Clock</p>
+          <p className="text-3xl font-semibold text-slate-900 dark:text-slate-100 tabular-nums leading-none mt-0.5">
             {Math.round(capped)}
           </p>
         </div>
@@ -1693,10 +1709,10 @@ function DetailedMealTimesCard() {
 
   if (loading) {
     return (
-      <section className="relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur-xl border border-slate-200/60 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.12)] p-5">
+      <section className="relative overflow-hidden rounded-2xl bg-white/80 dark:bg-slate-900/45 backdrop-blur-xl border border-slate-200/60 dark:border-slate-700/40 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.12)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-5">
         <div className="animate-pulse space-y-4">
-          <div className="h-6 bg-slate-200 rounded w-48" />
-          <div className="h-4 bg-slate-200 rounded w-32" />
+          <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-48" />
+          <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-32" />
         </div>
       </section>
     );
@@ -1784,79 +1800,86 @@ function DetailedMealTimesCard() {
   return (
     <>
       {/* Top divider between cards */}
-      <div className="h-px bg-gradient-to-r from-transparent via-slate-200/60 to-transparent my-5" />
+      <div className="h-px bg-gradient-to-r from-transparent via-slate-200/60 dark:via-slate-700/50 to-transparent my-5" />
       
       <section
         className={[
           "relative overflow-hidden rounded-2xl",
-          "bg-white/75 backdrop-blur-xl",
-          "border border-slate-200/60",
+          "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
+          "border border-slate-200/60 dark:border-slate-700/40",
+          "text-slate-900 dark:text-slate-100",
           "shadow-[0_1px_2px_rgba(0,0,0,0.035),0_6px_20px_-12px_rgba(0,0,0,0.10)]",
+          "dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
           "p-5",
-          "before:absolute before:inset-0 before:rounded-2xl before:bg-white/40 before:opacity-30 before:pointer-events-none",
         ].join(" ")}
       >
         {/* Subtle highlight overlay */}
-        <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-b from-white/60 via-transparent to-transparent" />
+        <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-b from-white/60 dark:from-slate-900/60 via-transparent to-transparent" />
+        
+        {/* Subtle colored glow hints - dark mode only */}
+        <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
+        
+        {/* Inner ring for premium feel */}
+        <div className="pointer-events-none absolute inset-0 rounded-2xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
         
         <div className="relative z-10 space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <UtensilsCrossed className="h-4 w-4 text-slate-400" strokeWidth={2} />
+            <UtensilsCrossed className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
             <div>
-              <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">
+              <h2 className="text-[15px] font-semibold tracking-tight">
                 Meal Times
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {data.totalCalories.toLocaleString()} kcal today
               </p>
               <div className="flex items-center gap-2 mt-1.5">
-                <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 bg-emerald-100/70 text-emerald-700/80 border border-emerald-200/40 text-[11px] font-medium">
+                <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 bg-emerald-100/70 dark:bg-emerald-950/30 text-emerald-700/80 dark:text-emerald-300 border border-emerald-200/40 dark:border-emerald-800/40 text-[11px] font-medium">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/60" />
-                  {data.shiftType === 'night' ? 'Night Shift' : data.shiftType === 'day' ? 'Day Shift' : data.shiftType === 'late' ? 'Late Shift' : 'Off Day'}
+                  {data.shiftType === 'night' ? 'Night Shift' : data.shiftType === 'day' ? 'Day Shift' : data.shiftType === 'late' ? 'Late Shift' : 'Day Off'}
                 </span>
               </div>
             </div>
           </div>
           <button
             onClick={() => setShowInfo(!showInfo)}
-            className="flex-shrink-0 p-1 rounded-md hover:bg-slate-100/60 transition-colors group"
+            className="flex-shrink-0 p-1 rounded-md hover:bg-slate-100/60 dark:hover:bg-slate-800/50 transition-colors group"
             aria-label="Why meal timing matters"
           >
-            <Info className="h-4 w-4 text-slate-400 group-hover:text-slate-600 transition-colors" strokeWidth={2} />
+            <Info className="h-4 w-4 text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors" strokeWidth={2} />
           </button>
         </div>
 
         {/* Info Modal */}
         {showInfo && (
-          <div className="relative z-20 rounded-xl bg-white/95 backdrop-blur-xl border border-slate-200/60 p-4 space-y-3 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.12)]">
+          <div className="relative z-20 rounded-xl bg-white/95 dark:bg-slate-800/70 backdrop-blur-xl border border-slate-200/60 dark:border-slate-700/40 p-4 space-y-3 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.12)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.12),0_8px_24px_-12px_rgba(0,0,0,0.3)]">
             <div className="flex items-start justify-between">
-              <h3 className="text-sm font-bold tracking-tight text-slate-900">Why Meal Timing Matters</h3>
+              <h3 className="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100">Why Meal Timing Matters</h3>
               <button
                 onClick={() => setShowInfo(false)}
-                className="p-1 rounded-md hover:bg-slate-100/60 transition-colors"
+                className="p-1 rounded-md hover:bg-slate-100/60 dark:hover:bg-slate-800/50 transition-colors"
                 aria-label="Close"
               >
-                <X className="h-4 w-4 text-slate-400" strokeWidth={2} />
+                <X className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
               </button>
             </div>
-            <div className="space-y-3 text-sm text-slate-600 leading-relaxed max-h-[50vh] overflow-y-auto">
+            <div className="space-y-3 text-sm text-slate-600 dark:text-slate-300 leading-relaxed max-h-[50vh] overflow-y-auto">
               <div>
-                <p className="font-semibold text-slate-900 mb-1">Your body can't digest as well at night</p>
-                <p className="text-slate-600">
+                <p className="font-semibold text-slate-900 dark:text-slate-100 mb-1">Your body can't digest as well at night</p>
+                <p className="text-slate-600 dark:text-slate-300">
                   At night, your gut slows down. Eating during this "rest" phase makes digestion harder and can cause acid reflux, bloating, and blood sugar spikes.
                 </p>
               </div>
               <div>
-                <p className="font-semibold text-slate-900 mb-1">Meal timing shifts your circadian rhythm</p>
-                <p className="text-slate-600">
+                <p className="font-semibold text-slate-900 dark:text-slate-100 mb-1">Meal timing shifts your circadian rhythm</p>
+                <p className="text-slate-600 dark:text-slate-300">
                   Food is a secondary time cue. Consistent meals help your body decide "Is it daytime or nighttime?" This reduces circadian misalignment and improves alertness.
                 </p>
               </div>
               <div>
-                <p className="font-semibold text-slate-900 mb-1">Better blood sugar = more stable energy</p>
-                <p className="text-slate-600">
+                <p className="font-semibold text-slate-900 dark:text-slate-100 mb-1">Better blood sugar = more stable energy</p>
+                <p className="text-slate-600 dark:text-slate-300">
                   Eating irregularly causes energy crashes and trouble staying awake. Regular, well-timed meals help maintain smoother glucose levels.
                 </p>
               </div>
@@ -1866,29 +1889,29 @@ function DetailedMealTimesCard() {
 
         {/* Next Meal Panel */}
         {nextMeal && (
-          <div className="rounded-xl p-4 bg-gradient-to-r from-emerald-50/40 to-cyan-50/40 border border-emerald-200/30">
+          <div className="rounded-xl p-4 bg-gradient-to-r from-emerald-50/40 dark:from-emerald-950/30 to-cyan-50/40 dark:to-cyan-950/30 border border-emerald-200/30 dark:border-emerald-800/30">
             <div className="flex items-start gap-3">
-              <Clock className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" strokeWidth={2} />
+              <Clock className="h-4 w-4 text-slate-400 dark:text-slate-500 mt-0.5 flex-shrink-0" strokeWidth={2} />
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-medium text-emerald-700/70 uppercase tracking-wider mb-1.5">Next Meal</p>
-                <p className="text-sm font-semibold tracking-tight text-slate-900 mb-1">{nextMeal.label}</p>
-                <p className="text-xs text-slate-500 tabular-nums mb-2.5">{nextMeal.time} · {nextMeal.windowLabel}</p>
+                <p className="text-[11px] font-medium text-emerald-700/70 dark:text-emerald-300 uppercase tracking-wider mb-1.5">Next Meal</p>
+                <p className="text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100 mb-1">{nextMeal.label}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums mb-2.5">{nextMeal.time} · {nextMeal.windowLabel}</p>
                 <div className="flex items-center gap-1.5 mb-2.5">
-                  <span className="text-sm font-semibold tabular-nums text-slate-900">{nextMeal.calories}</span>
-                  <span className="text-xs text-slate-500">kcal</span>
+                  <span className="text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">{nextMeal.calories}</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">kcal</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                  <span className="font-medium text-slate-900">{nextMeal.macros.protein}g</span>
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                  <span className="font-medium text-slate-900 dark:text-slate-100">{nextMeal.macros.protein}g</span>
                   <span>protein</span>
-                  <span className="text-slate-300">•</span>
-                  <span className="font-medium text-slate-900">{nextMeal.macros.fats}g</span>
+                  <span className="text-slate-300 dark:text-slate-600">•</span>
+                  <span className="font-medium text-slate-900 dark:text-slate-100">{nextMeal.macros.fats}g</span>
                   <span>fat</span>
-                  <span className="text-slate-300">•</span>
-                  <span className="font-medium text-slate-900">{nextMeal.macros.carbs}g</span>
+                  <span className="text-slate-300 dark:text-slate-600">•</span>
+                  <span className="font-medium text-slate-900 dark:text-slate-100">{nextMeal.macros.carbs}g</span>
                   <span>carbs</span>
                 </div>
                 {nextMeal.hint && (
-                  <p className="text-sm text-slate-600 leading-relaxed mt-2.5">{nextMeal.hint}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mt-2.5">{nextMeal.hint}</p>
                 )}
               </div>
             </div>
@@ -1897,49 +1920,49 @@ function DetailedMealTimesCard() {
 
         {/* Today's Meals */}
         <div className="space-y-2">
-          <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Today's Meals</p>
-          <div className="rounded-2xl bg-white/60 p-2">
+          <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Today's Meals</p>
+          <div className="rounded-2xl bg-white/60 dark:bg-slate-800/50 p-2">
             {data.meals.map((meal, index) => {
               const isNext = isNextMeal(meal.id);
               return (
                 <React.Fragment key={meal.id}>
-                  <div className="rounded-xl px-4 py-3 bg-slate-50/40 border border-transparent shadow-none">
+                  <div className="rounded-xl px-4 py-3 bg-slate-50/40 dark:bg-slate-800/30 border border-transparent shadow-none">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="text-sm font-semibold tracking-tight text-slate-900">
+                          <span className="text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                             {meal.label}
                           </span>
                           {isNext && (
-                            <span className="text-[9px] font-semibold text-emerald-700/80 bg-emerald-100/80 px-1.5 py-0.5 rounded-full">
+                            <span className="text-[9px] font-semibold text-emerald-700/80 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded-full">
                               Next
                             </span>
                           )}
                         </div>
                         <div className="flex items-center gap-3 mb-2">
-                          <p className="text-xs text-slate-500 tabular-nums">{meal.windowLabel}</p>
-                          <span className="text-slate-300">•</span>
-                          <p className="text-sm font-semibold tabular-nums text-slate-900">{meal.calories}</p>
-                          <span className="text-xs text-slate-500">kcal</span>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">{meal.windowLabel}</p>
+                          <span className="text-slate-300 dark:text-slate-600">•</span>
+                          <p className="text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">{meal.calories}</p>
+                          <span className="text-xs text-slate-500 dark:text-slate-400">kcal</span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                          <span className="font-medium text-slate-900">{meal.macros.protein}g</span>
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                          <span className="font-medium text-slate-900 dark:text-slate-100">{meal.macros.protein}g</span>
                           <span>protein</span>
-                          <span className="text-slate-300">•</span>
-                          <span className="font-medium text-slate-900">{meal.macros.fats}g</span>
+                          <span className="text-slate-300 dark:text-slate-600">•</span>
+                          <span className="font-medium text-slate-900 dark:text-slate-100">{meal.macros.fats}g</span>
                           <span>fat</span>
-                          <span className="text-slate-300">•</span>
-                          <span className="font-medium text-slate-900">{meal.macros.carbs}g</span>
+                          <span className="text-slate-300 dark:text-slate-600">•</span>
+                          <span className="font-medium text-slate-900 dark:text-slate-100">{meal.macros.carbs}g</span>
                           <span>carbs</span>
                         </div>
                         {meal.hint && (
-                          <p className="text-sm text-slate-600 leading-relaxed mt-2">{meal.hint}</p>
+                          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mt-2">{meal.hint}</p>
                         )}
                       </div>
                     </div>
                   </div>
                   {index < data.meals.length - 1 && (
-                    <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-2" />
+                    <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 dark:via-slate-700/50 to-transparent my-2" />
                   )}
                 </React.Fragment>
               );
@@ -1948,14 +1971,14 @@ function DetailedMealTimesCard() {
         </div>
 
         {/* AI Insight Panel */}
-        <div className="rounded-xl p-4 bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/40">
+        <div className="rounded-xl p-4 bg-gradient-to-br from-slate-50/70 dark:from-slate-800/50 to-white dark:to-slate-900/50 border border-slate-200/40 dark:border-slate-700/40">
           <div className="flex items-start gap-2">
-            <Sparkles className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" strokeWidth={2} />
+            <Sparkles className="h-4 w-4 text-slate-400 dark:text-slate-500 mt-0.5 flex-shrink-0" strokeWidth={2} />
             <div className="flex-1">
-              <p className="text-xs font-semibold tracking-tight text-slate-900 flex items-center gap-2 mb-1.5">
+              <p className="text-xs font-semibold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2 mb-1.5">
                 {aiInsight.title}
               </p>
-              <p className="text-sm text-slate-600 leading-relaxed">{aiInsight.content}</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{aiInsight.content}</p>
             </div>
           </div>
         </div>
@@ -2186,20 +2209,20 @@ function AdjustedMealTimesCard() {
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-[15px] font-bold tracking-tight text-slate-900">
+              <h2 className="text-[15px] font-bold tracking-tight text-slate-900 dark:text-slate-100">
                 Meal Times
               </h2>
-              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-100/80">
+              <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-100/80 dark:bg-slate-800/60">
                 {(mealTiming as any)?.shiftType === 'night' ? 'Night' : (mealTiming as any)?.shiftType === 'day' ? 'Day' : (mealTiming as any)?.shiftType === 'late' ? 'Late' : 'Off'}
               </span>
             </div>
           </div>
           <button
             onClick={() => setShowInfo(!showInfo)}
-            className="relative z-20 flex-shrink-0 p-1 rounded-md hover:bg-slate-100/60 transition-all group"
+            className="relative z-20 flex-shrink-0 p-1 rounded-md hover:bg-slate-100/60 dark:hover:bg-slate-800/50 transition-all group"
             aria-label="Why meal timing matters"
           >
-            <Info className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition-colors" />
+            <Info className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors" />
           </button>
         </div>
 
@@ -2497,35 +2520,41 @@ function NextBestActionsCard({ sleepDeficit, circadian }: NextBestActionsCardPro
     <section
       className={[
         "relative overflow-hidden rounded-3xl",
-        "bg-white/75 backdrop-blur-xl",
-        "border border-slate-200/50",
-        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+        "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
+        "border border-slate-200/50 dark:border-slate-700/40",
+        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
         "p-6",
       ].join(" ")}
     >
       {/* Highlight overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+      
+      {/* Subtle colored glow hints - dark mode only */}
+      <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
+      
+      {/* Inner ring for premium feel */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
 
       <div className="relative z-10 space-y-5">
         {/* Sleep Debt Header */}
         <div className="flex items-center justify-between">
-          <h3 className="text-[17px] font-semibold tracking-tight text-slate-900">Sleep Debt</h3>
-          <span className="text-base font-semibold tabular-nums text-slate-900">{displayDebt}</span>
+          <h3 className="text-[17px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">Sleep Debt</h3>
+          <span className="text-base font-semibold tabular-nums text-slate-900 dark:text-slate-100">{displayDebt}</span>
         </div>
 
         {/* Next Best Actions */}
         <div className="space-y-3">
           {actions.map((action, index) => (
-            <div key={index} className="relative overflow-hidden flex items-start gap-3 rounded-2xl bg-slate-50/50 border border-slate-200/40 px-4 py-4">
+            <div key={index} className="relative overflow-hidden flex items-start gap-3 rounded-2xl bg-gradient-to-br from-slate-50/60 dark:from-slate-800/35 to-slate-50/40 dark:to-slate-800/25 backdrop-blur border border-slate-200/40 dark:border-slate-700/40 px-4 py-4 shadow-sm dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)]">
               {action.icon === 'ai' ? (
-                <div className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white border border-slate-200/60 text-slate-500">
-                  <span className="text-xs font-semibold tracking-tight text-indigo-600">SC</span>
+                <div className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 dark:from-indigo-600 to-indigo-600 dark:to-indigo-700 border border-indigo-400/20 dark:border-indigo-500/30">
+                  <span className="text-xs font-semibold tracking-tight text-white">SC</span>
                 </div>
               ) : (
-                <div className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white border border-slate-200/60 text-slate-500">
+                <div className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 dark:from-emerald-600 to-emerald-600 dark:to-emerald-700 border border-emerald-400/20 dark:border-emerald-500/30">
                   <svg
                     viewBox="0 0 24 24"
-                    className="w-4 h-4 text-emerald-600"
+                    className="w-4 h-4 text-white"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth={2.5}
@@ -2537,10 +2566,10 @@ function NextBestActionsCard({ sleepDeficit, circadian }: NextBestActionsCardPro
                 </div>
               )}
               <div className="relative z-10 flex-1 pt-0.5">
-                <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
                   Next best action
                 </p>
-                <p className="text-sm leading-relaxed text-slate-900">
+                <p className="text-sm leading-relaxed text-slate-900 dark:text-slate-100">
                   {action.text}
                 </p>
               </div>
@@ -2602,14 +2631,14 @@ function MiniCard({
     <section
       className={[
         "relative overflow-hidden rounded-[24px]",
-        "bg-white/90 backdrop-blur-xl",
-        "border border-white/80",
-        "shadow-[0_20px_50px_rgba(15,23,42,0.08)]",
+        "bg-white/90 dark:bg-slate-900/45 backdrop-blur-xl",
+        "border border-white/80 dark:border-slate-700/40",
+        "shadow-[0_20px_50px_rgba(15,23,42,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)]",
         "px-5 py-4",
         className,
       ].join(" ")}
     >
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/60 to-white/40" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/60 dark:from-slate-900/50 to-white/40 dark:to-slate-900/30" />
       <div className="relative z-10">{children}</div>
     </section>
   );
@@ -2777,14 +2806,14 @@ function BlogSection() {
   const getPersonalizationChip = (index: number) => {
     if (index === 0) {
       return (
-        <span className="rounded-full bg-emerald-100/60 text-emerald-700/80 border border-emerald-200/50 px-2.5 py-1 text-[11px] font-medium">
+        <span className="rounded-full bg-emerald-100/60 dark:bg-emerald-950/30 text-emerald-700/80 dark:text-emerald-300 border border-emerald-200/50 dark:border-emerald-800/40 px-2.5 py-1 text-[11px] font-medium">
           For night shifts
         </span>
       );
     }
     if (index === 1) {
       return (
-        <span className="rounded-full bg-slate-100/60 text-slate-700/80 border border-slate-200/50 px-2.5 py-1 text-[11px] font-medium">
+        <span className="rounded-full bg-slate-100/60 dark:bg-slate-800/50 text-slate-700/80 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/40 px-2.5 py-1 text-[11px] font-medium">
           Quick read
         </span>
       );
@@ -2796,28 +2825,34 @@ function BlogSection() {
     <section
       className={[
         "relative overflow-hidden rounded-3xl",
-        "bg-white/75 backdrop-blur-xl",
-        "border border-slate-200/50",
-        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+        "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
+        "border border-slate-200/50 dark:border-slate-700/40",
+        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
         "p-6",
       ].join(" ")}
     >
       {/* Highlight overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+      
+      {/* Subtle colored glow hints - dark mode only */}
+      <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
+      
+      {/* Inner ring for premium feel */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
 
       <div className="relative z-10 space-y-5">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400">
               SHIFTCOACH BLOG
             </p>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
               Tips and guidance tailored to your shifts
             </p>
           </div>
-          <div className="h-10 w-10 rounded-2xl bg-slate-50/60 border border-slate-200/50 grid place-items-center flex-shrink-0">
-            <MessageSquareText className="h-5 w-5 text-slate-400" strokeWidth={2} />
+          <div className="h-10 w-10 rounded-2xl bg-slate-50/60 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/40 grid place-items-center flex-shrink-0">
+            <MessageSquareText className="h-5 w-5 text-slate-400 dark:text-slate-500" strokeWidth={2} />
           </div>
         </div>
 
@@ -2830,23 +2865,23 @@ function BlogSection() {
               <React.Fragment key={post.slug}>
                 <Link
                   href={href}
-                  className="group flex items-center justify-between gap-4 rounded-2xl px-4 py-4 bg-slate-50/40 border border-slate-200/30 hover:bg-white/70 hover:border-slate-200/50 transition-colors"
+                  className="group flex items-center justify-between gap-4 rounded-2xl px-4 py-4 bg-slate-50/40 dark:bg-slate-800/35 border border-slate-200/30 dark:border-slate-700/40 hover:bg-white/70 dark:hover:bg-slate-800/50 hover:border-slate-200/50 dark:hover:border-slate-600/50 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                      <h3 className="text-[15px] font-semibold tracking-tight text-slate-900 leading-snug">
+                      <h3 className="text-[15px] font-semibold tracking-tight text-slate-900 dark:text-slate-100 leading-snug">
                         {post.title}
                       </h3>
                       {chip}
                     </div>
-                    <p className="mt-1 text-sm text-slate-600 leading-relaxed line-clamp-2 max-w-[42ch]">
+                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-2 max-w-[42ch]">
                       {post.description}
                     </p>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-slate-400 transition flex-shrink-0" strokeWidth={2} />
+                  <ChevronRight className="h-5 w-5 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition flex-shrink-0" strokeWidth={2} />
                 </Link>
                 {index < effectivePosts.length - 1 && (
-                  <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent" />
+                  <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 dark:via-slate-700/50 to-transparent" />
                 )}
               </React.Fragment>
             );
@@ -2854,12 +2889,12 @@ function BlogSection() {
         </div>
 
         {/* AI Summary Footer */}
-        <div className="mt-5 rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/50">
-          <p className="text-xs font-semibold tracking-tight text-slate-900 flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-slate-400" strokeWidth={2} />
+        <div className="mt-5 rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 dark:from-slate-800/50 to-white dark:to-slate-800/40 border border-slate-200/50 dark:border-slate-700/40">
+          <p className="text-xs font-semibold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
             Today's recommended read
           </p>
-          <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
             Based on your recent shifts, focus on fatigue management and meal timing to protect sleep.
           </p>
         </div>

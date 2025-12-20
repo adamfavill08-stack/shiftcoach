@@ -92,28 +92,23 @@ function CircadianRhythmCard({
 
   return (
     <section
-      className="relative overflow-hidden rounded-3xl border px-5 pt-5 pb-4 flex flex-col gap-4"
-      style={{
-        backgroundColor: 'var(--card)',
-        borderColor: 'var(--border-subtle)',
-        boxShadow: 'var(--shadow-soft)',
-      }}
+      className="relative overflow-hidden rounded-3xl border border-slate-200/50 dark:border-slate-700/40 bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl px-5 pt-5 pb-4 flex flex-col gap-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5)]"
     >
       {/* subtle premium overlays */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-br from-white/95 via-white/85 to-white/80" />
-      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-sky-50/45 via-transparent to-indigo-50/35" />
-      <div className="pointer-events-none absolute inset-[1px] rounded-[23px] ring-1 ring-white/60" />
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-br from-white/95 dark:from-slate-900/70 via-white/85 dark:via-slate-900/50 to-white/80 dark:to-slate-950/60" />
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-sky-50/45 dark:from-sky-950/20 via-transparent to-indigo-50/35 dark:to-indigo-950/20" />
+      <div className="pointer-events-none absolute inset-[1px] rounded-[23px] ring-1 ring-white/60 dark:ring-slate-600/30" />
 
       <div className="relative z-10 flex flex-col gap-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
             Last 7 Days
           </p>
-          <h2 className="mt-1 text-[18px] font-semibold text-slate-900 tracking-tight">
+          <h2 className="mt-1 text-[18px] font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
             Circadian Rhythm
           </h2>
-          <p className="mt-1 text-[11px] text-slate-500 leading-relaxed max-w-[230px]">
+          <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed max-w-[230px]">
             A quick snapshot of how aligned your body clock has been with your ideal rhythm this
             week.
           </p>
@@ -121,19 +116,19 @@ function CircadianRhythmCard({
         <div className="inline-flex flex-col items-end gap-1">
           {hasRealData ? (
             <>
-              <span className="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white shadow-[0_10px_26px_rgba(15,23,42,0.35)]">
+              <span className="inline-flex items-center rounded-full bg-slate-900 dark:bg-slate-100 px-3 py-1 text-[11px] font-semibold text-white dark:text-slate-900 shadow-[0_10px_26px_rgba(15,23,42,0.35)] dark:shadow-[0_10px_26px_rgba(255,255,255,0.1)]">
                 Weekly peak&nbsp;
-                <span className="ml-1 rounded-full bg-white/10 px-2 py-0.5 text-[11px]">
+                <span className="ml-1 rounded-full bg-white/10 dark:bg-slate-900/10 px-2 py-0.5 text-[11px]">
                   {maxScore}
                 </span>
               </span>
-              <span className="text-[10px] font-medium text-slate-400">
+              <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
                 Stability: {Math.max(0, 100 - Math.round(peakIndex * 4))}/100
               </span>
             </>
           ) : (
-            <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[10px] font-medium text-slate-500 border border-slate-200">
-              We’ll show your first 7-day rhythm once enough sleep & shift data is logged.
+            <span className="inline-flex items-center rounded-full bg-slate-100 dark:bg-slate-800/50 px-3 py-1 text-[10px] font-medium text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700/40">
+              We'll show your first 7-day rhythm once enough sleep & shift data is logged.
             </span>
           )}
         </div>
@@ -155,7 +150,7 @@ function CircadianRhythmCard({
           </defs>
 
           {/* Soft background grid */}
-          <g stroke="rgba(148,163,184,0.22)" strokeWidth="0.5">
+          <g className="stroke-slate-300/30 dark:stroke-slate-600/30" strokeWidth="0.5">
             {[0, 1, 2, 3, 4].map((i) => {
               const y = paddingTop + (usableHeight / 4) * i
               return <line key={i} x1={paddingX} y1={y} x2={width - paddingX} y2={y} />
@@ -192,8 +187,7 @@ function CircadianRhythmCard({
                 x={peakPoint.x}
                 y={peakPoint.y - 18}
                 textAnchor="middle"
-                className="text-[11px] font-semibold"
-                fill="#2563eb"
+                className="text-[11px] font-semibold fill-blue-600 dark:fill-blue-400"
               >
                 {peakPoint.value}
               </text>
@@ -207,7 +201,7 @@ function CircadianRhythmCard({
                 d={`M ${paddingX} ${paddingTop + usableHeight * 0.6} L ${
                   width - paddingX
                 } ${paddingTop + usableHeight * 0.6}`}
-                stroke="rgba(148,163,184,0.5)"
+                className="stroke-slate-400/50 dark:stroke-slate-500/50"
                 strokeWidth={2}
                 strokeDasharray="4 4"
                 fill="none"
@@ -227,7 +221,7 @@ function CircadianRhythmCard({
                 x={0}
                 y={y + 3}
                 fontSize="9"
-                fill="rgba(148,163,184,0.9)"
+                className="fill-slate-500 dark:fill-slate-400"
               >
                 {val}
               </text>
@@ -242,7 +236,7 @@ function CircadianRhythmCard({
               y={height - 8}
               textAnchor="middle"
               fontSize="9"
-              fill="rgba(148,163,184,0.95)"
+              className="fill-slate-500 dark:fill-slate-400"
             >
               {label.toUpperCase().slice(0, 3)}
             </text>
@@ -250,7 +244,7 @@ function CircadianRhythmCard({
         </svg>
       </div>
 
-      <p className="text-[11px] text-slate-500 leading-relaxed">
+      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
         {hasRealData
           ? 'Higher points mean your body clock was more in sync with your ideal rhythm. Dips often follow night shifts, irregular sleep, or disrupted routines.'
           : 'Once we have a full week of sleep and shift data, this card will begin to show how your body clock is adapting to your pattern.'}
@@ -379,26 +373,21 @@ function CircadianRhythmReport({
   if (!hasRealData) {
     return (
       <section
-        className="relative overflow-hidden rounded-3xl border px-5 pt-5 pb-4 flex flex-col gap-3"
-        style={{
-          backgroundColor: 'var(--card)',
-          borderColor: 'var(--border-subtle)',
-          boxShadow: 'var(--shadow-soft)',
-        }}
+        className="relative overflow-hidden rounded-3xl border border-slate-200/50 dark:border-slate-700/40 bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl px-5 pt-5 pb-4 flex flex-col gap-3 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5)]"
       >
-        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-br from-white/95 via-white/90 to-slate-50/90" />
-        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-slate-50/60 via-transparent to-slate-100/70" />
-        <div className="pointer-events-none absolute inset-[1px] rounded-[23px] ring-1 ring-white/70" />
+        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-br from-white/95 dark:from-slate-900/70 via-white/90 dark:via-slate-900/50 to-slate-50/90 dark:to-slate-950/60" />
+        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-slate-50/60 dark:from-slate-800/50 via-transparent to-slate-100/70 dark:to-slate-900/50" />
+        <div className="pointer-events-none absolute inset-[1px] rounded-[23px] ring-1 ring-white/70 dark:ring-slate-600/30" />
 
         <div className="relative z-10 space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
             Weekly circadian report
           </p>
-          <p className="text-[13px] font-semibold text-slate-900 leading-snug">
-            We’re still learning your rhythm.
+          <p className="text-[13px] font-semibold text-slate-900 dark:text-slate-100 leading-snug">
+            We're still learning your rhythm.
           </p>
-          <p className="text-[11px] text-slate-600 leading-relaxed">
-            After you’ve logged around a week of sleep and shift data, ShiftCoach will start
+          <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+            After you've logged around a week of sleep and shift data, ShiftCoach will start
             building a full circadian report here with trends, patterns and next steps tailored to
             you.
           </p>
@@ -409,52 +398,47 @@ function CircadianRhythmReport({
 
   return (
     <section
-      className="relative overflow-hidden rounded-3xl border px-5 pt-5 pb-4 flex flex-col gap-4"
-      style={{
-        backgroundColor: 'var(--card)',
-        borderColor: 'var(--border-subtle)',
-        boxShadow: 'var(--shadow-soft)',
-      }}
+      className="relative overflow-hidden rounded-3xl border border-slate-200/50 dark:border-slate-700/40 bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl px-5 pt-5 pb-4 flex flex-col gap-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5)]"
     >
       {/* soft report overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-br from-white/95 via-white/90 to-slate-50/90" />
-      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-slate-50/60 via-transparent to-slate-100/70" />
-      <div className="pointer-events-none absolute inset-[1px] rounded-[23px] ring-1 ring-white/70" />
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-br from-white/95 dark:from-slate-900/70 via-white/90 dark:via-slate-900/50 to-slate-50/90 dark:to-slate-950/60" />
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-slate-50/60 dark:from-slate-800/50 via-transparent to-slate-100/70 dark:to-slate-900/50" />
+      <div className="pointer-events-none absolute inset-[1px] rounded-[23px] ring-1 ring-white/70 dark:ring-slate-600/30" />
 
       <div className="relative z-10 flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
           Weekly circadian report
         </p>
-        <p className="text-[13px] font-semibold text-slate-900 leading-snug">{headline}</p>
-        <p className="text-[11px] text-slate-500 leading-relaxed">
+        <p className="text-[13px] font-semibold text-slate-900 dark:text-slate-100 leading-snug">{headline}</p>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
           Your average alignment score was <span className="font-semibold">{avgScore}</span> with a
           stability score of <span className="font-semibold">{stabilityScore}</span>. Peaks and
           dips tell the story of how your shifts, sleep timing and routines played out.
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 text-[11px] text-slate-600">
-        <div className="rounded-2xl bg-white/80 border border-slate-100 px-3 py-2.5 shadow-sm">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 mb-1">
+      <div className="grid grid-cols-2 gap-3 text-[11px] text-slate-600 dark:text-slate-400">
+        <div className="rounded-2xl bg-white/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/40 px-3 py-2.5 shadow-sm dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500 mb-1">
             Best aligned day
           </p>
-          <p className="text-[13px] font-semibold text-slate-900">
+          <p className="text-[13px] font-semibold text-slate-900 dark:text-slate-100">
             {labels[bestIndex] ?? '—'} · {maxScore}
           </p>
-          <p className="mt-0.5">
+          <p className="mt-0.5 text-slate-600 dark:text-slate-400">
             Your rhythm locked in best here — repeat the sleep and light routine from this day
             where you can.
           </p>
         </div>
-        <div className="rounded-2xl bg-white/80 border border-slate-100 px-3 py-2.5 shadow-sm">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 mb-1">
+        <div className="rounded-2xl bg-white/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/40 px-3 py-2.5 shadow-sm dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500 mb-1">
             Toughest day
           </p>
-          <p className="text-[13px] font-semibold text-slate-900">
+          <p className="text-[13px] font-semibold text-slate-900 dark:text-slate-100">
             {labels[worstIndex] ?? '—'} · {minScore}
           </p>
-          <p className="mt-0.5">
+          <p className="mt-0.5 text-slate-600 dark:text-slate-400">
             Likely after a demanding shift, short sleep or irregular timing — this is where your
             body felt the strain.
           </p>
@@ -462,7 +446,7 @@ function CircadianRhythmReport({
       </div>
 
       <div className="space-y-2">
-        <p className="text-[11px] font-semibold text-slate-900">Daily rhythm snapshot</p>
+        <p className="text-[11px] font-semibold text-slate-900 dark:text-slate-100">Daily rhythm snapshot</p>
         <div className="space-y-1.5">
           {data.map((score, i) => {
             const sleepH = sleep[i] ?? null
@@ -471,20 +455,20 @@ function CircadianRhythmReport({
             return (
               <div
                 key={`${labels[i]}-${i}`}
-                className="flex items-center justify-between rounded-xl bg-white/70 border border-slate-100 px-3 py-1.5 text-[11px]"
+                className="flex items-center justify-between rounded-xl bg-white/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/40 px-3 py-1.5 text-[11px]"
               >
                 <div className="flex items-center gap-2">
-                  <span className="w-8 font-semibold text-slate-900">
+                  <span className="w-8 font-semibold text-slate-900 dark:text-slate-100">
                     {(labels[i] ?? '').toUpperCase().slice(0, 3)}
                   </span>
-                  <span className="text-slate-500">
-                    Score <span className="font-semibold text-slate-900">{score}</span> · Sleep{' '}
+                  <span className="text-slate-500 dark:text-slate-400">
+                    Score <span className="font-semibold text-slate-900 dark:text-slate-100">{score}</span> · Sleep{' '}
                     {sleepH != null ? `${sleepH.toFixed(1)}h` : '—'}
                     {deficit && deficit >= 0.8 ? ` (debt ~${deficit.toFixed(1)}h)` : ''}
                   </span>
                 </div>
                 {timingScore != null && (
-                  <span className="text-[10px] text-slate-400">
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
                     Timing {timingScore}% aligned
                   </span>
                 )}
@@ -495,8 +479,8 @@ function CircadianRhythmReport({
       </div>
 
       <div className="space-y-1.5">
-        <p className="text-[11px] font-semibold text-slate-900">Patterns we noticed</p>
-        <ul className="list-disc pl-4 text-[11px] text-slate-600 space-y-1">
+        <p className="text-[11px] font-semibold text-slate-900 dark:text-slate-100">Patterns we noticed</p>
+        <ul className="list-disc pl-4 text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
           {patterns.map((p) => (
             <li key={p}>{p}</li>
           ))}
@@ -504,13 +488,13 @@ function CircadianRhythmReport({
       </div>
 
       <div className="space-y-1.5">
-        <p className="text-[11px] font-semibold text-slate-900">How you may have felt</p>
-        <p className="text-[11px] text-slate-600 leading-relaxed">{feeling}</p>
+        <p className="text-[11px] font-semibold text-slate-900 dark:text-slate-100">How you may have felt</p>
+        <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">{feeling}</p>
       </div>
 
       <div className="space-y-1.5">
-        <p className="text-[11px] font-semibold text-slate-900">Next week, focus on</p>
-        <ul className="list-disc pl-4 text-[11px] text-slate-600 space-y-1">
+        <p className="text-[11px] font-semibold text-slate-900 dark:text-slate-100">Next week, focus on</p>
+        <ul className="list-disc pl-4 text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
           {adjustments.map((a) => (
             <li key={a}>{a}</li>
           ))}
@@ -518,14 +502,14 @@ function CircadianRhythmReport({
       </div>
 
       <div className="space-y-1.5">
-        <p className="text-[11px] font-semibold text-slate-900">Looking ahead</p>
-        <p className="text-[11px] text-slate-600 leading-relaxed">{forecast}</p>
+        <p className="text-[11px] font-semibold text-slate-900 dark:text-slate-100">Looking ahead</p>
+        <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">{forecast}</p>
       </div>
 
       {milestones.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[11px] font-semibold text-slate-900">Wins to keep building on</p>
-          <ul className="list-disc pl-4 text-[11px] text-slate-600 space-y-1">
+          <p className="text-[11px] font-semibold text-slate-900 dark:text-slate-100">Wins to keep building on</p>
+          <ul className="list-disc pl-4 text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
             {milestones.map((m) => (
               <li key={m}>{m}</li>
             ))}
@@ -584,66 +568,38 @@ export default function ProgressPage(){
   const totalCoachChats = useMemo(()=> w.coachInteractions.reduce((a,b)=>a+b,0), [w])
 
   return (
-    <main
-      style={{
-        backgroundImage: 'radial-gradient(circle at top, var(--bg-soft), var(--bg))',
-      }}
-    >
+    <main className="min-h-screen bg-gradient-to-b from-slate-50 dark:from-slate-950 via-white dark:via-slate-900 to-slate-50 dark:to-slate-950">
       <div className="max-w-[430px] mx-auto min-h-screen px-4 pb-8 pt-4 flex flex-col gap-5">
         {/* Header */}
         <header className="flex items-center justify-between mb-1">
           <Link
             href="/dashboard"
-            className="p-2 rounded-full backdrop-blur-xl border transition-all"
-            style={{
-              backgroundColor: 'var(--card)',
-              borderColor: 'var(--border-subtle)',
-              color: 'var(--text-main)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--card-subtle)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--card)'
-            }}
+            className="p-2 rounded-full backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 bg-white/60 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 transition-all hover:bg-white/80 dark:hover:bg-slate-800/70"
             aria-label="Back"
           >
             ←
           </Link>
           <div className="flex flex-col">
-            <h1 className="text-xl font-semibold" style={{ color: 'var(--text-main)' }}>Progress</h1>
-            <p className="text-sm" style={{ color: 'var(--text-soft)' }}>Your last 7 days at a glance.</p>
+            <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Progress</h1>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Your last 7 days at a glance.</p>
           </div>
           <div className="flex items-center gap-2">
             {w.hasNewInsights && (
-              <span className="inline-flex items-center rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 px-2.5 py-1 text-[10px] font-semibold text-white shadow-[0_8px_18px_rgba(37,99,235,0.55)] animate-pulse-slow">
+              <span className="inline-flex items-center rounded-full bg-gradient-to-r from-sky-500 dark:from-sky-600 to-indigo-500 dark:to-indigo-600 px-2.5 py-1 text-[10px] font-semibold text-white shadow-[0_8px_18px_rgba(37,99,235,0.55)] dark:shadow-[0_8px_18px_rgba(37,99,235,0.65)] animate-pulse-slow">
                 New insight detected
               </span>
             )}
-            <div
-              className="inline-flex items-center rounded-full backdrop-blur-xl border px-3 py-1 text-xs gap-2"
-              style={{
-                backgroundColor: 'var(--card-subtle)',
-                borderColor: 'var(--border-subtle)',
-                color: 'var(--text-soft)',
-              }}
-            >
+            <div className="inline-flex items-center rounded-full backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 bg-slate-50/60 dark:bg-slate-800/50 px-3 py-1 text-xs gap-2 text-slate-600 dark:text-slate-400">
             <button
               onClick={()=>setWeekOffset(weekOffset-1)}
-              className="transition-colors"
-              style={{ color: 'var(--text-muted)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-main)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)' }}
+              className="transition-colors text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
             >
               ‹
             </button>
             <span>{weekOffset===0? 'This week' : weekOffset===-1? 'Next week' : `${Math.abs(weekOffset)}w ${weekOffset<0?'ahead':'ago'}`}</span>
             <button
               onClick={()=>setWeekOffset(weekOffset+1)}
-              className="transition-colors"
-              style={{ color: 'var(--text-muted)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-main)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)' }}
+              className="transition-colors text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
             >
               ›
             </button>

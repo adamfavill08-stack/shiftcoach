@@ -100,17 +100,17 @@ export function SocialJetlagCard() {
   }, [])
 
   const getCategoryColor = () => {
-    if (!data) return { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200", badge: "—" }
+    if (!data) return { bg: "bg-slate-50 dark:bg-slate-800/50", text: "text-slate-700 dark:text-slate-300", border: "border-slate-200 dark:border-slate-700/40", badge: "—" }
     
     switch (data.category) {
       case "low":
-        return { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", badge: "Low" }
+        return { bg: "bg-emerald-50 dark:bg-emerald-950/30", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-200 dark:border-emerald-800/40", badge: "Low" }
       case "moderate":
-        return { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", badge: "Moderate" }
+        return { bg: "bg-amber-50 dark:bg-amber-950/30", text: "text-amber-700 dark:text-amber-300", border: "border-amber-200 dark:border-amber-800/40", badge: "Moderate" }
       case "high":
-        return { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", badge: "High" }
+        return { bg: "bg-rose-50 dark:bg-rose-950/30", text: "text-rose-700 dark:text-rose-300", border: "border-rose-200 dark:border-rose-800/40", badge: "High" }
       default:
-        return { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200", badge: "—" }
+        return { bg: "bg-slate-50 dark:bg-slate-800/50", text: "text-slate-700 dark:text-slate-300", border: "border-slate-200 dark:border-slate-700/40", badge: "—" }
     }
   }
 
@@ -118,21 +118,21 @@ export function SocialJetlagCard() {
   const displayValue = data ? `${data.currentMisalignmentHours.toFixed(1)} h` : '— h'
 
   return (
-    <section className="relative overflow-hidden rounded-[24px] bg-white/90 backdrop-blur-xl border border-white shadow-[0_20px_55px_rgba(15,23,42,0.08)] px-6 py-6">
+    <section className="relative overflow-hidden rounded-[24px] bg-white/90 dark:bg-slate-900/45 backdrop-blur-xl border border-white dark:border-slate-700/40 shadow-[0_20px_55px_rgba(15,23,42,0.08)] dark:shadow-[0_20px_55px_rgba(0,0,0,0.4)] px-6 py-6">
       {/* Premium gradient overlay */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 to-white/55" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 dark:from-slate-900/60 to-white/55 dark:to-slate-900/40" />
       
       {/* Subtle inner glow */}
-      <div className="pointer-events-none absolute inset-0 rounded-[24px] ring-1 ring-white/50" />
+      <div className="pointer-events-none absolute inset-0 rounded-[24px] ring-1 ring-white/50 dark:ring-slate-700/30" />
       
       <div className="relative z-10">
         {/* Header */}
         <div className="flex items-start justify-between mb-5">
           <div className="flex-1">
-            <p className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase mb-1">
+            <p className="text-[13px] font-bold tracking-[0.15em] text-slate-400 dark:text-slate-500 uppercase mb-1">
               Social Jetlag
             </p>
-            <h2 className="text-[17px] font-bold tracking-[-0.01em] text-slate-900">
+            <h2 className="text-[17px] font-bold tracking-[-0.01em] text-slate-900 dark:text-slate-100">
               Sleep Timing Alignment
             </h2>
           </div>
@@ -141,21 +141,21 @@ export function SocialJetlagCard() {
         {loading ? (
           <div className="h-[120px] flex items-center justify-center">
             <div className="animate-pulse space-y-3 w-full">
-              <div className="h-8 w-24 bg-slate-200 rounded mx-auto" />
-              <div className="h-4 w-full bg-slate-200 rounded" />
+              <div className="h-8 w-24 bg-slate-200 dark:bg-slate-700/50 rounded mx-auto" />
+              <div className="h-4 w-full bg-slate-200 dark:bg-slate-700/50 rounded" />
             </div>
           </div>
         ) : error ? (
           <div className="space-y-3">
-            <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-50/80 border border-amber-200/60">
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/40">
               <div className="flex-shrink-0">
-                <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center">
-                  <span className="text-amber-600 text-xs font-bold">ℹ</span>
+                <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                  <span className="text-amber-600 dark:text-amber-400 text-xs font-bold">ℹ</span>
                 </div>
               </div>
               <div className="flex-1">
-                <p className="text-[13px] font-semibold text-amber-900 mb-1">Social Jetlag</p>
-                <p className="text-[12px] text-amber-700 leading-relaxed">{error}</p>
+                <p className="text-[13px] font-semibold text-amber-900 dark:text-amber-200 mb-1">Social Jetlag</p>
+                <p className="text-[12px] text-amber-700 dark:text-amber-300 leading-relaxed">{error}</p>
               </div>
             </div>
           </div>
@@ -163,17 +163,17 @@ export function SocialJetlagCard() {
           <div className="flex items-start justify-between gap-6">
             {/* Left: Text content */}
             <div className="flex-1 min-w-0 space-y-2">
-              <p className="text-[22px] font-bold text-slate-900 leading-tight">
+              <p className="text-[22px] font-bold text-slate-900 dark:text-slate-100 leading-tight">
                 {displayValue}
               </p>
-              <p className="text-[12px] text-slate-600 leading-relaxed">
+              <p className="text-[12px] text-slate-600 dark:text-slate-300 leading-relaxed">
                 {data.explanation}
               </p>
-              <p className="text-[11px] text-slate-500 mt-1">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                 Current misalignment
               </p>
               {data.weeklyAverageMisalignmentHours !== undefined && (
-                <p className="text-[10px] text-slate-500 mt-1">
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
                   Weekly avg: {data.weeklyAverageMisalignmentHours.toFixed(1)} h
                 </p>
               )}
@@ -197,7 +197,7 @@ export function SocialJetlagCard() {
                   cy="60"
                   r="50"
                   fill="none"
-                  stroke="#e2e8f0"
+                  className="stroke-slate-200 dark:stroke-slate-700/50"
                   strokeWidth="2"
                 />
 
@@ -229,8 +229,7 @@ export function SocialJetlagCard() {
                   cx="60"
                   cy="60"
                   r="38"
-                  fill="white"
-                  stroke="#e2e8f0"
+                  className="fill-white dark:fill-slate-900/50 stroke-slate-200 dark:stroke-slate-700/50"
                   strokeWidth="1"
                 />
               </svg>
@@ -238,7 +237,7 @@ export function SocialJetlagCard() {
           </div>
         ) : (
           <div className="h-[120px] flex items-center justify-center">
-            <p className="text-[13px] text-slate-500">No data available</p>
+            <p className="text-[13px] text-slate-500 dark:text-slate-400">No data available</p>
           </div>
         )}
       </div>

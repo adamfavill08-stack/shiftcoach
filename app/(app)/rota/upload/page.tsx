@@ -417,7 +417,7 @@ export default function UploadRotaPage() {
                 className="flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-main)]"
               >
                 <span className="h-4 w-4 rounded-full" style={{ backgroundColor: offDayColor }} />
-                Off days
+                Days Off
               </button>
               <input
                 ref={dayColorInputRef}

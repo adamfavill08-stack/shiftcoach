@@ -117,68 +117,68 @@ export function DataPrivacySection() {
       <div className="relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 bg-slate-50/40 hover:bg-white/70 transition-colors w-full"
+          className="group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 bg-slate-50/40 dark:bg-slate-800/30 hover:bg-white/70 dark:hover:bg-slate-800/50 transition-colors w-full"
         >
           <div className="flex items-center gap-3 flex-1">
-            <div className="h-9 w-9 rounded-xl bg-white/60 border border-slate-200/50 grid place-items-center flex-shrink-0">
-              <svg className="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="h-9 w-9 rounded-xl bg-white/60 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/40 grid place-items-center flex-shrink-0">
+              <svg className="h-4 w-4 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
-            <h3 className="text-sm font-medium text-slate-800">Data & privacy</h3>
+            <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200">Data & privacy</h3>
           </div>
           {isOpen ? (
-            <ChevronDown className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition flex-shrink-0" strokeWidth={2} />
+            <ChevronDown className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition flex-shrink-0" strokeWidth={2} />
           ) : (
-            <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition flex-shrink-0" strokeWidth={2} />
+            <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition flex-shrink-0" strokeWidth={2} />
           )}
         </button>
         {isOpen && (
-          <div className="mt-2 mx-2 mb-4 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/50 shadow-[0_4px_12px_rgba(0,0,0,0.08)] p-4 pb-5 space-y-1">
+          <div className="mt-2 mx-2 mb-4 rounded-2xl bg-white/95 dark:bg-slate-800/70 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 shadow-[0_4px_12px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)] p-4 pb-5 space-y-1">
             <a
               href="/privacy-policy"
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50/60 transition-colors"
+              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors"
             >
-              <span className="text-sm font-medium text-slate-800">Privacy Policy</span>
-              <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition" strokeWidth={2} />
+              <span className="text-sm font-medium text-slate-800 dark:text-slate-200">Privacy Policy</span>
+              <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
             </a>
             <a
               href="/terms-of-service"
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50/60 transition-colors"
+              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors"
             >
-              <span className="text-sm font-medium text-slate-800">Terms of Service</span>
-              <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition" strokeWidth={2} />
+              <span className="text-sm font-medium text-slate-800 dark:text-slate-200">Terms of Service</span>
+              <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
             </a>
             <a
               href="/health-data-notice"
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50/60 transition-colors"
+              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors"
             >
-              <span className="text-sm font-medium text-slate-800">Health Data Notice</span>
-              <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition" strokeWidth={2} />
+              <span className="text-sm font-medium text-slate-800 dark:text-slate-200">Health Data Notice</span>
+              <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
             </a>
-            <div className="h-px bg-slate-200/50 my-2" />
+            <div className="h-px bg-slate-200/50 dark:bg-slate-700/50 my-2" />
             <button
               onClick={handleExportData}
               disabled={isExporting}
-              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full"
+              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full"
             >
-              <span className="text-sm font-medium text-slate-800">
+              <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
                 {isExporting ? 'Exporting...' : 'Export my data'}
               </span>
-              <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition" strokeWidth={2} />
+              <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
             </button>
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50/60 transition-colors w-full"
+              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors w-full"
             >
-              <span className="text-sm font-medium text-slate-800">Delete my account</span>
-              <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition" strokeWidth={2} />
+              <span className="text-sm font-medium text-slate-800 dark:text-slate-200">Delete my account</span>
+              <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
             </button>
           </div>
         )}
@@ -189,7 +189,7 @@ export function DataPrivacySection() {
         <button
           onClick={handleLogout}
           disabled={isLoggingOut}
-          className="w-full rounded-xl px-4 py-3 text-sm text-slate-500 hover:bg-slate-50/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full rounded-xl px-4 py-3 text-sm text-slate-500 dark:text-slate-400 hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoggingOut ? 'Logging out...' : 'Log out'}
         </button>
@@ -198,17 +198,17 @@ export function DataPrivacySection() {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="relative overflow-hidden rounded-2xl bg-white/95 backdrop-blur-xl border border-red-200/50 shadow-[0_8px_24px_rgba(239,68,68,0.15)] p-6 w-full max-w-sm">
-            <div className="absolute inset-0 bg-gradient-to-b from-red-50/30 via-white/90 to-white/85" />
+          <div className="relative overflow-hidden rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-red-200/50 dark:border-red-800/40 shadow-[0_8px_24px_rgba(239,68,68,0.15)] dark:shadow-[0_8px_24px_rgba(239,68,68,0.3)] p-6 w-full max-w-sm">
+            <div className="absolute inset-0 bg-gradient-to-b from-red-50/30 dark:from-red-950/30 via-white/90 dark:via-slate-900/70 to-white/85 dark:to-slate-950/60" />
             <div className="relative z-10">
-              <h4 className="text-lg font-bold text-red-900 mb-2">Delete Account</h4>
-              <p className="text-sm text-slate-600 mb-4">This action cannot be undone. Type DELETE to confirm.</p>
+              <h4 className="text-lg font-bold text-red-900 dark:text-red-300 mb-2">Delete Account</h4>
+              <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">This action cannot be undone. Type DELETE to confirm.</p>
               <input
                 type="text"
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
                 placeholder="Type DELETE"
-                className="w-full px-4 py-3 border border-red-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 mb-4 transition-all bg-white text-slate-900"
+                className="w-full px-4 py-3 border border-red-300 dark:border-red-800/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-red-500 dark:focus:border-red-400 mb-4 transition-all bg-white dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                 autoFocus
               />
               <div className="flex gap-2">
@@ -217,13 +217,13 @@ export function DataPrivacySection() {
                     setShowDeleteConfirm(false)
                     setDeleteConfirmText('')
                   }}
-                  className="flex-1 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+                  className="flex-1 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDeleteAccount}
-                  className="flex-1 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 rounded-xl hover:from-red-700 hover:to-red-800 shadow-[0_4px_12px_rgba(239,68,68,0.3)] hover:shadow-[0_6px_16px_rgba(239,68,68,0.4)] transition-all"
+                  className="flex-1 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 dark:from-red-500 dark:to-red-600 rounded-xl hover:from-red-700 hover:to-red-800 dark:hover:from-red-600 dark:hover:to-red-700 shadow-[0_4px_12px_rgba(239,68,68,0.3)] dark:shadow-[0_4px_12px_rgba(239,68,68,0.5)] hover:shadow-[0_6px_16px_rgba(239,68,68,0.4)] dark:hover:shadow-[0_6px_16px_rgba(239,68,68,0.6)] transition-all"
                 >
                   Confirm
                 </button>

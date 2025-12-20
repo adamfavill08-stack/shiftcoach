@@ -115,28 +115,34 @@ export function SleepLogListCard() {
   }
 
   return (
-    <section className="relative overflow-hidden rounded-3xl bg-white/75 backdrop-blur-xl border border-slate-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] p-6">
+    <section className="relative overflow-hidden rounded-3xl bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 text-slate-900 dark:text-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-6">
       {/* Top highlight overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+      
+      {/* Subtle colored glow hints - dark mode only */}
+      <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
+      
+      {/* Inner ring for premium feel */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
       
       <div className="relative z-10 space-y-5">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400">
               SLEEP LOG
             </p>
-            <h3 className="mt-2 text-[18px] font-semibold tracking-tight text-slate-900">
+            <h3 className="mt-2 text-[18px] font-semibold tracking-tight">
               Recent Sleep Sessions
             </h3>
           </div>
           <button
             onClick={() => router.push('/sleep/logs')}
-            className="group flex items-center gap-2 rounded-full px-4 py-2 text-xs font-medium text-slate-700 bg-white/70 backdrop-blur border border-slate-200/60 hover:bg-white/90 transition-colors shadow-[0_8px_20px_-14px_rgba(0,0,0,0.18)]"
+            className="group flex items-center gap-2 rounded-full px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 bg-white/70 dark:bg-slate-800/50 backdrop-blur border border-slate-200/60 dark:border-slate-700/40 hover:bg-white/90 dark:hover:bg-slate-800/70 transition-colors shadow-[0_8px_20px_-14px_rgba(0,0,0,0.18)] dark:shadow-[0_8px_20px_-14px_rgba(0,0,0,0.3)]"
           >
-            <Calendar className="h-4 w-4 text-slate-400" strokeWidth={2} />
+            <Calendar className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
             <span>View Logs</span>
-            <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition" strokeWidth={2} />
+            <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-500 transition" strokeWidth={2} />
           </button>
         </div>
 
@@ -144,23 +150,23 @@ export function SleepLogListCard() {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-16 bg-slate-100/60 rounded-2xl animate-pulse" />
+              <div key={i} className="h-16 bg-slate-100/60 dark:bg-slate-800/50 rounded-2xl animate-pulse" />
             ))}
           </div>
         ) : recentLogs.length === 0 ? (
           <div className="py-8 text-center">
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-slate-50/60 border border-slate-200/50 mb-3">
-              <Clock className="h-5 w-5 text-slate-400" strokeWidth={2} />
+            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-slate-50/60 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/40 mb-3">
+              <Clock className="h-5 w-5 text-slate-400 dark:text-slate-500" strokeWidth={2} />
             </div>
-            <p className="text-sm font-medium text-slate-900 mb-1">No sleep logged yet</p>
-            <p className="text-sm text-slate-600 leading-relaxed">Start logging your sleep to see it here</p>
+            <p className="text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">No sleep logged yet</p>
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">Start logging your sleep to see it here</p>
           </div>
         ) : (
           <div className="space-y-2">
             {recentLogs.map((log) => (
               <div
                 key={log.id}
-                className="group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 bg-slate-50/40 hover:bg-white/70 transition-colors"
+                className="group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 bg-slate-50/40 dark:bg-slate-800/30 hover:bg-white/70 dark:hover:bg-slate-800/50 transition-colors"
               >
                 {/* Left: Type indicator and times */}
                 <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -178,26 +184,26 @@ export function SleepLogListCard() {
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className={`
                         text-xs font-semibold uppercase tracking-wide
-                        ${log.type === 'sleep' ? 'text-blue-600' : 'text-amber-600'}
+                        ${log.type === 'sleep' ? 'text-blue-600 dark:text-blue-400' : 'text-amber-600 dark:text-amber-400'}
                       `}>
                         {log.type === 'sleep' ? 'Main Sleep' : 'Nap'}
                       </span>
-                      <span className="text-xs text-slate-500">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
                         {formatDate(log.start_at)}
                       </span>
                       {log.shift_label && log.shift_label !== 'OFF' && (
-                        <span className="text-[11px] font-medium text-slate-700 bg-slate-100/60 border border-slate-200/50 px-2 py-0.5 rounded-full">
+                        <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300 bg-slate-100/60 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/40 px-2 py-0.5 rounded-full">
                           {log.shift_label}
                         </span>
                       )}
                       {(!log.shift_label || log.shift_label === 'OFF') && (
-                        <span className="text-[11px] font-medium text-slate-500 bg-slate-50/60 border border-slate-200/50 px-2 py-0.5 rounded-full">
+                        <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-slate-50/60 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/40 px-2 py-0.5 rounded-full">
                           OFF
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-slate-600">
-                      <Clock className="h-3.5 w-3.5 text-slate-400" strokeWidth={2} />
+                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                      <Clock className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" strokeWidth={2} />
                       <span className="font-medium tabular-nums">
                         {formatTime(log.start_at)} → {formatTime(log.end_at)}
                       </span>
@@ -207,11 +213,11 @@ export function SleepLogListCard() {
 
                 {/* Right: Duration */}
                 <div className="flex-shrink-0 text-right">
-                  <div className="text-sm font-semibold text-slate-900 tabular-nums">
+                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
                     {formatDuration(log.durationHours)}
                   </div>
                   {log.quality && (
-                    <div className="text-xs text-slate-500 mt-0.5 capitalize">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 capitalize">
                       {log.quality}
                     </div>
                   )}
@@ -225,10 +231,10 @@ export function SleepLogListCard() {
         {recentLogs.length > 0 && (
           <button
             onClick={() => router.push('/sleep/logs')}
-            className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-slate-700 bg-slate-50/60 hover:bg-slate-100/60 border border-slate-200/50 transition-colors"
+            className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-50/60 dark:bg-slate-800/50 hover:bg-slate-100/60 dark:hover:bg-slate-800/70 border border-slate-200/50 dark:border-slate-700/40 transition-colors"
           >
             <span>View All Sleep Logs</span>
-            <ChevronRight className="h-4 w-4 text-slate-400" strokeWidth={2} />
+            <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
           </button>
         )}
       </div>

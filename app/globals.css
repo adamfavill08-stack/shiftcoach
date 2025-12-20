@@ -3,9 +3,7 @@
 /* ============================================
    SHIFTCALI THEME TOKENS
    
-   Current Theme: Light
-   Status: Only light theme is currently supported.
-   Additional themes (dark, system) will be added in the future.
+   Supports Light and Dark themes
    ============================================ */
 
 :root {
@@ -29,6 +27,29 @@
   /* Effects */
   --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.08);
   --ring-bg: #e2e8f0;       /* rings track */
+}
+
+.dark {
+  /* Backgrounds */
+  --bg: #020617;           /* slate-950 */
+  --bg-soft: #020617;      /* slate-950 */
+  --card: rgba(15, 23, 42, 0.45);  /* slate-900/45 */
+  --card-subtle: rgba(15, 23, 42, 0.4);  /* slate-900/40 */
+  --border-subtle: rgba(51, 65, 85, 0.4);  /* slate-700/40 */
+
+  /* Text */
+  --text-main: #f1f5f9;    /* slate-100 */
+  --text-soft: #cbd5e1;   /* slate-300 */
+  --text-muted: #94a3b8;   /* slate-400 */
+
+  /* Accents (slightly adjusted for dark) */
+  --accent-blue: #38bdf8;    /* sky-400 */
+  --accent-indigo: #6366f1;  /* indigo-500 */
+  --accent-violet: #a78bfa;  /* violet-400 */
+
+  /* Effects */
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.12), 0 18px 40px rgba(0, 0, 0, 0.4);
+  --ring-bg: #334155;       /* slate-700 */
 }
 
 

@@ -48,13 +48,13 @@ function ShellCard({
     <section
       className={[
         "relative overflow-hidden rounded-[24px]",
-        "bg-white/90 backdrop-blur-xl border border-white",
-        "shadow-[0_20px_55px_rgba(15,23,42,0.08)]",
+        "bg-white/90 dark:bg-slate-900/45 backdrop-blur-xl border border-white dark:border-slate-700/40",
+        "shadow-[0_20px_55px_rgba(15,23,42,0.08)] dark:shadow-[0_20px_55px_rgba(0,0,0,0.4)]",
         "px-6 py-6",
         className,
       ].join(" ")}
     >
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 to-white/55" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 dark:from-slate-900/60 to-white/55 dark:to-slate-900/40" />
       <div className="relative z-10">{children}</div>
     </section>
   );
@@ -67,8 +67,8 @@ function MiniCard({
   return (
     <section
       className={[
-        "rounded-[24px] bg-white/95 border border-white",
-        "shadow-[0_16px_40px_rgba(15,23,42,0.06)]",
+        "rounded-[24px] bg-white/95 dark:bg-slate-900/50 border border-white dark:border-slate-700/40",
+        "shadow-[0_16px_40px_rgba(15,23,42,0.06)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.3)]",
         "px-5 py-4",
         className,
       ].join(" ")}
@@ -89,7 +89,7 @@ function SleepGauge({ totalMinutes, targetMinutes }: { totalMinutes: number | nu
   return (
     <div className="relative grid place-items-center">
       {/* Ring container glow */}
-      <div className="absolute inset-[-18px] rounded-full bg-gradient-to-br from-slate-100/70 to-transparent blur-xl" />
+      <div className="absolute inset-[-18px] rounded-full bg-gradient-to-br from-slate-100/70 dark:from-slate-700/50 to-transparent blur-xl" />
       
       {/* Ring itself */}
       <div
@@ -98,14 +98,14 @@ function SleepGauge({ totalMinutes, targetMinutes }: { totalMinutes: number | nu
           background: `conic-gradient(#2563EB ${angle}deg, #E5E7EB 0deg)`,
         }}
       >
-        <div className="h-[152px] w-[152px] rounded-full bg-white/60 border border-slate-200/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]" />
-        <div className="absolute inset-2 rounded-full border border-slate-200/40 bg-white/50" />
+        <div className="h-[152px] w-[152px] rounded-full bg-white/60 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[inset_0_1px_0_rgba(0,0,0,0.2)]" />
+        <div className="absolute inset-2 rounded-full border border-slate-200/40 dark:border-slate-700/30 bg-white/50 dark:bg-slate-900/40" />
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <p className="text-xs font-medium text-slate-500">Sleep</p>
-          <p className="text-3xl font-semibold text-slate-900 tabular-nums leading-none">
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Sleep</p>
+          <p className="text-3xl font-semibold text-slate-900 dark:text-slate-100 tabular-nums leading-none">
             {hours}<span className="text-base font-semibold align-top">h</span> {minutes}
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             {percent}% of goal
           </p>
         </div>
@@ -255,23 +255,29 @@ function SleepSummaryCard({
   ];
 
   return (
-    <section className="relative overflow-hidden rounded-3xl bg-white/75 backdrop-blur-xl border border-slate-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] p-6">
+    <section className="relative overflow-hidden rounded-3xl bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 text-slate-900 dark:text-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-6">
       {/* Top highlight overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 via-transparent to-transparent" />
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+      
+      {/* Subtle colored glow hints - dark mode only */}
+      <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
+      
+      {/* Inner ring for premium feel */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
       
       <div className="relative z-10 space-y-5">
         {/* Header */}
         <div>
-          <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500">
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400">
             SLEEP STAGES
           </p>
-          <h3 className="mt-2 text-[18px] font-semibold tracking-tight text-slate-900">
+          <h3 className="mt-2 text-[18px] font-semibold tracking-tight">
             {totalMinutes ? 'Last night you slept' : 'Log your sleep'}
           </h3>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             {totalMinutes ? displayText : wearableLastSyncLabel}
           </p>
-          <span className="mt-3 inline-flex items-center rounded-full bg-slate-50/60 border border-slate-200/50 px-2.5 py-1 text-[11px] text-slate-500">
+          <span className="mt-3 inline-flex items-center rounded-full bg-slate-50/60 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/40 px-2.5 py-1 text-[11px] text-slate-500 dark:text-slate-400">
             Source: Google Fit & ShiftCoach
           </span>
         </div>
@@ -282,9 +288,9 @@ function SleepSummaryCard({
           <div className="flex-1 space-y-4">
             <button
               onClick={onLogSleep}
-              className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 bg-white/70 backdrop-blur border border-slate-200/60 text-sm font-medium text-slate-900 shadow-[0_10px_26px_-16px_rgba(0,0,0,0.20)] hover:bg-white/90 transition"
+              className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 bg-white/70 dark:bg-slate-800/50 backdrop-blur border border-slate-200/60 dark:border-slate-700/40 text-sm font-medium text-slate-900 dark:text-slate-100 shadow-[0_10px_26px_-16px_rgba(0,0,0,0.20)] dark:shadow-[0_10px_26px_-16px_rgba(0,0,0,0.3)] hover:bg-white/90 dark:hover:bg-slate-800/70 transition"
             >
-              <Moon className="h-4 w-4 text-slate-400" strokeWidth={2} />
+              <Moon className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
               Log sleep
             </button>
           </div>
@@ -296,26 +302,26 @@ function SleepSummaryCard({
         </div>
 
         {/* Soft gradient separator */}
-        <div className="my-5 h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent" />
+        <div className="my-5 h-px bg-gradient-to-r from-transparent via-slate-200/70 dark:via-slate-700/50 to-transparent" />
 
         {/* Stage chips */}
         <div className="grid grid-cols-2 gap-4">
           {stages.map((stage) => (
             <div
               key={stage.label}
-              className="rounded-2xl px-4 py-4 bg-slate-50/40 border border-slate-200/30"
+              className="rounded-2xl px-4 py-4 bg-slate-50/40 dark:bg-slate-800/30 border border-slate-200/30 dark:border-slate-700/30"
             >
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold tracking-wide text-slate-500">{stage.label}</p>
-                <p className="text-sm font-semibold text-slate-900 tabular-nums">{stage.percentage}%</p>
+                <p className="text-xs font-semibold tracking-wide text-slate-500 dark:text-slate-400">{stage.label}</p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 tabular-nums">{stage.percentage}%</p>
               </div>
-              <div className="mt-2 h-2 rounded-full bg-slate-200/60 overflow-hidden">
+              <div className="mt-2 h-2 rounded-full bg-slate-200/60 dark:bg-slate-700/50 overflow-hidden">
                 <div 
-                  className="h-full rounded-full bg-slate-400/60 transition-all duration-300"
+                  className="h-full rounded-full bg-slate-400/60 dark:bg-slate-500/60 transition-all duration-300"
                   style={{ width: `${stage.percentage}%` }}
                 />
               </div>
-              <p className="mt-2 text-xs text-slate-600 leading-relaxed">
+              <p className="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                 {stage.description}
               </p>
             </div>
@@ -323,12 +329,12 @@ function SleepSummaryCard({
         </div>
 
         {/* Today insight footer */}
-        <div className="mt-5 rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 to-white border border-slate-200/50">
-          <p className="text-xs font-semibold tracking-tight text-slate-900 flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-slate-400" strokeWidth={2} />
+        <div className="mt-5 rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 dark:from-slate-800/50 to-white dark:to-slate-900/50 border border-slate-200/50 dark:border-slate-700/40">
+          <p className="text-xs font-semibold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
             What to aim for
           </p>
-          <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
             On shift days, protect your first sleep cycle — that's when deep sleep is most likely.
           </p>
         </div>

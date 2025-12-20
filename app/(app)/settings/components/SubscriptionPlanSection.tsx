@@ -49,20 +49,20 @@ export function SubscriptionPlanSection() {
     if (!status) return null
     if (status === 'active' || status === 'trialing') {
       return (
-        <span className="text-xs px-2 py-1 rounded-lg bg-emerald-100 text-emerald-700 font-medium">
+        <span className="text-xs px-2 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 font-medium">
           Active
         </span>
       )
     }
     if (status === 'canceled') {
       return (
-        <span className="text-xs px-2 py-1 rounded-lg bg-amber-100 text-amber-700 font-medium">
+        <span className="text-xs px-2 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 font-medium">
           Canceled
         </span>
       )
     }
     return (
-      <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium">
+      <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 font-medium">
         {status}
       </span>
     )
@@ -107,9 +107,9 @@ export function SubscriptionPlanSection() {
 
   if (loading) {
     return (
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-sm border border-white/90 shadow-[0_4px_12px_rgba(15,23,42,0.04)]">
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-white/90 dark:from-slate-900/50 to-white/70 dark:to-slate-900/40 backdrop-blur-sm border border-white/90 dark:border-slate-700/40 shadow-[0_4px_12px_rgba(15,23,42,0.04)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)]">
         <div className="px-5 py-4">
-          <div className="animate-pulse text-xs text-slate-500">Loading...</div>
+          <div className="animate-pulse text-xs text-slate-500 dark:text-slate-400">Loading...</div>
         </div>
       </div>
     )
@@ -119,41 +119,41 @@ export function SubscriptionPlanSection() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 bg-slate-50/40 hover:bg-white/70 transition-colors w-full"
+        className="group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 bg-slate-50/40 dark:bg-slate-800/30 hover:bg-white/70 dark:hover:bg-slate-800/50 transition-colors w-full"
       >
       <div className="flex items-center gap-3 flex-1">
-        <div className="h-9 w-9 rounded-xl bg-white/60 border border-slate-200/50 grid place-items-center flex-shrink-0">
-          <svg className="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="h-9 w-9 rounded-xl bg-white/60 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/40 grid place-items-center flex-shrink-0">
+          <svg className="h-4 w-4 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
           </svg>
         </div>
         <div className="flex-1 text-left">
-          <h3 className="text-sm font-medium text-slate-800">Subscription Plan</h3>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200">Subscription Plan</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {testerAccount ? 'Tester account' : getPlanLabel(subscriptionPlan)}
           </p>
         </div>
       </div>
       {isOpen ? (
-        <ChevronDown className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition flex-shrink-0" strokeWidth={2} />
+        <ChevronDown className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition flex-shrink-0" strokeWidth={2} />
       ) : (
-        <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition flex-shrink-0" strokeWidth={2} />
+        <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition flex-shrink-0" strokeWidth={2} />
       )}
     </button>
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-2 mx-2 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/50 shadow-[0_4px_12px_rgba(0,0,0,0.08)] p-4 space-y-3 z-20">
+        <div className="absolute left-0 right-0 top-full mt-2 mx-2 rounded-2xl bg-white/95 dark:bg-slate-800/70 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 shadow-[0_4px_12px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)] p-4 space-y-3 z-20">
           <div className="space-y-2">
             <div className="flex items-center justify-between py-1">
-              <span className="text-sm font-medium text-slate-800">Current plan</span>
+              <span className="text-sm font-medium text-slate-800 dark:text-slate-200">Current plan</span>
               <div className="flex items-center gap-2">
                 {subscriptionStatus && !testerAccount && getStatusBadge(subscriptionStatus)}
-                <span className="text-sm font-medium text-slate-900">
+                <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
                   {testerAccount ? 'Tester account' : getPlanLabel(subscriptionPlan)}
                 </span>
               </div>
             </div>
             {getTrialLabel() && !testerAccount && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {getTrialLabel()}
               </p>
             )}
@@ -162,18 +162,18 @@ export function SubscriptionPlanSection() {
           {!testerAccount && (
             <button
               onClick={() => router.push('/select-plan')}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-50/60 hover:bg-slate-100/60 transition-colors group"
+              className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-50/60 dark:bg-slate-800/40 hover:bg-slate-100/60 dark:hover:bg-slate-800/60 transition-colors group"
             >
-              <span className="text-sm font-medium text-slate-800">
+              <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
                 {subscriptionPlan ? 'Change plan' : 'Select plan'}
               </span>
-              <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition" strokeWidth={2} />
+              <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
             </button>
           )}
 
           {/* Cancel subscription / tester label */}
           {testerAccount ? (
-            <p className="text-xs text-slate-500 leading-relaxed">
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
               Tester account – you have full access while you are in the test programme. No billing is active.
             </p>
           ) : subscriptionPlan ? (
@@ -181,11 +181,11 @@ export function SubscriptionPlanSection() {
               <button
                 onClick={handleCancelSubscription}
                 disabled={isCanceling}
-                className="w-full rounded-xl border border-slate-200/50 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50/60 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                className="w-full rounded-xl border border-slate-200/50 dark:border-slate-700/40 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50/60 dark:hover:bg-slate-800/50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
               >
                 {isCanceling ? 'Canceling…' : 'Cancel subscription'}
               </button>
-              <p className="text-xs text-slate-500 leading-relaxed">
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                 Your access will stay active until the end of your current paid period.
               </p>
             </div>

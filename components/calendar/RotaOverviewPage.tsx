@@ -406,10 +406,10 @@ export default function RotaOverviewPage() {
   }, [decoratedWeeks, eventsByDate, searchQuery])
 
   return (
-    <div className="flex flex-1 justify-center bg-gradient-to-br from-slate-50 via-white to-slate-50">
+    <div className="flex flex-1 justify-center bg-gradient-to-br from-slate-50 dark:from-slate-950 via-white dark:via-slate-900 to-slate-50 dark:to-slate-950">
       {/* Dark status bar background */}
       <div 
-        className="fixed top-0 left-0 right-0 w-full bg-slate-900 z-50"
+        className="fixed top-0 left-0 right-0 w-full bg-slate-900 dark:bg-slate-950 z-50"
         style={{ 
           height: 'calc(env(safe-area-inset-top, 0px) + 0px)',
           minHeight: 'env(safe-area-inset-top, 24px)'
@@ -421,27 +421,27 @@ export default function RotaOverviewPage() {
           <div className="mb-3 flex items-center gap-2 flex-shrink-0">
             <button
               onClick={() => router.push('/dashboard')}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/95 backdrop-blur-sm shadow-[0_2px_8px_rgba(15,23,42,0.08)] border border-slate-200/60 hover:bg-white transition-all hover:scale-105 active:scale-95"
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/95 dark:bg-slate-800/50 backdrop-blur-sm shadow-[0_2px_8px_rgba(15,23,42,0.08)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)] border border-slate-200/60 dark:border-slate-700/40 hover:bg-white dark:hover:bg-slate-800/70 transition-all hover:scale-105 active:scale-95"
               aria-label="Back to dashboard"
             >
-              <ChevronLeft className="h-4 w-4 text-slate-700" strokeWidth={2.5} />
+              <ChevronLeft className="h-4 w-4 text-slate-700 dark:text-slate-300" strokeWidth={2.5} />
             </button>
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-slate-400" strokeWidth={2} />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-slate-400 dark:text-slate-500" strokeWidth={2} />
               <input
                 type="text"
                 placeholder="Search shifts and events..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-20 py-2 rounded-xl bg-white/95 backdrop-blur-sm border border-slate-200/60 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400/50 shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition-all"
+                className="w-full pl-9 pr-20 py-2 rounded-xl bg-white/95 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/40 text-xs font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400/50 dark:focus:ring-sky-500/50 focus:border-sky-400/50 dark:focus:border-sky-500/50 shadow-[0_2px_8px_rgba(15,23,42,0.06)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)] transition-all"
               />
               <button
                 type="button"
                 onClick={handleVoiceSearch}
                 className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-1.5 rounded-lg transition-all ${
                   isListening 
-                    ? 'bg-red-100 text-red-600 animate-pulse' 
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    ? 'bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 animate-pulse' 
+                    : 'bg-slate-100 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50'
                 }`}
                 aria-label="Voice search"
               >
@@ -455,7 +455,7 @@ export default function RotaOverviewPage() {
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-12 top-1/2 transform -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                  className="absolute right-12 top-1/2 transform -translate-y-1/2 p-1 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400 transition-colors"
                   aria-label="Clear search"
                 >
                   <X className="h-3 w-3" strokeWidth={2} />
@@ -468,18 +468,18 @@ export default function RotaOverviewPage() {
             <button
               type="button"
               onClick={goToPrevMonth}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/80 backdrop-blur-sm text-slate-700 transition-all duration-200 hover:bg-white hover:shadow-sm active:scale-95 border border-slate-200/40"
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm text-slate-700 dark:text-slate-300 transition-all duration-200 hover:bg-white dark:hover:bg-slate-800/70 hover:shadow-sm active:scale-95 border border-slate-200/40 dark:border-slate-700/40"
               aria-label="Previous month"
             >
               <span className="text-lg font-light leading-none">‹</span>
             </button>
 
-            <h2 className="text-base font-bold tracking-tight text-slate-900 antialiased">{monthLabel}</h2>
+            <h2 className="text-base font-bold tracking-tight text-slate-900 dark:text-slate-100 antialiased">{monthLabel}</h2>
 
             <button
               type="button"
               onClick={goToNextMonth}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/80 backdrop-blur-sm text-slate-700 transition-all duration-200 hover:bg-white hover:shadow-sm active:scale-95 border border-slate-200/40"
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm text-slate-700 dark:text-slate-300 transition-all duration-200 hover:bg-white dark:hover:bg-slate-800/70 hover:shadow-sm active:scale-95 border border-slate-200/40 dark:border-slate-700/40"
               aria-label="Next month"
             >
               <span className="text-lg font-light leading-none">›</span>
@@ -487,7 +487,7 @@ export default function RotaOverviewPage() {
           </div>
 
           {/* All Weeks in One Card */}
-          <div className="flex-1 min-h-0 overflow-y-auto rounded-xl bg-white/80 backdrop-blur-sm border border-slate-200/60 p-2.5 pb-20 shadow-[0_8px_24px_rgba(15,23,42,0.08)]">
+          <div className="flex-1 min-h-0 overflow-y-auto rounded-xl bg-white/80 dark:bg-slate-900/45 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/40 p-2.5 pb-20 shadow-[0_8px_24px_rgba(15,23,42,0.08)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]">
             <div className="space-y-2">
               {allWeeksForDisplay.map((week, weekIdx) => {
                 // Helper function to get items for a day
@@ -556,7 +556,7 @@ export default function RotaOverviewPage() {
                     <div className="grid grid-cols-7 gap-1 mb-1">
                       {weekdayLabels.map((label, idx) => (
                         <div key={`${label}-${idx}`} className="text-center">
-                          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider antialiased">
+                          <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider antialiased">
                             {label}
                           </span>
                         </div>
@@ -573,10 +573,10 @@ export default function RotaOverviewPage() {
                               className={[
                                 'text-xs font-bold antialiased transition-all rounded-md px-1.5 py-1',
                                 isToday 
-                                  ? 'text-white bg-gradient-to-br from-sky-500 to-indigo-500 shadow-md shadow-sky-500/30 scale-105' 
+                                  ? 'text-white bg-gradient-to-br from-sky-500 to-indigo-500 dark:from-sky-600 dark:to-indigo-600 shadow-md shadow-sky-500/30 dark:shadow-sky-500/40 scale-105' 
                                   : day.isCurrentMonth 
-                                    ? 'text-slate-900' 
-                                    : 'text-slate-400',
+                                    ? 'text-slate-900 dark:text-slate-100' 
+                                    : 'text-slate-400 dark:text-slate-600',
                               ].join(' ')}
                             >
                               {day.dayOfMonth}
@@ -694,19 +694,19 @@ export default function RotaOverviewPage() {
           </div>
 
           {loading && (
-            <div className="mt-3 rounded-2xl border border-slate-200/60 bg-white/80 backdrop-blur-sm px-4 py-3 text-center text-xs font-semibold text-slate-600 shadow-[0_2px_8px_rgba(15,23,42,0.06)] flex-shrink-0">
+            <div className="mt-3 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm px-4 py-3 text-center text-xs font-semibold text-slate-600 dark:text-slate-300 shadow-[0_2px_8px_rgba(15,23,42,0.06)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)] flex-shrink-0">
               Loading…
             </div>
           )}
 
           {!loading && !pattern && (
-            <div className="mt-3 rounded-2xl border border-slate-200/60 bg-gradient-to-br from-slate-50/90 to-white/80 backdrop-blur-sm px-4 py-3 text-center text-xs font-semibold text-slate-600 shadow-[0_2px_8px_rgba(15,23,42,0.06)] flex-shrink-0">
+            <div className="mt-3 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 bg-gradient-to-br from-slate-50/90 dark:from-slate-800/50 to-white/80 dark:to-slate-900/50 backdrop-blur-sm px-4 py-3 text-center text-xs font-semibold text-slate-600 dark:text-slate-300 shadow-[0_2px_8px_rgba(15,23,42,0.06)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)] flex-shrink-0">
               No rota set yet. Go to Rota Setup to configure your shift pattern.
             </div>
           )}
 
           {error && (
-            <div className="mt-3 rounded-2xl border border-red-200/60 bg-gradient-to-br from-red-50/90 to-white/80 backdrop-blur-sm px-4 py-3 text-center text-xs font-semibold text-red-600 shadow-[0_2px_8px_rgba(239,68,68,0.1)] flex-shrink-0">
+            <div className="mt-3 rounded-2xl border border-red-200/60 dark:border-red-800/40 bg-gradient-to-br from-red-50/90 dark:from-red-950/30 to-white/80 dark:to-slate-900/50 backdrop-blur-sm px-4 py-3 text-center text-xs font-semibold text-red-600 dark:text-red-400 shadow-[0_2px_8px_rgba(239,68,68,0.1)] dark:shadow-[0_4px_12px_rgba(239,68,68,0.2)] flex-shrink-0">
               {error}
             </div>
           )}
@@ -715,75 +715,87 @@ export default function RotaOverviewPage() {
 
         {/* Edit/Delete Modal */}
         {selectedBlock && (
-          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div
               ref={menuRef}
-              className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-slate-200/80"
+              className="bg-white dark:bg-slate-900/95 rounded-2xl shadow-2xl dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-6 max-w-sm w-full border border-slate-200/80 dark:border-slate-700/40"
             >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-slate-900">Event Options</h3>
-                <button
-                  onClick={() => {
-                    setSelectedBlock(null)
-                    setDeleteConfirm(false)
-                  }}
-                  className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5 text-slate-500" />
-                </button>
-              </div>
-
-              <div className="mb-4 p-3 rounded-lg bg-slate-50 border border-slate-200">
-                <p className="text-sm font-medium text-slate-700">{selectedBlock.label}</p>
-                <p className="text-xs text-slate-500 mt-1">
-                  {new Date(selectedBlock.date).toLocaleDateString('en-GB', {
-                    weekday: 'long',
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                  })}
-                </p>
-              </div>
-
-              {!deleteConfirm ? (
-                <div className="flex flex-col gap-2">
+              {/* Premium gradient overlay */}
+              <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-b from-white/98 dark:from-slate-900/70 via-white/90 dark:via-slate-900/50 to-white/85 dark:to-slate-950/60" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 dark:from-blue-950/15 via-transparent to-indigo-50/20 dark:to-indigo-950/15" />
+              
+              {/* Subtle colored glow hints - dark mode only */}
+              <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
+              
+              {/* Inner ring */}
+              <div className="pointer-events-none absolute inset-0 rounded-2xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
+              
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Event Options</h3>
                   <button
-                    onClick={handleEdit}
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium transition-colors shadow-sm"
+                    onClick={() => {
+                      setSelectedBlock(null)
+                      setDeleteConfirm(false)
+                    }}
+                    className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800/50 rounded-lg transition-colors"
                   >
-                    <Edit2 className="w-4 h-4" />
-                    Edit Event
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors shadow-sm"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Delete Event
+                    <X className="w-5 h-5 text-slate-500 dark:text-slate-400" />
                   </button>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-sm text-slate-700 text-center">
-                    Are you sure you want to delete this event?
+
+                <div className="mb-4 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/40">
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{selectedBlock.label}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {new Date(selectedBlock.date).toLocaleDateString('en-GB', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
                   </p>
-                  <div className="flex gap-2">
+                </div>
+
+                {!deleteConfirm ? (
+                  <div className="flex flex-col gap-2">
                     <button
-                      onClick={() => setDeleteConfirm(false)}
-                      className="flex-1 px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-medium transition-colors"
+                      onClick={handleEdit}
+                      className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-xl font-medium transition-colors shadow-sm dark:shadow-[0_4px_12px_rgba(59,130,246,0.3)]"
                     >
-                      Cancel
+                      <Edit2 className="w-4 h-4" />
+                      Edit Event
                     </button>
                     <button
                       onClick={handleDelete}
-                      disabled={deleting}
-                      className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
+                      className="flex items-center justify-center gap-2 px-4 py-3 bg-red-500 dark:bg-red-600 hover:bg-red-600 dark:hover:bg-red-700 text-white rounded-xl font-medium transition-colors shadow-sm dark:shadow-[0_4px_12px_rgba(239,68,68,0.3)]"
                     >
-                      {deleting ? 'Deleting...' : 'Delete'}
+                      <Trash2 className="w-4 h-4" />
+                      Delete Event
                     </button>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm text-slate-700 dark:text-slate-300 text-center">
+                      Are you sure you want to delete this event?
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setDeleteConfirm(false)}
+                        className="flex-1 px-4 py-2.5 bg-slate-200 dark:bg-slate-700/50 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-medium transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleDelete}
+                        disabled={deleting}
+                        className="flex-1 px-4 py-2.5 bg-red-500 dark:bg-red-600 hover:bg-red-600 dark:hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
+                      >
+                        {deleting ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -797,9 +809,9 @@ export default function RotaOverviewPage() {
                   setMenuOpen(false)
                   router.push('/rota/setup')
                 }}
-                className="flex items-center gap-2.5 rounded-2xl border border-slate-200/60 bg-white/98 backdrop-blur-sm px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-all duration-200 hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] hover:scale-105 active:scale-95"
+                className="flex items-center gap-2.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 bg-white/98 dark:bg-slate-800/70 backdrop-blur-sm px-5 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 shadow-[0_8px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] transition-all duration-200 hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_12px_32px_rgba(0,0,0,0.5)] hover:scale-105 active:scale-95"
               >
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 text-xs font-bold text-white shadow-sm">
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 dark:from-sky-600 dark:to-indigo-600 text-xs font-bold text-white shadow-sm">
                   R
                 </span>
                 Rota Setup
@@ -810,9 +822,9 @@ export default function RotaOverviewPage() {
                   setMenuOpen(false)
                   router.push('/rota/event')
                 }}
-                className="flex items-center gap-2.5 rounded-2xl border border-slate-200/60 bg-white/98 backdrop-blur-sm px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-all duration-200 hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] hover:scale-105 active:scale-95"
+                className="flex items-center gap-2.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 bg-white/98 dark:bg-slate-800/70 backdrop-blur-sm px-5 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 shadow-[0_8px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] transition-all duration-200 hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_12px_32px_rgba(0,0,0,0.5)] hover:scale-105 active:scale-95"
               >
-                <CalendarPlus size={18} className="text-sky-500" strokeWidth={2.5} />
+                <CalendarPlus size={18} className="text-sky-500 dark:text-sky-400" strokeWidth={2.5} />
                 Event
               </button>
             </>
@@ -821,7 +833,7 @@ export default function RotaOverviewPage() {
           <button
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
-            className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-600 text-white shadow-[0_8px_24px_rgba(14,165,233,0.4)] transition-all duration-300 hover:shadow-[0_12px_32px_rgba(14,165,233,0.5)] hover:scale-110 active:scale-95 hover:from-sky-600 hover:to-indigo-700"
+            className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-600 dark:from-sky-600 dark:to-indigo-700 text-white shadow-[0_8px_24px_rgba(14,165,233,0.4)] dark:shadow-[0_8px_24px_rgba(14,165,233,0.5)] transition-all duration-300 hover:shadow-[0_12px_32px_rgba(14,165,233,0.5)] dark:hover:shadow-[0_12px_32px_rgba(14,165,233,0.6)] hover:scale-110 active:scale-95 hover:from-sky-600 hover:to-indigo-700 dark:hover:from-sky-700 dark:hover:to-indigo-800"
             aria-label="Add holiday or task"
           >
             {menuOpen ? (

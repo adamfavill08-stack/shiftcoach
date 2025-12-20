@@ -83,10 +83,10 @@ export function ToggleSwitch({
         </div>
       </label>
       {isLoading && (
-        <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+        <Loader2 className="w-4 h-4 animate-spin text-slate-400 dark:text-slate-500" />
       )}
       {showSuccess && !isLoading && (
-        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+        <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
       )}
     </div>
   )

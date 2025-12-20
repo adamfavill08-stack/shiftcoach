@@ -222,8 +222,8 @@ export default function SelectPlanPage() {
 
   if (loading && !isDev) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 flex items-center justify-center px-4 py-8">
-        <div className="text-slate-500">Loading...</div>
+      <main className="min-h-screen bg-gradient-to-br from-slate-50 dark:from-slate-950 via-blue-50/30 dark:via-slate-900 to-slate-50 dark:to-slate-950 flex items-center justify-center px-4 py-8">
+        <div className="text-slate-500 dark:text-slate-400">Loading...</div>
       </main>
     )
   }
@@ -239,16 +239,19 @@ export default function SelectPlanPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 flex items-center justify-center px-6 py-12">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 dark:from-slate-950 via-blue-50/30 dark:via-slate-900 to-slate-50 dark:to-slate-950 flex items-center justify-center px-6 py-12">
       <div className="w-full max-w-4xl">
         {/* Premium Card Container */}
-        <div className="relative overflow-hidden rounded-2xl bg-white/90 backdrop-blur-xl border border-white/90 shadow-[0_8px_24px_rgba(15,23,42,0.08),0_0_0_1px_rgba(255,255,255,0.5)]">
+        <div className="relative overflow-hidden rounded-2xl bg-white/90 dark:bg-slate-900/45 backdrop-blur-xl border border-white/90 dark:border-slate-700/40 shadow-[0_8px_24px_rgba(15,23,42,0.08),0_0_0_1px_rgba(255,255,255,0.5)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]">
           {/* Premium gradient overlay */}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 via-white/90 to-white/85" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 via-transparent to-indigo-50/20" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 dark:from-slate-900/70 via-white/90 dark:via-slate-900/50 to-white/85 dark:to-slate-950/60" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 dark:from-blue-950/20 via-transparent to-indigo-50/20 dark:to-indigo-950/20" />
+          
+          {/* Subtle colored glow hints - dark mode only */}
+          <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
           
           {/* Enhanced inner glow */}
-          <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-white/60" />
+          <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-white/60 dark:ring-slate-600/30" />
           
           <div className="relative z-10 px-8 py-10">
             {/* Logo and Header */}
@@ -259,21 +262,21 @@ export default function SelectPlanPage() {
                   alt="ShiftCoach Logo"
                   width={200}
                   height={50}
-                  className="object-contain"
+                  className="object-contain brightness-110 dark:brightness-125"
                   priority
                 />
               </div>
               {isDev && !user && (
-                <div className="mb-4 p-2 rounded-lg bg-amber-50 border border-amber-200">
-                  <p className="text-xs text-amber-700 font-medium">
+                <div className="mb-4 p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40">
+                  <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">
                     🧪 DEV MODE: Testing without authentication
                   </p>
                 </div>
               )}
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-clip-text text-transparent mb-2">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-900 dark:from-slate-100 via-slate-800 dark:via-slate-200 to-slate-900 dark:to-slate-100 bg-clip-text text-transparent mb-2">
                 Choose Your Plan
               </h1>
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
                 Start your 7-day free trial. Cancel anytime.
               </p>
             </div>
@@ -297,48 +300,48 @@ export default function SelectPlanPage() {
                       onClick={() => setSelectedPlan('monthly')}
                       className={`relative cursor-pointer rounded-2xl border-2 p-8 transition-all ${
                         selectedPlan === 'monthly'
-                          ? 'border-blue-500 bg-blue-50/50 shadow-lg scale-105'
-                          : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md'
+                          ? 'border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/30 shadow-lg dark:shadow-[0_8px_24px_rgba(59,130,246,0.3)] scale-105'
+                          : 'border-slate-200 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md dark:hover:shadow-lg'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-2xl font-semibold text-slate-900">Monthly</h3>
+                        <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Monthly</h3>
                         {selectedPlan === 'monthly' && (
-                          <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center">
+                          <div className="w-7 h-7 rounded-full bg-blue-500 dark:bg-blue-400 flex items-center justify-center">
                             <Check className="w-5 h-5 text-white" />
                           </div>
                         )}
                       </div>
                       <div className="mb-4">
-                        <span className="text-4xl font-bold text-slate-900">£3.99</span>
-                        <span className="text-base font-normal text-slate-500 ml-2">/ month</span>
+                        <span className="text-4xl font-bold text-slate-900 dark:text-slate-100">£3.99</span>
+                        <span className="text-base font-normal text-slate-500 dark:text-slate-400 ml-2">/ month</span>
                       </div>
-                      <p className="text-base text-slate-600 mb-8">
+                      <p className="text-base text-slate-600 dark:text-slate-300 mb-8">
                         Perfect if you want to try ShiftCoach month to month.
                       </p>
-                      <ul className="space-y-3 text-base text-slate-700">
+                      <ul className="space-y-3 text-base text-slate-700 dark:text-slate-300">
                         <li className="flex items-start gap-3">
-                          <Check className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                          <Check className="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                           <span>Full access to ShiftCoach app</span>
                         </li>
                         <li className="flex items-start gap-3">
-                          <Check className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                          <Check className="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                           <span>Body clock & circadian score</span>
                         </li>
                         <li className="flex items-start gap-3">
-                          <Check className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                          <Check className="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                           <span>Smart shift & sleep insights</span>
                         </li>
                         <li className="flex items-start gap-3">
-                          <Check className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                          <Check className="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                           <span>Rota calendar & events</span>
                         </li>
                         <li className="flex items-start gap-3">
-                          <Check className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                          <Check className="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                           <span>Sync across devices</span>
                         </li>
                         <li className="flex items-start gap-3">
-                          <Check className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                          <Check className="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                           <span>Cancel anytime</span>
                         </li>
                       </ul>
@@ -351,48 +354,48 @@ export default function SelectPlanPage() {
                       onClick={() => setSelectedPlan('yearly')}
                       className={`relative cursor-pointer rounded-2xl border-2 p-8 transition-all ${
                         selectedPlan === 'yearly'
-                          ? 'border-blue-500 bg-blue-50/50 shadow-lg scale-105'
-                          : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md'
+                          ? 'border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/30 shadow-lg dark:shadow-[0_8px_24px_rgba(59,130,246,0.3)] scale-105'
+                          : 'border-slate-200 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md dark:hover:shadow-lg'
                       }`}
                     >
                       <div className="absolute -top-3 right-6">
-                        <span className="bg-blue-500 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                        <span className="bg-blue-500 dark:bg-blue-400 text-white text-xs font-semibold px-3 py-1 rounded-full">
                           Best value
                         </span>
                       </div>
                       <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-2xl font-semibold text-slate-900">Yearly</h3>
+                        <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Yearly</h3>
                         {selectedPlan === 'yearly' && (
-                          <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center">
+                          <div className="w-7 h-7 rounded-full bg-blue-500 dark:bg-blue-400 flex items-center justify-center">
                             <Check className="w-5 h-5 text-white" />
                           </div>
                         )}
                       </div>
                       <div className="mb-4">
-                        <span className="text-4xl font-bold text-slate-900">£43</span>
-                        <span className="text-base font-normal text-slate-500 ml-2">/ year</span>
+                        <span className="text-4xl font-bold text-slate-900 dark:text-slate-100">£43</span>
+                        <span className="text-base font-normal text-slate-500 dark:text-slate-400 ml-2">/ year</span>
                       </div>
-                      <p className="text-base text-blue-600 font-medium mb-2">
+                      <p className="text-base text-blue-600 dark:text-blue-400 font-medium mb-2">
                         Save about 10% vs paying monthly (£47.88).
                       </p>
-                      <p className="text-base text-slate-600 mb-8">
+                      <p className="text-base text-slate-600 dark:text-slate-300 mb-8">
                         For serious shift workers ready to commit to better rhythms.
                       </p>
-                      <ul className="space-y-3 text-base text-slate-700">
+                      <ul className="space-y-3 text-base text-slate-700 dark:text-slate-300">
                         <li className="flex items-start gap-3">
-                          <Check className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                          <Check className="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                           <span>Everything in Monthly</span>
                         </li>
                         <li className="flex items-start gap-3">
-                          <Check className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                          <Check className="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                           <span>Priority feature access</span>
                         </li>
                         <li className="flex items-start gap-3">
-                          <Check className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                          <Check className="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                           <span>Early access to new experiments</span>
                         </li>
                         <li className="flex items-start gap-3">
-                          <Check className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                          <Check className="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                           <span>Best long-term value</span>
                         </li>
                       </ul>
@@ -404,17 +407,17 @@ export default function SelectPlanPage() {
               {/* Navigation Arrows */}
               <button
                 onClick={prevSlide}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 w-10 h-10 rounded-full bg-white border border-slate-200 shadow-lg flex items-center justify-center hover:bg-slate-50 transition-all z-10"
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 w-10 h-10 rounded-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/40 shadow-lg dark:shadow-[0_8px_24px_rgba(0,0,0,0.3)] flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-all z-10"
                 aria-label="Previous plan"
               >
-                <ChevronLeft className="w-5 h-5 text-slate-700" />
+                <ChevronLeft className="w-5 h-5 text-slate-700 dark:text-slate-300" />
               </button>
               <button
                 onClick={nextSlide}
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 w-10 h-10 rounded-full bg-white border border-slate-200 shadow-lg flex items-center justify-center hover:bg-slate-50 transition-all z-10"
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 w-10 h-10 rounded-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/40 shadow-lg dark:shadow-[0_8px_24px_rgba(0,0,0,0.3)] flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-all z-10"
                 aria-label="Next plan"
               >
-                <ChevronRight className="w-5 h-5 text-slate-700" />
+                <ChevronRight className="w-5 h-5 text-slate-700 dark:text-slate-300" />
               </button>
 
               {/* Carousel Indicators */}
@@ -425,8 +428,8 @@ export default function SelectPlanPage() {
                     onClick={() => goToSlide(index)}
                     className={`h-2 rounded-full transition-all ${
                       currentSlide === index
-                        ? 'w-8 bg-blue-500'
-                        : 'w-2 bg-slate-300 hover:bg-slate-400'
+                        ? 'w-8 bg-blue-500 dark:bg-blue-400'
+                        : 'w-2 bg-slate-300 dark:bg-slate-600 hover:bg-slate-400 dark:hover:bg-slate-500'
                     }`}
                     aria-label={`Go to slide ${index + 1}`}
                   />
@@ -438,14 +441,14 @@ export default function SelectPlanPage() {
             <div className="mb-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-200"></div>
+                  <div className="w-full border-t border-slate-200 dark:border-slate-700/50"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="bg-white px-4 text-slate-500">or</span>
+                  <span className="bg-white dark:bg-slate-900/45 px-4 text-slate-500 dark:text-slate-400">or</span>
                 </div>
               </div>
               <div className="mt-4">
-                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">
                   Have a tester code?
                 </label>
                 <div className="flex gap-2">
@@ -463,22 +466,22 @@ export default function SelectPlanPage() {
                       }
                     }}
                     placeholder="Enter tester code"
-                    className="flex-1 border rounded-xl px-4 py-3 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="flex-1 border rounded-xl px-4 py-3 bg-white dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/40 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all"
                   />
                   <button
                     onClick={handleValidatePromo}
                     disabled={validatingPromo || !promoCode.trim() || promoValid}
-                    className="px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-blue-500 via-indigo-600 to-blue-600 hover:from-blue-600 hover:via-indigo-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_12px_rgba(59,130,246,0.3)]"
+                    className="px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-blue-500 via-indigo-600 to-blue-600 dark:from-blue-600 dark:via-indigo-600 dark:to-blue-700 hover:from-blue-600 hover:via-indigo-700 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:via-indigo-700 dark:hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_12px_rgba(59,130,246,0.3)] dark:shadow-[0_4px_12px_rgba(59,130,246,0.5)]"
                   >
                     {validatingPromo ? 'Checking...' : promoValid ? '✓ Valid' : 'Apply'}
                   </button>
                 </div>
                 {promoError && (
-                  <p className="mt-2 text-sm text-red-600">{promoError}</p>
+                  <p className="mt-2 text-sm text-red-600 dark:text-red-400">{promoError}</p>
                 )}
                 {promoValid && (
-                  <div className="mt-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                    <p className="text-sm text-emerald-700 font-medium">
+                  <div className="mt-2 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40">
+                    <p className="text-sm text-emerald-700 dark:text-emerald-300 font-medium">
                       ✓ Tester code accepted! You'll get free access.
                     </p>
                   </div>
@@ -488,8 +491,8 @@ export default function SelectPlanPage() {
 
             {/* Error Message */}
             {err && (
-              <div className="mb-6 p-3 rounded-xl bg-red-50 border border-red-200/50">
-                <p className="text-red-600 text-sm font-medium">{err}</p>
+              <div className="mb-6 p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200/50 dark:border-red-800/40">
+                <p className="text-red-600 dark:text-red-300 text-sm font-medium">{err}</p>
               </div>
             )}
 
@@ -497,13 +500,13 @@ export default function SelectPlanPage() {
             <button
               onClick={handleSelectPlan}
               disabled={(!selectedPlan && !promoValid) || busy}
-              className="w-full rounded-xl py-3.5 font-semibold text-white bg-gradient-to-r from-blue-500 via-indigo-600 to-blue-600 hover:from-blue-600 hover:via-indigo-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_12px_rgba(59,130,246,0.3)] hover:shadow-[0_6px_16px_rgba(59,130,246,0.4)]"
+              className="w-full rounded-xl py-3.5 font-semibold text-white bg-gradient-to-r from-blue-500 via-indigo-600 to-blue-600 dark:from-blue-600 dark:via-indigo-600 dark:to-blue-700 hover:from-blue-600 hover:via-indigo-700 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:via-indigo-700 dark:hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_12px_rgba(59,130,246,0.3)] dark:shadow-[0_4px_12px_rgba(59,130,246,0.5)] hover:shadow-[0_6px_16px_rgba(59,130,246,0.4)] dark:hover:shadow-[0_6px_16px_rgba(59,130,246,0.6)]"
             >
               {busy ? 'Processing…' : promoValid ? 'Continue with Free Access' : 'Start 7-Day Free Trial'}
             </button>
 
             {/* Footer */}
-            <p className="mt-6 text-xs text-center text-slate-500">
+            <p className="mt-6 text-xs text-center text-slate-500 dark:text-slate-400">
               Prices in GBP. Cancel anytime from within the app. No hidden fees.
             </p>
           </div>
