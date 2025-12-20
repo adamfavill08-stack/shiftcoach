@@ -57,17 +57,47 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    let supabase: any
+    let userId: string | null = null
+    let isDevFallback = false
+    
+    try {
+      const result = await getServerSupabaseAndUserId()
+      supabase = result.supabase
+      userId = result.userId
+      isDevFallback = result.isDevFallback
+    } catch (authError: any) {
+      console.error('[api/profile] Failed to get Supabase client:', authError)
+      return NextResponse.json(
+        { 
+          error: 'Authentication error',
+          details: authError?.message || 'Failed to initialize database connection'
+        },
+        { status: 500 }
+      )
+    }
     
     // Use service role client (bypasses RLS) when in dev fallback mode
     // This is needed because RLS policies check auth.uid(), which is null without a real session
-    const supabase = isDevFallback ? supabaseServer : authSupabase
+    const dbClient = isDevFallback ? supabaseServer : supabase
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await req.json()
+    let body: any
+    try {
+      body = await req.json()
+    } catch (jsonError: any) {
+      console.error('[api/profile] Failed to parse request body:', jsonError)
+      return NextResponse.json(
+        { 
+          error: 'Invalid request body',
+          details: jsonError?.message || 'Failed to parse JSON'
+        },
+        { status: 400 }
+      )
+    }
     console.log('[api/profile] Received body:', JSON.stringify(body, null, 2))
     console.log('[api/profile] Age in body:', body.age, 'Type:', typeof body.age)
     
@@ -185,7 +215,7 @@ export async function POST(req: NextRequest) {
     console.log('[api/profile] Data being sent to database:', JSON.stringify(profileDataToSave, null, 2))
     console.log('[api/profile] Age value being sent:', profileDataToSave.age)
     
-    let { data, error } = await supabase
+    let { data, error } = await dbClient
       .from('profiles')
       .upsert(profileDataToSave, {
         onConflict: 'user_id',
@@ -217,7 +247,7 @@ export async function POST(req: NextRequest) {
         delete profileDataToSave.age
       }
       
-      const retryResult = await supabase
+      const retryResult = await dbClient
         .from('profiles')
         .upsert(profileDataToSave, {
           onConflict: 'user_id',
@@ -250,7 +280,7 @@ export async function POST(req: NextRequest) {
         
         console.error(`[api/profile] Using minimal data (age and date_of_birth excluded):`, JSON.stringify(minimalData, null, 2))
         
-        const finalRetry = await supabase
+        const finalRetry = await dbClient
           .from('profiles')
           .upsert(minimalData, {
             onConflict: 'user_id',
@@ -344,14 +374,31 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('[api/profile] Unexpected error:', err)
     console.error('[api/profile] Error stack:', err?.stack)
-    return NextResponse.json(
-      { 
-        error: err?.message || 'Failed to save profile',
-        details: err?.toString(),
-        type: 'unexpected_error'
-      },
-      { status: 500 }
-    )
+    
+    // Ensure we always return a valid JSON response
+    try {
+      return NextResponse.json(
+        { 
+          error: err?.message || 'Failed to save profile',
+          details: err?.toString() || String(err),
+          type: 'unexpected_error'
+        },
+        { status: 500 }
+      )
+    } catch (responseError: any) {
+      // If even creating the response fails, return a minimal error
+      console.error('[api/profile] Failed to create error response:', responseError)
+      return new NextResponse(
+        JSON.stringify({ 
+          error: 'Internal server error',
+          type: 'response_serialization_error'
+        }),
+        { 
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
+    }
   }
 }
 

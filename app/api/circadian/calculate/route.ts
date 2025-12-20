@@ -8,29 +8,127 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
   try {
-    const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    console.log('[api/circadian/calculate] Starting request...')
+    
+    let supabase: any
+    let userId: string | null = null
+    let isDevFallback = false
+    
+    try {
+      console.log('[api/circadian/calculate] Getting Supabase client...')
+      const result = await getServerSupabaseAndUserId()
+      supabase = result.supabase
+      userId = result.userId
+      isDevFallback = result.isDevFallback
+      console.log('[api/circadian/calculate] Got client, userId:', userId, 'isDevFallback:', isDevFallback)
+    } catch (authError: any) {
+      console.error('[api/circadian/calculate] Failed to get Supabase client:', {
+        name: authError?.name,
+        message: authError?.message,
+        stack: authError?.stack,
+      })
+      return NextResponse.json(
+        { 
+          error: 'Authentication error',
+          details: authError?.message || 'Failed to initialize database connection'
+        },
+        { status: 500 }
+      )
+    }
     
     // Use service role client (bypasses RLS) when in dev fallback mode
-    const supabase = isDevFallback ? supabaseServer : authSupabase
+    // This is needed because RLS policies check auth.uid(), which is null without a real session
+    let dbClient: any
+    try {
+      if (isDevFallback) {
+        console.log('[api/circadian/calculate] Using supabaseServer (dev fallback)')
+        dbClient = supabaseServer
+      } else {
+        console.log('[api/circadian/calculate] Using authenticated supabase client')
+        dbClient = supabase
+      }
+    } catch (clientError: any) {
+      console.error('[api/circadian/calculate] Failed to get dbClient:', {
+        name: clientError?.name,
+        message: clientError?.message,
+        stack: clientError?.stack,
+      })
+      return NextResponse.json(
+        { 
+          error: 'Database client error',
+          details: clientError?.message || 'Failed to initialize database client'
+        },
+        { status: 500 }
+      )
+    }
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const today = new Date()
+    const todayDateString = today.toISOString().slice(0, 10) // YYYY-MM-DD format
 
     // Fast path: if we already have a recent circadian_logs row for this user,
     // reuse it instead of recalculating. This keeps behavior the same but moves
     // the heavy work off the request path when the precompute cron has run.
-    const precomputed = await supabase
-      .from('circadian_logs')
-      .select(
-        'sleep_midpoint_minutes,deviation_hours,circadian_phase,alignment_score,latest_shift,sleep_duration,sleep_timing,sleep_debt,inconsistency,created_at',
-      )
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    console.log('[api/circadian/calculate] Checking for precomputed data...')
+    let precomputed: any
+    try {
+      precomputed = await dbClient
+        .from('circadian_logs')
+        .select(
+          'sleep_midpoint_minutes,deviation_hours,circadian_phase,alignment_score,latest_shift,sleep_duration,sleep_timing,sleep_debt,inconsistency,created_at',
+        )
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      
+      if (precomputed.error) {
+        const errorMessage = precomputed.error.message || String(precomputed.error)
+        const isNetworkError = errorMessage.includes('fetch failed') || 
+                              errorMessage.includes('ETIMEDOUT') || 
+                              errorMessage.includes('EHOSTUNREACH') ||
+                              errorMessage.includes('ECONNREFUSED')
+        
+        if (isNetworkError) {
+          console.error('[api/circadian/calculate] Network error on precomputed query - database unreachable')
+          return NextResponse.json({ 
+            error: 'Database temporarily unavailable',
+            details: 'Unable to connect to database. Please check your internet connection and try again.',
+            type: 'network_error'
+          }, { status: 503 })
+        }
+        
+        console.warn('[api/circadian/calculate] Precomputed query error (non-fatal):', precomputed.error.message)
+      } else {
+        console.log('[api/circadian/calculate] Precomputed query result:', precomputed.data ? 'found' : 'not found')
+      }
+    } catch (precomputedError: any) {
+      const errorMessage = precomputedError?.message || String(precomputedError)
+      const isNetworkError = errorMessage.includes('fetch failed') || 
+                            errorMessage.includes('ETIMEDOUT') || 
+                            errorMessage.includes('EHOSTUNREACH') ||
+                            errorMessage.includes('ECONNREFUSED')
+      
+      if (isNetworkError) {
+        console.error('[api/circadian/calculate] Network error on precomputed query - database unreachable')
+        return NextResponse.json({ 
+          error: 'Database temporarily unavailable',
+          details: 'Unable to connect to database. Please check your internet connection and try again.',
+          type: 'network_error'
+        }, { status: 503 })
+      }
+      
+      console.error('[api/circadian/calculate] Precomputed query exception:', {
+        name: precomputedError?.name,
+        message: precomputedError?.message,
+        stack: precomputedError?.stack,
+      })
+      // Continue with fallback path for non-network errors
+      precomputed = { error: precomputedError, data: null }
+    }
 
     if (!precomputed.error && precomputed.data) {
       const createdAt = precomputed.data.created_at
@@ -60,20 +158,61 @@ export async function GET(req: NextRequest) {
 
     // Fallback path: no usable precomputed row for today, so we calculate
     // circadian metrics on-demand exactly as before.
+    console.log('[api/circadian/calculate] Using fallback path - calculating on-demand')
     const fourteenDaysAgo = new Date(Date.now() - 13 * 24 * 60 * 60 * 1000)
+    console.log('[api/circadian/calculate] Fetching sleep logs from:', fourteenDaysAgo.toISOString())
 
     // Fetch ALL sleep logs (both main sleep and naps) - try new schema first
     let sleepLogs: any[] = []
     let sleepError: any = null
 
     // Try new schema (type, start_at, end_at)
-    const newSchemaResult = await supabase
-      .from('sleep_logs')
-      .select('type, start_at, end_at')
-      .eq('user_id', userId)
-      .gte('start_at', fourteenDaysAgo.toISOString())
-      .order('start_at', { ascending: false })
-      .limit(100)
+    console.log('[api/circadian/calculate] Trying new schema (start_at, end_at)...')
+    let newSchemaResult: any
+    try {
+      newSchemaResult = await dbClient
+        .from('sleep_logs')
+        .select('type, start_at, end_at')
+        .eq('user_id', userId)
+        .gte('start_at', fourteenDaysAgo.toISOString())
+        .order('start_at', { ascending: false })
+        .limit(100)
+      
+      if (newSchemaResult.error) {
+        const errorMessage = newSchemaResult.error.message || String(newSchemaResult.error)
+        const isNetworkError = errorMessage.includes('fetch failed') || 
+                              errorMessage.includes('ETIMEDOUT') || 
+                              errorMessage.includes('EHOSTUNREACH') ||
+                              errorMessage.includes('ECONNREFUSED')
+        
+        if (isNetworkError) {
+          console.error('[api/circadian/calculate] Network error on new schema query - database unreachable')
+          // Continue to try old schema, but if that also fails, we'll return 503
+        } else {
+          console.warn('[api/circadian/calculate] New schema query error:', newSchemaResult.error.message)
+        }
+      } else {
+        console.log('[api/circadian/calculate] New schema result:', newSchemaResult.data?.length || 0, 'records')
+      }
+    } catch (newSchemaException: any) {
+      const errorMessage = newSchemaException?.message || String(newSchemaException)
+      const isNetworkError = errorMessage.includes('fetch failed') || 
+                            errorMessage.includes('ETIMEDOUT') || 
+                            errorMessage.includes('EHOSTUNREACH') ||
+                            errorMessage.includes('ECONNREFUSED')
+      
+      if (isNetworkError) {
+        console.error('[api/circadian/calculate] Network error on new schema query - will try old schema')
+        // Continue to try old schema
+      } else {
+        console.error('[api/circadian/calculate] New schema query exception:', {
+          name: newSchemaException?.name,
+          message: newSchemaException?.message,
+          stack: newSchemaException?.stack,
+        })
+      }
+      newSchemaResult = { error: newSchemaException, data: null }
+    }
 
     if (!newSchemaResult.error && newSchemaResult.data && newSchemaResult.data.length > 0) {
       // New schema found - normalize the data
@@ -86,19 +225,73 @@ export async function GET(req: NextRequest) {
       }))
     } else {
       // Try old schema (start_ts, end_ts, naps, sleep_hours)
-      const oldSchemaResult = await supabase
-        .from('sleep_logs')
-        .select('start_ts, end_ts, sleep_hours, naps')
-        .eq('user_id', userId)
-        .gte('start_ts', fourteenDaysAgo.toISOString())
-        .order('start_ts', { ascending: false })
-        .limit(100)
+      console.log('[api/circadian/calculate] Trying old schema (start_ts, end_ts)...')
+      let oldSchemaResult: any
+      try {
+        oldSchemaResult = await dbClient
+          .from('sleep_logs')
+          .select('start_ts, end_ts, sleep_hours, naps')
+          .eq('user_id', userId)
+          .gte('start_ts', fourteenDaysAgo.toISOString())
+          .order('start_ts', { ascending: false })
+          .limit(100)
 
       if (oldSchemaResult.error) {
+        console.error('[api/circadian/calculate] Old schema query error:', oldSchemaResult.error.message)
+        
+        // Check if it's a network error
+        const errorMessage = oldSchemaResult.error.message || String(oldSchemaResult.error)
+        const isNetworkError = errorMessage.includes('fetch failed') || 
+                              errorMessage.includes('ETIMEDOUT') || 
+                              errorMessage.includes('EHOSTUNREACH') ||
+                              errorMessage.includes('ECONNREFUSED')
+        
+        if (isNetworkError) {
+          console.error('[api/circadian/calculate] Network error - database unreachable')
+          return NextResponse.json({ 
+            error: 'Database temporarily unavailable',
+            details: 'Unable to connect to database. Please check your internet connection and try again.',
+            type: 'network_error'
+          }, { status: 503 })
+        }
+        
         const { logSupabaseError } = await import('@/lib/supabase/error-handler')
         logSupabaseError('api/circadian/calculate', oldSchemaResult.error, { level: 'warn' })
-        return NextResponse.json({ error: 'Failed to fetch sleep data' }, { status: 500 })
+        return NextResponse.json({ 
+          error: 'Failed to fetch sleep data',
+          details: oldSchemaResult.error.message 
+        }, { status: 500 })
+      } else {
+        console.log('[api/circadian/calculate] Old schema result:', oldSchemaResult.data?.length || 0, 'records')
       }
+    } catch (oldSchemaException: any) {
+      console.error('[api/circadian/calculate] Old schema query exception:', {
+        name: oldSchemaException?.name,
+        message: oldSchemaException?.message,
+        stack: oldSchemaException?.stack,
+      })
+      
+      // Check if it's a network error
+      const errorMessage = oldSchemaException?.message || String(oldSchemaException)
+      const isNetworkError = errorMessage.includes('fetch failed') || 
+                            errorMessage.includes('ETIMEDOUT') || 
+                            errorMessage.includes('EHOSTUNREACH') ||
+                            errorMessage.includes('ECONNREFUSED')
+      
+      if (isNetworkError) {
+        console.error('[api/circadian/calculate] Network error - database unreachable')
+        return NextResponse.json({ 
+          error: 'Database temporarily unavailable',
+          details: 'Unable to connect to database. Please check your internet connection and try again.',
+          type: 'network_error'
+        }, { status: 503 })
+      }
+      
+      return NextResponse.json({ 
+        error: 'Failed to fetch sleep data',
+        details: oldSchemaException?.message || String(oldSchemaException)
+      }, { status: 500 })
+    }
 
       if (oldSchemaResult.data && oldSchemaResult.data.length > 0) {
         // Old schema - normalize the data
@@ -196,21 +389,29 @@ export async function GET(req: NextRequest) {
 
     // Calculate sleep debt using sleep deficit helper
     // This ensures consistency with /api/sleep/deficit
-    const sleepDeficit = await getSleepDeficitForCircadian(supabase, userId, 7.5)
-    const sleepDebtHours = sleepDeficit ? Math.max(0, sleepDeficit.weeklyDeficit) : 0
-    
-    console.log('[api/circadian/calculate] Sleep deficit:', {
-      weeklyDeficit: sleepDeficit?.weeklyDeficit,
-      category: sleepDeficit?.category,
-      sleepDebtHours,
-    })
+    let sleepDeficit = null
+    let sleepDebtHours = 0
+    try {
+      sleepDeficit = await getSleepDeficitForCircadian(dbClient, userId, 7.5)
+      sleepDebtHours = sleepDeficit ? Math.max(0, sleepDeficit.weeklyDeficit) : 0
+      
+      console.log('[api/circadian/calculate] Sleep deficit:', {
+        weeklyDeficit: sleepDeficit?.weeklyDeficit,
+        category: sleepDeficit?.category,
+        sleepDebtHours,
+      })
+    } catch (deficitError: any) {
+      console.warn('[api/circadian/calculate] Failed to calculate sleep deficit:', deficitError?.message || deficitError)
+      // Continue with default value
+      sleepDebtHours = 0
+    }
 
     // Get latest shift to determine shift type
-    const { data: shifts, error: shiftError } = await supabase
+    const { data: shifts, error: shiftError } = await dbClient
       .from('shifts')
       .select('label, start_ts, date')
       .eq('user_id', userId)
-      .lte('date', today.toISOString().slice(0, 10))
+      .lte('date', todayDateString)
       .order('date', { ascending: false })
       .limit(7)
 
@@ -221,14 +422,27 @@ export async function GET(req: NextRequest) {
       const latestShift = shifts.find(s => s.label && s.label !== 'OFF')
       
       if (latestShift) {
-        // Use shared utility for consistent classification
-        const { toShiftType } = await import('@/lib/shifts/toShiftType')
-        shiftType = toShiftType(
-          latestShift.label,
-          latestShift.start_ts,
-          true, // check for rotating pattern
-          shifts
-        ) as ShiftType
+        try {
+          // Use shared utility for consistent classification
+          const { toShiftType } = await import('@/lib/shifts/toShiftType')
+          shiftType = toShiftType(
+            latestShift.label,
+            latestShift.start_ts,
+            true, // check for rotating pattern
+            shifts
+          ) as ShiftType
+        } catch (importError: any) {
+          console.warn('[api/circadian/calculate] Failed to import toShiftType:', importError?.message || importError)
+          // Fallback: use simple classification based on label
+          const labelLower = (latestShift.label || '').toLowerCase()
+          if (labelLower.includes('night')) {
+            shiftType = 'night'
+          } else if (labelLower.includes('late') || labelLower.includes('evening')) {
+            shiftType = 'late'
+          } else {
+            shiftType = 'day'
+          }
+        }
       }
     }
 
@@ -244,7 +458,13 @@ export async function GET(req: NextRequest) {
       shiftType,
     }
 
-    const circadian = calculateCircadianPhase(input)
+    let circadian
+    try {
+      circadian = calculateCircadianPhase(input)
+    } catch (calcError: any) {
+      console.error('[api/circadian/calculate] Failed to calculate circadian phase:', calcError)
+      throw new Error(`Circadian calculation failed: ${calcError?.message || String(calcError)}`)
+    }
 
     // Optionally log to circadian_logs table (non-blocking)
     try {
@@ -255,7 +475,7 @@ export async function GET(req: NextRequest) {
       deviation = Math.min(deviation, 1440 - deviation)
       const deviationHours = deviation / 60
 
-      const { error: logError } = await supabase
+      const { error: logError } = await dbClient
         .from('circadian_logs')
         .insert({
           user_id: userId,
@@ -288,9 +508,31 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ circadian }, { status: 200 })
   } catch (err: any) {
     console.error('[api/circadian/calculate] FATAL ERROR:', err)
-    return NextResponse.json(
-      { error: 'Internal server error', details: err?.message },
-      { status: 500 }
-    )
+    console.error('[api/circadian/calculate] Error stack:', err?.stack)
+    
+    // Ensure we always return a valid JSON response
+    try {
+      return NextResponse.json(
+        { 
+          error: 'Internal server error', 
+          details: err?.message || String(err),
+          type: 'unexpected_error'
+        },
+        { status: 500 }
+      )
+    } catch (responseError: any) {
+      // If even creating the response fails, return a minimal error
+      console.error('[api/circadian/calculate] Failed to create error response:', responseError)
+      return new NextResponse(
+        JSON.stringify({ 
+          error: 'Internal server error',
+          type: 'response_serialization_error'
+        }),
+        { 
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
+    }
   }
 }

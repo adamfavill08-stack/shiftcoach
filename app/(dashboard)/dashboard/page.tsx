@@ -187,14 +187,25 @@ export default function DashboardPage() {
         next: { revalidate: 30 },
       })
       if (!res.ok) {
-        console.error('[dashboard] circadian fetch failed', res.status)
+        const json = await res.json().catch(() => ({}))
+        if (res.status === 503 || json.type === 'network_error') {
+          console.warn('[dashboard] circadian fetch - database temporarily unavailable')
+          // Don't log as error for network issues - it's expected when DB is down
+        } else {
+          console.error('[dashboard] circadian fetch failed', res.status, json.error || '')
+        }
         setCircadian(null)
         return
       }
       const json = await res.json()
       setCircadian(json.circadian ?? null)
     } catch (err: any) {
-      console.error('[dashboard] circadian fetch error', err)
+      // Network errors are expected when DB is unreachable
+      if (err?.message?.includes('fetch') || err?.message?.includes('network')) {
+        console.warn('[dashboard] circadian fetch - network error (database may be unreachable)')
+      } else {
+        console.error('[dashboard] circadian fetch error', err)
+      }
       setCircadian(null)
     }
   }, [])
