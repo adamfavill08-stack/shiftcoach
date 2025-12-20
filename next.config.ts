@@ -19,9 +19,6 @@ const nextConfig: NextConfig = {
   // Compression
   compress: true,
   
-  // SWC minification (faster than Terser)
-  swcMinify: true,
-  
   // Optimize production builds
   productionBrowserSourceMaps: false, // Disable source maps in production for smaller bundles
   
