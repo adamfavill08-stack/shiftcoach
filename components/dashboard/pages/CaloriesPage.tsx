@@ -9,6 +9,18 @@ interface CaloriesPageProps {
   summary: NutritionSummary | null
 }
 
+function ProgressBar({ progress, className }: { progress: number; className?: string }) {
+  const pct = Math.max(0, Math.min(progress, 1)) * 100
+  return (
+    <div className={['h-2 w-full rounded-full bg-white/10', className].filter(Boolean).join(' ')}>
+      <div
+        className="h-full rounded-full bg-gradient-to-r from-sky-500 via-indigo-500 to-fuchsia-500"
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  )
+}
+
 export function CaloriesPage({ summary }: CaloriesPageProps) {
   const adjusted = summary?.adjustedCalories ?? null
   const consumed = summary?.consumedCalories ?? null
@@ -108,18 +120,6 @@ export function CaloriesPage({ summary }: CaloriesPageProps) {
           unit="mg"
         />
       </div>
-    </div>
-  )
-}
-
-function ProgressBar({ progress, className }: { progress: number; className?: string }) {
-  const pct = Math.max(0, Math.min(progress, 1)) * 100
-  return (
-    <div className={['h-2 w-full rounded-full bg-white/10', className].filter(Boolean).join(' ')}>
-      <div
-        className="h-full rounded-full bg-gradient-to-r from-sky-500 via-indigo-500 to-fuchsia-500"
-        style={{ width: `${pct}%` }}
-      />
     </div>
   )
 }
