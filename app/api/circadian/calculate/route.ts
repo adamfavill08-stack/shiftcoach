@@ -419,7 +419,7 @@ export async function GET(req: NextRequest) {
 
     if (!shiftError && shifts && shifts.length > 0) {
       // Find the most recent non-OFF shift
-      const latestShift = shifts.find(s => s.label && s.label !== 'OFF')
+      const latestShift = shifts.find((s: { label: string | null; start_ts: string | null; date: string }) => s.label && s.label !== 'OFF')
       
       if (latestShift) {
         try {
