@@ -186,8 +186,3 @@ function HydrationCard({
     </div>
   )
 }
-
-      </div>
-    </div>
-  )
-}
