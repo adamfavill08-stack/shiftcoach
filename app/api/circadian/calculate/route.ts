@@ -438,7 +438,9 @@ export async function GET(req: NextRequest) {
           if (labelLower.includes('night')) {
             shiftType = 'night'
           } else if (labelLower.includes('late') || labelLower.includes('evening')) {
-            shiftType = 'late'
+            shiftType = 'evening'
+          } else if (labelLower.includes('morning')) {
+            shiftType = 'morning'
           } else {
             shiftType = 'day'
           }
