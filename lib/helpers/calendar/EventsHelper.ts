@@ -45,23 +45,40 @@ export async function getEventsInRange(
     if (!response.ok) {
       // In dev or when not signed in we don't want to break the UI – log and return no events.
       let preview: string | undefined
+      let errorDetail: any = undefined
       try {
         preview = await response.text()
+        try {
+          errorDetail = JSON.parse(preview)
+        } catch {
+          // Not JSON, keep as text
+        }
       } catch {
         preview = undefined
       }
-      console.error('[EventsHelper] Failed to fetch events', {
-        status: response.status,
-        statusText: response.statusText,
-        preview: preview?.slice(0, 200),
-      })
+      // Don't log 401 errors - they're expected when user isn't signed in
+      if (response.status !== 401) {
+        const errorInfo: Record<string, any> = {
+          status: response.status,
+          statusText: response.statusText,
+        }
+        if (preview) errorInfo.preview = preview.slice(0, 200)
+        if (errorDetail?.error) errorInfo.error = errorDetail.error
+        if (errorDetail?.detail) errorInfo.detail = errorDetail.detail
+        console.error('[EventsHelper] Failed to fetch events', errorInfo)
+      }
       return []
     }
     
     const data = await response.json().catch(() => null)
     return (data && Array.isArray(data.events)) ? data.events : []
   } catch (error) {
-    console.error('[EventsHelper] Error fetching events:', error)
+    // Only log if it's not a network error or auth error (these are expected in some cases)
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      // Network error - likely offline or CORS issue, silently return empty
+      return []
+    }
+    console.error('[EventsHelper] Error fetching events:', error instanceof Error ? error.message : String(error))
     return []
   }
 }

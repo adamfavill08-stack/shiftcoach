@@ -17,10 +17,14 @@ export function ErrorSuppressor() {
       const errorName = arg?.name || ''
       const errorMessage = arg?.toString() || arg?.message || ''
       const errorType = arg?.constructor?.name || ''
+      const errorString = JSON.stringify(arg) || ''
       
       return errorName === 'AuthSessionMissingError' || 
              errorMessage.includes('AuthSessionMissingError') ||
              errorMessage.includes('Auth session missing') ||
+             errorMessage.includes('Unauthorized') ||
+             errorString.includes('status: 401') ||
+             errorString.includes('"status":401') ||
              errorType === 'AuthSessionMissingError'
     }
     
