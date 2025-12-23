@@ -34,16 +34,33 @@ export function ErrorSuppressor() {
       if (shouldSkip) {
         return // Suppress this error
       }
-      // Also suppress empty objects or objects with only status codes
+      
+      // Check for EventsHelper messages
+      const hasEventsHelperMessage = args.some(arg => 
+        typeof arg === 'string' && arg.includes('[EventsHelper]')
+      )
+      
+      // Check for empty objects (but not arrays or null)
       const hasEmptyObject = args.some(arg => 
-        arg && typeof arg === 'object' && 
+        arg && 
+        typeof arg === 'object' && 
+        !Array.isArray(arg) &&
         Object.keys(arg).length === 0
       )
-      if (hasEmptyObject && args.some(arg => 
-        typeof arg === 'string' && arg.includes('[EventsHelper]')
-      )) {
+      
+      // Suppress EventsHelper errors with empty objects (most common case)
+      if (hasEventsHelperMessage && hasEmptyObject) {
         return // Suppress empty error objects from EventsHelper
       }
+      
+      // Suppress any empty object from EventsHelper (even without message string)
+      // This catches cases where the error object is logged directly
+      if (hasEmptyObject && args.some(arg => 
+        typeof arg === 'string' && arg.includes('EventsHelper')
+      )) {
+        return
+      }
+      
       originalError.apply(console, args)
     }
 

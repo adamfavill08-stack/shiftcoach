@@ -63,19 +63,23 @@ export async function getEventsInRange(
         if (hasErrorInfo) {
           const errorInfo: Record<string, any> = {
             status: response.status,
-            statusText: response.statusText,
+            statusText: response.statusText || 'Unknown',
           }
           if (preview) errorInfo.preview = preview.slice(0, 200)
           if (errorDetail?.error) errorInfo.error = errorDetail.error
           if (errorDetail?.detail) errorInfo.detail = errorDetail.detail
-          console.error('[EventsHelper] Failed to fetch events', errorInfo)
-        } else {
-          // Log minimal info if no detailed error available
+          // Only log if errorInfo has at least status and statusText (not empty)
+          if (errorInfo.status !== undefined && errorInfo.statusText) {
+            console.error('[EventsHelper] Failed to fetch events', errorInfo)
+          }
+        } else if (response.status && response.statusText) {
+          // Log minimal info if no detailed error available, but only if we have status info
           console.error('[EventsHelper] Failed to fetch events', {
             status: response.status,
             statusText: response.statusText,
           })
         }
+        // If we have no meaningful info at all, silently return (don't log empty objects)
       }
       return []
     }
@@ -102,7 +106,8 @@ export async function getEventsInRange(
         console.error('[EventsHelper] Error fetching events:', error)
       }
     }
-    // Silently return empty array for any other errors (empty objects, etc.)
+    // Silently return empty array for any other errors (empty objects, null, undefined, etc.)
+    // Never log empty objects - they provide no useful information
     return []
   }
 }
