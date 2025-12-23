@@ -1,10 +1,14 @@
 'use client'
 
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { CalendarPlus, Plus, Edit2, Trash2, X, ChevronLeft, Search, Mic, MicOff } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { CalendarPlus, Plus, Edit2, Trash2, X, ChevronLeft, Search, Mic, MicOff, Grid3x3, MoreVertical } from 'lucide-react'
 import { buildMonthFromPattern } from '@/lib/data/buildRotaMonth'
 import { useRotaMonth } from '@/lib/hooks/useRotaMonth'
+import { FilterMenu } from '@/components/calendar/FilterMenu'
+import { CalendarSettingsMenu } from '@/components/calendar/CalendarSettingsMenu'
+import { format as formatDate, startOfWeek } from 'date-fns'
+import { ViewSwitcherMenu } from '@/components/calendar/ViewSwitcherMenu'
 
 // TypeScript types for Speech Recognition
 interface SpeechRecognition extends EventTarget {
@@ -69,10 +73,19 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
   event: '#0EA5E9',
 }
 
-export default function RotaOverviewPage() {
+type RotaOverviewPageProps = {
+  initialYearMonth?: string
+}
+
+export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageProps) {
   const router = useRouter()
-  const initial = useMemo(() => new Date(), [])
-  const [cursorDate, setCursorDate] = useState(() => new Date(initial.getFullYear(), initial.getMonth(), 1))
+  const searchParams = useSearchParams()
+
+  // Start at "now" by default; we'll align to monthParam via effect below
+  const [cursorDate, setCursorDate] = useState(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), 1)
+  })
   const [menuOpen, setMenuOpen] = useState(false)
   const [selectedBlock, setSelectedBlock] = useState<{ type: 'event' | 'shift', eventId?: string, date: string, label: string } | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
@@ -82,6 +95,8 @@ export default function RotaOverviewPage() {
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const [showViewSwitcher, setShowViewSwitcher] = useState(false)
+  const [currentView, setCurrentView] = useState<'month' | 'week' | 'day' | 'year'>('month')
 
   const month = cursorDate.getMonth()
   const year = cursorDate.getFullYear()
@@ -94,6 +109,31 @@ export default function RotaOverviewPage() {
 
   const { data, eventsByDate, loading, error, refetch } = useRotaMonth(month, year)
   const [sleepByDate, setSleepByDate] = useState<Map<string, any[]>>(new Map())
+  const [showTasks, setShowTasks] = useState(false)
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false)
+  const [showShiftBars, setShowShiftBars] = useState(true)
+
+  // Sync cursorDate with ?month=YYYY-MM (from URL or prop), so year view clicks open that month
+  const monthParam = searchParams.get('month') ?? initialYearMonth ?? null
+
+  useEffect(() => {
+    if (!monthParam) return
+    const [yearStr, monthStr] = monthParam.split('-')
+    const parsedYear = Number(yearStr)
+    const parsedMonth = Number(monthStr) - 1
+    if (Number.isNaN(parsedYear) || Number.isNaN(parsedMonth)) return
+
+    const target = new Date(parsedYear, parsedMonth, 1)
+    setCursorDate((prev) => {
+      if (
+        prev.getFullYear() === target.getFullYear() &&
+        prev.getMonth() === target.getMonth()
+      ) {
+        return prev
+      }
+      return target
+    })
+  }, [monthParam])
 
   // Fetch sleep data for the current month
   const fetchSleepData = useCallback(async () => {
@@ -405,6 +445,49 @@ export default function RotaOverviewPage() {
     }).filter(week => week.length > 0)
   }, [decoratedWeeks, eventsByDate, searchQuery])
 
+  // Load calendar settings (for coloured bars toggle)
+  useEffect(() => {
+    try {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('calendarSettings') : null
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (typeof parsed.showShiftBars === 'boolean') {
+          setShowShiftBars(parsed.showShiftBars)
+        }
+      }
+    } catch (err) {
+      console.error('[RotaOverviewPage] Failed to load calendarSettings for showShiftBars:', err)
+    }
+  }, [])
+
+  const handleViewChange = (view: 'month' | 'week' | 'day' | 'year') => {
+    setCurrentView(view)
+    const baseDate = cursorDate || todayDate
+
+    if (view === 'month') {
+      // Already on month view – just keep user here
+      return
+    }
+
+    if (view === 'day') {
+      const dayCode = formatDate(baseDate, 'yyyyMMdd')
+      router.push(`/calendar/day?day=${dayCode}`)
+      return
+    }
+
+    if (view === 'week') {
+      const weekStart = startOfWeek(baseDate, { weekStartsOn: 1 })
+      const weekCode = formatDate(weekStart, 'yyyyMMdd')
+      router.push(`/calendar/week?week=${weekCode}`)
+      return
+    }
+
+    if (view === 'year') {
+      const year = formatDate(baseDate, 'yyyy')
+      router.push(`/calendar/year?year=${year}`)
+    }
+  }
+
   return (
     <div className="flex flex-1 justify-center bg-gradient-to-br from-slate-50 dark:from-slate-950 via-white dark:via-slate-900 to-slate-50 dark:to-slate-950">
       {/* Dark status bar background */}
@@ -416,59 +499,61 @@ export default function RotaOverviewPage() {
         }}
       />
       <div className="relative flex h-full w-full max-w-md flex-col px-3 py-3" style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
-        <div className="flex flex-1 flex-col min-h-0">
-          {/* Header with back button and search */}
-          <div className="mb-3 flex items-center gap-2 flex-shrink-0">
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/95 dark:bg-slate-800/50 backdrop-blur-sm shadow-[0_2px_8px_rgba(15,23,42,0.08)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)] border border-slate-200/60 dark:border-slate-700/40 hover:bg-white dark:hover:bg-slate-800/70 transition-all hover:scale-105 active:scale-95"
-              aria-label="Back to dashboard"
-            >
-              <ChevronLeft className="h-4 w-4 text-slate-700 dark:text-slate-300" strokeWidth={2.5} />
-            </button>
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-slate-400 dark:text-slate-500" strokeWidth={2} />
-              <input
-                type="text"
-                placeholder="Search shifts and events..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-20 py-2 rounded-xl bg-white/95 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/40 text-xs font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400/50 dark:focus:ring-sky-500/50 focus:border-sky-400/50 dark:focus:border-sky-500/50 shadow-[0_2px_8px_rgba(15,23,42,0.06)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)] transition-all"
-              />
-              <button
-                type="button"
-                onClick={handleVoiceSearch}
-                className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-1.5 rounded-lg transition-all ${
-                  isListening 
-                    ? 'bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 animate-pulse' 
-                    : 'bg-slate-100 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50'
-                }`}
-                aria-label="Voice search"
-              >
-                {isListening ? (
-                  <MicOff className="h-3.5 w-3.5" strokeWidth={2} />
-                ) : (
-                  <Mic className="h-3.5 w-3.5" strokeWidth={2} />
-                )}
-              </button>
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-12 top-1/2 transform -translate-y-1/2 p-1 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400 transition-colors"
-                  aria-label="Clear search"
-                >
-                  <X className="h-3 w-3" strokeWidth={2} />
-                </button>
-              )}
+        {/* Single premium card containing header, month nav and weeks */}
+        <div className="flex flex-1 flex-col min-h-0 rounded-3xl bg-white/90 dark:bg-slate-900/65 backdrop-blur-xl border border-slate-200/70 dark:border-slate-800/70 shadow-[0_8px_24px_rgba(15,23,42,0.06)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.7)] px-3.5 py-3.5 gap-3">
+          {/* Header with premium search + controls */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex-1">
+              <div className="relative rounded-2xl bg-slate-900/5 dark:bg-slate-900/70 border border-slate-200/70 dark:border-slate-800/70 px-4 py-2.5 flex items-center gap-3 shadow-[0_2px_8px_rgba(15,23,42,0.06)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.5)]">
+                <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search shifts and events..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1 bg-transparent text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowViewSwitcher(true)}
+                    className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80 active:scale-95 transition"
+                    aria-label="Change calendar view"
+                  >
+                    <Grid3x3 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowTasks(true)}
+                    className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 active:scale-95 transition"
+                    aria-label="Open tasks"
+                  >
+                    {/* CalAI-style task icon (stacked filter lines) */}
+                    <span className="h-3.5 w-3.5 inline-flex flex-col items-center justify-center gap-[2px]">
+                      <span className="block h-[2px] w-3 rounded-full bg-slate-700 dark:bg-slate-200" />
+                      <span className="block h-[2px] w-2 rounded-full bg-slate-700/90 dark:bg-slate-200/90" />
+                      <span className="block h-[2px] w-[6px] rounded-full bg-slate-700/80 dark:bg-slate-200/80" />
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowSettingsMenu(true)}
+                    className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80 active:scale-95 transition"
+                    aria-label="Calendar settings"
+                  >
+                    <MoreVertical className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
           
-          <div className="mb-2 flex items-center justify-between flex-shrink-0 px-1">
+          {/* Month navigation */}
+          <div className="flex items-center justify-between flex-shrink-0 px-1">
             <button
               type="button"
               onClick={goToPrevMonth}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm text-slate-700 dark:text-slate-300 transition-all duration-200 hover:bg-white dark:hover:bg-slate-800/70 hover:shadow-sm active:scale-95 border border-slate-200/40 dark:border-slate-700/40"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 dark:text-slate-300 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 active:scale-95"
               aria-label="Previous month"
             >
               <span className="text-lg font-light leading-none">‹</span>
@@ -479,15 +564,26 @@ export default function RotaOverviewPage() {
             <button
               type="button"
               onClick={goToNextMonth}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm text-slate-700 dark:text-slate-300 transition-all duration-200 hover:bg-white dark:hover:bg-slate-800/70 hover:shadow-sm active:scale-95 border border-slate-200/40 dark:border-slate-700/40"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 dark:text-slate-300 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 active:scale-95"
               aria-label="Next month"
             >
               <span className="text-lg font-light leading-none">›</span>
             </button>
           </div>
 
-          {/* All Weeks in One Card */}
-          <div className="flex-1 min-h-0 overflow-y-auto rounded-xl bg-white/80 dark:bg-slate-900/45 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/40 p-2.5 pb-20 shadow-[0_8px_24px_rgba(15,23,42,0.08)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]">
+          {/* Weeks scroll area inside the same card */}
+          <div className="flex-1 min-h-0 overflow-y-auto pb-4">
+            {/* Weekday labels – shown once at the top, Simple Calendar style */}
+            <div className="grid grid-cols-7 gap-1 mb-1 mt-1">
+              {weekdayLabels.map((label, idx) => (
+                <div key={`${label}-${idx}`} className="text-center">
+                  <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider antialiased">
+                    {label}
+                  </span>
+                </div>
+              ))}
+            </div>
+
             <div className="space-y-2">
               {allWeeksForDisplay.map((week, weekIdx) => {
                 // Helper function to get items for a day
@@ -552,41 +648,39 @@ export default function RotaOverviewPage() {
 
                 return (
                   <div key={`week-${weekIdx}`} className={weekIdx > 0 ? 'pt-2' : ''}>
-                    {/* Weekday Labels */}
-                    <div className="grid grid-cols-7 gap-1 mb-1">
-                      {weekdayLabels.map((label, idx) => (
-                        <div key={`${label}-${idx}`} className="text-center">
-                          <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider antialiased">
-                            {label}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    
                     {/* Dates Row */}
                     <div className="grid grid-cols-7 gap-1 mb-1">
                       {week.map((day) => {
                         const isToday = day.isToday
                         return (
-                          <div key={day.date} className="flex flex-col items-center">
-                            <span
-                              className={[
-                                'text-xs font-bold antialiased transition-all rounded-md px-1.5 py-1',
-                                isToday 
-                                  ? 'text-white bg-gradient-to-br from-sky-500 to-indigo-500 dark:from-sky-600 dark:to-indigo-600 shadow-md shadow-sky-500/30 dark:shadow-sky-500/40 scale-105' 
-                                  : day.isCurrentMonth 
-                                    ? 'text-slate-900 dark:text-slate-100' 
+                          <div key={day.date} className="flex flex-col items-center justify-center">
+                            {isToday ? (
+                              <span className="relative inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white antialiased transition-all duration-200">
+                                {/* Soft CalAI ink glow */}
+                                <span className="absolute -inset-1 rounded-full bg-gradient-to-br from-slate-900/40 via-slate-900/25 to-slate-900/45 blur-md opacity-80" />
+                                <span className="relative inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-900/90 dark:bg-slate-900/85 border border-slate-800/80">
+                                  {day.dayOfMonth}
+                                </span>
+                              </span>
+                            ) : (
+                              <span
+                                className={[
+                                  'text-xs font-semibold antialiased transition-colors',
+                                  day.isCurrentMonth
+                                    ? 'text-slate-900 dark:text-slate-100'
                                     : 'text-slate-400 dark:text-slate-600',
-                              ].join(' ')}
-                            >
-                              {day.dayOfMonth}
-                            </span>
+                                ].join(' ')}
+                              >
+                                {day.dayOfMonth}
+                              </span>
+                            )}
                           </div>
                         )
                       })}
                     </div>
 
                     {/* First Event/Shift Blocks Row (below dates) */}
+                    {showShiftBars && (
                     <div className="grid grid-cols-7 gap-1 mb-1" style={{ minHeight: '18px' }}>
                       {week.map((day) => {
                         const dayDate = new Date(day.date)
@@ -634,8 +728,10 @@ export default function RotaOverviewPage() {
                         )
                       })}
                     </div>
+                    )}
 
                     {/* Second Event/Shift Blocks Row (bottom row - shows all remaining items) */}
+                    {showShiftBars && (
                     <div className="grid grid-cols-7 gap-1" style={{ minHeight: '18px' }}>
                       {week.map((day) => {
                         const dayDate = new Date(day.date)
@@ -687,9 +783,29 @@ export default function RotaOverviewPage() {
                         )
                       })}
                     </div>
+                    )}
                   </div>
                 )
               })}
+            </div>
+          </div>
+
+          {/* Shift workers info card */}
+          <div className="mt-3 rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-900/70 px-4 py-3.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300 shadow-[0_2px_10px_rgba(15,23,42,0.04)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.5)]">
+            <div className="flex items-start gap-2.5">
+              <div className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/10 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300">
+                <span className="text-xs font-semibold">SC</span>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Designed for shift workers
+                </p>
+                <p>
+                  This calendar is built specifically for rotating shift patterns. Each coloured bar shows your
+                  night, day or off days in order, not a generic 9–5 schedule. Use it to spot runs of nights,
+                  recovery days and gaps between shifts so you can plan sleep, meals and recovery around your rota.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -712,6 +828,23 @@ export default function RotaOverviewPage() {
           )}
 
         </div>
+
+        {/* Tasks / Filters panel (re-uses calendar FilterMenu with TasksList) */}
+        <FilterMenu isOpen={showTasks} onClose={() => setShowTasks(false)} />
+
+        {/* Shift-worker calendar settings (view, colored bars, smart behaviours) */}
+        <CalendarSettingsMenu
+          isOpen={showSettingsMenu}
+          onClose={() => setShowSettingsMenu(false)}
+        />
+
+        {/* View Switcher overlay (navigates to Day/Week/Year pages) */}
+        <ViewSwitcherMenu
+          isOpen={showViewSwitcher}
+          onClose={() => setShowViewSwitcher(false)}
+          currentView={currentView}
+          onViewChange={handleViewChange}
+        />
 
         {/* Edit/Delete Modal */}
         {selectedBlock && (
@@ -760,16 +893,26 @@ export default function RotaOverviewPage() {
                   <div className="flex flex-col gap-2">
                     <button
                       onClick={handleEdit}
-                      className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-xl font-medium transition-colors shadow-sm dark:shadow-[0_4px_12px_rgba(59,130,246,0.3)]"
+                      className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl
+                                 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950
+                                 text-slate-50 font-medium
+                                 shadow-[0_14px_40px_rgba(15,23,42,0.35)]
+                                 hover:brightness-110 active:scale-[0.98]
+                                 border border-slate-800/70 transition-all"
                     >
-                      <Edit2 className="w-4 h-4" />
+                      <Edit2 className="w-4 h-4 text-sky-300" />
                       Edit Event
                     </button>
                     <button
                       onClick={handleDelete}
-                      className="flex items-center justify-center gap-2 px-4 py-3 bg-red-500 dark:bg-red-600 hover:bg-red-600 dark:hover:bg-red-700 text-white rounded-xl font-medium transition-colors shadow-sm dark:shadow-[0_4px_12px_rgba(239,68,68,0.3)]"
+                      className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl
+                                 bg-gradient-to-r from-red-500 via-rose-500 to-red-600
+                                 text-white font-medium
+                                 shadow-[0_14px_40px_rgba(239,68,68,0.4)]
+                                 hover:brightness-110 active:scale-[0.98]
+                                 border border-red-500/80 transition-all"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4 text-white" />
                       Delete Event
                     </button>
                   </div>
@@ -800,7 +943,8 @@ export default function RotaOverviewPage() {
           </div>
         )}
 
-        <div className="absolute bottom-4 right-4 flex flex-col items-end space-y-2 z-10">
+        {/* Floating Add Button (+) – move higher under the calendar grid */}
+        <div className="absolute bottom-44 right-6 flex flex-col items-end space-y-2 z-10">
           {menuOpen && (
             <>
               <button
@@ -833,13 +977,19 @@ export default function RotaOverviewPage() {
           <button
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
-            className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-600 dark:from-sky-600 dark:to-indigo-700 text-white shadow-[0_8px_24px_rgba(14,165,233,0.4)] dark:shadow-[0_8px_24px_rgba(14,165,233,0.5)] transition-all duration-300 hover:shadow-[0_12px_32px_rgba(14,165,233,0.5)] dark:hover:shadow-[0_12px_32px_rgba(14,165,233,0.6)] hover:scale-110 active:scale-95 hover:from-sky-600 hover:to-indigo-700 dark:hover:from-sky-700 dark:hover:to-indigo-800"
+            className="relative flex h-12 w-12 items-center justify-center rounded-[1.1rem] 
+                       bg-slate-900 text-white border border-slate-800/70
+                       transition-all duration-300
+                       hover:bg-slate-900/95 active:scale-[0.97]"
             aria-label="Add holiday or task"
           >
+            {/* Subtle CalAI glow */}
+            <span className="pointer-events-none absolute inset-0 rounded-[1.1rem] bg-gradient-to-br from-sky-500/35 via-indigo-500/25 to-purple-500/35 blur-xl opacity-70" />
+            <span className="pointer-events-none absolute inset-[1px] rounded-[1.05rem] bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950" />
             {menuOpen ? (
-              <span className="text-3xl font-light leading-none">×</span>
+              <span className="relative z-10 text-2xl font-light leading-none">×</span>
             ) : (
-              <Plus className="h-7 w-7" strokeWidth={3} />
+              <Plus className="relative z-10 h-6 w-6" strokeWidth={2.4} />
             )}
           </button>
         </div>
