@@ -73,7 +73,11 @@ export async function POST(req: NextRequest) {
     // Start generating from the later of: pattern start date or 30 days ago
     const generateStart = patternStart > thirtyDaysAgo ? patternStart : thirtyDaysAgo
     
-    const end = endDate ? new Date(endDate) : new Date(today.getTime() + 365 * 24 * 60 * 60 * 1000)
+    // Always generate shifts for at least 20 years from today when saving a pattern
+    // This ensures users have their full shift schedule loaded
+    const twentyYearsFromNow = new Date(today)
+    twentyYearsFromNow.setFullYear(today.getFullYear() + 20)
+    const end = endDate ? new Date(Math.max(new Date(endDate).getTime(), twentyYearsFromNow.getTime())) : twentyYearsFromNow
     end.setHours(23, 59, 59, 999)
 
     const shifts: Array<{
