@@ -5,7 +5,7 @@ import { supabaseServer } from '@/lib/supabase-server'
 // PUT /api/calendar/caldav/[id] - update CalDAV account (enable/disable, rename, etc.)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
@@ -15,7 +15,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = await params
+    const { id } = await context.params
     const body = await request.json()
 
     const updateData: any = {}
@@ -50,7 +50,7 @@ export async function PUT(
 // DELETE /api/calendar/caldav/[id] - delete CalDAV account
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
@@ -60,7 +60,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = await params
+    const { id } = await context.params
 
     const { error } = await supabase
       .from('caldav_calendars')

@@ -6,7 +6,7 @@ import { EventType } from '@/lib/models/calendar/EventType'
 // GET /api/calendar/event-types/[id] - Get single event type
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
@@ -16,7 +16,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = await params
+    const { id } = await context.params
 
     const { data, error } = await supabase
       .from('event_types')
@@ -42,7 +42,7 @@ export async function GET(
 // PUT /api/calendar/event-types/[id] - Update event type
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
@@ -52,7 +52,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = await params
+    const { id } = await context.params
     const body = await request.json()
     const eventType: Partial<EventType> = body
 
@@ -86,7 +86,7 @@ export async function PUT(
 // DELETE /api/calendar/event-types/[id] - Delete event type
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
@@ -96,7 +96,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = await params
+    const { id } = await context.params
 
     // Check if event type is in use
     const { data: events } = await supabase
