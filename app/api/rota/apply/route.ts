@@ -60,24 +60,22 @@ export async function POST(req: NextRequest) {
       'O': 'OFF',
     }
 
-    // Generate shifts from pattern start date (or 30 days ago, whichever is later) through end date
+    // Generate shifts from today (or pattern start if in the future) forward for 100 years
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
     const patternStart = new Date(startDate)
     patternStart.setHours(0, 0, 0, 0)
     
-    // Don't generate shifts too far in the past (max 30 days back from today)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const thirtyDaysAgo = new Date(today)
-    thirtyDaysAgo.setDate(today.getDate() - 30)
+    // Start generating from today (or pattern start if it's in the future)
+    // This ensures shifts are always generated from the current date forward
+    const generateStart = patternStart > today ? patternStart : today
     
-    // Start generating from the later of: pattern start date or 30 days ago
-    const generateStart = patternStart > thirtyDaysAgo ? patternStart : thirtyDaysAgo
-    
-    // Always generate shifts for 100 years from today when saving a pattern
+    // Always generate shifts for 100 years from the generation start date
     // This ensures shifts continue indefinitely (effectively forever)
-    const hundredYearsFromNow = new Date(today)
-    hundredYearsFromNow.setFullYear(today.getFullYear() + 100)
-    const end = endDate ? new Date(Math.max(new Date(endDate).getTime(), hundredYearsFromNow.getTime())) : hundredYearsFromNow
+    const hundredYearsFromStart = new Date(generateStart)
+    hundredYearsFromStart.setFullYear(generateStart.getFullYear() + 100)
+    const end = endDate ? new Date(Math.max(new Date(endDate).getTime(), hundredYearsFromStart.getTime())) : hundredYearsFromStart
     end.setHours(23, 59, 59, 999)
 
     const shifts: Array<{
@@ -166,6 +164,12 @@ export async function POST(req: NextRequest) {
       total: shifts.length,
       unique: uniqueShifts.length,
       userId,
+      dateRange: {
+        from: generateStart.toISOString().slice(0, 10),
+        to: end.toISOString().slice(0, 10),
+        years: Math.round((end.getTime() - generateStart.getTime()) / (1000 * 60 * 60 * 24 * 365.25)),
+      },
+      sampleShifts: uniqueShifts.slice(0, 5).map(s => ({ date: s.date, label: s.label })),
     })
 
     // Delete existing shifts from the generation start date onwards (preserve older historical shifts)
@@ -188,6 +192,7 @@ export async function POST(req: NextRequest) {
     if (uniqueShifts.length > 0) {
       // Insert in batches to avoid potential issues
       const batchSize = 100
+      let totalInserted = 0
       for (let i = 0; i < uniqueShifts.length; i += batchSize) {
         const batch = uniqueShifts.slice(i, i + batchSize)
         const { error: insertError } = await supabase
@@ -201,7 +206,16 @@ export async function POST(req: NextRequest) {
             { status: 500 }
           )
         }
+        totalInserted += batch.length
       }
+      console.log('[api/rota/apply] successfully inserted shifts', {
+        totalInserted,
+        userId,
+        firstShiftDate: uniqueShifts[0]?.date,
+        lastShiftDate: uniqueShifts[uniqueShifts.length - 1]?.date,
+      })
+    } else {
+      console.warn('[api/rota/apply] no shifts to insert', { userId, generateStart, end })
     }
 
     // Auto-update shift_pattern in profiles based on the pattern
