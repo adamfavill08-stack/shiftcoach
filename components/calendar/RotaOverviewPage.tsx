@@ -282,6 +282,108 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
     setCursorDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
   }
 
+  // Swipe gesture state
+  const [swipeStart, setSwipeStart] = useState<{ x: number; y: number; time: number } | null>(null)
+  const calendarCardRef = useRef<HTMLDivElement>(null)
+
+  // Handle touch start
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    setSwipeStart({
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+    })
+  }, [])
+
+  // Handle touch move (prevent scrolling if horizontal swipe)
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!swipeStart) return
+    
+    const touch = e.touches[0]
+    const deltaX = Math.abs(touch.clientX - swipeStart.x)
+    const deltaY = Math.abs(touch.clientY - swipeStart.y)
+    
+    // If horizontal swipe is clearly dominant (2x more than vertical), prevent vertical scrolling
+    // This allows vertical scrolling while still detecting horizontal swipes
+    if (deltaX > 20 && deltaX > deltaY * 2) {
+      e.preventDefault()
+    }
+  }, [swipeStart])
+
+  // Handle touch end (detect swipe)
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!swipeStart) return
+
+    const touch = e.changedTouches[0]
+    const deltaX = touch.clientX - swipeStart.x
+    const deltaY = touch.clientY - swipeStart.y
+    const deltaTime = Date.now() - swipeStart.time
+    const absDeltaX = Math.abs(deltaX)
+    const absDeltaY = Math.abs(deltaY)
+
+    // Swipe threshold: at least 50px horizontal movement, more horizontal than vertical, and within 300ms
+    const minSwipeDistance = 50
+    const maxSwipeTime = 300
+    const isHorizontalSwipe = absDeltaX > absDeltaY
+
+    if (isHorizontalSwipe && absDeltaX > minSwipeDistance && deltaTime < maxSwipeTime) {
+      if (deltaX > 0) {
+        // Swipe right = previous month
+        goToPrevMonth()
+      } else {
+        // Swipe left = next month
+        goToNextMonth()
+      }
+    }
+
+    setSwipeStart(null)
+  }, [swipeStart, goToPrevMonth, goToNextMonth])
+
+  // Mouse drag handlers for desktop
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    setSwipeStart({
+      x: e.clientX,
+      y: e.clientY,
+      time: Date.now(),
+    })
+  }, [])
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!swipeStart) return
+    // Prevent text selection during drag
+    if (Math.abs(e.clientX - swipeStart.x) > 10) {
+      e.preventDefault()
+    }
+  }, [swipeStart])
+
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+    if (!swipeStart) return
+
+    const deltaX = e.clientX - swipeStart.x
+    const deltaY = e.clientY - swipeStart.y
+    const deltaTime = Date.now() - swipeStart.time
+    const absDeltaX = Math.abs(deltaX)
+    const absDeltaY = Math.abs(deltaY)
+
+    // Swipe threshold: at least 100px horizontal movement, more horizontal than vertical, and within 500ms
+    const minSwipeDistance = 100
+    const maxSwipeTime = 500
+    const isHorizontalSwipe = absDeltaX > absDeltaY
+
+    if (isHorizontalSwipe && absDeltaX > minSwipeDistance && deltaTime < maxSwipeTime) {
+      if (deltaX > 0) {
+        // Swipe right = previous month
+        goToPrevMonth()
+      } else {
+        // Swipe left = next month
+        goToNextMonth()
+      }
+    }
+
+    setSwipeStart(null)
+  }, [swipeStart, goToPrevMonth, goToNextMonth])
+
   const handleBlockClick = (item: { type: 'event' | 'shift', eventId?: string, date: string, label: string }, e: React.MouseEvent) => {
     e.stopPropagation()
     setSelectedBlock(item)
@@ -500,7 +602,17 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
       />
       <div className="relative flex h-full w-full max-w-md flex-col px-3 py-3" style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
         {/* Single premium card containing header, month nav and weeks */}
-        <div className="flex flex-1 flex-col min-h-0 rounded-3xl bg-white/90 dark:bg-slate-900/65 backdrop-blur-xl border border-slate-200/70 dark:border-slate-800/70 shadow-[0_8px_24px_rgba(15,23,42,0.06)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.7)] px-3.5 py-3.5 gap-3">
+        <div 
+          ref={calendarCardRef}
+          className="flex flex-1 flex-col min-h-0 rounded-3xl bg-white/90 dark:bg-slate-900/65 backdrop-blur-xl border border-slate-200/70 dark:border-slate-800/70 shadow-[0_8px_24px_rgba(15,23,42,0.06)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.7)] px-3.5 py-3.5 gap-3 select-none"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={() => setSwipeStart(null)}
+        >
           {/* Header with premium search + controls */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <div className="flex-1">
