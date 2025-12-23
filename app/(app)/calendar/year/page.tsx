@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { format, addYears, subYears, startOfYear, eachMonthOfInterval, startOfMonth, endOfMonth, startOfWeek, addDays, isToday, isSameMonth } from 'date-fns'
@@ -8,7 +8,7 @@ import { getEventsInRange } from '@/lib/helpers/calendar/EventsHelper'
 import { Event } from '@/lib/models/calendar/Event'
 import { getDayCodeFromDateTime, getDateTimeFromTS } from '@/lib/helpers/calendar/Formatter'
 
-export default function YearViewPage() {
+function YearViewContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const yearParam = searchParams.get('year')
@@ -239,6 +239,18 @@ export default function YearViewPage() {
         </div>
       </div>
     </main>
+  )
+}
+
+export default function YearViewPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen bg-gradient-to-br from-slate-50 dark:from-slate-950 via-blue-50/30 dark:via-slate-900 to-slate-50 dark:to-slate-950 flex items-center justify-center">
+        <div className="text-slate-500 dark:text-slate-400">Loading...</div>
+      </main>
+    }>
+      <YearViewContent />
+    </Suspense>
   )
 }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Plus, Calendar } from 'lucide-react'
 import { format, addDays, subDays, isToday, startOfDay, endOfDay } from 'date-fns'
@@ -9,7 +9,7 @@ import { Event } from '@/lib/models/calendar/Event'
 import { getDayCodeFromDateTime } from '@/lib/helpers/calendar/Formatter'
 import { EventFormModal } from '@/components/calendar/EventFormModal'
 
-export default function DayViewPage() {
+function DayViewContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const dayParam = searchParams.get('day') // YYYYMMdd format
@@ -233,6 +233,18 @@ export default function DayViewPage() {
         />
       )}
     </main>
+  )
+}
+
+export default function DayViewPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen bg-gradient-to-br from-slate-50 dark:from-slate-950 via-blue-50/30 dark:via-slate-900 to-slate-50 dark:to-slate-950 flex items-center justify-center">
+        <div className="text-slate-500 dark:text-slate-400">Loading...</div>
+      </main>
+    }>
+      <DayViewContent />
+    </Suspense>
   )
 }
 

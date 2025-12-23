@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { format, addWeeks, subWeeks, startOfWeek, addDays, isToday, getDay } from 'date-fns'
@@ -9,7 +9,7 @@ import { Event } from '@/lib/models/calendar/Event'
 import { getDayCodeFromDateTime, getDateTimeFromTS } from '@/lib/helpers/calendar/Formatter'
 import { EventFormModal } from '@/components/calendar/EventFormModal'
 
-export default function WeekViewPage() {
+function WeekViewContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const weekParam = searchParams.get('week') // YYYYMMdd format of Monday
@@ -305,6 +305,18 @@ export default function WeekViewPage() {
         />
       )}
     </main>
+  )
+}
+
+export default function WeekViewPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen bg-gradient-to-br from-slate-50 dark:from-slate-950 via-blue-50/30 dark:via-slate-900 to-slate-50 dark:to-slate-950 flex items-center justify-center">
+        <div className="text-slate-500 dark:text-slate-400">Loading...</div>
+      </main>
+    }>
+      <WeekViewContent />
+    </Suspense>
   )
 }
 
