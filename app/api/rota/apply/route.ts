@@ -93,10 +93,20 @@ export async function POST(req: NextRequest) {
     const actualStartCycleIndex = (startCycleIndex + daysFromPatternStart + patternSlots.length) % patternSlots.length
 
     // Generate shifts from generateStart through end date
+    // Optimize: use efficient date arithmetic to avoid repeated Date operations
     const totalDays = Math.ceil((end.getTime() - generateStart.getTime()) / (1000 * 60 * 60 * 24))
+    const generateStartTime = generateStart.getTime()
+    const dayMs = 1000 * 60 * 60 * 24
+    
+    console.log('[api/rota/apply] starting shift generation', {
+      totalDays,
+      from: generateStart.toISOString().slice(0, 10),
+      to: end.toISOString().slice(0, 10),
+    })
+    const generationStartTime = Date.now()
+    
     for (let i = 0; i <= totalDays; i++) {
-      const currentDate = new Date(generateStart)
-      currentDate.setDate(generateStart.getDate() + i)
+      const currentDate = new Date(generateStartTime + (i * dayMs))
       
       if (currentDate > end) break
 
@@ -105,11 +115,14 @@ export async function POST(req: NextRequest) {
       const slot = patternSlots[cycleIndex]
       const shiftType = slotToType[slot] || 'off'
       const label = slotToLabel[slot] || 'OFF'
-
+      
+      // Pre-format date string once
+      const dateStr = currentDate.toISOString().slice(0, 10)
+      
       if (shiftType === 'off') {
         shifts.push({
           user_id: userId,
-          date: currentDate.toISOString().slice(0, 10),
+          date: dateStr,
           label: 'OFF',
           status: 'PLANNED',
           start_ts: null,
@@ -143,7 +156,7 @@ export async function POST(req: NextRequest) {
 
         shifts.push({
           user_id: userId,
-          date: currentDate.toISOString().slice(0, 10),
+          date: dateStr,
           label: label as any,
           status: 'PLANNED',
           start_ts,
@@ -152,6 +165,12 @@ export async function POST(req: NextRequest) {
         })
       }
     }
+
+    const generationTime = Date.now() - generationStartTime
+    console.log('[api/rota/apply] shift generation completed', {
+      timeMs: generationTime,
+      shiftsGenerated: shifts.length,
+    })
 
     // Deduplicate shifts by date (keep the last one if duplicates exist)
     const shiftsMap = new Map<string, typeof shifts[0]>()
@@ -190,9 +209,18 @@ export async function POST(req: NextRequest) {
 
     // Insert new shifts (no need for upsert since we deleted first)
     if (uniqueShifts.length > 0) {
-      // Insert in batches to avoid potential issues
-      const batchSize = 100
+      // Insert in larger batches for better performance (1000 shifts per batch)
+      // Supabase can handle up to 1000 rows per insert, so we use that limit
+      const batchSize = 1000
+      const insertionStartTime = Date.now()
       let totalInserted = 0
+      const totalBatches = Math.ceil(uniqueShifts.length / batchSize)
+      console.log('[api/rota/apply] starting shift insertion', {
+        totalShifts: uniqueShifts.length,
+        batchSize,
+        totalBatches,
+      })
+      
       for (let i = 0; i < uniqueShifts.length; i += batchSize) {
         const batch = uniqueShifts.slice(i, i + batchSize)
         const { error: insertError } = await supabase
@@ -208,11 +236,14 @@ export async function POST(req: NextRequest) {
         }
         totalInserted += batch.length
       }
+      const insertionTime = Date.now() - insertionStartTime
       console.log('[api/rota/apply] successfully inserted shifts', {
         totalInserted,
         userId,
         firstShiftDate: uniqueShifts[0]?.date,
         lastShiftDate: uniqueShifts[uniqueShifts.length - 1]?.date,
+        insertionTimeMs: insertionTime,
+        avgTimePerBatch: Math.round(insertionTime / totalBatches),
       })
     } else {
       console.warn('[api/rota/apply] no shifts to insert', { userId, generateStart, end })
