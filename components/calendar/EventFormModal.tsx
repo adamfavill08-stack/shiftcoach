@@ -320,15 +320,17 @@ export function EventFormModal({ isOpen, onClose, event, defaultDate, onSave }: 
               Event Type
             </label>
             <select
-              value={formData.eventType}
-              onChange={(e) => setFormData({ ...formData, eventType: parseInt(e.target.value) })}
+              value={formData.eventType || ''}
+              onChange={(e) => setFormData({ ...formData, eventType: e.target.value ? parseInt(e.target.value) : undefined })}
               className="w-full rounded-2xl px-4 py-3 bg-white/70 dark:bg-slate-800/50 backdrop-blur border border-slate-200/60 dark:border-slate-700/40 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500/50 dark:focus:ring-sky-400/50 transition"
             >
-              {eventTypes.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.title}
-                </option>
-              ))}
+              {eventTypes
+                .filter((type) => type.id != null)
+                .map((type) => (
+                  <option key={type.id} value={type.id!}>
+                    {type.title}
+                  </option>
+                ))}
             </select>
           </div>
 
