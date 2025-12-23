@@ -5,7 +5,7 @@ import { Event } from '@/lib/models/calendar/Event'
 import { getOccurrencesInRange } from './RecurrenceHelper'
 import { EventType } from '@/lib/models/calendar/EventType'
 import { format, getDayCodeFromDateTime, getDateTimeFromTS, getNowSeconds } from '@/lib/helpers/calendar/Formatter'
-import { addDays, addMonths, addYears, startOfMonth } from 'date-fns'
+import { addDays, addMonths, addYears, startOfMonth, getDate } from 'date-fns'
 import { 
   TYPE_EVENT, 
   TYPE_TASK, 
