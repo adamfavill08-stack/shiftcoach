@@ -10,6 +10,7 @@ import { createEvent, updateEvent } from '@/lib/helpers/calendar/EventsHelper'
 import { RemindersPicker, ReminderConfig } from './RemindersPicker'
 import { RecurrencePicker, RecurrenceConfig } from './RecurrencePicker'
 import { AttendeesPicker } from './AttendeesPicker'
+import { TimeZonePicker } from './TimeZonePicker'
 
 interface EventFormModalProps {
   isOpen: boolean
