@@ -50,22 +50,34 @@ export async function GET(req: NextRequest) {
       console.error('[api/rota/month] shifts fetch error', shiftsError)
     }
 
+    // Debug logging for shift fetching
+    if (monthShifts && monthShifts.length > 0) {
+      console.log('[api/rota/month] found shifts', {
+        month,
+        year,
+        count: monthShifts.length,
+        dateRange: { from: gridStartStr, to: gridEndStr },
+        firstShift: monthShifts[0]?.date,
+        lastShift: monthShifts[monthShifts.length - 1]?.date,
+      })
+    } else {
+      console.log('[api/rota/month] no shifts found', {
+        month,
+        year,
+        userId,
+        dateRange: { from: gridStartStr, to: gridEndStr },
+      })
+    }
+
     // Calculate month boundaries for checking if shifts exist in current month
     const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
     const monthEnd = month === 12 
       ? `${year + 1}-01-01` 
       : `${year}-${String(month + 1).padStart(2, '0')}-01`
 
-    // Check if there are any shifts in the current month (for hasShifts check)
-    const { data: currentMonthShifts } = await supabase
-      .from('shifts')
-      .select('date')
-      .eq('user_id', userId)
-      .gte('date', monthStart)
-      .lt('date', monthEnd)
-      .limit(1)
-
-    const hasShifts = currentMonthShifts && currentMonthShifts.length > 0
+    // Check if there are any shifts in the grid range (not just current month)
+    // This ensures shifts from previous/next months are included
+    const hasShifts = monthShifts && monthShifts.length > 0
 
     if (!hasShifts) {
       // No shifts saved yet - return empty calendar
