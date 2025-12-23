@@ -51,9 +51,9 @@ export function CalDAVSync() {
       }
       const data = await res.json()
       setAccounts(data.accounts ?? [])
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error loading CalDAV accounts:', err)
-      setError(err.message || 'Unable to load CalDAV accounts.')
+      setError(err instanceof Error ? err.message : 'Unable to load CalDAV accounts.')
     } finally {
       setLoading(false)
     }
@@ -89,7 +89,7 @@ export function CalDAVSync() {
       setShowAddForm(false)
     } catch (err) {
       console.error('Error adding account:', err)
-      setError(err.message || 'Failed to add CalDAV account')
+      setError(err instanceof Error ? err.message : 'Failed to add CalDAV account')
     } finally {
       setLoading(false)
     }
@@ -112,7 +112,7 @@ export function CalDAVSync() {
       await loadAccounts()
     } catch (err) {
       console.error('Sync error:', err)
-      setError(err.message || 'Failed to sync calendar')
+      setError(err instanceof Error ? err.message : 'Failed to sync calendar')
     } finally {
       setSyncing(null)
     }
@@ -131,9 +131,9 @@ export function CalDAVSync() {
         throw new Error(json.error || 'Failed to delete CalDAV account')
       }
       await loadAccounts()
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error deleting CalDAV account:', err)
-      setError(err.message || 'Failed to delete CalDAV account')
+      setError(err instanceof Error ? err.message : 'Failed to delete CalDAV account')
     } finally {
       setLoading(false)
     }
