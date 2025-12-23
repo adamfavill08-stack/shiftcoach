@@ -58,14 +58,24 @@ export async function getEventsInRange(
       }
       // Don't log 401 errors - they're expected when user isn't signed in
       if (response.status !== 401) {
-        const errorInfo: Record<string, any> = {
-          status: response.status,
-          statusText: response.statusText,
+        // Only log if we have meaningful error information
+        const hasErrorInfo = preview || errorDetail?.error || errorDetail?.detail
+        if (hasErrorInfo) {
+          const errorInfo: Record<string, any> = {
+            status: response.status,
+            statusText: response.statusText,
+          }
+          if (preview) errorInfo.preview = preview.slice(0, 200)
+          if (errorDetail?.error) errorInfo.error = errorDetail.error
+          if (errorDetail?.detail) errorInfo.detail = errorDetail.detail
+          console.error('[EventsHelper] Failed to fetch events', errorInfo)
+        } else {
+          // Log minimal info if no detailed error available
+          console.error('[EventsHelper] Failed to fetch events', {
+            status: response.status,
+            statusText: response.statusText,
+          })
         }
-        if (preview) errorInfo.preview = preview.slice(0, 200)
-        if (errorDetail?.error) errorInfo.error = errorDetail.error
-        if (errorDetail?.detail) errorInfo.detail = errorDetail.detail
-        console.error('[EventsHelper] Failed to fetch events', errorInfo)
       }
       return []
     }
@@ -74,11 +84,25 @@ export async function getEventsInRange(
     return (data && Array.isArray(data.events)) ? data.events : []
   } catch (error) {
     // Only log if it's not a network error or auth error (these are expected in some cases)
-    if (error instanceof TypeError && error.message.includes('fetch')) {
+    if (error instanceof TypeError && error.message?.includes('fetch')) {
       // Network error - likely offline or CORS issue, silently return empty
       return []
     }
-    console.error('[EventsHelper] Error fetching events:', error instanceof Error ? error.message : String(error))
+    // Only log if we have meaningful error information
+    if (error instanceof Error && error.message) {
+      // Don't log empty errors or 401-related errors
+      if (error.message.includes('Unauthorized') || error.message.includes('401')) {
+        return []
+      }
+      console.error('[EventsHelper] Error fetching events:', error.message)
+    } else if (error && typeof error === 'object' && Object.keys(error).length > 0) {
+      // Only log if the error object has properties
+      const errorStr = JSON.stringify(error)
+      if (!errorStr.includes('401') && !errorStr.includes('Unauthorized')) {
+        console.error('[EventsHelper] Error fetching events:', error)
+      }
+    }
+    // Silently return empty array for any other errors (empty objects, etc.)
     return []
   }
 }
