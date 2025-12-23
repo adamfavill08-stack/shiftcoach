@@ -6,7 +6,7 @@ import { Event, TYPE_TASK, FLAG_TASK_COMPLETED } from '@/lib/models/calendar/Eve
 // PUT /api/calendar/tasks/[id] - Update task (including completion status)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
@@ -16,6 +16,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const body = await request.json()
     const { completed, ...taskData } = body
 
@@ -33,7 +34,7 @@ export async function PUT(
       const { data: currentTask } = await supabase
         .from('events')
         .select('flags')
-        .eq('id', params.id)
+        .eq('id', id)
         .eq('user_id', userId)
         .single()
 
@@ -49,7 +50,7 @@ export async function PUT(
     const { data, error } = await supabase
       .from('events')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', userId)
       .eq('type', TYPE_TASK)
       .select()
@@ -91,7 +92,7 @@ export async function PUT(
 // DELETE /api/calendar/tasks/[id] - Delete task
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
@@ -101,17 +102,19 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
+
     // Delete task record first
     await supabase
       .from('tasks')
       .delete()
-      .eq('task_id', params.id)
+      .eq('task_id', id)
 
     // Delete event
     const { error } = await supabase
       .from('events')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', userId)
       .eq('type', TYPE_TASK)
 

@@ -6,7 +6,7 @@ import { EventType } from '@/lib/models/calendar/EventType'
 // GET /api/calendar/event-types/[id] - Get single event type
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
@@ -16,10 +16,12 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
+
     const { data, error } = await supabase
       .from('event_types')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (error) {
@@ -40,7 +42,7 @@ export async function GET(
 // PUT /api/calendar/event-types/[id] - Update event type
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
@@ -50,6 +52,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const body = await request.json()
     const eventType: Partial<EventType> = body
 
@@ -64,7 +67,7 @@ export async function PUT(
     const { data, error } = await supabase
       .from('event_types')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 
@@ -83,7 +86,7 @@ export async function PUT(
 // DELETE /api/calendar/event-types/[id] - Delete event type
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
@@ -93,11 +96,13 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
+
     // Check if event type is in use
     const { data: events } = await supabase
       .from('events')
       .select('id')
-      .eq('event_type', params.id)
+      .eq('event_type', id)
       .limit(1)
 
     if (events && events.length > 0) {
@@ -110,7 +115,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('event_types')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
 
     if (error) {
       console.error('Error deleting event type:', error)
