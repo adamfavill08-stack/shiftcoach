@@ -72,12 +72,17 @@ export async function getEventsInRange(
           if (errorInfo.status !== undefined && errorInfo.statusText) {
             console.error('[EventsHelper] Failed to fetch events', errorInfo)
           }
-        } else if (response.status && response.statusText) {
+        } else if (response.status !== undefined && response.statusText) {
           // Log minimal info if no detailed error available, but only if we have status info
-          console.error('[EventsHelper] Failed to fetch events', {
+          // Ensure we're not logging an empty object
+          const statusObj = {
             status: response.status,
             statusText: response.statusText,
-          })
+          }
+          // Only log if the object has valid properties
+          if (statusObj.status !== undefined && statusObj.statusText) {
+            console.error('[EventsHelper] Failed to fetch events', statusObj)
+          }
         }
         // If we have no meaningful info at all, silently return (don't log empty objects)
       }
