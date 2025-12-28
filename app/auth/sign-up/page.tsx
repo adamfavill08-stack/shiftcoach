@@ -63,7 +63,7 @@ function SignUpContent() {
                   alt="ShiftCoach Logo"
                   width={240}
                   height={60}
-                  className="object-contain h-14"
+                  className="object-contain h-14 brightness-110 dark:brightness-0 dark:invert saturate-110"
                   priority
                 />
               </div>

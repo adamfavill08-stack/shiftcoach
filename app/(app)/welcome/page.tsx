@@ -103,7 +103,7 @@ export default function WelcomePage() {
                       alt="ShiftCoach"
                       width={140}
                       height={56}
-                      className="h-18 w-auto brightness-[1.15] dark:brightness-[1.3] contrast-[1.1] dark:contrast-[1.15] saturate-110 dark:saturate-120 drop-shadow-[0_2px_8px_rgba(0,0,0,0.1)] dark:drop-shadow-[0_2px_12px_rgba(255,255,255,0.15)] transition-transform duration-300 group-hover:scale-105"
+                      className="h-18 w-auto brightness-[1.15] dark:brightness-0 dark:invert contrast-[1.1] dark:contrast-[1.15] saturate-110 dark:saturate-120 drop-shadow-[0_2px_8px_rgba(0,0,0,0.1)] dark:drop-shadow-[0_2px_12px_rgba(255,255,255,0.15)] transition-transform duration-300 group-hover:scale-105"
                       priority
                     />
                   </div>
