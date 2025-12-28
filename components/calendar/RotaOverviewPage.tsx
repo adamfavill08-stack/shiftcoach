@@ -902,25 +902,6 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
             </div>
           </div>
 
-          {/* Shift workers info card */}
-          <div className="mt-3 rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-900/70 px-4 py-3.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300 shadow-[0_2px_10px_rgba(15,23,42,0.04)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.5)]">
-            <div className="flex items-start gap-2.5">
-              <div className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/10 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300">
-                <span className="text-xs font-semibold">SC</span>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  Designed for shift workers
-                </p>
-                <p>
-                  This calendar is built specifically for rotating shift patterns. Each coloured bar shows your
-                  night, day or off days in order, not a generic 9–5 schedule. Use it to spot runs of nights,
-                  recovery days and gaps between shifts so you can plan sleep, meals and recovery around your rota.
-                </p>
-              </div>
-            </div>
-          </div>
-
           {loading && (
             <div className="mt-3 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm px-4 py-3 text-center text-xs font-semibold text-slate-600 dark:text-slate-300 shadow-[0_2px_8px_rgba(15,23,42,0.06)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)] flex-shrink-0">
               Loading…
@@ -938,6 +919,59 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
               {error}
             </div>
           )}
+
+          {/* Floating Add Button (+) – positioned just under the calendar */}
+          <div className="relative mt-3 flex justify-end z-10">
+            <div className="flex flex-col items-end space-y-2">
+              {menuOpen && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      router.push('/rota/setup')
+                    }}
+                    className="flex items-center gap-2.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 bg-white/98 dark:bg-slate-800/70 backdrop-blur-sm px-5 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 shadow-[0_8px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] transition-all duration-200 hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_12px_32px_rgba(0,0,0,0.5)] hover:scale-105 active:scale-95"
+                  >
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 dark:from-sky-600 dark:to-indigo-600 text-xs font-bold text-white shadow-sm">
+                      R
+                    </span>
+                    Rota Setup
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      router.push('/rota/event')
+                    }}
+                    className="flex items-center gap-2.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 bg-white/98 dark:bg-slate-800/70 backdrop-blur-sm px-5 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 shadow-[0_8px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] transition-all duration-200 hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_12px_32px_rgba(0,0,0,0.5)] hover:scale-105 active:scale-95"
+                  >
+                    <CalendarPlus size={18} className="text-sky-500 dark:text-sky-400" strokeWidth={2.5} />
+                    Event
+                  </button>
+                </>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setMenuOpen((open) => !open)}
+                className="relative flex h-12 w-12 items-center justify-center rounded-[1.1rem] 
+                           bg-slate-900 text-white border border-slate-800/70
+                           transition-all duration-300
+                           hover:bg-slate-900/95 active:scale-[0.97]"
+                aria-label="Add holiday or task"
+              >
+                {/* Subtle CalAI glow */}
+                <span className="pointer-events-none absolute inset-0 rounded-[1.1rem] bg-gradient-to-br from-sky-500/35 via-indigo-500/25 to-purple-500/35 blur-xl opacity-70" />
+                <span className="pointer-events-none absolute inset-[1px] rounded-[1.05rem] bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950" />
+                {menuOpen ? (
+                  <span className="relative z-10 text-2xl font-light leading-none">×</span>
+                ) : (
+                  <Plus className="relative z-10 h-6 w-6" strokeWidth={2.4} />
+                )}
+              </button>
+            </div>
+          </div>
 
         </div>
 
@@ -1055,56 +1089,6 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
           </div>
         )}
 
-        {/* Floating Add Button (+) – move higher under the calendar grid */}
-        <div className="absolute bottom-44 right-6 flex flex-col items-end space-y-2 z-10">
-          {menuOpen && (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false)
-                  router.push('/rota/setup')
-                }}
-                className="flex items-center gap-2.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 bg-white/98 dark:bg-slate-800/70 backdrop-blur-sm px-5 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 shadow-[0_8px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] transition-all duration-200 hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_12px_32px_rgba(0,0,0,0.5)] hover:scale-105 active:scale-95"
-              >
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 dark:from-sky-600 dark:to-indigo-600 text-xs font-bold text-white shadow-sm">
-                  R
-                </span>
-                Rota Setup
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false)
-                  router.push('/rota/event')
-                }}
-                className="flex items-center gap-2.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 bg-white/98 dark:bg-slate-800/70 backdrop-blur-sm px-5 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 shadow-[0_8px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] transition-all duration-200 hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_12px_32px_rgba(0,0,0,0.5)] hover:scale-105 active:scale-95"
-              >
-                <CalendarPlus size={18} className="text-sky-500 dark:text-sky-400" strokeWidth={2.5} />
-                Event
-              </button>
-            </>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setMenuOpen((open) => !open)}
-            className="relative flex h-12 w-12 items-center justify-center rounded-[1.1rem] 
-                       bg-slate-900 text-white border border-slate-800/70
-                       transition-all duration-300
-                       hover:bg-slate-900/95 active:scale-[0.97]"
-            aria-label="Add holiday or task"
-          >
-            {/* Subtle CalAI glow */}
-            <span className="pointer-events-none absolute inset-0 rounded-[1.1rem] bg-gradient-to-br from-sky-500/35 via-indigo-500/25 to-purple-500/35 blur-xl opacity-70" />
-            <span className="pointer-events-none absolute inset-[1px] rounded-[1.05rem] bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950" />
-            {menuOpen ? (
-              <span className="relative z-10 text-2xl font-light leading-none">×</span>
-            ) : (
-              <Plus className="relative z-10 h-6 w-6" strokeWidth={2.4} />
-            )}
-          </button>
-        </div>
       </div>
     </div>
   )
