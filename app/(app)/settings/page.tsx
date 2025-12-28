@@ -12,7 +12,6 @@ import { AICoachSection } from './components/AICoachSection'
 import { DataPrivacySection } from './components/DataPrivacySection'
 import { TesterFeedbackSection } from './components/TesterFeedbackSection'
 import { SubscriptionPlanSection } from './components/SubscriptionPlanSection'
-import { TestPageSection } from './components/TestPageSection'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -104,15 +103,6 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Testing Section */}
-              <div className="pt-2">
-                <p className="px-4 pt-4 pb-2 text-[11px] font-semibold tracking-wide text-slate-500 dark:text-slate-400 uppercase">
-                  Testing
-                </p>
-                <div className="space-y-1">
-                  <TestPageSection />
-                </div>
-              </div>
             </div>
 
 

@@ -8,7 +8,7 @@ export function ViewSwitcher() {
   const pathname = usePathname()
 
   const views = [
-    { id: 'month', label: 'Month', icon: Calendar, path: '/settings/test-page' },
+    { id: 'month', label: 'Month', icon: Calendar, path: '/rota' },
     { id: 'week', label: 'Week', icon: CalendarDays, path: '/calendar/week' },
     { id: 'day', label: 'Day', icon: CalendarDays, path: '/calendar/day' },
     { id: 'year', label: 'Year', icon: Grid3x3, path: '/calendar/year' },
