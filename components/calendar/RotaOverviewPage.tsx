@@ -600,16 +600,22 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
           minHeight: 'env(safe-area-inset-top, 24px)'
         }}
       />
+      
+      {/* Back to Dashboard Button - bottom left, fixed to viewport */}
+      <button
+        type="button"
+        onClick={() => router.push('/dashboard')}
+        className="fixed bottom-6 left-6 z-30 h-12 w-12 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/70 dark:border-slate-700/40 shadow-[0_8px_24px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800/90 hover:shadow-[0_12px_32px_rgba(0,0,0,0.16)] dark:hover:shadow-[0_12px_32px_rgba(0,0,0,0.5)] active:scale-95 transition-all"
+        aria-label="Back to dashboard"
+        style={{ 
+          bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
+          left: 'calc(1.5rem + env(safe-area-inset-left, 0px))'
+        }}
+      >
+        <ChevronLeft className="w-5 h-5" />
+      </button>
+
       <div className="relative flex h-full w-full max-w-md flex-col px-3 py-3" style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
-        {/* Back to Dashboard Button - bottom left */}
-        <button
-          type="button"
-          onClick={() => router.push('/dashboard')}
-          className="fixed bottom-6 left-6 z-20 h-10 w-10 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/70 dark:border-slate-700/40 shadow-[0_8px_24px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800/90 hover:shadow-[0_12px_32px_rgba(0,0,0,0.16)] dark:hover:shadow-[0_12px_32px_rgba(0,0,0,0.5)] active:scale-95 transition-all"
-          aria-label="Back to dashboard"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
 
         {/* Single premium card containing header, month nav and weeks */}
         <div 
