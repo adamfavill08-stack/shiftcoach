@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CalendarPlus, Plus, Edit2, Trash2, X, ChevronLeft, Search, Mic, MicOff, Grid3x3, MoreVertical } from 'lucide-react'
 import { buildMonthFromPattern } from '@/lib/data/buildRotaMonth'
@@ -112,6 +113,11 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
   const [showTasks, setShowTasks] = useState(false)
   const [showSettingsMenu, setShowSettingsMenu] = useState(false)
   const [showShiftBars, setShowShiftBars] = useState(true)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Sync cursorDate with ?month=YYYY-MM (from URL or prop), so year view clicks open that month
   const monthParam = searchParams.get('month') ?? initialYearMonth ?? null
@@ -601,15 +607,18 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
         }}
       />
       
-      {/* Back to Dashboard Button - bottom left, fixed to viewport */}
-      <button
-        type="button"
-        onClick={() => router.push('/dashboard')}
-        className="fixed bottom-4 left-4 z-[100] h-12 w-12 rounded-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-2 border-slate-300/80 dark:border-slate-600/80 shadow-[0_8px_24px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 hover:shadow-[0_12px_32px_rgba(0,0,0,0.2)] dark:hover:shadow-[0_12px_32px_rgba(0,0,0,0.6)] active:scale-95 transition-all"
-        aria-label="Back to dashboard"
-      >
-        <ChevronLeft className="w-6 h-6" strokeWidth={2.5} />
-      </button>
+      {/* Back to Dashboard Button - bottom left, fixed to viewport using portal */}
+      {mounted && createPortal(
+        <button
+          type="button"
+          onClick={() => router.push('/dashboard')}
+          className="fixed bottom-4 left-4 z-[9999] h-12 w-12 rounded-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-2 border-slate-300/80 dark:border-slate-600/80 shadow-[0_8px_24px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 hover:shadow-[0_12px_32px_rgba(0,0,0,0.2)] dark:hover:shadow-[0_12px_32px_rgba(0,0,0,0.6)] active:scale-95 transition-all"
+          aria-label="Back to dashboard"
+        >
+          <ChevronLeft className="w-6 h-6" strokeWidth={2.5} />
+        </button>,
+        document.body
+      )}
 
       <div className="relative flex h-full w-full max-w-md flex-col px-3 py-3" style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
 
