@@ -605,14 +605,10 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
       <button
         type="button"
         onClick={() => router.push('/dashboard')}
-        className="fixed bottom-6 left-6 z-30 h-12 w-12 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/70 dark:border-slate-700/40 shadow-[0_8px_24px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800/90 hover:shadow-[0_12px_32px_rgba(0,0,0,0.16)] dark:hover:shadow-[0_12px_32px_rgba(0,0,0,0.5)] active:scale-95 transition-all"
+        className="fixed bottom-4 left-4 z-[100] h-12 w-12 rounded-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-2 border-slate-300/80 dark:border-slate-600/80 shadow-[0_8px_24px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 hover:shadow-[0_12px_32px_rgba(0,0,0,0.2)] dark:hover:shadow-[0_12px_32px_rgba(0,0,0,0.6)] active:scale-95 transition-all"
         aria-label="Back to dashboard"
-        style={{ 
-          bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
-          left: 'calc(1.5rem + env(safe-area-inset-left, 0px))'
-        }}
       >
-        <ChevronLeft className="w-5 h-5" />
+        <ChevronLeft className="w-6 h-6" strokeWidth={2.5} />
       </button>
 
       <div className="relative flex h-full w-full max-w-md flex-col px-3 py-3" style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
