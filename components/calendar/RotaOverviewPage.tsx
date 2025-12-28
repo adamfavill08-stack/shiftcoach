@@ -903,18 +903,6 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                 )
               })}
             </div>
-            
-            {/* Back to Dashboard Button - positioned under first column (date 5) */}
-            <div className="relative mt-1">
-              <button
-                type="button"
-                onClick={() => router.push('/dashboard')}
-                className="absolute left-0 h-12 w-12 rounded-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-2 border-slate-300/80 dark:border-slate-600/80 shadow-[0_8px_24px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.5)] flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 hover:shadow-[0_12px_32px_rgba(0,0,0,0.2)] dark:hover:shadow-[0_12px_32px_rgba(0,0,0,0.6)] active:scale-95 transition-all"
-                aria-label="Back to dashboard"
-              >
-                <ChevronLeft className="w-6 h-6" strokeWidth={2.5} />
-              </button>
-            </div>
           </div>
 
           {loading && (
