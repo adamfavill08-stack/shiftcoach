@@ -921,7 +921,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
           )}
 
           {/* Floating Add Button (+) – positioned just under the calendar */}
-          <div className="relative mt-3 flex justify-end z-10">
+          <div className="relative mt-1 flex justify-end z-10">
             <div className="flex flex-col items-end space-y-2">
               {menuOpen && (
                 <>
