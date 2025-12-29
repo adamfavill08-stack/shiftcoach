@@ -1,18 +1,29 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Mail, Lock } from 'lucide-react'
 
-export default function SignIn() {
+function SignInContent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [err, setErr] = useState<string | undefined>()
   const [busy, setBusy] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Check for error messages from callback redirect
+  useEffect(() => {
+    const errorParam = searchParams.get('error')
+    if (errorParam) {
+      setErr(decodeURIComponent(errorParam))
+      // Clean up URL
+      router.replace('/auth/sign-in', { scroll: false })
+    }
+  }, [searchParams, router])
 
   // Verify Supabase connection on mount (development only)
   useEffect(() => {
@@ -47,15 +58,22 @@ export default function SignIn() {
         return setErr(error.message || 'An error occurred during sign in. Please try again.')
       }
       
-      // Check if profile is complete
+      // Check subscription plan first, then profile completion
       const { data: u } = await supabase.auth.getUser()
       if (u.user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('name, height_cm, weight_kg')
+          .select('name, height_cm, weight_kg, subscription_plan')
           .eq('user_id', u.user.id)
           .single()
         
+        // 1) If no plan selected yet, always go to Select Plan first
+        if (!profile?.subscription_plan) {
+          router.replace('/select-plan')
+          return
+        }
+        
+        // 2) Then use existing logic for dashboard vs onboarding
         const isComplete = profile && profile.name && profile.height_cm && profile.weight_kg
         router.replace(isComplete ? '/dashboard' : '/onboarding')
       } else {
@@ -195,6 +213,24 @@ export default function SignIn() {
         </div>
       </div>
     </main>
+  )
+}
+
+export default function SignIn() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 relative overflow-hidden flex items-center justify-center px-6 py-12">
+          <div className="w-full max-w-md relative z-10">
+            <div className="relative mx-auto max-w-md rounded-3xl overflow-hidden bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_18px_50px_-22px_rgba(0,0,0,0.18)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),0_18px_50px_-22px_rgba(0,0,0,0.5)] p-7 text-center text-sm text-slate-500 dark:text-slate-400">
+              Loading…
+            </div>
+          </div>
+        </main>
+      }
+    >
+      <SignInContent />
+    </Suspense>
   )
 }
 
