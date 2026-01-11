@@ -44,7 +44,10 @@ android {
 }
 
 repositories {
-    flatDir{
+    // flatDir is required by Capacitor for local plugin dependencies
+    // Note: Android Studio shows a warning about flatDir, but this is necessary
+    // for Capacitor's plugin system to work correctly. This warning can be safely ignored.
+    flatDir {
         dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
     }
 }
