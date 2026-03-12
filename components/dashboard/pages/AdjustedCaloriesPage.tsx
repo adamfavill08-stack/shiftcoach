@@ -1698,7 +1698,7 @@ export default function AdjustedCaloriesPage() {
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">(assumes 9-5 routine)</p>
                 </div>
                 <span className="text-lg font-semibold tabular-nums text-slate-900 dark:text-slate-100">
-                  {standardCalories.toLocaleString()} kcal
+                  {standardCalories != null ? `${standardCalories.toLocaleString()} kcal` : '—'}
                 </span>
               </div>
               <div className="flex items-center justify-between rounded-2xl px-4 py-3.5 bg-gradient-to-br from-indigo-50/40 dark:from-indigo-950/30 to-violet-50/40 dark:to-violet-950/30 border border-indigo-200/30 dark:border-indigo-800/30">
