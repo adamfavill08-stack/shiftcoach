@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { isoLocalDate } from '@/lib/shifts'
 
-type RotaDay = { date: string; label: string | null }
+type RotaDay = { date: string; label: string | null; status?: string | null }
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
@@ -136,6 +136,7 @@ export function ShiftWeekStrip({
                 flat.push({
                   date: day.date,
                   label: (day.label as string | null) ?? null,
+                  status: (day.status as string | null) ?? null,
                 })
               }
             }
