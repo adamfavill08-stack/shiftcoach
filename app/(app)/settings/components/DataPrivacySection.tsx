@@ -180,6 +180,15 @@ export function DataPrivacySection() {
               <span className="text-sm font-medium text-slate-800 dark:text-slate-200">Delete my account</span>
               <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
             </button>
+            <a
+              href="/account/delete"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors"
+            >
+              <span className="text-xs text-slate-500 dark:text-slate-400">Delete account on web</span>
+              <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
+            </a>
           </div>
         )}
       </div>

@@ -14,6 +14,9 @@ import { calculateActivityScore } from '@/lib/activity/calculateActivityScore'
 import { calculateMovementConsistency, type DailyActivityData } from '@/lib/activity/calculateMovementConsistency'
 import { toShiftType, toActivityShiftType } from '@/lib/shifts/toShiftType'
 
+// Cache for 60 seconds - activity data updates throughout the day
+export const revalidate = 60
+
 export async function GET(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
 

@@ -1662,8 +1662,7 @@ export default function AdjustedCaloriesPage() {
       )}
 
       {/* Standard Calculator Comparison */}
-      {standardCalories && (
-        <section
+      <section
           className={[
             "relative overflow-hidden rounded-3xl",
             "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
@@ -1742,7 +1741,6 @@ export default function AdjustedCaloriesPage() {
             </div>
           </div>
         </section>
-      )}
 
       {/* CARD 3 — Macro targets + Meal times */}
       <EnhancedMacroTargetsCard 

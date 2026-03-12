@@ -1,7 +1,8 @@
-'use client'
+"use client"
 
-import { useState, useEffect } from 'react'
-import { Info } from 'lucide-react'
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import { ChevronRight, Info } from "lucide-react"
 import type { ShiftLagMetrics, ShiftLagLevel } from '@/lib/shiftlag/calculateShiftLag'
 import { ShiftLagInfoModal } from './ShiftLagInfoModal'
 
@@ -204,31 +205,31 @@ export function ShiftLagCard() {
   const colors = data ? getLevelColor(data.level) : null
 
   return (
-    <section className="relative overflow-hidden rounded-3xl bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 text-slate-900 dark:text-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-6">
+    <section className="relative overflow-hidden rounded-3xl bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 text-slate-900 dark:text-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-0">
       {/* Highlight overlay */}
       <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
-      
       {/* Subtle colored glow hints - dark mode only */}
       <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
-      
       {/* Inner ring for premium feel */}
       <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
-      
-      <div className="relative z-10 space-y-5">
+
+      <Link
+        href="/shift-lag"
+        className="relative z-10 block px-5 py-4 space-y-4"
+      >
         {/* Header */}
         <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <h3 className="text-[17px] font-semibold tracking-tight">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
+              Shift Lag
+            </span>
+            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
               Jet lag from your shifts
-            </h3>
+            </span>
           </div>
-          <button
-            onClick={() => setIsInfoModalOpen(true)}
-            className="flex-shrink-0 h-8 w-8 rounded-full bg-transparent text-slate-400 dark:text-slate-500 hover:bg-slate-100/60 dark:hover:bg-slate-800/50 transition-colors flex items-center justify-center"
-            aria-label="Learn more about ShiftLag"
-          >
-            <Info className="h-4 w-4" strokeWidth={2} />
-          </button>
+          <div className="flex items-center">
+            <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+          </div>
         </div>
 
         {loading ? (
@@ -252,10 +253,12 @@ export function ShiftLagCard() {
               </div>
             </div>
           </div>
-        ) : !data || (data.score === 0 && data.explanation.includes('Track a few days')) ? (
-          <div className="flex flex-col items-center justify-center text-center text-slate-600 dark:text-slate-300 space-y-2 py-8">
-            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Not enough data yet</p>
-            <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300 max-w-[22ch]">
+        ) : !data || (data.score === 0 && data.explanation.includes("Track a few days")) ? (
+          <div className="flex flex-col items-start justify-center text-left text-slate-600 dark:text-slate-300 space-y-1 py-2">
+            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              Not enough data yet
+            </p>
+            <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300 max-w-[26ch]">
               Track a few days of sleep and shifts to unlock your ShiftLag score.
             </p>
           </div>
@@ -331,15 +334,9 @@ export function ShiftLagCard() {
             </div>
           </div>
         ) : null}
-      </div>
+      </Link>
 
-      {/* Info Modal */}
-      <ShiftLagInfoModal
-        open={isInfoModalOpen}
-        onClose={() => setIsInfoModalOpen(false)}
-        level={data?.level}
-        score={data?.score}
-      />
+      {/* Info Modal (no longer opened from this card) */}
     </section>
   )
 }

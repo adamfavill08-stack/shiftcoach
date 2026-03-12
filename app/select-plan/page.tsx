@@ -3,12 +3,15 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/AuthProvider'
+import { useNativePurchases } from '@/lib/hooks/useNativePurchases'
+import { getPurchasePlatform } from '@/lib/purchases/native-purchases'
 import Image from 'next/image'
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 
 export default function SelectPlanPage() {
   const router = useRouter()
   const { user, loading } = useAuth()
+  const { platform, isAvailable, purchaseSubscription, isPurchasing } = useNativePurchases()
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly' | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | undefined>()
@@ -22,6 +25,9 @@ export default function SelectPlanPage() {
 
   // In development, allow viewing without auth (for testing)
   const isDev = process.env.NODE_ENV !== 'production'
+  
+  // Determine if we should use native purchases or Stripe
+  const shouldUseNativePurchases = isAvailable && (platform === 'ios' || platform === 'android')
   
   // Redirect if not authenticated (skip in dev mode for testing)
   useEffect(() => {
@@ -189,30 +195,24 @@ export default function SelectPlanPage() {
     setErr(undefined)
 
     try {
-      // Create Stripe checkout session for payment
-      const response = await fetch('/api/payment/create-checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          plan: selectedPlan,
-          // 7-day free trial
-          trialDays: 7
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create payment session')
+      // Mobile-only: Use native purchases (iOS/Android)
+      if (!shouldUseNativePurchases) {
+        // This should never happen in mobile app, but show error if it does
+        setErr('This app is only available on iOS and Android. Please use the mobile app.')
+        setBusy(false)
+        return
       }
 
-      // Redirect to Stripe Checkout
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl
+      // Native purchase flow (iOS/Android via RevenueCat)
+      const result = await purchaseSubscription(selectedPlan)
+      
+      if (result.success) {
+        // Subscription activated via RevenueCat
+        // Redirect to onboarding
+        router.replace('/onboarding')
       } else {
-        throw new Error('No checkout URL received')
+        setErr(result.error || 'Purchase failed')
+        setBusy(false)
       }
     } catch (error: any) {
       setErr(error.message || 'Something went wrong')
@@ -506,10 +506,14 @@ export default function SelectPlanPage() {
             {/* Continue Button - CalAI System Dark */}
             <button
               onClick={handleSelectPlan}
-              disabled={(!selectedPlan && !promoValid) || busy}
+              disabled={(!selectedPlan && !promoValid) || busy || isPurchasing}
               className="w-full h-12 rounded-2xl text-sm font-semibold text-white bg-slate-900 dark:bg-slate-100 dark:text-slate-900 shadow-[0_18px_40px_-22px_rgba(0,0,0,0.35)] dark:shadow-[0_18px_40px_-22px_rgba(255,255,255,0.1)] hover:opacity-95 dark:hover:opacity-90 active:scale-[0.99] transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {busy ? 'Processing…' : promoValid ? 'Continue with Free Access' : 'Start 7-Day Free Trial'}
+              {busy || isPurchasing 
+                ? 'Processing…' 
+                : promoValid 
+                  ? 'Continue with Free Access' 
+                  : 'Start 7-Day Free Trial'}
             </button>
 
             {/* Footer */}

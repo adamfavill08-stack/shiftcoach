@@ -31,6 +31,12 @@ export type Profile = {
   macro_split_preset?: 'balanced' | 'high_protein' | 'custom' | null
   default_activity_level?: 'low' | 'medium' | 'high' | null
   animations_enabled?: boolean | null
+  // RevenueCat fields
+  revenuecat_user_id?: string | null
+  revenuecat_subscription_id?: string | null
+  revenuecat_entitlements?: any | null // JSONB
+  subscription_platform?: 'stripe' | 'revenuecat_ios' | 'revenuecat_android' | null
+  subscription_status?: 'active' | 'canceled' | 'past_due' | 'trialing' | 'incomplete' | null
 }
 
 function inferRegionAndCurrencyFromEnv() {

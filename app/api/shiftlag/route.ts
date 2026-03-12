@@ -4,7 +4,8 @@ import * as SupabaseServer from '@/lib/supabase-server'
 import { calculateShiftLag } from '@/lib/shiftlag/calculateShiftLag'
 import { logSupabaseError } from '@/lib/supabase/error-handler'
 
-export const dynamic = 'force-dynamic'
+// Cache for 60 seconds - shift lag updates daily
+export const revalidate = 60
 
 /**
  * GET /api/shiftlag

@@ -20,6 +20,7 @@ type ShiftRhythmScore = {
  */
 export function useShiftRhythm(onScoreChange?: (change: number, newScore: number) => void) {
   const [score, setScore] = useState<ShiftRhythmScore | null>(null)
+  const [sleepDeficit, setSleepDeficit] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [hasData, setHasData] = useState<boolean>(true)
@@ -61,17 +62,13 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
       const data = await res.json()
       const newScore = data.score ?? null
       const yesterdayScore = data.yesterdayScore ?? null
-      const sleepDeficit = data.sleepDeficit ?? null
+      const deficitValue = data.sleepDeficit ?? null
       const hasRhythmData = data.hasRhythmData
       
       setScore(newScore)
+      setSleepDeficit(deficitValue)
       if (typeof hasRhythmData === 'boolean') {
         setHasData(hasRhythmData)
-      }
-      
-      // Store sleep deficit for component access
-      if (sleepDeficit) {
-        // We'll return it in the hook result
       }
       
       // Check for significant score change (>1 point on 0-10 scale) compared to yesterday
@@ -111,6 +108,6 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
 
   const refetch = (force = false) => fetchScore(force)
 
-  return { score, total, loading, error, refetch, sleepDeficit: null as any, hasData } // TODO: Add sleepDeficit to state
+  return { score, total, loading, error, refetch, sleepDeficit, hasData }
 }
 

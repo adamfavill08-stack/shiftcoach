@@ -3,6 +3,9 @@ import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { estimateSleepStages } from '@/lib/sleep/estimateSleepStages'
 
+// Cache for 30 seconds - sleep data doesn't change frequently
+export const revalidate = 30
+
 // Utility
 function minutesBetween(a: string | Date, b: string | Date) {
   return Math.max(0, Math.round((+new Date(b) - +new Date(a)) / 60000))

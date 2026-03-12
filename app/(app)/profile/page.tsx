@@ -22,9 +22,11 @@ function ProfilePageContent() {
   const [showWeightModal, setShowWeightModal] = useState(false)
   const [showHeightModal, setShowHeightModal] = useState(false)
   const [showGenderModal, setShowGenderModal] = useState(false)
+  const [showAgeModal, setShowAgeModal] = useState(false)
   
   // Input states for modals
   const [weightInput, setWeightInput] = useState('')
+  const [dobInput, setDobInput] = useState('')
   const [weightUnit, setWeightUnit] = useState<'kg' | 'lb' | 'st+lb'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('weightUnit')
@@ -573,6 +575,57 @@ function ProfilePageContent() {
     setHeightInput('')
   }
 
+  const handleSaveDOB = async () => {
+    if (!profile) return
+    setSaving('dob')
+    
+    if (!dobInput || dobInput.trim() === '') {
+      alert('Please enter a date of birth.')
+      setSaving(null)
+      return
+    }
+    
+    // Validate date format (YYYY-MM-DD)
+    const dobRegex = /^\d{4}-\d{2}-\d{2}$/
+    if (!dobRegex.test(dobInput)) {
+      alert('Please enter a valid date in YYYY-MM-DD format.')
+      setSaving(null)
+      return
+    }
+    
+    // Validate date is not in the future
+    const dob = new Date(dobInput)
+    const today = new Date()
+    if (dob > today) {
+      alert('Date of birth cannot be in the future.')
+      setSaving(null)
+      return
+    }
+    
+    // Validate age is reasonable (13-120 years)
+    const age = calculateAge(dobInput)
+    if (age === null || age < 13 || age > 120) {
+      alert('Please enter a date of birth that corresponds to an age between 13 and 120 years.')
+      setSaving(null)
+      return
+    }
+    
+    // Update date_of_birth (API will calculate age automatically)
+    const success = await updateProfile({ date_of_birth: dobInput })
+    if (success) {
+      await refreshProfile()
+      // Dispatch events to trigger recalculation (age affects sleep calculations)
+      window.dispatchEvent(new CustomEvent('profile-updated', { detail: { date_of_birth: dobInput, age } }))
+      showToast(`Date of birth updated. Age: ${age} years.`, 'success')
+    } else {
+      showToast('Failed to update date of birth', 'error')
+    }
+    
+    setSaving(null)
+    setShowAgeModal(false)
+    setDobInput('')
+  }
+
 
   const handleSaveGender = async (sex: 'male' | 'female' | 'other') => {
     if (!profile) return
@@ -764,20 +817,54 @@ function ProfilePageContent() {
 
                   <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 dark:via-slate-700/50 to-transparent my-2" />
 
-                  {/* Age (Read-only) */}
-                  <div className="group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 bg-slate-50/35 dark:bg-slate-800/30 w-full">
+                  {/* Age / Date of Birth */}
+                  <button
+                    onClick={() => {
+                      // Initialize input with current DOB if available
+                      if (profile?.date_of_birth) {
+                        // Parse date string directly (YYYY-MM-DD format) to avoid timezone issues
+                        const dobStr = profile.date_of_birth
+                        if (dobStr.includes('T')) {
+                          // If it's a full ISO datetime, extract just the date part
+                          const [datePart] = dobStr.split('T')
+                          setDobInput(datePart)
+                        } else if (dobStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                          // Already in YYYY-MM-DD format
+                          setDobInput(dobStr)
+                        } else {
+                          // Try to parse as date and format
+                          const dob = new Date(dobStr)
+                          if (!isNaN(dob.getTime())) {
+                            const year = dob.getFullYear()
+                            const month = String(dob.getMonth() + 1).padStart(2, '0')
+                            const day = String(dob.getDate()).padStart(2, '0')
+                            setDobInput(`${year}-${month}-${day}`)
+                          } else {
+                            setDobInput('')
+                          }
+                        }
+                      } else {
+                        setDobInput('')
+                      }
+                      setShowAgeModal(true)
+                    }}
+                    className="group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 bg-slate-50/35 dark:bg-slate-800/30 hover:bg-white/70 dark:hover:bg-slate-800/50 transition-colors w-full"
+                  >
                     <div className="flex items-center gap-3 flex-1">
                       <div className="h-9 w-9 rounded-xl bg-white/70 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 grid place-items-center flex-shrink-0">
                         <Calendar className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
                       </div>
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Age</p>
+                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Age / Date of Birth</p>
                     </div>
-                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 tabular-nums flex-shrink-0">
-                      {profile?.age !== null && profile?.age !== undefined && typeof profile.age === 'number' && profile.age > 0
-                        ? `${profile.age} years`
-                        : '—'}
-                    </p>
-                  </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
+                        {profile?.age !== null && profile?.age !== undefined && typeof profile.age === 'number' && profile.age > 0
+                          ? `${profile.age} years`
+                          : '—'}
+                      </p>
+                      <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
+                    </div>
+                  </button>
                 </div>
 
                 {/* Calm Action Buttons */}
@@ -1029,6 +1116,57 @@ function ProfilePageContent() {
                     className="flex-1 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-600 dark:from-amber-600 dark:to-orange-700 rounded-xl hover:from-amber-600 hover:to-orange-700 dark:hover:from-amber-700 dark:hover:to-orange-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_12px_rgba(245,158,11,0.3)] dark:shadow-[0_4px_12px_rgba(245,158,11,0.5)] hover:shadow-[0_6px_16px_rgba(245,158,11,0.4)] dark:hover:shadow-[0_6px_16px_rgba(245,158,11,0.6)] transition-all"
                   >
                     {saving === 'height' ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Age / Date of Birth Modal */}
+        {showAgeModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="relative overflow-hidden rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-white/90 dark:border-slate-700/40 shadow-[0_8px_24px_rgba(15,23,42,0.12)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-6 w-full max-w-sm">
+              <div className="absolute inset-0 bg-gradient-to-b from-white/98 dark:from-slate-900/70 via-white/90 dark:via-slate-900/50 to-white/85 dark:to-slate-950/60" />
+              <div className="relative z-10">
+                <h4 className="text-lg font-bold bg-gradient-to-r from-slate-900 dark:from-slate-100 to-slate-800 dark:to-slate-200 bg-clip-text text-transparent mb-4">Date of Birth</h4>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
+                  Age will be calculated automatically from your date of birth.
+                </p>
+                <div className="mb-4">
+                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 block">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={dobInput}
+                    onChange={(e) => setDobInput(e.target.value)}
+                    max={new Date().toISOString().split('T')[0]} // Can't be in the future
+                    className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-all bg-white dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    autoFocus
+                  />
+                </div>
+                {dobInput && calculateAge(dobInput) !== null && (
+                  <div className="mb-4 p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40">
+                    <p className="text-sm text-blue-800 dark:text-blue-300">
+                      Age: <span className="font-semibold">{calculateAge(dobInput)} years</span>
+                    </p>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setShowAgeModal(false)
+                      setDobInput('')
+                    }}
+                    className="flex-1 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveDOB}
+                    disabled={saving === 'dob' || !dobInput}
+                    className="flex-1 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-blue-500 to-indigo-600 dark:from-blue-600 dark:to-indigo-700 rounded-xl hover:from-blue-600 hover:to-indigo-700 dark:hover:from-blue-700 dark:hover:to-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_12px_rgba(59,130,246,0.3)] dark:shadow-[0_4px_12px_rgba(59,130,246,0.5)] hover:shadow-[0_6px_16px_rgba(59,130,246,0.4)] dark:hover:shadow-[0_6px_16px_rgba(59,130,246,0.6)] transition-all"
+                  >
+                    {saving === 'dob' ? 'Saving...' : 'Save'}
                   </button>
                 </div>
               </div>

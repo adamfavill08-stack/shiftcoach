@@ -11,6 +11,9 @@ import { getSocialJetlagMetrics } from '@/lib/circadian/socialJetlag'
 import { calculateBingeRisk } from '@/lib/binge/calculateBingeRisk'
 import { toShiftType as toStandardShiftType, toShiftRhythmType } from '@/lib/shifts/toShiftType'
 
+// Cache for 60 seconds - shift rhythm scores update daily
+export const revalidate = 60
+
 type SupabaseClient = Awaited<ReturnType<typeof getServerSupabaseAndUserId>>['supabase']
 
 export async function buildShiftRhythmInputs(supabase: SupabaseClient, userId: string) {

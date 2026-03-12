@@ -24,7 +24,7 @@ export function SleepDeficitCard({ data: propData, loading: propLoading }: Sleep
     const fetchData = async () => {
       try {
         setLoading(true)
-        const res = await fetch('/api/sleep/deficit', { cache: 'no-store' })
+        const res = await fetch('/api/sleep/deficit', { next: { revalidate: 30 } })
         if (!res.ok) throw new Error(String(res.status))
         const json = await res.json()
         if (!cancelled) {

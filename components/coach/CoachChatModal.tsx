@@ -150,6 +150,19 @@ export function CoachChatModal({ onClose }: { onClose: () => void }) {
         
         {/* Content */}
         <div className="relative flex flex-col h-[500px] max-h-[85vh] z-10">
+          {/* Disclaimer Banner */}
+          <div className="px-4 pt-3 pb-2 border-b backdrop-blur-xl relative" style={{ backgroundColor: 'rgba(255, 250, 235, 0.85)', borderColor: 'rgba(148, 163, 184, 0.2)' }}>
+            <div className="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-300">
+              <span className="font-semibold shrink-0">⚠️</span>
+              <p className="leading-relaxed">
+                This is wellbeing guidance, not medical advice. Consult healthcare professionals for medical concerns.{' '}
+                <a href="/health-data-notice" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-900 dark:hover:text-amber-200">
+                  Learn more
+                </a>
+              </p>
+            </div>
+          </div>
+
           {/* Header */}
           <header
             className="flex items-center justify-between px-5 py-4 border-b backdrop-blur-xl relative"
@@ -281,21 +294,28 @@ export function CoachChatModal({ onClose }: { onClose: () => void }) {
           </div>
 
           {/* Input */}
-          <footer
-            className="flex items-center gap-3 px-5 py-4 border-t backdrop-blur-xl relative"
-            style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.85)',
-              borderColor: 'rgba(148, 163, 184, 0.2)',
-            }}
-          >
+          <footer className="border-t backdrop-blur-xl relative" style={{ backgroundColor: 'rgba(255, 255, 255, 0.85)', borderColor: 'rgba(148, 163, 184, 0.2)' }}>
             {/* Footer gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-r from-white/50 via-transparent to-white/30 pointer-events-none" />
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-200/50 to-transparent" />
             
-            <form
-              className="flex items-center gap-3 w-full relative z-10"
-              onSubmit={handleSubmit}
-            >
+            {/* Health Data Notice Link */}
+            <div className="px-5 pt-2 pb-1">
+              <a
+                href="/health-data-notice"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors underline"
+              >
+                Health Data Notice
+              </a>
+            </div>
+            
+            <div className="flex items-center gap-3 px-5 pb-4 pt-2 relative z-10">
+              <form
+                className="flex items-center gap-3 w-full"
+                onSubmit={handleSubmit}
+              >
               <input
                 type="text"
                 placeholder="Ask your coach anything about your shift..."
@@ -319,6 +339,7 @@ export function CoachChatModal({ onClose }: { onClose: () => void }) {
                 <span className="relative z-10">Send</span>
               </button>
             </form>
+            </div>
           </footer>
         </div>
       </div>

@@ -43,10 +43,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user's profile with Stripe subscription info
+    // Get user's profile with subscription info (Stripe or RevenueCat)
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('stripe_subscription_id, stripe_customer_id, subscription_plan')
+      .select('stripe_subscription_id, stripe_customer_id, subscription_plan, subscription_platform, revenuecat_subscription_id')
       .eq('user_id', userId)
       .single()
 
@@ -58,7 +58,29 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Check if user has an active subscription
+    // Check subscription platform and handle accordingly
+    const isRevenueCat = profile.subscription_platform?.startsWith('revenuecat_')
+    
+    if (isRevenueCat) {
+      // RevenueCat subscription - redirect to native store cancellation
+      const platform = profile.subscription_platform === 'revenuecat_ios' ? 'iOS' : 'Android'
+      
+      // Mark as canceled (webhook will handle actual cancellation)
+      await supabase
+        .from('profiles')
+        .update({ 
+          subscription_status: 'canceled',
+        })
+        .eq('user_id', userId)
+      
+      return NextResponse.json({ 
+        success: true,
+        message: `To cancel your subscription, please go to ${platform} Settings → Subscriptions and cancel there. Your access will continue until the end of your current billing period.`,
+        platform,
+      })
+    }
+    
+    // Check if user has an active Stripe subscription
     if (!profile.stripe_subscription_id) {
       // If no Stripe subscription, check if it's a tester account
       if (profile.subscription_plan === 'tester') {

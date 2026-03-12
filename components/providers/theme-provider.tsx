@@ -1,19 +1,12 @@
 'use client'
 
-import { ThemeProvider as NextThemesProvider } from 'next-themes'
-import { type ThemeProviderProps } from 'next-themes/dist/types'
+import type { ReactNode } from 'react'
 
-export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
-  return (
-    <NextThemesProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      disableTransitionOnChange
-      {...props}
-    >
-      {children}
-    </NextThemesProvider>
-  )
+type ThemeProviderProps = {
+  children: ReactNode
 }
 
+// Light-only wrapper: dark/system themes are disabled for now.
+export function ThemeProvider({ children }: ThemeProviderProps) {
+  return <>{children}</>
+}

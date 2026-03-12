@@ -33,6 +33,7 @@ export function DashboardPager({ pages }: DashboardPagerProps) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+
     const storedPage = localStorage.getItem('dashboardPage')
     if (storedPage) {
       const parsed = parseInt(storedPage, 10)
@@ -40,6 +41,20 @@ export function DashboardPager({ pages }: DashboardPagerProps) {
         goTo(parsed)
       }
       localStorage.removeItem('dashboardPage')
+    }
+
+    const handleExternalPageChange = (event: Event) => {
+      const detail = (event as CustomEvent).detail
+      const index = typeof detail?.index === 'number' ? detail.index : NaN
+      if (!Number.isNaN(index)) {
+        goTo(index)
+      }
+    }
+
+    window.addEventListener('dashboardPageChanged', handleExternalPageChange as EventListener)
+
+    return () => {
+      window.removeEventListener('dashboardPageChanged', handleExternalPageChange as EventListener)
     }
   }, [])
 

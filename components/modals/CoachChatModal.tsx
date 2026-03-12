@@ -274,6 +274,24 @@ export function CoachChatModal({ onClose }: { onClose: () => void }) {
         
         {/* Content */}
         <div className="relative flex flex-col h-[500px] max-h-[85vh] z-10">
+          {/* Disclaimer Banner */}
+          <div className="px-4 pt-3 pb-2 border-b backdrop-blur-xl relative bg-amber-50/90 dark:bg-amber-950/60 border-amber-200/70 dark:border-amber-800/40">
+            <div className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-200">
+              <span className="font-semibold shrink-0">⚠️</span>
+              <p className="leading-tight">
+                This is wellbeing guidance, not medical advice. Consult a professional for medical concerns.{' '}
+                <a
+                  href="/health-data-notice"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-amber-900 dark:hover:text-amber-100 transition-colors"
+                >
+                  Health Data Notice
+                </a>
+              </p>
+            </div>
+          </div>
+
           {/* Header - DRAG HANDLE */}
           <header
             className="flex items-center justify-between px-5 py-4 border-b backdrop-blur-xl relative cursor-grab active:cursor-grabbing bg-white/85 dark:bg-slate-900/70 border-slate-200/20 dark:border-slate-700/40"
@@ -403,6 +421,14 @@ export function CoachChatModal({ onClose }: { onClose: () => void }) {
                 <span className="relative z-10">Send</span>
               </button>
             </form>
+            <a
+              href="/health-data-notice"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:underline transition-colors absolute bottom-1 right-5"
+            >
+              Health Data Notice
+            </a>
           </footer>
         </div>
       </div>

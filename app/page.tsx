@@ -10,18 +10,15 @@ export default function HomePage() {
   const router = useRouter()
   const { user, loading } = useAuth()
 
-  // Auto-redirect signed-in users (check subscription plan first)
+  // Auto-redirect signed-in users (check subscription status first)
   useEffect(() => {
     if (!loading && user) {
-      const checkSubscriptionPlan = async () => {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('subscription_plan')
-          .eq('user_id', user.id)
-          .single()
+      const checkSubscription = async () => {
+        const { checkSubscriptionStatus } = await import('@/lib/subscription/checkSubscription')
+        const result = await checkSubscriptionStatus()
         
-        // If no plan selected yet, redirect to Select Plan
-        if (!profile?.subscription_plan) {
+        // If no access (no plan, expired, canceled), redirect to Select Plan
+        if (!result.hasAccess) {
           router.replace('/select-plan')
           return
         }
@@ -29,7 +26,7 @@ export default function HomePage() {
         // Otherwise go to dashboard
         router.replace('/dashboard')
       }
-      checkSubscriptionPlan()
+      checkSubscription()
     }
   }, [user, loading, router])
 

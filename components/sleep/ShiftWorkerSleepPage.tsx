@@ -29,6 +29,122 @@ interface ShiftedDay {
   totalHours: number
 }
 
+interface SleepHistoryDay {
+  date: string
+  totalMinutes: number
+  shiftLabel: string
+}
+
+function SleepDebtCard() {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [weeklyDeficit, setWeeklyDeficit] = useState<number | null>(null)
+  const [requiredDaily, setRequiredDaily] = useState<number | null>(null)
+  const [category, setCategory] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const fetchDeficit = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const res = await fetch('/api/sleep/deficit', { cache: 'no-store' })
+        if (!res.ok) {
+          throw new Error(String(res.status))
+        }
+        const json = await res.json()
+        if (cancelled) return
+        setWeeklyDeficit(json.weeklyDeficit ?? 0)
+        setRequiredDaily(json.requiredDaily ?? 7.5)
+        setCategory(json.category ?? 'low')
+      } catch (err: any) {
+        console.error('[SleepDebtCard] error:', err)
+        if (!cancelled) setError('Unable to load sleep debt yet.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    fetchDeficit()
+
+    const handleRefresh = () => fetchDeficit()
+    window.addEventListener('sleep-refreshed', handleRefresh)
+    return () => {
+      cancelled = true
+      window.removeEventListener('sleep-refreshed', handleRefresh)
+    }
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        <div className="h-4 w-32 bg-slate-200/70 dark:bg-slate-700/60 rounded animate-pulse" />
+        <div className="h-3 w-full bg-slate-200/70 dark:bg-slate-700/60 rounded animate-pulse" />
+      </div>
+    )
+  }
+
+  if (error || weeklyDeficit === null || requiredDaily === null) {
+    return (
+      <div className="text-xs text-slate-500 dark:text-slate-400">
+        {error || "No sleep debt data yet. Log a few days of main sleep to unlock this view."}
+      </div>
+    )
+  }
+
+  const hoursBehind = weeklyDeficit
+  const absHours = Math.abs(hoursBehind).toFixed(1)
+  const isSurplus = hoursBehind <= 0
+
+  let label: string
+  let message: string
+  let toneClasses: string
+
+  if (isSurplus) {
+    label = 'Sleep banked'
+    message = 'You are slightly ahead on sleep this week. Protect this buffer on heavy shift runs.'
+    toneClasses = 'bg-emerald-50/80 text-emerald-700 border-emerald-200'
+  } else if (category === 'low') {
+    label = 'Mild sleep debt'
+    message = 'You are only a little behind. One or two early nights or a recovery nap will catch you up.'
+    toneClasses = 'bg-sky-50/80 text-sky-700 border-sky-200'
+  } else if (category === 'medium') {
+    label = 'Moderate sleep debt'
+    message = 'Plan extra sleep blocks on off days and avoid stacking more night shifts if you can.'
+    toneClasses = 'bg-amber-50/80 text-amber-700 border-amber-200'
+  } else {
+    label = 'High sleep debt'
+    message = 'You are well behind on recovery. Treat this like a high‑risk week for fatigue and mistakes.'
+    toneClasses = 'bg-rose-50/80 text-rose-700 border-rose-200'
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
+            Weekly sleep debt
+          </p>
+          <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+            Based on your last 7 shifted days and ideal nightly target.
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">Behind / ahead</p>
+          <p className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+            {isSurplus ? '-' : '+'}
+            {absHours}h
+          </p>
+        </div>
+      </div>
+      <div className={`rounded-2xl px-3 py-2 text-[11px] font-medium border ${toneClasses}`}>
+        <p className="text-[11px] mb-0.5">{label}</p>
+        <p className="text-[11px] font-normal opacity-90">{message}</p>
+      </div>
+    </div>
+  )
+}
+
 /**
  * Get shifted day label (07:00 → 07:00)
  */
@@ -61,6 +177,12 @@ export function ShiftWorkerSleepPage() {
   const [editingSession, setEditingSession] = useState<SleepSession | null>(null)
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Last 30 days history for guidance
+  const [historyDays, setHistoryDays] = useState<SleepHistoryDay[]>([])
+  const [historyLoading, setHistoryLoading] = useState(true)
+  const [selectedHistoryDate, setSelectedHistoryDate] = useState<string | null>(null)
+  const [sleepGoalHours, setSleepGoalHours] = useState<number | null>(null)
 
   // Fetch shifted day sleep data
   const fetchShiftedDays = useCallback(async () => {
@@ -107,6 +229,94 @@ export function ShiftWorkerSleepPage() {
       window.removeEventListener('sleep-refreshed', handleRefresh)
     }
   }, [fetchShiftedDays])
+
+  // Fetch profile-based sleep goal (takes into account age, sex, etc. set in profile)
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await fetch('/api/profile', { cache: 'no-store' })
+        if (!res.ok) return
+        const json = await res.json()
+        const goal = json?.profile?.sleep_goal_h
+        if (typeof goal === 'number' && !Number.isNaN(goal) && goal > 0 && goal < 16) {
+          setSleepGoalHours(goal)
+        }
+      } catch (err) {
+        console.error('[ShiftWorkerSleepPage] profile fetch error:', err)
+      }
+    }
+
+    fetchProfile()
+  }, [])
+
+  // Fetch last 30 days history for guidance card
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        setHistoryLoading(true)
+        const res = await fetch('/api/sleep/history', { cache: 'no-store' })
+        if (!res.ok) {
+          console.error('[ShiftWorkerSleepPage] history error:', res.status)
+          setHistoryDays([])
+          return
+        }
+        const json = await res.json()
+        const items: any[] = json.items || []
+
+        const byDate: Record<string, { totalMinutes: number; shiftLabel: string }> = {}
+
+        for (const item of items) {
+          const date: string | null =
+            item.date ||
+            (item.start_ts ? new Date(item.start_ts).toISOString().slice(0, 10) : null)
+          if (!date) continue
+
+          const start = item.start_ts || item.start_at
+          const end = item.end_ts || item.end_at
+          let minutes = 0
+          if (item.sleep_hours != null) {
+            minutes = Math.round(Number(item.sleep_hours) * 60)
+          } else if (start && end) {
+            minutes = Math.max(
+              0,
+              Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000),
+            )
+          }
+
+          if (!byDate[date]) {
+            byDate[date] = {
+              totalMinutes: 0,
+              shiftLabel: item.shift_label || 'OFF',
+            }
+          }
+          byDate[date].totalMinutes += minutes
+          if (byDate[date].shiftLabel === 'OFF' && item.shift_label) {
+            byDate[date].shiftLabel = item.shift_label
+          }
+        }
+
+        const entries: SleepHistoryDay[] = Object.entries(byDate)
+          .map(([date, v]) => ({
+            date,
+            totalMinutes: v.totalMinutes,
+            shiftLabel: v.shiftLabel,
+          }))
+          .sort((a, b) => (a.date < b.date ? 1 : -1))
+
+        setHistoryDays(entries)
+        if (!selectedHistoryDate && entries.length > 0) {
+          setSelectedHistoryDate(entries[0].date)
+        }
+      } catch (err) {
+        console.error('[ShiftWorkerSleepPage] history fetch error:', err)
+        setHistoryDays([])
+      } finally {
+        setHistoryLoading(false)
+      }
+    }
+
+    fetchHistory()
+  }, [selectedHistoryDate])
 
   // Handle quick log button click
   const handleQuickLog = async (type: SleepType, start: Date, end: Date) => {
@@ -243,95 +453,216 @@ export function ShiftWorkerSleepPage() {
     )
   }
 
+  const selectedHistory =
+    historyDays.find((d) => d.date === selectedHistoryDate) || historyDays[0] || null
+
+  const getHistoryRating = (totalMinutes: number) => {
+    const goal = sleepGoalHours ?? 7.5
+    if (!totalMinutes || totalMinutes <= 0) {
+      return {
+        label: 'No sleep logged',
+        message: 'Log your main sleep and naps to get guidance.',
+        tone: 'neutral' as const,
+      }
+    }
+    const hours = totalMinutes / 60
+    if (hours >= goal + 0.5) {
+      return {
+        label: 'Doing great',
+        message: 'You hit or slightly exceeded your ideal sleep dose for your profile. Keep this pattern when you can.',
+        tone: 'good' as const,
+      }
+    }
+    if (hours >= goal - 0.5) {
+      return {
+        label: 'Okay, could be better',
+        message: 'You are close to your ideal amount – another 30–60 minutes would really help recovery.',
+        tone: 'ok' as const,
+      }
+    }
+    if (hours >= goal - 2) {
+      return {
+        label: 'Falling behind',
+        message: 'You are short on sleep for your needs. Plan a recovery block or nap on your next off‑duty window.',
+        tone: 'warn' as const,
+      }
+    }
+    return {
+      label: 'Running on fumes',
+      message: 'Very short sleep for your profile. Treat today as high‑risk for fatigue, cravings and mistakes.',
+      tone: 'bad' as const,
+    }
+  }
+
   return (
     <div className="w-full max-w-md mx-auto px-4 py-6 space-y-6">
-      {/* Header: Today's Sleep */}
-      <section className="relative overflow-hidden rounded-[24px] bg-white/90 backdrop-blur-2xl border border-white/90 shadow-[0_24px_60px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.5)] px-7 py-6">
-        {/* Gradient overlays */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 via-white/60 to-white/85" />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-        <div className="pointer-events-none absolute inset-0 rounded-[24px] ring-1 ring-white/50 ring-inset" />
-        <div className="pointer-events-none absolute -inset-4 bg-gradient-to-br from-blue-50/30 via-transparent to-indigo-50/20 blur-3xl" />
-        
-        <div className="relative z-10">
-          <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase mb-1">
-            Sleep Log
-          </h2>
-          {selectedDayData ? (
-            <>
-              <h1 className="text-[17px] font-bold tracking-[-0.01em] text-slate-900 mb-2">
-                {getShiftedDayLabel(selectedDayData.shiftedDayStart)}
-              </h1>
-              <p className="text-[12px] text-slate-500 leading-relaxed">
-                {selectedDayData.totalHours.toFixed(1)} hours total
-              </p>
-            </>
-          ) : (
-            <>
-              <h1 className="text-[17px] font-bold tracking-[-0.01em] text-slate-900 mb-2">
-                Today's Sleep (07:00 → 07:00)
-              </h1>
-              <p className="text-[12px] text-slate-500 leading-relaxed">
-                No sleep logged yet
-              </p>
-            </>
+      {/* Header: Shift-friendly sleep window */}
+      <section className="rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm">
+        <h2 className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
+          Sleep for your shifts
+        </h2>
+        {selectedDayData ? (
+          <>
+            <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+              {getShiftedDayLabel(selectedDayData.shiftedDayStart)}
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {selectedDayData.totalHours.toFixed(1)} hours logged across main sleep and naps.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+              Today&apos;s sleep window (07:00 → 07:00)
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              No sleep logged yet. Log main sleep or naps after your shifts.
+            </p>
+          </>
+        )}
+      </section>
+
+      {/* Weekly sleep debt (Google Fit style) */}
+      <section className="rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm">
+        <SleepDebtCard />
+      </section>
+
+      {/* 30-day sleep guide */}
+      <section className="rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <h2 className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
+              Last 30 days guide
+            </h2>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              Pick a day to see if your sleep was enough for that shift, based on your profile.
+            </p>
+          </div>
+          {historyDays.length > 0 && (
+            <select
+              className="text-xs rounded-full border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/80 px-3 py-1 text-slate-700 dark:text-slate-100"
+              value={selectedHistory?.date ?? historyDays[0].date}
+              onChange={(e) => setSelectedHistoryDate(e.target.value)}
+            >
+              {historyDays.map((d) => {
+                const dateObj = new Date(d.date + 'T12:00:00')
+                const label = dateObj.toLocaleDateString('en-GB', {
+                  weekday: 'short',
+                  day: 'numeric',
+                  month: 'short',
+                })
+                const shift = d.shiftLabel && d.shiftLabel !== 'OFF' ? ` · ${d.shiftLabel}` : ''
+                return (
+                  <option key={d.date} value={d.date}>
+                    {label}{shift}
+                  </option>
+                )
+              })}
+            </select>
           )}
         </div>
+
+        {historyLoading && !selectedHistory ? (
+          <div className="py-6 space-y-2">
+            <div className="h-4 w-32 bg-slate-200/70 dark:bg-slate-700/60 rounded animate-pulse" />
+            <div className="h-3 w-full bg-slate-200/70 dark:bg-slate-700/60 rounded animate-pulse" />
+          </div>
+        ) : selectedHistory ? (
+          (() => {
+            const rating = getHistoryRating(selectedHistory.totalMinutes)
+            const hours = (selectedHistory.totalMinutes / 60) || 0
+            const toneClasses =
+              rating.tone === 'good'
+                ? 'bg-emerald-50/80 text-emerald-700 border-emerald-200'
+                : rating.tone === 'ok'
+                ? 'bg-sky-50/80 text-sky-700 border-sky-200'
+                : rating.tone === 'warn'
+                ? 'bg-amber-50/80 text-amber-700 border-amber-200'
+                : rating.tone === 'bad'
+                ? 'bg-rose-50/80 text-rose-700 border-rose-200'
+                : 'bg-slate-50/80 text-slate-700 border-slate-200'
+
+            return (
+              <div className="space-y-3">
+                <div className="flex items-baseline justify-between">
+                  <div>
+                    <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                      Total sleep that shifted day
+                    </p>
+                    <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mt-0.5">
+                      {hours.toFixed(1)}h
+                    </p>
+                  </div>
+                  {selectedHistory.shiftLabel && selectedHistory.shiftLabel !== 'OFF' && (
+                    <span className="inline-flex items-center rounded-full bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 px-2.5 py-0.5 text-[10px] text-slate-600 dark:text-slate-300">
+                      {selectedHistory.shiftLabel}
+                    </span>
+                  )}
+                </div>
+                <div
+                  className={`rounded-2xl px-3 py-2 text-[11px] font-medium border ${toneClasses}`}
+                >
+                  <p className="text-[11px] mb-0.5">{rating.label}</p>
+                  <p className="text-[11px] font-normal opacity-90">{rating.message}</p>
+                </div>
+              </div>
+            )
+          })()
+        ) : (
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            No sleep history in the last 30 days yet. Start logging to unlock guidance.
+          </p>
+        )}
       </section>
 
       {/* Quick Sleep Log Buttons */}
-      <section className="relative overflow-hidden rounded-[24px] bg-white/90 backdrop-blur-2xl border border-white/90 shadow-[0_24px_60px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.5)] px-7 py-6">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 via-white/60 to-white/85" />
-        <div className="relative z-10">
-          <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase mb-4">
-            Quick Log
-          </h2>
-          <QuickSleepLogButtons onLogSleep={handleQuickLog} />
-        </div>
+      <section className="rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm">
+        <h2 className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400 mb-3">
+          Quick log for shift workers
+        </h2>
+        <QuickSleepLogButtons onLogSleep={handleQuickLog} />
       </section>
 
       {/* Sleep Timeline Bar */}
       {selectedDayData && selectedDayData.sessions.length > 0 && (
-        <section className="relative overflow-hidden rounded-[24px] bg-white/90 backdrop-blur-2xl border border-white/90 shadow-[0_24px_60px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.5)] px-7 py-6">
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 via-white/60 to-white/85" />
-          <div className="relative z-10">
-            <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase mb-4">
-              Timeline
-            </h2>
-            <SleepTimelineBar
-              sessions={selectedDayData.sessions}
-              shiftedDayStart={selectedDayData.shiftedDayStart}
-              shiftedDayEnd={shiftedDayEnd}
-              onSessionClick={(session) => setEditingSession(session)}
-            />
-          </div>
+        <section className="rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm">
+          <h2 className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400 mb-3">
+            24‑hour sleep timeline
+          </h2>
+          <SleepTimelineBar
+            sessions={selectedDayData.sessions}
+            shiftedDayStart={selectedDayData.shiftedDayStart}
+            shiftedDayEnd={shiftedDayEnd}
+            onSessionClick={(session) => setEditingSession(session)}
+          />
         </section>
       )}
 
       {/* Sleep Sessions List */}
-      <section className="relative overflow-hidden rounded-[24px] bg-white/90 backdrop-blur-2xl border border-white/90 shadow-[0_24px_60px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.5)] px-7 py-6">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 via-white/60 to-white/85" />
-        <div className="relative z-10">
-          <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase mb-4">
-            Sessions
-          </h2>
-          {loading ? (
-            <div className="py-12 text-center">
-              <p className="text-sm text-slate-500">Loading sessions...</p>
-            </div>
-          ) : selectedDayData && selectedDayData.sessions.length > 0 ? (
-            <SleepSessionList
-              sessions={selectedDayData.sessions}
-              onEdit={(session) => setEditingSession(session)}
-              onDelete={handleDeleteClick}
-            />
-          ) : (
-            <div className="py-12 text-center">
-              <p className="text-sm text-slate-500 mb-4">No sleep sessions logged for this day.</p>
-              <p className="text-xs text-slate-400">Use the Quick Log buttons above to log your sleep.</p>
-            </div>
-          )}
-        </div>
+      <section className="rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm">
+        <h2 className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400 mb-3">
+          Logged sleep
+        </h2>
+        {loading ? (
+          <div className="py-10 text-center">
+            <p className="text-sm text-slate-500 dark:text-slate-400">Loading sessions...</p>
+          </div>
+        ) : selectedDayData && selectedDayData.sessions.length > 0 ? (
+          <SleepSessionList
+            sessions={selectedDayData.sessions}
+            onEdit={(session) => setEditingSession(session)}
+            onDelete={handleDeleteClick}
+          />
+        ) : (
+          <div className="py-10 text-center">
+            <p className="text-sm text-slate-500 dark:text-slate-300 mb-2">
+              No sleep sessions logged for this shifted day.
+            </p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              Use the quick log buttons above after each shift to keep your Body Clock accurate.
+            </p>
+          </div>
+        )}
       </section>
 
       {/* Log Sleep Modal */}

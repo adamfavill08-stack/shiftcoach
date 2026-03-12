@@ -7,6 +7,10 @@ import { EventNotificationLoader } from '@/components/notifications/EventNotific
 import { ToastContainer } from '@/components/ui/Toast'
 import { ErrorSuppressor } from '@/components/ErrorSuppressor'
 import { ThemeProvider } from '@/components/providers/theme-provider'
+import { LanguageProvider } from '@/components/providers/language-provider'
+import { BottomNavWrapper } from '@/components/layout/BottomNavWrapper'
+import { FloatingCoachBubble } from '@/components/layout/FloatingCoachBubble'
+import { AutoHealthSync } from '@/components/wearables/AutoHealthSync'
 
 export const metadata: Metadata = {
   title: 'ShiftCoach - Health App for Shift Workers',
@@ -40,31 +44,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             --safe-area-inset-right: env(safe-area-inset-right, 0px);
           }
         ` }} />
-        {/* Prevent flash of incorrect theme - must run before React hydrates */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  const theme = localStorage.getItem('theme');
-                  const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                  const shouldBeDark = theme === 'dark' || (theme === 'system' && systemPrefersDark) || (!theme && systemPrefersDark);
-                  
-                  if (shouldBeDark) {
-                    document.documentElement.classList.add('dark');
-                  } else {
-                    document.documentElement.classList.remove('dark');
-                  }
-                } catch (e) {
-                  // Fallback: detect system preference
-                  if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                    document.documentElement.classList.add('dark');
-                  }
-                }
-              })();
-            `,
-          }}
-        />
         {/* Provide a minimal Capacitor shim so native wrappers that call
             Capacitor.triggerEvent (e.g. appLoaded) don't crash when the web
             app is served remotely without the full Capacitor JS bundle. */}
@@ -139,20 +118,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className="theme-transition min-h-screen flex items-stretch justify-center antialiased font-sans bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 text-slate-900 dark:text-slate-100" suppressHydrationWarning>
+      <body className="theme-transition min-h-screen flex items-stretch justify-center antialiased font-sans bg-gradient-to-b from-slate-50 via-white to-slate-50 text-slate-900" suppressHydrationWarning>
         {/* Phone-width preview on desktop */}
         <div className="w-full max-w-[430px] min-h-screen shadow-2xl">
           <ErrorSuppressor />
-          <ThemeProvider>
-            <AuthProvider>
-              <QuickAddProvider>
-                <EventNotificationLoader />
-                {children}
-                <QuickAddSheet />
-                <ToastContainer />
-              </QuickAddProvider>
-            </AuthProvider>
-          </ThemeProvider>
+          <LanguageProvider>
+            <ThemeProvider>
+              <AuthProvider>
+                <QuickAddProvider>
+                  <AutoHealthSync />
+                  <EventNotificationLoader />
+                  <main className="relative min-h-screen pb-16">
+                    {children}
+                    <QuickAddSheet />
+                    <ToastContainer />
+                    <FloatingCoachBubble />
+                    <BottomNavWrapper />
+                  </main>
+                </QuickAddProvider>
+              </AuthProvider>
+            </ThemeProvider>
+          </LanguageProvider>
         </div>
       </body>
     </html>

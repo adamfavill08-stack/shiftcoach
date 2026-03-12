@@ -54,10 +54,10 @@ export default function DashboardHeader() {
         
         const [shiftsRes, eventsRes] = await Promise.all([
           fetch(`/api/shifts?from=${fromDate}&to=${toDate}`, {
-            cache: 'no-store'
+            next: { revalidate: 60 }
           }),
           fetch(`/api/rota/event?month=${today.getMonth() + 1}&year=${today.getFullYear()}`, {
-            cache: 'no-store'
+            next: { revalidate: 60 }
           })
         ])
         
@@ -143,7 +143,7 @@ export default function DashboardHeader() {
 
     const loadCoachSetting = async () => {
       try {
-        const res = await fetch('/api/profile', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null))
+        const res = await fetch('/api/profile', { next: { revalidate: 300 } }).then(r => (r.ok ? r.json() : null))
         if (res && res.profile) {
           const tone = res.profile.ai_coach_tone as string | null | undefined
           setCoachEnabled(tone !== null)
@@ -277,142 +277,9 @@ export default function DashboardHeader() {
   return (
     <>
       <header 
-        className="sticky top-0 z-50 bg-white/70 dark:bg-slate-900/45 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-700/40 safe-top" 
-        style={{ paddingTop: 'calc(env(safe-area-inset-top))' }}
+        className="w-full bg-transparent px-4 pt-3 pb-1"
       >
-        {/* Top highlight overlay */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white/70 dark:from-slate-900/70 to-transparent" />
-        
-        {/* Bottom fade overlay */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-b from-transparent to-white/70 dark:to-slate-900/70" />
-        
-        <div className="mx-auto max-w-md px-4 relative">
-          <div className="h-14 flex items-center justify-between">
-            {/* Left: Brand button - unified with cluster language */}
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="h-10 w-10 rounded-full bg-white/60 dark:bg-slate-900/40 backdrop-blur border border-slate-200/50 dark:border-slate-700/40 shadow-[0_8px_20px_-16px_rgba(0,0,0,0.14)] grid place-items-center hover:bg-white/80 dark:hover:bg-slate-800/50 active:scale-[0.98] transition"
-              aria-label="ShiftCoach"
-            >
-              <Image
-                src="/Faviconnew.png"
-                alt="ShiftCoach"
-                width={36}
-                height={36}
-                className="h-9 w-9 object-contain"
-                priority
-              />
-            </button>
-
-            {/* Center: Context cue - tightened editorial style */}
-            <div className="hidden sm:inline-flex items-center gap-2 rounded-full px-3 py-1 bg-white/50 dark:bg-slate-900/40 backdrop-blur border border-slate-200/40 dark:border-slate-700/40 text-[11px] font-medium text-slate-600 dark:text-slate-300">
-              Today <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" /> {todayShiftLabel}
-            </div>
-
-            {/* Right: Pill cluster - slimmer and more system */}
-            <div className="inline-flex items-center gap-1 rounded-full bg-white/60 dark:bg-slate-900/40 backdrop-blur border border-slate-200/50 dark:border-slate-700/40 shadow-[0_8px_20px_-16px_rgba(0,0,0,0.14)] px-1.5 py-1">
-              <SyncWearableButton />
-              
-              <button
-                onClick={() => router.push('/rota')}
-                className={iconBtn}
-                aria-label="Calendar"
-                type="button"
-              >
-                <Calendar className="h-4 w-4 text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200" />
-              </button>
-              
-              <button
-                onClick={() => setIsNotificationModalOpen(true)}
-                className={`${iconBtn} relative`}
-                aria-label="Notifications"
-                type="button"
-              >
-                <Bell className="h-4 w-4 text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-rose-400/70 dark:bg-rose-500/80 ring-2 ring-white dark:ring-slate-900" />
-                )}
-              </button>
-              
-              {coachEnabled !== false && (
-                <button
-                  onClick={() => setIsCoachChatOpen(true)}
-                  className={iconBtn}
-                  aria-label="Chat with your coach"
-                  type="button"
-                >
-                  <MessageCircle className="h-4 w-4 text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200" />
-                </button>
-              )}
-              
-              <button
-                onClick={() => router.push('/settings')}
-                className={iconBtn}
-                aria-label="More options"
-                type="button"
-              >
-                <MoreHorizontal className="h-4 w-4 text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200" />
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        {/* Calendar preview - integrated into header */}
-        <div className="mx-auto max-w-md bg-transparent rounded-2xl px-4 py-3.5 relative">
-          {/* Faint baseline to anchor the row */}
-          <div className="absolute left-0 right-0 top-5 h-px bg-gradient-to-r from-transparent via-slate-200/60 dark:via-slate-700/50 to-transparent" />
-          
-          {loadingShifts ? (
-            <div className="flex items-center justify-between gap-3 relative">
-              {[...Array(7)].map((_, i) => (
-                <div key={i} className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-slate-200 animate-pulse" />
-                  <div className="h-4 w-6 bg-slate-200 rounded animate-pulse" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center justify-between gap-2 relative">
-              {shifts.map((shift) => {
-                const isToday = shift.date === new Date().toISOString().slice(0, 10)
-                const style = getDayStyle(shift, isToday)
-                const dayLetter = formatDayLetter(shift.date)
-                const dayNumber = formatDayNumber(shift.date)
-                const hasShift = shift.label && shift.label.toUpperCase() !== 'OFF' && shift.label !== ''
-                const event = events.get(shift.date)
-                const isSelected = hasShift || !!event
-                
-                return (
-                  <div
-                    key={shift.date}
-                    className="flex flex-col items-center gap-1.5 flex-1 min-w-0"
-                  >
-                    {/* Day letter in circle - CalAI premium styling */}
-                    <div className="relative">
-                      <button
-                        className={`relative flex items-center justify-center rounded-full w-8 h-8 ${style.border} ${style.bg} hover:bg-white/90 dark:hover:bg-slate-800/60 active:scale-[0.98] transition-transform transition-colors`}
-                      >
-                        <span className={`text-[12px] font-semibold ${style.letterColor} leading-none`}>
-                          {dayLetter}
-                        </span>
-                        
-                        {/* Today dot indicator */}
-                        {isToday && (
-                          <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-rose-500/80 dark:bg-rose-400/70 ring-2 ring-white dark:ring-slate-900" />
-                        )}
-                      </button>
-                    </div>
-                    
-                    {/* Day number */}
-                    <span className={`text-xs font-medium tabular-nums ${style.numberColor} leading-none`}>
-                      {dayNumber}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
+        <div className="mx-auto max-w-md h-6" />
       </header>
 
       {isCoachChatOpen && (

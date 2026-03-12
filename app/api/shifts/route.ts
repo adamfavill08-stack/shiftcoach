@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 
-export const dynamic = 'force-dynamic'
+// Cache for 60 seconds - shifts don't change frequently
+export const revalidate = 60
 
 export async function POST(req: NextRequest) {
   try {

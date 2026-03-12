@@ -338,7 +338,7 @@ function SleepMetricsRow() {
         setHrLoading(true)
         setHrError(null)
 
-        const res = await fetch('/api/google-fit/heart-rate', { cache: 'no-store' })
+        const res = await fetch('/api/google-fit/heart-rate', { next: { revalidate: 60 } })
         const json = await res.json().catch(() => ({}))
 
         if (!res.ok) {
@@ -382,7 +382,7 @@ function SleepMetricsRow() {
         setConsistencyLoading(true)
         setConsistencyError(null)
 
-        const res = await fetch('/api/sleep/consistency', { cache: 'no-store' })
+        const res = await fetch('/api/sleep/consistency', { next: { revalidate: 60 } })
         const json = await res.json().catch(() => ({}))
 
         if (!res.ok) {
@@ -518,7 +518,7 @@ export default function SleepPage() {
     const fetchTarget = async () => {
       try {
         setLoadingTarget(true)
-        const res = await fetch('/api/sleep/tonight-target', { cache: 'no-store' })
+        const res = await fetch('/api/sleep/tonight-target', { next: { revalidate: 30 } })
         if (!res.ok) throw new Error(String(res.status))
         const json = await res.json()
         if (!cancelled) {
@@ -553,7 +553,7 @@ export default function SleepPage() {
 
   const fetchSleepData = useCallback(async () => {
     try {
-      const res = await fetch('/api/sleep/summary', { cache: 'no-store' })
+      const res = await fetch('/api/sleep/summary', { next: { revalidate: 30 } })
       if (!res.ok) {
         console.error('[SleepPage] Failed to fetch sleep summary:', res.status)
         return

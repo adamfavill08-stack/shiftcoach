@@ -154,7 +154,7 @@ export default function ActivityAndStepsPage() {
         }
 
         // Get sleep deficit
-        const deficitRes = await fetch('/api/sleep/deficit', { cache: 'no-store' })
+        const deficitRes = await fetch('/api/sleep/deficit', { next: { revalidate: 30 } })
         if (deficitRes.ok) {
           const deficitData = await deficitRes.json()
           if (deficitData.deficitHours !== undefined) {
@@ -258,28 +258,9 @@ export default function ActivityAndStepsPage() {
     <div className="min-h-full w-full bg-transparent">
       <div className="mx-auto flex w-full max-w-[760px] flex-col gap-6 px-4 pb-24 pt-6">
         
-        {/* INTENSITY BREAKDOWN Card */}
-        <section
-          className={[
-            "relative overflow-hidden rounded-3xl",
-            "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
-            "border border-slate-200/50 dark:border-slate-700/40",
-            "text-slate-900 dark:text-slate-100",
-            "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
-            "dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
-            "p-6",
-          ].join(" ")}
-        >
-          {/* Highlight overlay */}
-          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
-          
-          {/* Subtle colored glow hints - dark mode only */}
-          <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
-          
-          {/* Inner ring for premium feel */}
-          <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
-
-          <div className="relative z-10 space-y-5">
+        {/* ACTIVITY SUMMARY (Google Fit style) */}
+        <section className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm text-slate-900 dark:text-slate-100">
+          <div className="space-y-5">
             {/* Quiet metadata row */}
             <div>
               <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400 uppercase">
@@ -386,28 +367,9 @@ export default function ActivityAndStepsPage() {
           </div>
         </section>
 
-        {/* ACTIVITY LEVEL SELECTOR Card */}
-        <section
-          className={[
-            "relative overflow-hidden rounded-3xl",
-            "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
-            "border border-slate-200/50 dark:border-slate-700/40",
-            "text-slate-900 dark:text-slate-100",
-            "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
-            "dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
-            "p-6",
-          ].join(" ")}
-        >
-          {/* Highlight overlay */}
-          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
-          
-          {/* Subtle colored glow hints - dark mode only */}
-          <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
-          
-          {/* Inner ring for premium feel */}
-          <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
-
-          <div className="relative z-10">
+        {/* SHIFT DEMAND SELECTOR */}
+        <section className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm text-slate-900 dark:text-slate-100">
+          <div>
             <ActivityLevelSelector
               currentLevel={data.shiftActivityLevel ?? null}
               weightKg={profile?.weight_kg ?? 75}
@@ -419,28 +381,9 @@ export default function ActivityAndStepsPage() {
           </div>
         </section>
 
-        {/* MOVEMENT CONSISTENCY Card */}
-        <section
-          className={[
-            "relative overflow-hidden rounded-3xl",
-            "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
-            "border border-slate-200/50 dark:border-slate-700/40",
-            "text-slate-900 dark:text-slate-100",
-            "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
-            "dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
-            "p-6",
-          ].join(" ")}
-        >
-          {/* Highlight overlay */}
-          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
-          
-          {/* Subtle colored glow hints - dark mode only */}
-          <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
-          
-          {/* Inner ring for premium feel */}
-          <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
-
-          <div className="relative z-10 space-y-5">
+        {/* MOVEMENT CONSISTENCY */}
+        <section className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm text-slate-900 dark:text-slate-100">
+          <div className="space-y-5">
             {/* Editorial Header */}
             <div>
               <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400 uppercase">

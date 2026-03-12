@@ -4,9 +4,12 @@ import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ChevronRight, Info, X, Clock, UtensilsCrossed, AlertCircle, Sparkles, MessageSquareText } from "lucide-react";
-import { MoodFocus } from "@/components/dashboard/MoodFocus";
 import { useGoalChange } from "@/lib/hooks/useGoalChange";
 import { ShiftLagCard } from "@/components/shiftlag/ShiftLagCard";
+import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition";
+import { ShiftWeekStrip } from "@/components/dashboard/ShiftWeekStrip";
+import { useActivityToday } from "@/lib/hooks/useActivityToday";
+import { useRouter } from "next/navigation";
 
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import type { ShiftLagMetrics } from '@/lib/circadian/calculateShiftLag'
@@ -234,6 +237,9 @@ function ShiftRhythmCard({ score, circadian, socialJetlag, shiftLag, bingeRisk, 
 
   return (
     <div className="w-full max-w-md mx-auto px-4 py-4 space-y-6">
+      {/* Shift week strip directly above body clock (no extra background card) */}
+      <ShiftWeekStrip />
+
       {/* MAIN BODY CLOCK CARD */}
       <BodyClockCard
         score={displayScore}
@@ -243,8 +249,11 @@ function ShiftRhythmCard({ score, circadian, socialJetlag, shiftLag, bingeRisk, 
         hasRhythmData={hasRhythmData}
       />
 
-      {/* DETAILED MEAL TIMES CARD */}
-      <DetailedMealTimesCard />
+      {/* Adjusted calories summary above meal timings */}
+      <HomeAdjustedCaloriesCard />
+
+      {/* Compact meal times summary card */}
+      <HomeMealTimesCard />
 
       {/* BINGE RISK CARD */}
       {bingeRisk ? (
@@ -260,25 +269,39 @@ function ShiftRhythmCard({ score, circadian, socialJetlag, shiftLag, bingeRisk, 
       {/* SHIFT LAG CARD */}
       <ShiftLagCard />
 
-      {/* MOOD & FOCUS */}
-      {!isLoadingMood && (
-        <MoodFocus mood={mood} focus={focus} onChange={handleMoodFocusChange} />
-      )}
+      {/* LOG SLEEP TILE */}
+      <HomeLogSleepCard />
 
-      {/* NEXT BEST ACTIONS */}
-      <NextBestActionsCard sleepDeficit={sleepDeficit} circadian={circadian} />
+      {/* ACTIVITY TILE */}
+      <HomeActivityCard />
 
-      {/* BOTTOM METRICS ROW */}
-      <BottomMetricsRow score={displayScore} />
+      {/* HEART RECOVERY TILE */}
+      <HeartRecoveryCard />
 
-      {/* BLOG SECTION */}
-      <BlogSection />
+      {/* DISCOVER TITLE */}
+      <div className="pt-2">
+        <h2 className="text-[10px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400 uppercase">
+          Discover
+        </h2>
+      </div>
 
+      {/* SHIFT WORKER HEALTH EXPLAINED CARD */}
+      <ShiftWorkerHealthCard />
 
-      {/* Disclaimer */}
-      <div className="pt-4">
-        <p className="text-[11px] leading-relaxed text-slate-500 text-center">
-          Shift Coach is a coaching tool and does not provide medical advice. For medical conditions, pregnancy or complex health issues, please check your plan with a registered professional.
+      {/* DIET CARD */}
+      <ShiftWorkerDietCard />
+
+      {/* GOALS CARD */}
+      <ShiftWorkerGoalsCard />
+
+      {/* ShiftCoach logo footer */}
+      <div className="pt-6 pb-4 flex flex-col items-center gap-1">
+        <div className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-400">
+          ShiftCoach
+        </div>
+        <p className="text-[10px] text-slate-400 text-center max-w-[260px]">
+          A coaching app only and does not replace medical advice. Please speak to a healthcare
+          professional about any health concerns.
         </p>
       </div>
     </div>
@@ -309,15 +332,8 @@ function BodyClockCard({
 }) {
   const noData = hasRhythmData === false || (!circadian && score <= 0);
 
-  const factors = !noData
-    ? (circadian
-        ? buildAlignmentFactorsFromCircadian(circadian.factors)
-        : buildAlignmentFactors(score))
-    : [];
-  const [showInfo, setShowInfo] = useState(false);
-
   const headingText = useMemo(() => {
-    if (noData) return "Your body clock score is coming soon";
+    if (noData) return "Body clock score coming soon";
     if (score >= 80) return "Your body clock is strongly aligned";
     if (score >= 70) return "Your body clock is in sync";
     if (score >= 55) return "Your body clock is slightly out of sync";
@@ -328,148 +344,661 @@ function BodyClockCard({
     <section
       className={[
         "relative overflow-hidden rounded-3xl",
-        "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
-        "border border-slate-200/50 dark:border-slate-700/40",
+        "bg-transparent",
         "text-slate-900 dark:text-slate-100",
-        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
-        "dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
-        "p-6",
+        "p-4 pb-2",
       ].join(" ")}
     >
-      {/* Highlight overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
-      
-      {/* Subtle colored glow hints - dark mode only */}
-      <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
-      
-      {/* Inner ring for premium feel */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
+      <div className="relative z-10 flex flex-col items-center text-center gap-4">
+        {/* Main circular gauge */}
+        <CircadianGauge score={score} />
 
-      <div className="relative z-10">
-        {/* TOP: Last synced label */}
-        <div className="flex items-center justify-end mb-4">
-          <span className="rounded-full bg-slate-50/60 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/40 px-2.5 py-1 text-[11px] text-slate-500 dark:text-slate-400">
-            Last sync: {wearableLastSyncLabel}
-          </span>
+        {/* Heading + explanation */}
+        <div className="space-y-2 max-w-xs">
+          <h3 className="text-[18px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+            {headingText}
+          </h3>
+          <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+            {noData
+              ? "Log a few nights of sleep and add your shifts to unlock your Body Clock score."
+              : "Calculated from your recent sleep, rota pattern and light timing over the last few days."}
+          </p>
         </div>
 
-        {/* Info Card */}
-        {showInfo && (
-          <div className="relative z-20 mt-2 rounded-xl bg-gradient-to-br from-slate-50 dark:from-slate-900/60 to-white dark:to-slate-900/50 border border-slate-200/70 dark:border-slate-700/40 p-4 space-y-3 shadow-lg dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="text-[14px] font-bold text-slate-900 dark:text-slate-100">How your Body Clock score works</h3>
-                <p className="mt-1 text-[11px] text-slate-600 dark:text-slate-300">
-                  Your score uses circadian science: it tracks when you sleep and wake, how often shifts move your schedule,
-                  and how regular your pattern is compared with a healthy 24‑hour rhythm.
-                </p>
-              </div>
-              <button
-                onClick={() => setShowInfo(false)}
-                className="p-1 rounded-md hover:bg-slate-100/70 dark:hover:bg-slate-800/50 transition-colors"
-                aria-label="Close body clock info"
-                type="button"
-              >
-                <X className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
-              </button>
-            </div>
-            <div className="space-y-1.5 text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-              <p>
-                <span className="font-semibold text-slate-900 dark:text-slate-100">High score (70+):</span> means your main sleep window, wake time and light exposure
-                are close to a stable circadian rhythm, so melatonin and cortisol stay in a healthier pattern.
-              </p>
-              <p>
-                <span className="font-semibold text-slate-900 dark:text-slate-100">Lower score:</span> usually means irregular sleep, quick turnarounds, or lots of light and food
-                in your biological night — all signals that push your internal clock out of sync.
-              </p>
-            </div>
-            <div className="pt-2 border-t border-slate-200/70 dark:border-slate-700/50">
-              <p className="text-[11px] font-semibold text-slate-900 dark:text-slate-100 mb-1">How to improve:</p>
-              <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-300">
-                <li>Keep your main sleep and wake time as consistent as your rota allows.</li>
-                <li>Group similar shifts together when possible (blocks of days or nights).</li>
-                <li>Get daylight after waking, and keep light and heavy meals out of your deepest “body night”.</li>
-              </ul>
-            </div>
-          </div>
-        )}
-
-        {/* MAIN ROW: Heading + Alignment factors on LEFT, Gauge on RIGHT */}
-        <div className="flex items-start gap-6">
-          {/* LEFT: Heading + Alignment factors */}
-          <div className="flex-1 space-y-5 min-w-0">
-            <div>
-              <h3 className="text-[20px] font-semibold tracking-tight text-slate-900 dark:text-slate-100 leading-tight">
-                {noData ? (
-                  <>
-                    Your body clock score
-                    <br />
-                    is coming soon
-                  </>
-                ) : (
-                  headingText
-                )}
-              </h3>
-              <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300 max-w-[22ch]">
-                {noData
-                  ? "Log a few nights of sleep and add your shifts to unlock your Body Clock score."
-                  : "Based on your latest sleep, shifts and daytime patterns."}
-              </p>
-            </div>
-
-            {/* Alignment factors as insight chip */}
-            <div className="rounded-2xl bg-gradient-to-br from-slate-50/70 dark:from-slate-800/50 to-white dark:to-slate-900/50 border border-slate-200/50 dark:border-slate-700/40 p-4">
-              <p className="text-xs font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                Alignment factors
-              </p>
-              {noData ? (
-                <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                  Once you&apos;ve logged sleep and shifts, you&apos;ll see how timing and consistency affect your score.
-                </p>
-              ) : (
-                <div className="mt-2 space-y-1.5 text-xs">
-                  {factors.map((f) => (
-                    <div
-                      key={f.label}
-                      className="flex items-center justify-between py-0.5"
-                    >
-                      <span className="truncate text-slate-700 dark:text-slate-300">
-                        <span
-                          className={
-                            f.deltaSign === "+"
-                              ? "mr-1.5 font-bold text-emerald-600 dark:text-emerald-400"
-                              : "mr-1.5 font-bold text-rose-600 dark:text-rose-400"
-                          }
-                        >
-                          {f.deltaSign}
-                        </span>
-                        {f.label}
-                      </span>
-                      <span className="font-bold text-slate-900 dark:text-slate-100 ml-3 flex-shrink-0">
-                        {f.displayValue}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* RIGHT: Main circadian gauge */}
-          <div className="flex-shrink-0 flex flex-col items-center">
-            <CircadianGauge score={score} />
-            {/* View Progress button under the gauge */}
-            <Link
-              href="/progress"
-              className="mt-4 inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold tracking-wide shadow-[0_10px_26px_-14px_rgba(0,0,0,0.35)] dark:shadow-[0_10px_26px_-14px_rgba(255,255,255,0.1)] hover:opacity-95 dark:hover:opacity-90 transition-opacity"
-            >
-              View progress <ChevronRight className="h-4 w-4 opacity-80" strokeWidth={2} />
-            </Link>
-          </div>
-        </div>
-
+        {/* Last sync label */}
+        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+          {wearableLastSyncLabel}
+        </p>
       </div>
     </section>
+  );
+}
+
+/* -------------------- HOME ADJUSTED CALORIES CARD -------------------- */
+
+function HomeAdjustedCaloriesCard() {
+  const { data } = useTodayNutrition();
+
+  if (!data) return null;
+
+  const adjustedCalories = data.adjustedCalories ?? 0;
+  const baseCalories = data.baseCalories ?? 0;
+  const rhythmScore = data.rhythmScore ?? null;
+  const sleepHours = data.sleepHoursLast24h ?? null;
+  const shiftType = data.shiftType ?? null;
+
+  const deltas: Array<{ label: string; value: string; color: string }> = [];
+  const base = baseCalories;
+
+  if (data.rhythmFactor !== 1 && base > 0) {
+    const rhythmDelta = Math.round(base * (data.rhythmFactor - 1));
+    if (rhythmDelta !== 0) {
+      deltas.push({
+        label: rhythmScore != null ? `Rhythm score ${Math.round(rhythmScore)}` : "Rhythm",
+        value: `${rhythmDelta >= 0 ? "+" : ""}${rhythmDelta} kcal`,
+        color: rhythmDelta >= 0 ? "text-emerald-600" : "text-amber-600",
+      });
+    }
+  }
+
+  if (data.sleepFactor !== 1 && sleepHours != null && base > 0) {
+    const sleepDelta = Math.round(base * (data.sleepFactor - 1));
+    if (sleepDelta !== 0) {
+      deltas.push({
+        label: `${sleepHours.toFixed(1)}h sleep`,
+        value: `${sleepDelta >= 0 ? "+" : ""}${sleepDelta} kcal`,
+        color: sleepDelta >= 0 ? "text-emerald-600" : "text-amber-600",
+      });
+    }
+  }
+
+  if (data.shiftFactor !== 1 && base > 0) {
+    const shiftDelta = Math.round(base * (data.shiftFactor - 1));
+    if (shiftDelta !== 0) {
+      const shiftLabel =
+        shiftType === "night"
+          ? "Night shift"
+          : shiftType === "day"
+          ? "Day shift"
+          : shiftType === "off"
+          ? "Day off"
+          : "Shift";
+      deltas.push({
+        label: shiftLabel,
+        value: `${shiftDelta >= 0 ? "+" : ""}${shiftDelta} kcal`,
+        color: shiftDelta >= 0 ? "text-emerald-600" : "text-amber-600",
+      });
+    }
+  }
+
+  const deltaPct =
+    baseCalories > 0 ? Math.round(((adjustedCalories - baseCalories) / baseCalories) * 100) : 0;
+
+  return (
+    <Link
+      href="/adjusted-calories"
+      className="block rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col">
+              <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
+                Adjusted calories
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                Shift‑tuned target for today.
+              </span>
+            </div>
+            <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+          </div>
+
+          <div className="mt-1">
+            <div className="flex items-baseline gap-2">
+              <span className="text-[30px] font-semibold text-slate-900 dark:text-slate-100 tabular-nums leading-none">
+                {adjustedCalories.toLocaleString("en-US")}
+              </span>
+              <span className="text-sm font-medium text-slate-500 dark:text-slate-400">kcal</span>
+            </div>
+          </div>
+
+          {deltas.length > 0 && (
+            <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 space-y-1.5">
+              {deltas.slice(0, 2).map((d) => (
+                <div key={d.label} className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-600 dark:text-slate-300">{d.label}</span>
+                  <span className={`font-semibold tabular-nums ${d.color}`}>{d.value}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between text-[11px] pt-1">
+                <span className="text-slate-600 dark:text-slate-300">Base</span>
+                <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                  {baseCalories.toLocaleString()} kcal
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-slate-600 dark:text-slate-300">Total adjustment</span>
+                <span
+                  className={`font-semibold tabular-nums ${
+                    deltaPct >= 0
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-amber-600 dark:text-amber-400"
+                  }`}
+                >
+                  {deltaPct >= 0 ? "+" : ""}
+                  {deltaPct}%
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function HomeMealTimesCard() {
+  const [data, setData] = useState<DetailedMealTimingData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchMealTiming = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/meal-timing/today", { cache: "no-store" });
+      if (res.ok) {
+        const json = await res.json();
+        setData(json);
+      }
+    } catch (err) {
+      console.error("[HomeMealTimesCard] Failed to fetch meal timing:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMealTiming();
+  }, []);
+
+  useGoalChange(() => {
+    fetchMealTiming();
+  });
+
+  useEffect(() => {
+    const handleProfileUpdate = () => fetchMealTiming();
+
+    window.addEventListener("profile-updated", handleProfileUpdate);
+    return () => {
+      window.removeEventListener("profile-updated", handleProfileUpdate);
+    };
+  }, []);
+
+  if (loading || !data || !data.meals || data.meals.length === 0) {
+    return null;
+  }
+
+  const now = new Date();
+  const parseTime = (timeStr: string): number => {
+    let cleanTime = timeStr.trim().toUpperCase();
+    const isPM = cleanTime.includes("PM");
+    const isAM = cleanTime.includes("AM");
+    cleanTime = cleanTime.replace(/\s*(AM|PM)/i, "");
+
+    const [hoursStr, minutesStr] = cleanTime.split(":");
+    let hours = parseInt(hoursStr, 10);
+    const minutes = parseInt(minutesStr || "0", 10);
+
+    if (isPM && hours !== 12) hours += 12;
+    if (isAM && hours === 12) hours = 0;
+
+    return hours * 60 + minutes;
+  };
+
+  const nowMinutesTotal = now.getHours() * 60 + now.getMinutes();
+  const sortedMeals = [...data.meals].sort(
+    (a, b) => parseTime(a.time) - parseTime(b.time)
+  );
+
+  let nextMeal = sortedMeals.find((meal) => parseTime(meal.time) > nowMinutesTotal);
+  if (!nextMeal) {
+    nextMeal = sortedMeals[0];
+  }
+
+  const shiftLabel =
+    data.shiftType === "night"
+      ? "Night shift"
+      : data.shiftType === "day"
+      ? "Day shift"
+      : data.shiftType === "late"
+      ? "Late shift"
+      : "Day off";
+
+  return (
+    <Link
+      href="/meal-timing"
+      className="block rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <UtensilsCrossed className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+              <div className="flex flex-col">
+                <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
+                  Meal times
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Keep meals in rhythm with your shifts.
+                </span>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+          </div>
+
+          <div className="mt-2">
+            <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-300 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+              <span>
+                Next:{" "}
+                <span className="font-semibold text-slate-900 dark:text-slate-100">
+                  {nextMeal.label}
+                </span>{" "}
+                at {nextMeal.time}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 bg-slate-100/80 dark:bg-slate-800/80 text-[10px] text-slate-600 dark:text-slate-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                {shiftLabel}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function HomeLogSleepCard() {
+  return (
+    <Link
+      href="/sleep"
+      className="block rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
+            Sleep
+          </span>
+          <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+            Log your sleep
+          </span>
+          <span className="text-[11px] text-slate-500 dark:text-slate-400">
+            Add main sleep or naps to keep your body clock on track.
+          </span>
+        </div>
+        <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+      </div>
+    </Link>
+  );
+}
+
+function HomeSleepDebtCard() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [weeklyDeficit, setWeeklyDeficit] = useState<number | null>(null);
+  const [requiredDaily, setRequiredDaily] = useState<number | null>(null);
+  const [category, setCategory] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchDeficit = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await fetch("/api/sleep/deficit", { cache: "no-store" });
+        if (!res.ok) {
+          throw new Error(String(res.status));
+        }
+        const json = await res.json();
+        if (cancelled) return;
+        setWeeklyDeficit(json.weeklyDeficit ?? 0);
+        setRequiredDaily(json.requiredDaily ?? 7.5);
+        setCategory(json.category ?? "low");
+      } catch (err: any) {
+        console.error("[HomeSleepDebtCard] error:", err);
+        if (!cancelled) setError("Unable to load sleep debt yet.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    fetchDeficit();
+
+    const handleRefresh = () => fetchDeficit();
+    window.addEventListener("sleep-refreshed", handleRefresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("sleep-refreshed", handleRefresh);
+    };
+  }, []);
+
+  if (loading) {
+    // Don’t render a placeholder card while loading to avoid a blank pill on the home screen
+    return null;
+  }
+
+  if (error || weeklyDeficit === null || requiredDaily === null) {
+    return (
+      <div className="rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm text-xs text-slate-500 dark:text-slate-400">
+        {error || "No sleep debt data yet. Log a few days of main sleep to unlock this view."}
+      </div>
+    );
+  }
+
+  const hoursBehind = weeklyDeficit;
+  const absHours = Math.abs(hoursBehind).toFixed(1);
+  const isSurplus = hoursBehind <= 0;
+
+  let label: string;
+  let message: string;
+  let toneClasses: string;
+
+  if (isSurplus) {
+    label = "Sleep banked";
+    message = "You’re slightly ahead on sleep this week.";
+    toneClasses = "bg-emerald-50/80 text-emerald-700 border-emerald-200";
+  } else if (category === "low") {
+    label = "Mild sleep debt";
+    message = "A small catch‑up block will get you back on track.";
+    toneClasses = "bg-sky-50/80 text-sky-700 border-sky-200";
+  } else if (category === "medium") {
+    label = "Moderate sleep debt";
+    message = "Plan extra recovery sleep on your next off days.";
+    toneClasses = "bg-amber-50/80 text-amber-700 border-amber-200";
+  } else {
+    label = "High sleep debt";
+    message = "Treat this as a high‑risk week for fatigue.";
+    toneClasses = "bg-rose-50/80 text-rose-700 border-rose-200";
+  }
+
+  return (
+    <Link
+      href="/sleep"
+      className="block rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col">
+              <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
+                Sleep debt
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                Last 7 days vs your ideal.
+              </span>
+            </div>
+            <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+          </div>
+
+          <div className="mt-2 flex items-baseline justify-between">
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Behind / ahead</p>
+              <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+                {isSurplus ? "-" : "+"}
+                {absHours}h
+              </p>
+            </div>
+          </div>
+
+          <div className={`mt-2 rounded-2xl px-3 py-2 text-[11px] font-medium border ${toneClasses}`}>
+            <p className="text-[11px] mb-0.5">{label}</p>
+            <p className="text-[11px] font-normal opacity-90">{message}</p>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function HomeActivityCard() {
+  const router = useRouter();
+  const { data, loading } = useActivityToday();
+
+  const steps = data?.steps ?? 0;
+  const goal = data?.goal ?? 9000;
+  const activeMinutes = data?.activeMinutes ?? 0;
+
+  const progressPct =
+    goal > 0 ? Math.max(0, Math.min(100, Math.round((steps / goal) * 100))) : 0;
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        router.push("/activity");
+      }}
+      className="w-full text-left rounded-3xl bg-white/95 border border-slate-200/70 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1 space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col">
+              <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500">
+                Activity
+              </span>
+              <span className="text-[11px] text-slate-500">
+                Steps and active minutes for today.
+              </span>
+            </div>
+            <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />
+          </div>
+
+          <div className="mt-2 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-slate-500">Steps</p>
+              <p className="text-base font-semibold text-slate-900">
+                {loading ? "—" : steps.toLocaleString()}{" "}
+                <span className="text-xs font-normal text-slate-500">
+                  / {goal.toLocaleString()}
+                </span>
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-slate-500">
+                Active minutes
+              </p>
+              <p className="text-base font-semibold text-slate-900">
+                {loading ? "—" : `${activeMinutes} min`}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-sky-500 to-indigo-500"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function HeartRecoveryCard() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [restingBpm, setRestingBpm] = useState<number | null>(null);
+  const [avgBpm, setAvgBpm] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const res = await fetch("/api/google-fit/heart-rate");
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          if (data?.error === "no_google_fit_connection") {
+            setError("connect_wearable");
+          } else if (data?.error === "google_fit_api_error") {
+            setError("api_error");
+          } else {
+            setError("unknown");
+          }
+          return;
+        }
+
+        if (data?.message === "no_heart_rate_data") {
+          setRestingBpm(null);
+          setAvgBpm(null);
+          return;
+        }
+
+        if (!cancelled) {
+          setRestingBpm(
+            typeof data?.resting_bpm === "number" ? data.resting_bpm : null
+          );
+          setAvgBpm(typeof data?.avg_bpm === "number" ? data.avg_bpm : null);
+        }
+      } catch {
+        if (!cancelled) setError("unknown");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  let recoveryLabel = "Not enough data yet";
+  let recoveryTone = "text-slate-500";
+
+  if (restingBpm != null && avgBpm != null) {
+    const diff = avgBpm - restingBpm;
+    if (diff <= 15) {
+      recoveryLabel = "Recovery looks good";
+      recoveryTone = "text-emerald-600";
+    } else if (diff <= 25) {
+      recoveryLabel = "Recovery slightly stressed";
+      recoveryTone = "text-amber-600";
+    } else {
+      recoveryLabel = "Recovery over-worked";
+      recoveryTone = "text-rose-600";
+    }
+  }
+
+  return (
+    <Link
+      href="/heart-health"
+      className="block rounded-3xl bg-white/95 border border-slate-200/70 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col">
+              <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500">
+                Heart recovery
+              </span>
+              <span className={`text-[11px] ${recoveryTone}`}>
+                {loading
+                  ? "Checking your last 24h…"
+                  : error === "connect_wearable"
+                  ? "Connect your wearable to see recovery."
+                  : error
+                  ? "We had trouble reading heart rate."
+                  : recoveryLabel}
+              </span>
+            </div>
+            <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />
+          </div>
+
+          <div className="mt-2 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-slate-500">Resting (last 24h)</p>
+              <p className="text-base font-semibold text-slate-900">
+                {loading || restingBpm == null ? "—" : `${restingBpm} bpm`}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-slate-500">Average (last 24h)</p>
+              <p className="text-base font-semibold text-slate-900">
+                {loading || avgBpm == null ? "—" : `${avgBpm} bpm`}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function ShiftWorkerHealthCard() {
+  return (
+    <Link
+      href="/shift-worker-health"
+      className="block rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 space-y-1">
+          <p className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
+            Shift worker health explained
+          </p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+            How shifts, sleep debt and activity affect your energy, cravings and long‑term health.
+          </p>
+        </div>
+        <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+      </div>
+    </Link>
+  );
+}
+
+function ShiftWorkerDietCard() {
+  return (
+    <Link
+      href="/shift-worker-diet"
+      className="block rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 space-y-1">
+          <p className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
+            Diet
+          </p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+            Shift‑worker diets, common health issues, and how the right food timing helps protect you.
+          </p>
+        </div>
+        <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+      </div>
+    </Link>
+  );
+}
+
+function ShiftWorkerGoalsCard() {
+  return (
+    <Link
+      href="/shift-worker-goals"
+      className="block rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 space-y-1">
+          <p className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
+            Set my goals
+          </p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+            Create specific targets and time frames that fit your shifts, sleep and health challenges.
+          </p>
+        </div>
+        <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+      </div>
+    </Link>
   );
 }
 
@@ -483,169 +1012,47 @@ function BingeRiskCard({ bingeRisk }: { bingeRisk: { score: number; level: "low"
 
   const riskColors = {
     low: {
-      gauge: 'from-emerald-500 to-teal-500',
-      badge: 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200/50 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-300',
-      driver: 'bg-emerald-50/60 dark:bg-emerald-950/25 border-emerald-200/40 dark:border-emerald-800/30 text-emerald-700 dark:text-emerald-300'
+      circle: 'bg-emerald-50 border-emerald-200',
+      driver: 'bg-emerald-50/60 border-emerald-200/40 text-emerald-700'
     },
     medium: {
-      gauge: 'from-amber-500 to-orange-500',
-      badge: 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-200/50 dark:border-amber-800/40 text-amber-700 dark:text-amber-300',
-      driver: 'bg-amber-50/60 dark:bg-amber-950/25 border-amber-200/40 dark:border-amber-800/30 text-amber-700 dark:text-amber-300'
+      circle: 'bg-amber-50 border-amber-200',
+      driver: 'bg-amber-50/60 border-amber-200/40 text-amber-700'
     },
     high: {
-      gauge: 'from-rose-500 to-red-600',
-      badge: 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200/50 dark:border-rose-800/40 text-rose-700 dark:text-rose-300',
-      driver: 'bg-rose-50/60 dark:bg-rose-950/25 border-rose-200/40 dark:border-rose-800/30 text-rose-700 dark:text-rose-300'
+      circle: 'bg-rose-50 border-rose-200',
+      driver: 'bg-rose-50/60 border-rose-200/40 text-rose-700'
     }
   };
 
   const colors = riskColors[riskLevel];
-  const size = 144; // h-36 = 144px
-  const radius = 64;
-  const stroke = 6;
-  const normalizedRadius = radius - stroke / 2;
-  const circumference = normalizedRadius * 2 * Math.PI;
-  const offset = circumference * (1 - riskScore / 100);
+  const levelLabel =
+    riskLevel === "low" ? "Low" : riskLevel === "medium" ? "Medium" : "High";
 
   return (
-    <section
-      className={[
-        "relative overflow-hidden rounded-3xl",
-        "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
-        "border border-slate-200/50 dark:border-slate-700/40",
-        "text-slate-900 dark:text-slate-100",
-        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
-        "dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
-        "p-6",
-      ].join(" ")}
+    <Link
+      href="/binge-risk"
+      className="block rounded-3xl bg-white/95 border border-slate-200/70 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
     >
-      {/* Highlight overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
-      
-      {/* Subtle colored glow hints - dark mode only */}
-      <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
-      
-      {/* Inner ring for premium feel */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
-
-      <div className="relative z-10 space-y-5">
-        {/* Title */}
-        <h3 className="text-[17px] font-semibold tracking-tight">
-          Binge Risk
-        </h3>
-
-        {/* Main content: Gauge on left, Drivers on right */}
-        <div className="flex items-start gap-6">
-          {/* LEFT: Circular gauge */}
-          <div className="flex-shrink-0">
-            <div className="relative grid place-items-center">
-              {/* Ring container glow */}
-              <div className="absolute inset-[-18px] rounded-full bg-gradient-to-br from-slate-100/70 dark:from-slate-800/30 to-transparent blur-xl" />
-              
-              {/* Ring itself */}
-              <div className="relative h-36 w-36 rounded-full bg-white/60 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[inset_0_1px_0_rgba(0,0,0,0.2)]">
-                <div className="absolute inset-2 rounded-full border border-slate-200/40 dark:border-slate-700/30 bg-white/50 dark:bg-slate-900/40" />
-                
-                {/* SVG ring overlay */}
-                <svg 
-                  height={144} 
-                  width={144} 
-                  viewBox={`0 0 144 144`} 
-                  className="absolute inset-0"
-                >
-                  <defs>
-                    <linearGradient id="bingeRiskTrackGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#E2E8F0" stopOpacity="0.6" />
-                      <stop offset="100%" stopColor="#CBD5E1" stopOpacity="0.4" />
-                    </linearGradient>
-                    <linearGradient id="bingeRiskActiveGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                      {riskLevel === 'low' ? (
-                        <>
-                          <stop offset="0%" stopColor="#10B981" stopOpacity="0.8" />
-                          <stop offset="100%" stopColor="#059669" stopOpacity="0.8" />
-                        </>
-                      ) : riskLevel === 'medium' ? (
-                        <>
-                          <stop offset="0%" stopColor="#F59E0B" stopOpacity="0.8" />
-                          <stop offset="100%" stopColor="#D97706" stopOpacity="0.8" />
-                        </>
-                      ) : (
-                        <>
-                          <stop offset="0%" stopColor="#EF4444" stopOpacity="0.8" />
-                          <stop offset="100%" stopColor="#DC2626" stopOpacity="0.8" />
-                        </>
-                      )}
-                    </linearGradient>
-                  </defs>
-                  
-                  {/* Background track */}
-                  <circle
-                    cx={72}
-                    cy={72}
-                    r={normalizedRadius}
-                    fill="none"
-                    stroke="url(#bingeRiskTrackGradient)"
-                    strokeWidth={stroke}
-                  />
-                  
-                  {/* Active arc */}
-                  <circle
-                    cx={72}
-                    cy={72}
-                    r={normalizedRadius}
-                    fill="none"
-                    stroke="url(#bingeRiskActiveGradient)"
-                    strokeWidth={stroke}
-                    strokeLinecap="round"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={offset}
-                    transform={`rotate(-90 72 72)`}
-                  />
-                </svg>
-
-                {/* Center text */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                  <p className="text-3xl font-semibold text-slate-900 dark:text-slate-100 tabular-nums leading-none">
-                    {riskScore}
-                  </p>
-                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-                    risk
-                  </p>
-                </div>
-              </div>
-            </div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className={`relative h-11 w-11 rounded-full flex items-center justify-center ${colors.circle}`}>
+            <span className="text-base font-semibold text-slate-900 tabular-nums">
+              {riskScore}
+            </span>
           </div>
-
-          {/* RIGHT: Key drivers */}
-          <div className="flex-1 space-y-3 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-xs font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                Key drivers
-              </p>
-              <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium border ${colors.badge}`}>
-                Today · {riskLevel.charAt(0).toUpperCase() + riskLevel.slice(1)}
-              </span>
-            </div>
-
-            <div className="space-y-2">
-              {drivers.map((driver, index) => (
-                <div
-                  key={index}
-                  className={`rounded-xl px-3 py-2 text-xs font-medium border ${colors.driver}`}
-                >
-                  {driver}
-                </div>
-              ))}
-            </div>
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500">
+              Binge risk
+            </span>
+            <span className="text-[11px] text-slate-500">
+              {levelLabel} risk. Tap to see what&apos;s driving it.
+            </span>
           </div>
         </div>
-
-        {/* Explanation text - full width */}
-        <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-          {explanation}
-        </p>
+        <ChevronRight className="h-4 w-4 text-slate-400" />
       </div>
-    </section>
+    </Link>
   );
 }
 
@@ -2617,12 +3024,6 @@ function ShiftCoachCard({ inSync }: { inSync: boolean }) {
   );
 }
 
-/* -------------------- BOTTOM METRICS ROW -------------------- */
-
-function BottomMetricsRow({ score }: { score: number }) {
-  return null;
-}
-
 function MiniCard({
   children,
   className = "",
@@ -2835,73 +3236,9 @@ function BlogSection() {
       <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
       
       {/* Subtle colored glow hints - dark mode only */}
-      <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
-      
-      {/* Inner ring for premium feel */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
-
-      <div className="relative z-10 space-y-5">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400">
-              SHIFTCOACH BLOG
-            </p>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-              Tips and guidance tailored to your shifts
-            </p>
-          </div>
-          <div className="h-10 w-10 rounded-2xl bg-slate-50/60 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/40 grid place-items-center flex-shrink-0">
-            <MessageSquareText className="h-5 w-5 text-slate-400 dark:text-slate-500" strokeWidth={2} />
-          </div>
-        </div>
-
-        {/* Blog list */}
-        <div className="mt-5 space-y-3">
-          {effectivePosts.map((post, index) => {
-            const href = (post as any).url || `/blog/${post.slug}`;
-            const chip = getPersonalizationChip(index);
-            return (
-              <React.Fragment key={post.slug}>
-                <Link
-                  href={href}
-                  className="group flex items-center justify-between gap-4 rounded-2xl px-4 py-4 bg-slate-50/40 dark:bg-slate-800/35 border border-slate-200/30 dark:border-slate-700/40 hover:bg-white/70 dark:hover:bg-slate-800/50 hover:border-slate-200/50 dark:hover:border-slate-600/50 transition-colors"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                      <h3 className="text-[15px] font-semibold tracking-tight text-slate-900 dark:text-slate-100 leading-snug">
-                        {post.title}
-                      </h3>
-                      {chip}
-                    </div>
-                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-2 max-w-[42ch]">
-                      {post.description}
-                    </p>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition flex-shrink-0" strokeWidth={2} />
-                </Link>
-                {index < effectivePosts.length - 1 && (
-                  <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 dark:via-slate-700/50 to-transparent" />
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
-
-        {/* AI Summary Footer */}
-        <div className="mt-5 rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 dark:from-slate-800/50 to-white dark:to-slate-800/40 border border-slate-200/50 dark:border-slate-700/40">
-          <p className="text-xs font-semibold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
-            Today's recommended read
-          </p>
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-            Based on your recent shifts, focus on fatigue management and meal timing to protect sleep.
-          </p>
-        </div>
-      </div>
+      {/* Blog section removed from dashboard to simplify UI */}
     </section>
   );
 }
 
 export default ShiftRhythmCard;
-

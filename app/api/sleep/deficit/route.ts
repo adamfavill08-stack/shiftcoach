@@ -3,7 +3,8 @@ import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { calculateSleepDeficit } from '@/lib/sleep/calculateSleepDeficit'
 
-export const dynamic = 'force-dynamic'
+// Cache for 30 seconds - sleep deficit updates when sleep is logged
+export const revalidate = 30
 
 /**
  * GET /api/sleep/deficit
@@ -143,13 +144,7 @@ export async function GET(req: NextRequest) {
       dailyCount: deficit.daily.length,
     })
 
-    return NextResponse.json(deficit, {
-      headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-      }
-    })
+    return NextResponse.json(deficit)
   } catch (err: any) {
     console.error('[api/sleep/deficit] FATAL ERROR:', {
       name: err?.name,

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 
+// Cache for 30 seconds - sleep data updates when logged
+export const revalidate = 30
+
 type SleepTodayPayload = {
   sleep: {
     id: string

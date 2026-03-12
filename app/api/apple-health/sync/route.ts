@@ -14,6 +14,7 @@ import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
  * Request body (JSON):
  * {
  *   steps: number;          // total steps for "today"
+ *   source?: string;        // optional label for the wearable source
  *   syncedAt?: string;      // optional ISO timestamp when sync occurred
  * }
  *
@@ -30,6 +31,9 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => null)
     const steps = typeof body?.steps === 'number' ? Math.max(0, Math.round(body.steps)) : null
+    const sourceOverride = typeof body?.source === 'string' && body.source.trim().length > 0
+      ? body.source.trim()
+      : null
     const syncedAt = typeof body?.syncedAt === 'string' ? body.syncedAt : new Date().toISOString()
 
     if (steps === null) {
@@ -69,7 +73,7 @@ export async function POST(req: NextRequest) {
         .maybeSingle()
     }
 
-    const sourceLabel = 'Apple Health'
+    const sourceLabel = sourceOverride || 'Apple Health'
 
     if (!existingQuery.error && existingQuery.data) {
       const { error: updateError } = await supabase

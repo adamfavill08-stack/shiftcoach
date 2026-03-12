@@ -4,7 +4,8 @@ import { supabaseServer } from '@/lib/supabase-server'
 import { calculateCircadianPhase, type ShiftType } from '@/lib/circadian/calcCircadianPhase'
 import { getSleepDeficitForCircadian } from '@/lib/circadian/sleep'
 
-export const dynamic = 'force-dynamic'
+// Cache for 60 seconds - circadian phase updates daily
+export const revalidate = 60
 
 export async function GET(req: NextRequest) {
   try {

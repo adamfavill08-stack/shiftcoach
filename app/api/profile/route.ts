@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 
-export const dynamic = 'force-dynamic'
+// Cache for 5 minutes - profile data changes infrequently
+export const revalidate = 300
 
 /**
  * GET /api/profile
@@ -115,6 +116,12 @@ export async function POST(req: NextRequest) {
       tz,
       theme,
       default_activity_level,
+      // Priority 2 settings
+      shift_pattern,
+      ideal_sleep_start,
+      ideal_sleep_end,
+      wake_reminder_enabled,
+      wake_reminder_trigger,
     } = body
 
     const profileData: any = {
@@ -203,6 +210,44 @@ export async function POST(req: NextRequest) {
     if (tz !== undefined) profileData.tz = tz || null
     if (theme !== undefined) profileData.theme = theme || null
     if (default_activity_level !== undefined) profileData.default_activity_level = default_activity_level || null
+    
+    // Handle Priority 2 settings (shift & sleep)
+    if (shift_pattern !== undefined) {
+      profileData.shift_pattern = shift_pattern || null
+      console.log('[api/profile] Setting shift_pattern to:', profileData.shift_pattern)
+    }
+    if (ideal_sleep_start !== undefined) {
+      // Convert HH:MM to HH:MM:SS format for PostgreSQL TIME type
+      if (ideal_sleep_start && ideal_sleep_start !== '') {
+        const timeStr = ideal_sleep_start.includes(':') 
+          ? (ideal_sleep_start.split(':').length === 2 ? `${ideal_sleep_start}:00` : ideal_sleep_start)
+          : null
+        profileData.ideal_sleep_start = timeStr
+      } else {
+        profileData.ideal_sleep_start = null
+      }
+      console.log('[api/profile] Setting ideal_sleep_start to:', profileData.ideal_sleep_start)
+    }
+    if (ideal_sleep_end !== undefined) {
+      // Convert HH:MM to HH:MM:SS format for PostgreSQL TIME type
+      if (ideal_sleep_end && ideal_sleep_end !== '') {
+        const timeStr = ideal_sleep_end.includes(':') 
+          ? (ideal_sleep_end.split(':').length === 2 ? `${ideal_sleep_end}:00` : ideal_sleep_end)
+          : null
+        profileData.ideal_sleep_end = timeStr
+      } else {
+        profileData.ideal_sleep_end = null
+      }
+      console.log('[api/profile] Setting ideal_sleep_end to:', profileData.ideal_sleep_end)
+    }
+    if (wake_reminder_enabled !== undefined) {
+      profileData.wake_reminder_enabled = wake_reminder_enabled === true || wake_reminder_enabled === 'true'
+      console.log('[api/profile] Setting wake_reminder_enabled to:', profileData.wake_reminder_enabled)
+    }
+    if (wake_reminder_trigger !== undefined) {
+      profileData.wake_reminder_trigger = wake_reminder_trigger || null
+      console.log('[api/profile] Setting wake_reminder_trigger to:', profileData.wake_reminder_trigger)
+    }
 
     console.log('[api/profile] Profile data to upsert:', JSON.stringify(profileData, null, 2))
     console.log('[api/profile] Age in profileData:', profileData.age, 'Type:', typeof profileData.age)
@@ -245,6 +290,14 @@ export async function POST(req: NextRequest) {
         console.error(`[api/profile] AGE COLUMN DOES NOT EXIST - Age value ${profileDataToSave.age} will be lost!`)
         console.error(`[api/profile] You MUST run the migration to save age values!`)
         delete profileDataToSave.age
+      } else if (missingColumn === 'shift_pattern' || 
+                 missingColumn === 'ideal_sleep_start' || 
+                 missingColumn === 'ideal_sleep_end' ||
+                 missingColumn === 'wake_reminder_enabled' ||
+                 missingColumn === 'wake_reminder_trigger') {
+        console.error(`[api/profile] SETTINGS COLUMN '${missingColumn}' DOES NOT EXIST - Setting will be lost!`)
+        console.error(`[api/profile] You MUST run the migration: supabase/migrations/20250122_user_settings.sql`)
+        delete profileDataToSave[missingColumn]
       }
       
       const retryResult = await dbClient

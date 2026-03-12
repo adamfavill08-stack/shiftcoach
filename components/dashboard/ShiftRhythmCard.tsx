@@ -135,7 +135,7 @@ function ShiftRhythmCard({ score, circadian, sleepDeficit, socialJetlag, shiftLa
         setRecoveryLoading(true);
         setRecoveryError(null);
 
-        const res = await fetch('/api/sleep/overview', { cache: 'no-store' });
+        const res = await fetch('/api/sleep/overview', { next: { revalidate: 30 } });
         const json = await res.json().catch(() => ({}));
 
         if (!res.ok) {
@@ -176,7 +176,7 @@ function ShiftRhythmCard({ score, circadian, sleepDeficit, socialJetlag, shiftLa
       try {
         setSleepConsistencyLoading(true);
 
-        const res = await fetch('/api/sleep/consistency', { cache: 'no-store' });
+        const res = await fetch('/api/sleep/consistency', { next: { revalidate: 60 } });
         const json = await res.json().catch(() => ({}));
 
         if (!res.ok) {
@@ -215,7 +215,7 @@ function ShiftRhythmCard({ score, circadian, sleepDeficit, socialJetlag, shiftLa
       
       try {
         setIsLoadingDeficit(true);
-        const res = await fetch('/api/sleep/deficit', { cache: 'no-store' });
+        const res = await fetch('/api/sleep/deficit', { next: { revalidate: 30 } });
         if (!res.ok) throw new Error(String(res.status));
         const json = await res.json();
         if (!cancelled) {
@@ -452,9 +452,6 @@ function ShiftRhythmCard({ score, circadian, sleepDeficit, socialJetlag, shiftLa
         sleepConsistencyDisplay={sleepConsistencyDisplay}
       />
 
-      {/* SLEEP DEFICIT CARD */}
-      <SleepDeficitCard data={deficitData} loading={isLoadingDeficit} />
-
       {/* SOCIAL JETLAG */}
       {socialJetlag ? (
         <SocialJetlagCard />
@@ -469,8 +466,7 @@ function ShiftRhythmCard({ score, circadian, sleepDeficit, socialJetlag, shiftLa
         <MoodFocus mood={mood} focus={focus} onChange={handleMoodFocusChange} />
       )}
 
-      {/* NEXT BEST ACTIONS */}
-      <NextBestActionsCard />
+      {/* NEXT BEST ACTIONS (sleep debt card removed) */}
 
       {/* BOTTOM METRICS ROW */}
       <BottomMetricsRow score={displayScore} />
@@ -1120,21 +1116,6 @@ function WhyYouHaveThisScoreCard({
             </div>
           )}
 
-          {/* Sleep Debt */}
-          <div className="group relative overflow-hidden flex items-center justify-between rounded-xl bg-gradient-to-br from-amber-50/60 to-amber-50/30 backdrop-blur-sm px-4 py-3.5 border border-amber-100/50 shadow-[0_4px_12px_rgba(15,23,42,0.03)] transition-all">
-            <div className="absolute inset-0 bg-gradient-to-r from-white/30 via-transparent to-transparent" />
-            <div className="relative z-10 flex items-center gap-3.5">
-              <div className="relative flex h-3 w-3 items-center justify-center">
-                <div className="h-3 w-3 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 shadow-sm" />
-                <div className="absolute inset-0 rounded-full bg-amber-500 opacity-40 blur-md" />
-              </div>
-              <span className="text-[13px] font-bold tracking-tight text-slate-700">Sleep Debt</span>
-            </div>
-            <div className="relative z-10 flex items-center gap-3">
-              <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider">Moderate</span>
-              <span className="text-[13px] font-bold text-slate-900 dark:text-slate-100">1h 20 m 24 hour</span>
-            </div>
-          </div>
         </div>
       </div>
     </section>
