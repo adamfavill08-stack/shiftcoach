@@ -764,7 +764,7 @@ function HomeActivityCard() {
   const { data, loading } = useActivityToday();
 
   const steps = data?.steps ?? 0;
-  const goal = data?.goal ?? 9000;
+  const goal = data?.stepTarget ?? 9000;
   const activeMinutes = data?.activeMinutes ?? 0;
 
   const progressPct =
