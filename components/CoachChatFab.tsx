@@ -17,13 +17,14 @@ export function CoachChatFab({ unreadCount = 3, className }: CoachChatFabProps) 
       type="button"
       onClick={() => router.push("/coach")}
       className={cn(
-        "group fixed bottom-24 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full",
+        "group fixed right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full",
         "bg-white text-slate-900 shadow-[0_12px_30px_rgba(15,23,42,0.25)]",
         "dark:bg-slate-900 dark:text-slate-100 dark:shadow-[0_12px_30px_rgba(0,0,0,0.7)]",
         "ring-2 ring-inset ring-slate-200 dark:ring-slate-700",
         "transition-transform hover:scale-105 active:scale-95",
         className,
       )}
+      style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 96px)" }}
       aria-label="Open coach chat"
     >
       <MessageCircle className="h-6 w-6" strokeWidth={2.4} />
