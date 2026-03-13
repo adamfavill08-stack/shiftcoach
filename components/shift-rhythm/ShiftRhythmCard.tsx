@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronRight, Info, X, Clock, UtensilsCrossed, AlertCircle, Sparkles, MessageSquareText } from "lucide-react";
+import { ChevronRight, Info, X, Clock, UtensilsCrossed, AlertCircle, Sparkles, MessageSquareText, Droplets } from "lucide-react";
 import { useGoalChange } from "@/lib/hooks/useGoalChange";
 import { ShiftLagCard } from "@/components/shiftlag/ShiftLagCard";
 import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition";
@@ -277,6 +277,9 @@ function ShiftRhythmCard({ score, circadian, socialJetlag, shiftLag, bingeRisk, 
 
       {/* HEART RECOVERY TILE */}
       <HeartRecoveryCard />
+
+      {/* HYDRATION TILE */}
+      <HydrationCard />
 
       {/* EXPLORE TITLE */}
       <div className="pt-2">
@@ -1030,6 +1033,77 @@ function HeartRecoveryCard() {
                 {loading || avgBpm == null ? "—" : `${avgBpm} bpm`}
               </p>
             </div>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function HydrationCard() {
+  const { data } = useTodayNutrition();
+
+  const targetMl = data?.hydrationTargets?.water_ml ?? null;
+  const consumedMl = data?.hydrationIntake?.water_ml ?? null;
+
+  const targetLitres =
+    targetMl != null ? (targetMl / 1000).toFixed(targetMl >= 2000 ? 1 : 2) : "—";
+
+  const progressPct =
+    targetMl && consumedMl != null && targetMl > 0
+      ? Math.min(100, Math.round((consumedMl / targetMl) * 100))
+      : null;
+
+  return (
+    <Link
+      href="/hydration"
+      className="block rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-colors hover:bg-slate-50"
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-sky-50 text-sky-600">
+          <Droplets className="w-4 h-4" />
+        </div>
+        <div className="flex-1 space-y-2">
+          <div className="flex items-start justify-between gap-2">
+            <div className="space-y-1">
+              <p className="font-semibold text-slate-900 text-[11px] uppercase tracking-[0.16em]">
+                Hydration guidance
+              </p>
+              <p className="text-[11px] text-slate-600">
+                Daily water target tuned to your shifts.
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0 mt-1" />
+          </div>
+
+          <div className="flex items-center justify-between text-[11px] text-slate-700">
+            <span>
+              Today&apos;s goal:{" "}
+              <span className="font-semibold text-slate-900">{targetLitres}</span>{" "}
+              <span className="text-slate-500">L</span>
+            </span>
+            {progressPct != null && (
+              <span className="text-[10px] text-slate-500">
+                {progressPct}% logged
+              </span>
+            )}
+          </div>
+
+          {progressPct != null && (
+            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-sky-400 to-emerald-500"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          )}
+
+          <div className="mt-2 flex items-center justify-between text-[10px] text-slate-600 pt-2 border-t border-slate-200/70">
+            <span>Hydration notifications</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              <span className="font-medium text-slate-700">On</span>
+            </span>
           </div>
         </div>
       </div>

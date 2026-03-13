@@ -33,8 +33,13 @@ export default function BottomNav() {
     return pathname?.startsWith(href)
   }
 
-  // Hide on auth pages
-  if (pathname?.startsWith('/auth') || pathname?.startsWith('/onboarding')) {
+  // Hide on auth, onboarding, splash, and welcome pages
+  if (
+    pathname?.startsWith('/auth') ||
+    pathname?.startsWith('/onboarding') ||
+    pathname === '/splash' ||
+    pathname === '/welcome'
+  ) {
     return null
   }
 

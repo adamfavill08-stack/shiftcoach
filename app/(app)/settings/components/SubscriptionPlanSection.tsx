@@ -198,15 +198,9 @@ export function SubscriptionPlanSection() {
           </div>
 
           {!testerAccount && !subscriptionPlan && (
-            <button
-              onClick={() => router.push('/select-plan')}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-50/60 dark:bg-slate-800/40 hover:bg-slate-100/60 dark:hover:bg-slate-800/60 transition-colors group"
-            >
-              <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                Select plan
-              </span>
-              <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
-            </button>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Your access is managed through your App Store or Play Store purchase.
+            </p>
           )}
           
           {/* Note: Plan changes require canceling and resubscribing on mobile */}
