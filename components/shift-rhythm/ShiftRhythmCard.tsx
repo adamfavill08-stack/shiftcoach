@@ -278,10 +278,11 @@ function ShiftRhythmCard({ score, circadian, socialJetlag, shiftLag, bingeRisk, 
       {/* HEART RECOVERY TILE */}
       <HeartRecoveryCard />
 
-      {/* DISCOVER TITLE */}
+      {/* EXPLORE TITLE */}
       <div className="pt-2">
-        <h2 className="text-[10px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400 uppercase">
-          Discover
+        <h2 className="flex items-center gap-1 text-[7px] font-medium tracking-[0.2em] text-slate-200 uppercase">
+          <span>Explore</span>
+          <span className="text-[11px]">🧭</span>
         </h2>
       </div>
 
@@ -437,16 +438,16 @@ function HomeAdjustedCaloriesCard() {
   return (
     <Link
       href="/adjusted-calories"
-      className="block rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
+      className="block rounded-xl bg-white border border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 space-y-1.5">
           <div className="flex items-center justify-between gap-2">
             <div className="flex flex-col">
-              <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
+              <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
                 Adjusted calories
               </span>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="text-[11px] text-slate-600">
                 Shift‑tuned target for today.
               </span>
             </div>
@@ -455,10 +456,10 @@ function HomeAdjustedCaloriesCard() {
 
           <div className="mt-1">
             <div className="flex items-baseline gap-2">
-              <span className="text-[30px] font-semibold text-slate-900 dark:text-slate-100 tabular-nums leading-none">
+              <span className="text-[30px] font-semibold text-slate-900 tabular-nums leading-none">
                 {adjustedCalories.toLocaleString("en-US")}
               </span>
-              <span className="text-sm font-medium text-slate-500 dark:text-slate-400">kcal</span>
+              <span className="text-sm font-medium text-slate-700">kcal</span>
             </div>
           </div>
 
@@ -466,23 +467,23 @@ function HomeAdjustedCaloriesCard() {
             <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 space-y-1.5">
               {deltas.slice(0, 2).map((d) => (
                 <div key={d.label} className="flex items-center justify-between text-[11px]">
-                  <span className="text-slate-600 dark:text-slate-300">{d.label}</span>
+                  <span className="text-slate-700">{d.label}</span>
                   <span className={`font-semibold tabular-nums ${d.color}`}>{d.value}</span>
                 </div>
               ))}
               <div className="flex items-center justify-between text-[11px] pt-1">
-                <span className="text-slate-600 dark:text-slate-300">Base</span>
-                <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                <span className="text-slate-700">Base</span>
+                <span className="font-semibold tabular-nums text-slate-900">
                   {baseCalories.toLocaleString()} kcal
                 </span>
               </div>
               <div className="flex items-center justify-between text-[11px]">
-                <span className="text-slate-600 dark:text-slate-300">Total adjustment</span>
+                <span className="text-slate-700">Total adjustment</span>
                 <span
                   className={`font-semibold tabular-nums ${
                     deltaPct >= 0
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-amber-600 dark:text-amber-400"
+                      ? "text-emerald-700"
+                      : "text-amber-700"
                   }`}
                 >
                   {deltaPct >= 0 ? "+" : ""}
@@ -500,6 +501,7 @@ function HomeAdjustedCaloriesCard() {
 function HomeMealTimesCard() {
   const [data, setData] = useState<DetailedMealTimingData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   const fetchMealTiming = async () => {
     try {
@@ -533,12 +535,16 @@ function HomeMealTimesCard() {
     };
   }, []);
 
-  if (loading || !data || !data.meals || data.meals.length === 0) {
-    return null;
-  }
+  // Load notification preference (default ON)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem("mealNotificationsEnabled");
+    if (stored === "off") {
+      setNotificationsEnabled(false);
+    }
+  }, []);
 
-  const now = new Date();
-  const parseTime = (timeStr: string): number => {
+  const parseMealTimeToMinutes = (timeStr: string): number => {
     let cleanTime = timeStr.trim().toUpperCase();
     const isPM = cleanTime.includes("PM");
     const isAM = cleanTime.includes("AM");
@@ -554,12 +560,82 @@ function HomeMealTimesCard() {
     return hours * 60 + minutes;
   };
 
+  // Schedule a local browser notification for the next meal window
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof Notification === "undefined") return;
+    if (!notificationsEnabled) return;
+    if (!data || !data.meals || data.meals.length === 0) return;
+
+    const now = new Date();
+    const todayKey = now.toISOString().slice(0, 10);
+    const nowMinutesTotal = now.getHours() * 60 + now.getMinutes();
+
+    const sortedMeals = [...data.meals].sort(
+      (a, b) => parseMealTimeToMinutes(a.time) - parseMealTimeToMinutes(b.time)
+    );
+
+    let upcoming = sortedMeals.find((meal) => parseMealTimeToMinutes(meal.time) > nowMinutesTotal);
+    if (!upcoming) {
+      upcoming = sortedMeals[0];
+    }
+    if (!upcoming) return;
+
+    const targetMinutes = parseMealTimeToMinutes(upcoming.time);
+    const msUntil = (targetMinutes - nowMinutesTotal) * 60 * 1000;
+    if (msUntil <= 0 || msUntil > 6 * 60 * 60 * 1000) {
+      // Skip if in the past or too far in the future
+      return;
+    }
+
+    const storageKey = "nextMealNotification";
+    const signature = `${todayKey}|${upcoming.label}|${upcoming.time}`;
+    const lastSignature = window.localStorage.getItem(storageKey);
+    if (lastSignature === signature) return;
+
+    let timeoutId: number | undefined;
+
+    const schedule = async () => {
+      try {
+        if (Notification.permission === "default") {
+          await Notification.requestPermission();
+        }
+      } catch {
+        // ignore permission errors
+      }
+      if (Notification.permission !== "granted") return;
+
+      timeoutId = window.setTimeout(() => {
+        try {
+          new Notification("Next meal window", {
+            body: `Next: ${upcoming.label} at ${upcoming.time}`,
+          });
+          window.localStorage.setItem(storageKey, signature);
+        } catch {
+          // If notifications fail, just skip
+        }
+      }, msUntil);
+    };
+
+    schedule();
+
+    return () => {
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [data, notificationsEnabled]);
+
+  if (loading || !data || !data.meals || data.meals.length === 0) {
+    return null;
+  }
+
+  const now = new Date();
   const nowMinutesTotal = now.getHours() * 60 + now.getMinutes();
   const sortedMeals = [...data.meals].sort(
-    (a, b) => parseTime(a.time) - parseTime(b.time)
+    (a, b) => parseMealTimeToMinutes(a.time) - parseMealTimeToMinutes(b.time)
   );
 
-  let nextMeal = sortedMeals.find((meal) => parseTime(meal.time) > nowMinutesTotal);
+  let nextMeal = sortedMeals.find((meal) => parseMealTimeToMinutes(meal.time) > nowMinutesTotal);
   if (!nextMeal) {
     nextMeal = sortedMeals[0];
   }
@@ -573,38 +649,60 @@ function HomeMealTimesCard() {
       ? "Late shift"
       : "Day off";
 
+  const handleToggleNotifications = () => {
+    const next = !notificationsEnabled;
+    setNotificationsEnabled(next);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("mealNotificationsEnabled", next ? "on" : "off");
+    }
+  };
+
   return (
-    <Link
-      href="/meal-timing"
-      className="block rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
-    >
+    <div className="block rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 space-y-1.5">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <UtensilsCrossed className="h-4 w-4 text-slate-500 dark:text-slate-400" />
               <div className="flex flex-col">
-                <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
-                  Meal times
+                <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
+                  Next meal window
                 </span>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                <span className="text-[11px] text-slate-600">
                   Keep meals in rhythm with your shifts.
                 </span>
               </div>
             </div>
-            <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+            <button
+              type="button"
+              onClick={handleToggleNotifications}
+              className="inline-flex items-center gap-2 text-[10px] font-medium text-slate-600"
+            >
+              <span className="mr-1">Alerts</span>
+              <span
+                className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+                  notificationsEnabled ? "bg-emerald-500" : "bg-slate-300"
+                }`}
+              >
+                <span
+                  className={`h-3 w-3 rounded-full bg-white shadow transition-transform ${
+                    notificationsEnabled ? "translate-x-3" : "translate-x-1"
+                  }`}
+                />
+              </span>
+            </button>
           </div>
 
           <div className="mt-2">
-            <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-300 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+            <div className="flex items-center justify-between text-[11px] text-slate-700 pt-1 border-t border-slate-200/60">
               <span>
                 Next:{" "}
-                <span className="font-semibold text-slate-900 dark:text-slate-100">
+                <span className="font-semibold text-slate-900">
                   {nextMeal.label}
                 </span>{" "}
                 at {nextMeal.time}
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 bg-slate-100/80 dark:bg-slate-800/80 text-[10px] text-slate-600 dark:text-slate-300">
+              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 bg-slate-100 text-[10px] text-slate-700">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 {shiftLabel}
               </span>
@@ -612,7 +710,7 @@ function HomeMealTimesCard() {
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -620,21 +718,21 @@ function HomeLogSleepCard() {
   return (
     <Link
       href="/sleep"
-      className="block rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
+      className="block rounded-xl bg-white border border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
+          <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
             Sleep
           </span>
-          <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+          <span className="text-sm font-medium text-slate-900">
             Log your sleep
           </span>
-          <span className="text-[11px] text-slate-500 dark:text-slate-400">
+          <span className="text-[11px] text-slate-600">
             Add main sleep or naps to keep your body clock on track.
           </span>
         </div>
-        <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+        <ChevronRight className="h-4 w-4 text-slate-500 flex-shrink-0" />
       </div>
     </Link>
   );
@@ -776,20 +874,20 @@ function HomeActivityCard() {
       onClick={() => {
         router.push("/activity");
       }}
-      className="w-full text-left rounded-3xl bg-white/95 border border-slate-200/70 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
+      className="w-full text-left rounded-xl bg-white border border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 space-y-1.5">
           <div className="flex items-center justify-between gap-2">
             <div className="flex flex-col">
-              <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500">
+              <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
                 Activity
               </span>
-              <span className="text-[11px] text-slate-500">
+              <span className="text-[11px] text-slate-600">
                 Steps and active minutes for today.
               </span>
             </div>
-            <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />
+            <ChevronRight className="h-4 w-4 text-slate-500 flex-shrink-0" />
           </div>
 
           <div className="mt-2 flex items-center justify-between">
@@ -897,13 +995,13 @@ function HeartRecoveryCard() {
   return (
     <Link
       href="/heart-health"
-      className="block rounded-3xl bg-white/95 border border-slate-200/70 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
+      className="block rounded-xl bg-white border border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 space-y-1.5">
           <div className="flex items-center justify-between gap-2">
             <div className="flex flex-col">
-              <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500">
+              <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
                 Heart recovery
               </span>
               <span className={`text-[11px] ${recoveryTone}`}>
@@ -943,18 +1041,18 @@ function ShiftWorkerHealthCard() {
   return (
     <Link
       href="/shift-worker-health"
-      className="block rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
+      className="block rounded-xl bg-white border border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 space-y-1">
-          <p className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
+          <p className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
             Shift worker health explained
           </p>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+          <p className="text-[11px] text-slate-600 leading-relaxed">
             How shifts, sleep debt and activity affect your energy, cravings and long‑term health.
           </p>
         </div>
-        <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+        <ChevronRight className="h-4 w-4 text-slate-500 flex-shrink-0" />
       </div>
     </Link>
   );
@@ -964,18 +1062,18 @@ function ShiftWorkerDietCard() {
   return (
     <Link
       href="/shift-worker-diet"
-      className="block rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
+      className="block rounded-xl bg-white border border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 space-y-1">
-          <p className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
+          <p className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
             Diet
           </p>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+          <p className="text-[11px] text-slate-600 leading-relaxed">
             Shift‑worker diets, common health issues, and how the right food timing helps protect you.
           </p>
         </div>
-        <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+        <ChevronRight className="h-4 w-4 text-slate-500 flex-shrink-0" />
       </div>
     </Link>
   );
@@ -985,18 +1083,18 @@ function ShiftWorkerGoalsCard() {
   return (
     <Link
       href="/shift-worker-goals"
-      className="block rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
+      className="block rounded-xl bg-white border border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 space-y-1">
-          <p className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
+          <p className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
             Set my goals
           </p>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+          <p className="text-[11px] text-slate-600 leading-relaxed">
             Create specific targets and time frames that fit your shifts, sleep and health challenges.
           </p>
         </div>
-        <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+        <ChevronRight className="h-4 w-4 text-slate-500 flex-shrink-0" />
       </div>
     </Link>
   );
@@ -1032,7 +1130,7 @@ function BingeRiskCard({ bingeRisk }: { bingeRisk: { score: number; level: "low"
   return (
     <Link
       href="/binge-risk"
-      className="block rounded-3xl bg-white/95 border border-slate-200/70 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
+      className="block rounded-xl bg-white border border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -1042,10 +1140,10 @@ function BingeRiskCard({ bingeRisk }: { bingeRisk: { score: number; level: "low"
             </span>
           </div>
           <div className="flex flex-col">
-            <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500">
+            <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
               Binge risk
             </span>
-            <span className="text-[11px] text-slate-500">
+            <span className="text-[11px] text-slate-600">
               {levelLabel} risk. Tap to see what&apos;s driving it.
             </span>
           </div>
@@ -1227,64 +1325,56 @@ function CircadianGauge({ score }: { score: number }) {
   const offset = circumference * (1 - capped / 100);
 
   return (
-    <div className="relative grid place-items-center">
-      {/* Ring container glow */}
-      <div className="absolute inset-[-18px] rounded-full bg-gradient-to-br from-slate-100/70 dark:from-slate-800/30 to-transparent blur-xl" />
-      
-      {/* Ring itself */}
-      <div className="relative h-44 w-44 rounded-full bg-white/60 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[inset_0_1px_0_rgba(0,0,0,0.2)]">
-        <div className="absolute inset-2 rounded-full border border-slate-200/40 dark:border-slate-700/30 bg-white/50 dark:bg-slate-900/40" />
-        
-        {/* SVG ring overlay */}
-        <svg 
-          height={size} 
-          width={size} 
-          viewBox={`0 0 ${size} ${size}`} 
-          className="absolute inset-0"
-        >
-          <defs>
-            <linearGradient id="trackGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#E2E8F0" stopOpacity="0.6" />
-              <stop offset="100%" stopColor="#CBD5E1" stopOpacity="0.4" />
-            </linearGradient>
-            <linearGradient id="activeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#6366F1" stopOpacity="0.8" />
-              <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0.8" />
-            </linearGradient>
-          </defs>
-          
-          {/* Background track */}
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={normalizedRadius}
-            fill="none"
-            stroke="url(#trackGradient)"
-            strokeWidth={stroke}
-          />
-          
-          {/* Active arc with gradient */}
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={normalizedRadius}
-            fill="none"
-            stroke="url(#activeGradient)"
-            strokeWidth={stroke}
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          />
-        </svg>
+    <div className="relative flex h-44 w-44 items-center justify-center">
+      {/* Google Fit–style: light ring on white, no dark disc */}
+      <svg
+        height={size}
+        width={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="block"
+      >
+        <defs>
+          <linearGradient id="trackGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#E5E7EB" />
+            <stop offset="100%" stopColor="#E2E8F0" />
+          </linearGradient>
+          <linearGradient id="activeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#38BDF8" />
+            <stop offset="50%" stopColor="#3B82F6" />
+            <stop offset="100%" stopColor="#6366F1" />
+          </linearGradient>
+        </defs>
 
-        {/* Center text */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Body Clock</p>
-          <p className="text-3xl font-semibold text-slate-900 dark:text-slate-100 tabular-nums leading-none mt-0.5">
-            {Math.round(capped)}
-          </p>
-        </div>
+        {/* Background track */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={normalizedRadius}
+          fill="white"
+          stroke="url(#trackGradient)"
+          strokeWidth={stroke}
+        />
+
+        {/* Active arc with gradient */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={normalizedRadius}
+          fill="none"
+          stroke="url(#activeGradient)"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      </svg>
+
+      {/* Center value only */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+        <p className="text-3xl font-semibold text-slate-900 tabular-nums leading-none">
+          {Math.round(capped)}
+        </p>
       </div>
     </div>
   );

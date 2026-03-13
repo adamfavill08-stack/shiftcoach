@@ -17,6 +17,7 @@ type TodayNutrition = {
   rhythmFactor: number
   sleepFactor: number
   shiftFactor: number
+  sex: 'male' | 'female' | 'other'
   meals: MealSlot[]
   macros: {
     protein_g: number

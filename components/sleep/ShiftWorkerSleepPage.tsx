@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Clock, Calendar } from 'lucide-react'
+import Link from 'next/link'
+import { Clock, Calendar, ChevronLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { QuickSleepLogButtons } from './QuickSleepLogButtons'
 import { SleepTimelineBar } from './SleepTimelineBar'
@@ -33,6 +34,127 @@ interface SleepHistoryDay {
   date: string
   totalMinutes: number
   shiftLabel: string
+}
+
+function SleepMetricsCard({
+  targetHours,
+  loading,
+}: {
+  targetHours: number
+  loading: boolean
+}) {
+  return (
+    <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="space-y-1">
+          <p className="text-[11px] font-semibold tracking-[0.16em] text-slate-500 uppercase">
+            Sleep metrics
+          </p>
+          <h2 className="text-sm font-semibold tracking-tight text-slate-900">
+            Tonight&apos;s target &amp; weekly overview
+          </h2>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3 text-xs">
+        {/* Tonight's target */}
+        <div className="space-y-1">
+          <p className="font-semibold tracking-[0.14em] uppercase text-slate-500">
+            Tonight&apos;s target
+          </p>
+          <p className="text-lg font-semibold text-slate-900">
+            {loading ? '—' : `${targetHours.toFixed(1)}h`}
+          </p>
+          <p className="text-[11px] text-slate-600 leading-snug">
+            Goal sleep for tonight based on your profile.
+          </p>
+        </div>
+
+        {/* Consistency */}
+        <div className="space-y-1">
+          <p className="font-semibold tracking-[0.14em] uppercase text-slate-500">
+            Consistency
+          </p>
+          <div className="h-1.5 w-full rounded-full bg-slate-100 mb-1" />
+          <p className="text-[11px] text-slate-500 leading-snug">
+            Not enough data
+          </p>
+        </div>
+
+        {/* Sleep deficit */}
+        <div className="space-y-1 text-right">
+          <p className="font-semibold tracking-[0.14em] uppercase text-slate-500">
+            Sleep deficit
+          </p>
+          <p className="text-lg font-semibold text-slate-900">0.0h</p>
+          <p className="text-[11px] text-slate-600 leading-snug">
+            Ahead of weekly target
+          </p>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function SleepStageGrid() {
+  const stages = [
+    { label: 'Deep', description: 'Restorative sleep for physical recovery' },
+    { label: 'REM', description: 'Dream sleep for memory and learning' },
+    { label: 'Light', description: 'Transitional sleep between stages' },
+    { label: 'Awake', description: 'Brief awakenings during sleep' },
+  ]
+
+  return (
+    <section className="grid grid-cols-2 gap-3">
+      {stages.map((stage) => (
+        <div
+          key={stage.label}
+          className="rounded-lg bg-white border border-slate-200 px-4 py-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)]"
+        >
+          <div className="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1">
+            <span className="uppercase tracking-[0.12em]">{stage.label}</span>
+            <span>0%</span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-slate-100 mb-2" />
+          <p className="text-[11px] text-slate-600 leading-snug">
+            {stage.description}
+          </p>
+        </div>
+      ))}
+    </section>
+  )
+}
+
+function SimpleSleepGauge({ totalMinutes, targetMinutes }: { totalMinutes: number; targetMinutes: number }) {
+  const hours = totalMinutes ? Math.floor(totalMinutes / 60) : 0
+  const minutes = totalMinutes ? totalMinutes % 60 : 0
+  const percent = totalMinutes && targetMinutes > 0 ? Math.round((totalMinutes / targetMinutes) * 100) : 0
+  const angle = (percent / 100) * 360
+  const goalHours = targetMinutes > 0 ? (targetMinutes / 60).toFixed(1) : '0'
+
+  return (
+    <div
+      className="relative flex h-[176px] w-[176px] items-center justify-center rounded-full"
+      style={{
+        background: `conic-gradient(#22c55e ${angle}deg, #e5e7eb 0deg)`,
+      }}
+    >
+      {/* Outer inner disc (slightly larger to thin the ring) */}
+      <div className="h-[156px] w-[156px] rounded-full bg-white border border-slate-100" />
+      {/* Inner goal ring */}
+      <div className="absolute h-[132px] w-[132px] rounded-full border border-dashed border-slate-200" />
+      {/* Center content */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-1">
+        <span className="text-[28px] font-semibold leading-none text-slate-900">
+          {hours}
+          <span className="align-top text-[16px] font-normal ml-[2px]">h</span>{' '}
+          {minutes}
+        </span>
+        <span className="text-[11px] text-slate-500">{percent}% of goal</span>
+        <span className="text-[11px] text-slate-400">Goal {goalHours}h</span>
+      </div>
+    </div>
+  )
 }
 
 function SleepDebtCard() {
@@ -494,41 +616,58 @@ export function ShiftWorkerSleepPage() {
     }
   }
 
+  const todayTotalMinutes = selectedDayData?.totalMinutes ?? 0
+  const targetMinutes = Math.round((sleepGoalHours ?? 7.5) * 60)
+
   return (
     <div className="w-full max-w-md mx-auto px-4 py-6 space-y-6">
-      {/* Header: Shift-friendly sleep window */}
-      <section className="rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm">
-        <h2 className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
-          Sleep for your shifts
-        </h2>
-        {selectedDayData ? (
-          <>
-            <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
-              {getShiftedDayLabel(selectedDayData.shiftedDayStart)}
+      {/* Page header with back arrow */}
+      <div className="flex items-center gap-3">
+        <Link
+          href="/dashboard"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:bg-slate-50 hover:text-slate-800 transition"
+          aria-label="Back to home"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Link>
+        <h1 className="text-xs font-semibold tracking-[0.22em] text-slate-500 uppercase">
+          Sleep
+        </h1>
+      </div>
+
+      {/* Header: match Body Clock style */}
+      <section className="rounded-xl bg-white px-5 py-6 text-center">
+        <div className="flex flex-col items-center gap-4">
+          <SimpleSleepGauge totalMinutes={todayTotalMinutes} targetMinutes={targetMinutes} />
+          <div className="space-y-1 max-w-xs">
+            <h2 className="text-base font-semibold tracking-tight text-slate-900">
+              {todayTotalMinutes ? "Today's sleep" : "Log your sleep"}
+            </h2>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {todayTotalMinutes
+                ? `${(todayTotalMinutes / 60).toFixed(1)} hours logged across main sleep and naps.`
+                : "No sleep logged yet. Log main sleep or naps to keep your body clock on track."}
             </p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              {selectedDayData.totalHours.toFixed(1)} hours logged across main sleep and naps.
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
-              Today&apos;s sleep window (07:00 → 07:00)
-            </p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              No sleep logged yet. Log main sleep or naps after your shifts.
-            </p>
-          </>
-        )}
+          </div>
+        </div>
       </section>
 
+      {/* Sleep stages snapshot */}
+      <SleepStageGrid />
+
+      {/* Sleep metrics card */}
+      <SleepMetricsCard
+        targetHours={sleepGoalHours ?? 7.5}
+        loading={sleepGoalHours == null}
+      />
+
       {/* Weekly sleep debt (Google Fit style) */}
-      <section className="rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm">
+      <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
         <SleepDebtCard />
       </section>
 
       {/* 30-day sleep guide */}
-      <section className="rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm">
+      <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>
             <h2 className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
@@ -616,7 +755,7 @@ export function ShiftWorkerSleepPage() {
       </section>
 
       {/* Quick Sleep Log Buttons */}
-      <section className="rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm">
+      <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
         <h2 className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400 mb-3">
           Quick log for shift workers
         </h2>
@@ -625,7 +764,7 @@ export function ShiftWorkerSleepPage() {
 
       {/* Sleep Timeline Bar */}
       {selectedDayData && selectedDayData.sessions.length > 0 && (
-        <section className="rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm">
+        <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
           <h2 className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400 mb-3">
             24‑hour sleep timeline
           </h2>
@@ -639,7 +778,7 @@ export function ShiftWorkerSleepPage() {
       )}
 
       {/* Sleep Sessions List */}
-      <section className="rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm">
+      <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
         <h2 className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400 mb-3">
           Logged sleep
         </h2>

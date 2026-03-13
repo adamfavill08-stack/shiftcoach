@@ -26,6 +26,7 @@ export type CalorieResult = {
   activityLevel: string | null
   meals: MealSlot[]
   macros: MacroTargets
+  sex: 'male' | 'female' | 'other'
   hydrationIntake: {
     water_ml: number
     caffeine_mg: number
@@ -377,6 +378,7 @@ export async function calculateAdjustedCalories(supabase: any, userId: string): 
     activityLevel,
     meals,
     macros,
+    sex,
     hydrationIntake: {
       water_ml: totalWaterMl,
       caffeine_mg: totalCaffeineMg,

@@ -389,25 +389,25 @@ function ShiftRhythmCard({ score, circadian, sleepDeficit, socialJetlag, shiftLa
 
   return (
     <div className="w-full max-w-md mx-auto px-4 py-4 space-y-6">
-      {/* RECOVERY TODAY CARD */}
+      {/* RECOVERY TODAY CARD (light theme) */}
       <section
         className={[
           "relative overflow-hidden rounded-[20px]",
-          "bg-slate-900 text-slate-50",
+          "bg-white text-slate-900",
           "px-5 py-4",
-          "shadow-[0_18px_40px_rgba(15,23,42,0.65)]",
+          "shadow-[0_18px_40px_rgba(15,23,42,0.12)]",
         ].join(" ")}
       >
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-400/15 via-sky-400/10 to-transparent" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-50/90 via-sky-50/70 to-transparent" />
         <div className="relative z-10 flex items-center justify-between gap-4">
           <div className="space-y-1">
-            <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-emerald-200/90">
+            <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-emerald-700">
               Recovery today
             </p>
             <h2 className="text-[17px] font-semibold tracking-tight">
               {recovery.label}
             </h2>
-            <p className="text-[11px] text-slate-200/85 leading-relaxed max-w-[230px]">
+            <p className="text-[11px] text-slate-600 leading-relaxed max-w-[230px]">
               {recovery.message}
             </p>
             <p className="mt-1 text-[10px] text-slate-400">
@@ -417,14 +417,14 @@ function ShiftRhythmCard({ score, circadian, sleepDeficit, socialJetlag, shiftLa
           <div className="flex flex-col items-center justify-center">
             <div
               className={[
-                "flex h-14 w-14 items-center justify-center rounded-full border-2 text-[18px] font-semibold",
+                "flex h-14 w-14 items-center justify-center rounded-full border-2 text-[18px] font-semibold bg-white",
                 recoveryScore == null
-                  ? "border-slate-500 text-slate-200"
+                  ? "border-slate-300 text-slate-500"
                   : recoveryScore >= 80
-                  ? "border-emerald-400 text-emerald-200"
+                  ? "border-emerald-400 text-emerald-700"
                   : recoveryScore >= 50
-                  ? "border-amber-300 text-amber-200"
-                  : "border-rose-400 text-rose-200",
+                  ? "border-amber-300 text-amber-700"
+                  : "border-rose-400 text-rose-700",
               ].join(" ")}
             >
               {recoveryScore != null ? Math.round(recoveryScore) : "--"}
@@ -1211,25 +1211,25 @@ function ShiftCoachCard({ inSync }: { inSync: boolean }) {
     <section
       className={[
         "relative overflow-hidden rounded-[26px]",
-        "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900",
-        "border border-slate-700/50",
-        "text-slate-50",
+        "bg-gradient-to-br from-white via-slate-50 to-white",
+        "border border-slate-200/70",
+        "text-slate-900",
         "px-6 py-5",
-        "shadow-[0_24px_60px_rgba(15,23,42,0.25)]",
+        "shadow-[0_18px_40px_rgba(15,23,42,0.10)]",
       ].join(" ")}
     >
       {/* Subtle inner glow */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/80 via-transparent to-transparent" />
       
       <div className="relative z-10 flex gap-4">
         <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 text-[13px] font-bold tracking-wide text-white shadow-lg shadow-indigo-500/30">
           AI
         </div>
         <div className="space-y-1.5 flex-1">
-          <h2 className="text-[12px] font-bold tracking-[0.2em] uppercase text-slate-300">
+          <h2 className="text-[12px] font-bold tracking-[0.2em] uppercase text-slate-500">
             AI Body clock coach
           </h2>
-          <p className="text-[13px] leading-relaxed text-slate-100/95 font-medium">{text}</p>
+          <p className="text-[13px] leading-relaxed text-slate-700 font-medium">{text}</p>
         </div>
       </div>
     </section>

@@ -205,14 +205,7 @@ export function ShiftLagCard() {
   const colors = data ? getLevelColor(data.level) : null
 
   return (
-    <section className="relative overflow-hidden rounded-3xl bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 text-slate-900 dark:text-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-0">
-      {/* Highlight overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
-      {/* Subtle colored glow hints - dark mode only */}
-      <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
-      {/* Inner ring for premium feel */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
-
+    <section className="relative overflow-hidden rounded-xl bg-white border border-slate-200 text-slate-900 p-0 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
       <Link
         href="/shift-lag"
         className="relative z-10 block px-5 py-4 space-y-4"
@@ -220,15 +213,15 @@ export function ShiftLagCard() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex flex-col gap-0.5">
-            <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-800">
               Shift Lag
             </span>
-            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+            <span className="text-sm font-medium text-slate-900">
               Jet lag from your shifts
             </span>
           </div>
           <div className="flex items-center">
-            <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+            <ChevronRight className="h-4 w-4 text-slate-500" />
           </div>
         </div>
 
@@ -254,11 +247,11 @@ export function ShiftLagCard() {
             </div>
           </div>
         ) : !data || (data.score === 0 && data.explanation.includes("Track a few days")) ? (
-          <div className="flex flex-col items-start justify-center text-left text-slate-600 dark:text-slate-300 space-y-1 py-2">
-            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+          <div className="flex flex-col items-start justify-center text-left text-slate-700 space-y-1 py-2">
+            <p className="text-sm font-medium text-slate-900">
               Not enough data yet
             </p>
-            <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300 max-w-[26ch]">
+            <p className="text-sm leading-relaxed text-slate-700 max-w-[26ch]">
               Track a few days of sleep and shifts to unlock your ShiftLag score.
             </p>
           </div>

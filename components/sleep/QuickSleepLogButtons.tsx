@@ -119,49 +119,37 @@ export function QuickSleepLogButtons({ onLogSleep, loading = false }: QuickSleep
             }}
             disabled={loading || !hasPrediction}
             className={`
-              relative overflow-hidden rounded-xl p-4 text-left
-              bg-gradient-to-br ${button.bgGradient}
-              dark:from-slate-800/50 dark:to-slate-900/50
-              border ${button.borderColor}
-              dark:border-slate-700/40
-              shadow-[0_4px_12px_rgba(15,23,42,0.06)]
-              dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)]
-              backdrop-blur-sm
+              relative overflow-hidden rounded-lg p-4 text-left
+              bg-white border border-slate-200
+              shadow-[0_1px_3px_rgba(15,23,42,0.08)]
               transition-all duration-200
-              hover:shadow-[0_8px_20px_rgba(15,23,42,0.1)]
-              dark:hover:shadow-[0_8px_20px_rgba(0,0,0,0.4)]
-              hover:scale-[1.02] active:scale-[0.98]
+              hover:bg-slate-50 hover:shadow-[0_4px_10px_rgba(15,23,42,0.12)]
+              hover:scale-[1.01] active:scale-[0.98]
               disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
               ${hasPrediction ? 'cursor-pointer' : ''}
             `}
           >
-            {/* Premium gradient overlays */}
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/60 dark:from-slate-800/60 via-transparent to-transparent" />
-            <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-white/50 dark:ring-slate-600/30 ring-inset" />
-            
             <div className="relative z-10">
               <div className="flex items-center gap-2.5 mb-2.5">
                 <div className={`
                   flex h-8 w-8 items-center justify-center rounded-lg
-                  bg-white/90 dark:bg-slate-800/50 backdrop-blur-sm
-                  shadow-[0_2px_8px_rgba(15,23,42,0.08)]
-                  dark:shadow-[0_2px_8px_rgba(0,0,0,0.3)]
+                  bg-slate-50
+                  shadow-[0_1px_3px_rgba(15,23,42,0.12)]
                   ${button.iconColor}
-                  dark:text-slate-300
                 `}>
                   <Icon className="h-4 w-4" strokeWidth={2.5} />
                 </div>
-                <span className="text-[13px] font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+                <span className="text-[13px] font-semibold text-slate-900 tracking-tight">
                   {button.label}
                 </span>
               </div>
               
               {hasPrediction && button.prediction ? (
                 <div className="space-y-1.5">
-                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <p className="text-xs font-semibold text-slate-800">
                     {formatTime(button.prediction.start)} → {formatTime(button.prediction.end)}
                   </p>
-                  <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                  <p className="text-[11px] text-slate-700 leading-relaxed">
                     {button.prediction.reasoning}
                   </p>
                 </div>

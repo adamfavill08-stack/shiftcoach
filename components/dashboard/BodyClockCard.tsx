@@ -39,7 +39,7 @@ const BodyClockCard: React.FC<BodyClockCardProps> = ({ score = null, loading = f
       onClick={handleClick}
     >
       <section
-        className="relative rounded-3xl backdrop-blur-2xl border flex flex-col items-center justify-center px-6 py-8 text-center cursor-pointer transition-transform duration-150 hover:scale-[1.01] active:scale-[0.99] bg-white/75 dark:bg-slate-900/45 border-slate-200/50 dark:border-slate-700/40"
+        className="relative rounded-3xl backdrop-blur-2xl border flex flex-col items-center justify-center px-6 py-8 text-center cursor-pointer transition-transform duration-150 hover:scale-[1.01] active:scale-[0.99] bg-white/80 border-slate-200/60"
         style={{
           boxShadow: 'var(--shadow-soft)',
         }}
@@ -65,7 +65,7 @@ const BodyClockCard: React.FC<BodyClockCardProps> = ({ score = null, loading = f
             cx={size / 2}
             cy={size / 2}
             r={r}
-            className="stroke-slate-200/60 dark:stroke-slate-700/50"
+            className="stroke-slate-200/80"
             strokeWidth={stroke}
             fill="none"
           />

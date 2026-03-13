@@ -36,6 +36,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         {/* Safe area insets for Android/iOS notches and status bars */}
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+        {/* Match Android navigation bar color to app background to avoid dark strip */}
+        <meta name="theme-color" content="#ffffff" />
         <style dangerouslySetInnerHTML={{ __html: `
           :root {
             --safe-area-inset-top: env(safe-area-inset-top, 0px);
@@ -118,7 +120,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className="theme-transition min-h-screen flex items-stretch justify-center antialiased font-sans bg-gradient-to-b from-slate-50 via-white to-slate-50 text-slate-900" suppressHydrationWarning>
+      <body className="theme-transition min-h-screen flex items-stretch justify-center antialiased font-sans bg-white text-slate-900" suppressHydrationWarning>
         {/* Phone-width preview on desktop */}
         <div className="w-full max-w-[430px] min-h-screen shadow-2xl">
           <ErrorSuppressor />
@@ -128,7 +130,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <QuickAddProvider>
                   <AutoHealthSync />
                   <EventNotificationLoader />
-                  <main className="relative min-h-screen pb-24">
+                  <main className="relative min-h-screen pb-24 bg-white">
                     {children}
                     <QuickAddSheet />
                     <ToastContainer />
