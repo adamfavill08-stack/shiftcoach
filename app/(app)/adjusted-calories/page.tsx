@@ -46,7 +46,7 @@ export default function AdjustedCaloriesPage() {
       ? 'Day off'
       : 'Shift'
 
-  if (data?.rhythmFactor !== 1 && base > 0) {
+  if (data && data.rhythmFactor !== 1 && base > 0) {
     const rhythmDelta = Math.round(base * (data.rhythmFactor - 1))
     if (rhythmDelta !== 0) {
       deltas.push({
@@ -57,7 +57,7 @@ export default function AdjustedCaloriesPage() {
     }
   }
 
-  if (data?.sleepFactor !== 1 && sleepHours != null && base > 0) {
+  if (data && data.sleepFactor !== 1 && sleepHours != null && base > 0) {
     const sleepDelta = Math.round(base * (data.sleepFactor - 1))
     if (sleepDelta !== 0) {
       deltas.push({
@@ -68,7 +68,7 @@ export default function AdjustedCaloriesPage() {
     }
   }
 
-  if (data?.shiftFactor !== 1 && base > 0) {
+  if (data && data.shiftFactor !== 1 && base > 0) {
     const shiftDelta = Math.round(base * (data.shiftFactor - 1))
     if (shiftDelta !== 0) {
       deltas.push({
