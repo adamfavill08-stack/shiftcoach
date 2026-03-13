@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 import { useWeeklyProgress } from "@/lib/hooks/useWeeklyProgress"
+import { useTranslation } from "@/components/providers/language-provider"
 
 type ShiftRhythmResponse = {
   score?: {
@@ -13,6 +14,7 @@ type ShiftRhythmResponse = {
 }
 
 export default function BodyClockPage() {
+  const { t } = useTranslation()
   const [totalScore, setTotalScore] = useState<number | null>(null)
   const [hasRhythmData, setHasRhythmData] = useState<boolean | undefined>(undefined)
   const weekly = useWeeklyProgress()
@@ -51,16 +53,16 @@ export default function BodyClockPage() {
   const noData = hasRhythmData === false || displayScore <= 0
 
   const headingText = useMemo(() => {
-    if (noData) return "Body clock score coming soon"
-    if (displayScore >= 80) return "Your body clock is strongly aligned"
-    if (displayScore >= 70) return "Your body clock is in sync"
-    if (displayScore >= 55) return "Your body clock is slightly out of sync"
-    return "Your body clock is out of sync"
-  }, [displayScore, noData])
+    if (noData) return t("dashboard.bodyClock.comingSoon")
+    if (displayScore >= 80) return t("dashboard.bodyClock.stronglyAligned")
+    if (displayScore >= 70) return t("dashboard.bodyClock.inSync")
+    if (displayScore >= 55) return t("dashboard.bodyClock.slightlyOut")
+    return t("dashboard.bodyClock.outOfSync")
+  }, [displayScore, noData, t])
 
   const subText = noData
-    ? "Log a few nights of sleep and add your shifts to unlock your Body Clock score."
-    : "Calculated from your recent sleep, rota pattern and light timing over the last few days."
+    ? t("dashboard.bodyClock.unlockHint")
+    : t("dashboard.bodyClock.calculatedFrom")
 
   const bodyClockScores = weekly?.bodyClockScores ?? []
   const sleepTimingScores = weekly?.sleepTimingScore ?? []
@@ -70,12 +72,12 @@ export default function BodyClockPage() {
 
   const patternLabel =
     lowDays === 0 && mediumDays <= 2
-      ? "Pattern: mostly stable"
+      ? t("detail.bodyClock.patternStable")
       : lowDays >= 4
-      ? "Pattern: heavy strain week"
+      ? t("detail.bodyClock.patternHeavy")
       : mediumDays + lowDays >= 4
-      ? "Pattern: choppy week"
-      : "Pattern: mixed"
+      ? t("detail.bodyClock.patternChoppy")
+      : t("detail.bodyClock.patternMixed")
 
   const timingAvg =
     sleepTimingScores.length > 0
@@ -84,12 +86,12 @@ export default function BodyClockPage() {
 
   const timingLabel =
     timingAvg == null
-      ? "Not enough sleep timing data yet."
+      ? t("detail.bodyClock.timingNoData")
       : timingAvg >= 75
-      ? "Your main sleep has been fairly regular this week."
+      ? t("detail.bodyClock.timingRegular")
       : timingAvg >= 55
-      ? "Sleep timing is shifting around – watch late finishes and early starts close together."
-      : "Sleep timing has been flipped or very irregular – your body clock is working hard to keep up with shifts."
+      ? t("detail.bodyClock.timingShifting")
+      : t("detail.bodyClock.timingFlipped")
 
   return (
     <main className="min-h-screen bg-white">
@@ -99,12 +101,12 @@ export default function BodyClockPage() {
           <Link
             href="/dashboard"
             className="p-2 rounded-full border border-slate-200 bg-white text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
-            aria-label="Back to dashboard"
+            aria-label={t("detail.common.backToDashboard")}
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <h1 className="text-xl font-semibold tracking-tight text-slate-900">
-            Body clock
+            {t("detail.bodyClock.title")}
           </h1>
         </header>
 
@@ -114,7 +116,7 @@ export default function BodyClockPage() {
 
           <div className="w-full flex-1 space-y-2 text-center max-w-xs">
             <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-slate-700">
-              Body clock score
+              {t("detail.bodyClock.scoreLabel")}
             </p>
             <p className="text-sm font-semibold text-slate-900">
               {headingText}
@@ -130,66 +132,62 @@ export default function BodyClockPage() {
           <div className="flex items-center justify-between gap-2">
             <div>
               <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-slate-700">
-                Body clock over last 7 days
+                {t("detail.bodyClock.overLast7")}
               </p>
               <p className="text-[11px] text-slate-600">
-                Higher bars = days your body clock was more in rhythm with your shifts.
+                {t("detail.bodyClock.higherBars")}
               </p>
             </div>
           </div>
 
-          <BodyClockWeeklyStrip weekly={weekly} />
+          <BodyClockWeeklyStrip weekly={weekly} t={t} />
         </section>
 
         {/* Shift pattern vs recovery */}
         <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] flex flex-col gap-2">
           <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-slate-700">
-            Shift pattern vs recovery
+            {t("detail.bodyClock.patternVsRecovery")}
           </p>
           <p className="text-sm font-semibold text-slate-900">
             {patternLabel}
           </p>
           <p className="text-[11px] text-slate-600">
-            This looks at how many days your body clock score dipped below the in‑sync range. Runs of
-            nights, very short turnarounds or long commutes can pull several days down in a row.
+            {t("detail.bodyClock.patternExplanation")}
           </p>
         </section>
 
         {/* Sleep timing consistency */}
         <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] flex flex-col gap-2">
           <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-slate-700">
-            Sleep timing consistency
+            {t("detail.bodyClock.sleepTiming")}
           </p>
           <p className="text-[11px] text-slate-600">
             {timingLabel}
           </p>
           <p className="text-[11px] text-slate-600">
-            Try to keep at least 3 nights in a row with similar main‑sleep timing on off‑days so your
-            body clock can catch up between heavy runs of shifts.
+            {t("detail.bodyClock.timingTip")}
           </p>
         </section>
 
         {/* Light exposure & night‑shift protection */}
         <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] flex flex-col gap-2">
           <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-slate-700">
-            Light habits that protect your clock
+            {t("detail.bodyClock.lightHabits")}
           </p>
           <ul className="text-[11px] text-slate-600 space-y-1.5">
-            <li>• Day shifts: aim for 15–20 minutes of outside light most days.</li>
-            <li>• Night shifts: wear sunglasses on the way home and keep the bedroom dark.</li>
-            <li>• Evenings off: dim screens and bright lights 1–2 hours before planned sleep.</li>
+            <li>• {t("detail.bodyClock.lightDay")}</li>
+            <li>• {t("detail.bodyClock.lightNight")}</li>
+            <li>• {t("detail.bodyClock.lightEvening")}</li>
           </ul>
         </section>
 
         {/* Upcoming risk window */}
         <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] flex flex-col gap-2">
           <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-slate-700">
-            Upcoming risk window
+            {t("detail.bodyClock.riskWindow")}
           </p>
           <p className="text-[11px] text-slate-600">
-            Based on this week&apos;s pattern, your body clock will find runs of nights, early
-            starts and short turnarounds hardest. Treat the days after these blocks as recovery
-            shifts: protect sleep, keep caffeine early and keep meals lighter overnight.
+            {t("detail.bodyClock.riskWindowText")}
           </p>
         </section>
 
@@ -199,8 +197,7 @@ export default function BodyClockPage() {
             ShiftCoach
           </div>
           <p className="text-[10px] text-slate-400 text-center max-w-[260px]">
-            A coaching app only and does not replace medical advice. Please speak to a healthcare
-            professional about any health concerns.
+            {t("detail.common.disclaimer")}
           </p>
         </div>
       </div>
@@ -208,14 +205,14 @@ export default function BodyClockPage() {
   )
 }
 
-function BodyClockWeeklyStrip({ weekly }: { weekly: ReturnType<typeof useWeeklyProgress> }) {
+function BodyClockWeeklyStrip({ weekly, t }: { weekly: ReturnType<typeof useWeeklyProgress>; t: (key: string) => string }) {
   const days = weekly?.days ?? []
   const scores = weekly?.bodyClockScores ?? []
 
   if (!days.length || !scores.length) {
     return (
       <p className="text-[11px] text-slate-500">
-        Waiting for enough sleep and shift data to show your 7‑day body clock trend.
+        {t("detail.bodyClock.waitingData")}
       </p>
     )
   }
@@ -226,16 +223,13 @@ function BodyClockWeeklyStrip({ weekly }: { weekly: ReturnType<typeof useWeeklyP
   const lowDays = scores.filter((s) => s < 55).length
   const mediumDays = scores.filter((s) => s >= 55 && s < 70).length
 
-  let warning =
-    "Mixed week – keep an eye on runs of nights and very short sleeps."
+  let warning = t("detail.bodyClock.warningMixed")
   if (lowDays === 0 && mediumDays <= 2) {
-    warning = "Your body clock has mostly stayed in rhythm this week – keep protecting recovery days."
+    warning = t("detail.bodyClock.warningStable")
   } else if (lowDays >= 4) {
-    warning =
-      "Your body clock has been out of sync on most days – treat upcoming days as recovery where you can and check your rota pattern."
+    warning = t("detail.bodyClock.warningOutOfSync")
   } else if (lowDays >= 2 || mediumDays >= 4) {
-    warning =
-      "Quite a few days out of rhythm – watch stretches of nights, early starts and broken sleep."
+    warning = t("detail.bodyClock.warningQuiteFew")
   }
 
   return (

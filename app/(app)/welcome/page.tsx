@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { CheckCircle2, Flame, Droplets, Activity } from 'lucide-react'
+import { Flame, Droplets, Activity } from 'lucide-react'
 import { useTodayNutrition } from '@/lib/hooks/useTodayNutrition'
+import { useTranslation } from '@/components/providers/language-provider'
 
 export default function WelcomePage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const [isValid, setIsValid] = useState(false)
   const { data, loading } = useTodayNutrition()
 
@@ -53,7 +55,7 @@ export default function WelcomePage() {
   if (!isValid) {
     return (
       <main className="min-h-screen bg-white flex items-center justify-center px-4 py-8">
-        <div className="text-slate-500">Loading...</div>
+        <div className="text-slate-500">{t('welcome.loading')}</div>
       </main>
     )
   }
@@ -67,12 +69,12 @@ export default function WelcomePage() {
 
   const shiftLabel =
     data?.shiftType === 'night'
-      ? "Tonight's night shift"
+      ? t('welcome.todayNight')
       : data?.shiftType === 'off'
-      ? 'Today (Day Off)'
+      ? t('welcome.todayOff')
       : data?.shiftType === 'day'
-      ? "Today's day shift"
-      : 'Today'
+      ? t('welcome.todayDay')
+      : t('welcome.today')
 
   return (
     <main className="min-h-screen bg-white flex items-center justify-center px-4 py-8">
@@ -94,10 +96,10 @@ export default function WelcomePage() {
                 />
               </div>
               <h1 className="text-2xl font-bold text-slate-900 mb-1">
-                Your plan is ready
+                {t('welcome.title')}
               </h1>
               <p className="text-sm text-slate-600">
-                Based on your profile, goals and shift work pattern.
+                {t('welcome.subtitle')}
               </p>
             </div>
 
@@ -106,7 +108,7 @@ export default function WelcomePage() {
               {/* Magic result */}
               <div className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
                 <p className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700 mb-2">
-                  Personalised daily target
+                  {t('welcome.personalisedTarget')}
                 </p>
                 <div className="flex items-baseline gap-2 mb-1">
                   <span className="text-4xl font-bold text-slate-900">
@@ -115,12 +117,11 @@ export default function WelcomePage() {
                       : adjustedKcal.toLocaleString()}
                   </span>
                   <span className="text-sm font-medium text-slate-600">
-                    kcal / day
+                    {t('welcome.kcalPerDay')}
                   </span>
                 </div>
                 <p className="text-xs text-slate-600">
-                  Based on your height, weight, age, goal and the demands of shift
-                  work, this is what ShiftCoach recommends for{' '}
+                  {t('welcome.basedOn')}{' '}
                   <span className="font-semibold text-slate-900">
                     {shiftLabel.toLowerCase()}
                   </span>
@@ -128,11 +129,11 @@ export default function WelcomePage() {
                 </p>
                 {baseKcal != null && deltaPct != null && (
                   <p className="mt-2 text-[11px] text-slate-500">
-                    A standard calculator would give you around{' '}
+                    {t('welcome.standardWouldGive')}{' '}
                     <span className="font-semibold text-slate-900">
                       {baseKcal.toLocaleString()} kcal
                     </span>
-                    . We've adjusted by{' '}
+                    . {t('welcome.weAdjusted')}{' '}
                     <span
                       className={`font-semibold ${
                         deltaPct >= 0 ? 'text-emerald-600' : 'text-amber-600'
@@ -140,7 +141,7 @@ export default function WelcomePage() {
                     >
                       {deltaPct >= 0 ? `+${deltaPct}%` : `${deltaPct}%`}
                     </span>{' '}
-                    for your sleep, shifts and recent patterns.
+                    {t('welcome.forPatterns')}
                   </p>
                 )}
               </div>
@@ -152,10 +153,10 @@ export default function WelcomePage() {
                     <Flame className="w-4 h-4" />
                   </div>
                   <p className="font-semibold text-slate-900 text-[11px]">
-                    Shift‑adjusted calories
+                    {t('welcome.shiftAdjustedCalories')}
                   </p>
                   <p className="text-[10px] text-slate-600">
-                    Built specifically for rotating days, nights and long runs.
+                    {t('welcome.shiftAdjustedCaloriesDesc')}
                   </p>
                 </div>
                 <div className="rounded-xl bg-white border border-slate-200 px-3 py-3 flex flex-col items-start gap-2 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
@@ -163,10 +164,10 @@ export default function WelcomePage() {
                     <Activity className="w-4 h-4" />
                   </div>
                   <p className="font-semibold text-slate-900 text-[11px]">
-                    Timing aware
+                    {t('welcome.timingAware')}
                   </p>
                   <p className="text-[10px] text-slate-600">
-                    We nudge more calories into the parts of your shift that need it.
+                    {t('welcome.timingAwareDesc')}
                   </p>
                 </div>
                 <div className="rounded-xl bg-white border border-slate-200 px-3 py-3 flex flex-col items-start gap-2 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
@@ -174,10 +175,10 @@ export default function WelcomePage() {
                     <Droplets className="w-4 h-4" />
                   </div>
                   <p className="font-semibold text-slate-900 text-[11px]">
-                    Hydration guidance
+                    {t('welcome.hydrationGuidance')}
                   </p>
                   <p className="text-[10px] text-slate-600">
-                    Daily water targets tuned to long and overnight shifts.
+                    {t('welcome.hydrationGuidanceDesc')}
                   </p>
                 </div>
               </div>
@@ -185,13 +186,13 @@ export default function WelcomePage() {
               {/* Call to Action */}
               <div className="pt-3 border-top border-slate-200/60">
                 <p className="text-xs text-center text-slate-500 mb-3">
-                  Next: see today's plan with meal timing, macros and energy curve.
+                  {t('welcome.nextStep')}
                 </p>
                 <button
                   onClick={handleContinue}
                   className="group relative w-full flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold text-white bg-slate-900 shadow-[0_10px_26px_-14px_rgba(15,23,42,0.35)] hover:opacity-95 active:scale-[0.98] transition-all"
                 >
-                  <span>Continue to dashboard</span>
+                  <span>{t('welcome.continueToDashboard')}</span>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>

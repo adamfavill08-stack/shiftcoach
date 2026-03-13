@@ -5,8 +5,10 @@ import { Droplets, ChevronLeft, ChevronUp, ChevronDown } from "lucide-react"
 import Link from "next/link"
 import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition"
 import { useWeeklyProgress } from "@/lib/hooks/useWeeklyProgress"
+import { useTranslation } from "@/components/providers/language-provider"
 
 export default function HydrationPage() {
+  const { t } = useTranslation()
   const { data } = useTodayNutrition()
   const weekly = useWeeklyProgress()
 
@@ -263,8 +265,7 @@ export default function HydrationPage() {
             ShiftCoach
           </div>
           <p className="text-[10px] text-slate-400 text-center max-w-[260px]">
-            A coaching app only and does not replace medical advice. Please speak to a healthcare
-            professional about any health concerns.
+            {t("detail.common.disclaimer")}
           </p>
         </div>
       </div>

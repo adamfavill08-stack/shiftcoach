@@ -2,8 +2,10 @@
 
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
+import { useTranslation } from '@/components/providers/language-provider'
 
 export default function RecoveryPage() {
+  const { t } = useTranslation()
   // Placeholder score; wire to real value if available
   const recoveryScore: number | null = null
   const value = typeof recoveryScore === 'number' ? recoveryScore : 74
@@ -32,13 +34,13 @@ export default function RecoveryPage() {
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'var(--card)'
             }}
-            aria-label="Back to dashboard"
+            aria-label={t('detail.common.backToDashboard')}
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <div className="flex flex-col">
-            <h1 className="text-xl font-semibold" style={{ color: 'var(--text-main)' }}>Recovery Score</h1>
-            <p className="text-sm" style={{ color: 'var(--text-soft)' }}>How ready your body and mind are for your next shift</p>
+            <h1 className="text-xl font-semibold" style={{ color: 'var(--text-main)' }}>{t('detail.recovery.title')}</h1>
+            <p className="text-sm" style={{ color: 'var(--text-soft)' }}>{t('detail.recovery.subtitle')}</p>
           </div>
         </header>
 
@@ -173,7 +175,7 @@ export default function RecoveryPage() {
           <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>See your live Recovery Score</p>
           <p className="text-xs" style={{ color: 'var(--text-soft)' }}>Check today's score and guidance on your main dashboard.</p>
           <Link href="/dashboard" className="mt-1 inline-flex items-center justify-center rounded-full bg-gradient-to-r from-sky-500 to-violet-500 px-4 py-2 text-sm font-medium text-white transition-all duration-200">
-            Go to Dashboard
+            {t('detail.common.goToDashboard')}
           </Link>
         </section>
       </div>

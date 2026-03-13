@@ -33,10 +33,10 @@ export function LanguageSection() {
             : 'device'
         setPreference(next)
       }}
-      className="group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 bg-slate-50/40 hover:bg-white/80 transition-colors w-full"
+      className="group flex items-center justify-between gap-3 rounded-xl px-4 py-3 bg-white border border-slate-100 shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:border-emerald-200/80 hover:shadow-[0_4px_12px_rgba(15,23,42,0.10)] transition-colors w-full"
     >
       <div className="flex items-center gap-3 flex-1">
-        <div className="h-9 w-9 rounded-xl bg-white/80 border border-slate-200 grid place-items-center flex-shrink-0 text-[11px] font-semibold text-slate-500">
+        <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-400 to-sky-500 grid place-items-center flex-shrink-0 text-[11px] font-semibold text-white shadow-sm">
           {badge}
         </div>
         <div className="flex flex-col items-start">
@@ -48,7 +48,7 @@ export function LanguageSection() {
           </p>
         </div>
       </div>
-      <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition flex-shrink-0" />
+      <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-emerald-400 transition flex-shrink-0" />
     </button>
   )
 }

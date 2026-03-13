@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { useActivityToday } from "@/lib/hooks/useActivityToday";
+import { useTranslation } from "@/components/providers/language-provider";
 
 type Profile = {
   age?: number | null;
@@ -13,6 +14,7 @@ type Profile = {
 };
 
 export default function HeartHealthPage() {
+  const { t } = useTranslation();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [restingBpm, setRestingBpm] = useState<number | null>(null);
   const [avgBpm, setAvgBpm] = useState<number | null>(null);
@@ -152,12 +154,12 @@ export default function HeartHealthPage() {
           <Link
             href="/dashboard"
             className="p-2 rounded-full border border-slate-200 bg-white text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
-            aria-label="Back to dashboard"
+            aria-label={t("detail.common.backToDashboard")}
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <h1 className="text-xl font-semibold tracking-tight text-slate-900">
-            Heart Health
+            {t("detail.heartHealth.title")}
           </h1>
         </header>
 
@@ -372,8 +374,7 @@ export default function HeartHealthPage() {
             ShiftCoach
           </div>
           <p className="text-[10px] text-slate-400 text-center max-w-[260px]">
-            A coaching app only and does not replace medical advice. Please speak to a healthcare
-            professional about any health concerns.
+            {t("detail.common.disclaimer")}
           </p>
         </div>
       </div>

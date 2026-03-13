@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+import { useTranslation } from '@/components/providers/language-provider'
 import { supabase } from '@/lib/supabase'
 import { useShiftRhythm } from '@/lib/hooks/useShiftRhythm'
 import { DashboardPager } from '@/components/dashboard/DashboardPager'
@@ -11,6 +12,7 @@ import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import ShiftRhythmCard from '@/components/shift-rhythm/ShiftRhythmCard'
 
 export default function DashboardPage() {
+  const { t } = useTranslation()
   const router = useRouter()
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -234,7 +236,7 @@ export default function DashboardPage() {
     () => [
       {
         id: 'home',
-        label: 'Home',
+        label: t('dashboard.homeLabel'),
         content: (
           <ShiftRhythmCard
             score={totalScore != null ? totalScore * 10 : undefined}
@@ -247,13 +249,13 @@ export default function DashboardPage() {
         ),
       },
     ],
-    [totalScore, circadian, socialJetlag, shiftLag, bingeRisk, hasShiftRhythmData]
+    [totalScore, circadian, socialJetlag, shiftLag, bingeRisk, hasShiftRhythmData, t]
   )
 
   if (loading) {
     return (
       <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 pb-6 pt-10 text-center text-sm text-slate-500">
-        Preparing your ShiftCoach dashboard…
+        {t('dashboard.loading')}
       </main>
     )
   }

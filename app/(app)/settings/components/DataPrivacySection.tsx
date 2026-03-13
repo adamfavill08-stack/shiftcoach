@@ -117,56 +117,56 @@ export function DataPrivacySection() {
       <div className="relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 bg-slate-50/40 dark:bg-slate-800/30 hover:bg-white/70 dark:hover:bg-slate-800/50 transition-colors w-full"
+          className="group flex items-center justify-between gap-3 rounded-xl px-4 py-3 bg-white border border-slate-100 shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:border-sky-100 hover:shadow-[0_4px_12px_rgba(15,23,42,0.12)] transition-colors w-full"
         >
           <div className="flex items-center gap-3 flex-1">
-            <div className="h-9 w-9 rounded-xl bg-white/60 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/40 grid place-items-center flex-shrink-0">
-              <svg className="h-4 w-4 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-sky-500 to-violet-500 grid place-items-center flex-shrink-0 shadow-sm">
+              <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
-            <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200">Data & privacy</h3>
+            <h3 className="text-sm font-medium text-slate-900">Data & privacy</h3>
           </div>
           {isOpen ? (
-            <ChevronDown className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition flex-shrink-0" strokeWidth={2} />
+            <ChevronDown className="h-4 w-4 text-slate-300 group-hover:text-sky-400 transition flex-shrink-0" strokeWidth={2} />
           ) : (
-            <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition flex-shrink-0" strokeWidth={2} />
+            <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-sky-400 transition flex-shrink-0" strokeWidth={2} />
           )}
         </button>
         {isOpen && (
-          <div className="mt-2 mx-2 mb-4 rounded-2xl bg-white/95 dark:bg-slate-800/70 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 shadow-[0_4px_12px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)] p-4 pb-5 space-y-1">
+          <div className="mt-2 mx-2 mb-4 rounded-2xl bg-white border border-slate-100 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.35)] p-4 pb-5 space-y-1">
             <a
               href="/privacy-policy"
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors"
+              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50 transition-colors"
             >
-              <span className="text-sm font-medium text-slate-800 dark:text-slate-200">Privacy Policy</span>
-              <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
+              <span className="text-sm font-medium text-slate-900">Privacy Policy</span>
+              <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition" strokeWidth={2} />
             </a>
             <a
               href="/terms-of-service"
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors"
+              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50 transition-colors"
             >
-              <span className="text-sm font-medium text-slate-800 dark:text-slate-200">Terms of Service</span>
-              <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
+              <span className="text-sm font-medium text-slate-900">Terms of Service</span>
+              <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition" strokeWidth={2} />
             </a>
             <a
               href="/health-data-notice"
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors"
+              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50 transition-colors"
             >
-              <span className="text-sm font-medium text-slate-800 dark:text-slate-200">Health Data Notice</span>
-              <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
+              <span className="text-sm font-medium text-slate-900">Health Data Notice</span>
+              <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition" strokeWidth={2} />
             </a>
-            <div className="h-px bg-slate-200/50 dark:bg-slate-700/50 my-2" />
+            <div className="h-px bg-slate-200 my-2" />
             <button
               onClick={handleExportData}
               disabled={isExporting}
-              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full"
+              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full"
             >
               <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
                 {isExporting ? 'Exporting...' : 'Export my data'}
@@ -175,19 +175,19 @@ export function DataPrivacySection() {
             </button>
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors w-full"
+              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-rose-50 transition-colors w-full"
             >
-              <span className="text-sm font-medium text-slate-800 dark:text-slate-200">Delete my account</span>
-              <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
+              <span className="text-sm font-medium text-rose-700">Delete my account</span>
+              <ChevronRight className="h-4 w-4 text-rose-300 group-hover:text-rose-400 transition" strokeWidth={2} />
             </button>
             <a
               href="/account/delete"
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors"
+              className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50 transition-colors"
             >
-              <span className="text-xs text-slate-500 dark:text-slate-400">Delete account on web</span>
-              <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
+              <span className="text-xs text-slate-500">Delete account on web</span>
+              <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition" strokeWidth={2} />
             </a>
           </div>
         )}

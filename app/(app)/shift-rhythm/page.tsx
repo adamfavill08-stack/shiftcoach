@@ -2,8 +2,10 @@
 
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
+import { useTranslation } from '@/components/providers/language-provider'
 
 export default function ShiftRhythmPage() {
+  const { t } = useTranslation()
   return (
     <main
       style={{
@@ -27,11 +29,11 @@ export default function ShiftRhythmPage() {
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'var(--card)'
             }}
-            aria-label="Back to dashboard"
+            aria-label={t('detail.common.backToDashboard')}
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
-          <h1 className="text-xl font-semibold tracking-tight" style={{ color: 'var(--text-main)' }}>Shift Rhythm</h1>
+          <h1 className="text-xl font-semibold tracking-tight" style={{ color: 'var(--text-main)' }}>{t('detail.shiftRhythm.title')}</h1>
         </header>
 
         {/* Key facts strip */}
@@ -190,7 +192,7 @@ export default function ShiftRhythmPage() {
             href="/dashboard"
             className="shrink-0 rounded-full bg-gradient-to-r from-sky-500 to-violet-500 text-white px-4 py-2 text-sm font-medium transition-all duration-200 active:scale-95 hover:opacity-95"
           >
-            Go to Dashboard
+            {t('detail.common.goToDashboard')}
           </Link>
         </section>
       </div>

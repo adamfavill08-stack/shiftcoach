@@ -4,8 +4,10 @@ import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { useTodayNutrition } from '@/lib/hooks/useTodayNutrition'
 import { useWeeklyProgress } from '@/lib/hooks/useWeeklyProgress'
+import { useTranslation } from '@/components/providers/language-provider'
 
 export default function AdjustedCaloriesPage() {
+  const { t } = useTranslation()
   const { data, loading } = useTodayNutrition()
   const weekly = useWeeklyProgress()
   const baseKcal = data?.baseCalories ?? 0
@@ -163,7 +165,7 @@ export default function AdjustedCaloriesPage() {
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'var(--card)'
             }}
-            aria-label="Back to dashboard"
+            aria-label={t('detail.common.backToDashboard')}
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
@@ -443,7 +445,7 @@ export default function AdjustedCaloriesPage() {
         {/* Disclaimer */}
         <div className="pt-4 pb-4">
           <p className="text-[11px] leading-relaxed text-slate-500 text-center">
-            Shift Coach is a coaching tool and does not provide medical advice. For medical conditions, pregnancy or complex health issues, please check your plan with a registered professional.
+            {t('detail.common.disclaimer')}
           </p>
         </div>
       </div>

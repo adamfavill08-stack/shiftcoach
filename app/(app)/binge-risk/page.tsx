@@ -12,6 +12,7 @@ type BingeRisk = {
 }
 
 export default function BingeRiskPage() {
+  const { t } = useTranslation()
   const [risk, setRisk] = useState<BingeRisk | null>(null)
 
   useEffect(() => {
@@ -77,11 +78,11 @@ export default function BingeRiskPage() {
           <Link
             href="/dashboard"
             className="p-2 rounded-full border border-slate-200 bg-white text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
-            aria-label="Back to dashboard"
+            aria-label={t('detail.common.backToDashboard')}
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
-          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Binge Risk</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">{t('detail.bingeRisk.title')}</h1>
         </header>
 
         {/* Hero binge risk ring */}
@@ -297,8 +298,7 @@ export default function BingeRiskPage() {
             ShiftCoach
           </div>
           <p className="text-[10px] text-slate-400 text-center max-w-[260px]">
-            A coaching app only and does not replace medical advice. Please speak to a healthcare
-            professional about any health concerns.
+            {t('detail.common.disclaimer')}
           </p>
         </div>
       </div>

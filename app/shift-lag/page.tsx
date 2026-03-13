@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import type { ShiftLagMetrics } from "@/lib/circadian/calculateShiftLag";
+import { useTranslation } from "@/components/providers/language-provider";
 
 export default function ShiftLagInfoPage() {
+  const { t } = useTranslation();
   const [data, setData] = useState<ShiftLagMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -448,8 +450,7 @@ export default function ShiftLagInfoPage() {
             ShiftCoach
           </div>
           <p className="text-[10px] text-slate-400 text-center max-w-[260px]">
-            A coaching app only and does not replace medical advice. Please speak to a healthcare
-            professional about any health concerns.
+            {t("detail.common.disclaimer")}
           </p>
         </div>
       </div>

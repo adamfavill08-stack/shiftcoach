@@ -138,9 +138,9 @@ export function SubscriptionPlanSection() {
 
   if (loading) {
     return (
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-white/90 dark:from-slate-900/50 to-white/70 dark:to-slate-900/40 backdrop-blur-sm border border-white/90 dark:border-slate-700/40 shadow-[0_4px_12px_rgba(15,23,42,0.04)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)]">
+      <div className="relative overflow-hidden rounded-xl bg-white border border-slate-100 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
         <div className="px-5 py-4">
-          <div className="animate-pulse text-xs text-slate-500 dark:text-slate-400">Loading...</div>
+          <div className="animate-pulse text-xs text-slate-500">Loading...</div>
         </div>
       </div>
     )
@@ -150,25 +150,25 @@ export function SubscriptionPlanSection() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 bg-slate-50/40 dark:bg-slate-800/30 hover:bg-white/70 dark:hover:bg-slate-800/50 transition-colors w-full"
+        className="group flex items-center justify-between gap-3 rounded-xl px-4 py-3 bg-white border border-slate-100 shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:border-sky-100 hover:shadow-[0_4px_12px_rgba(15,23,42,0.12)] transition-colors w-full"
       >
       <div className="flex items-center gap-3 flex-1">
-        <div className="h-9 w-9 rounded-xl bg-white/60 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/40 grid place-items-center flex-shrink-0">
-          <svg className="h-4 w-4 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-400 to-sky-500 grid place-items-center flex-shrink-0 shadow-sm">
+          <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
           </svg>
         </div>
         <div className="flex-1 text-left">
-          <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200">Subscription Plan</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <h3 className="text-sm font-medium text-slate-900">Subscription Plan</h3>
+          <p className="text-xs text-slate-500 mt-0.5">
             {testerAccount ? 'Tester account' : getPlanLabel(subscriptionPlan)}
           </p>
         </div>
       </div>
       {isOpen ? (
-        <ChevronDown className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition flex-shrink-0" strokeWidth={2} />
+        <ChevronDown className="h-4 w-4 text-slate-300 group-hover:text-sky-400 transition flex-shrink-0" strokeWidth={2} />
       ) : (
-        <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition flex-shrink-0" strokeWidth={2} />
+        <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-sky-400 transition flex-shrink-0" strokeWidth={2} />
       )}
     </button>
       {isOpen && (

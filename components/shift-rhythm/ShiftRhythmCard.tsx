@@ -10,6 +10,7 @@ import { ShiftLagCard } from "@/components/shiftlag/ShiftLagCard";
 import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition";
 import { ShiftWeekStrip } from "@/components/dashboard/ShiftWeekStrip";
 import { useActivityToday } from "@/lib/hooks/useActivityToday";
+import { useTranslation } from "@/components/providers/language-provider";
 
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import type { ShiftLagMetrics } from '@/lib/circadian/calculateShiftLag'
@@ -42,6 +43,7 @@ type ShiftRhythmCardProps = {
 };
 
 function ShiftRhythmCard({ score, circadian, socialJetlag, shiftLag, bingeRisk, hasRhythmData }: ShiftRhythmCardProps) {
+  const { t } = useTranslation();
   const router = useRouter();
   // Use circadian phase if available, otherwise fall back to normalized score
   const displayScore = circadian?.circadianPhase ?? normalizeScore(score);
@@ -119,16 +121,16 @@ function ShiftRhythmCard({ score, circadian, socialJetlag, shiftLag, bingeRisk, 
   }, []);
 
   const wearableLastSyncLabel = useMemo(() => {
-    if (!lastWearableSync) return "Last sync: not yet";
+    if (!lastWearableSync) return t("dashboard.lastSync.notYet");
     const diffMs = Date.now() - lastWearableSync;
     const diffMin = Math.round(diffMs / 60000);
-    if (diffMin < 2) return "Last sync: just now";
-    if (diffMin < 60) return `Last sync: ${diffMin} min ago`;
+    if (diffMin < 2) return t("dashboard.lastSync.justNow");
+    if (diffMin < 60) return t("dashboard.lastSync.minAgo").replace("{n}", String(diffMin));
     const diffH = Math.round(diffMin / 60);
-    if (diffH < 24) return `Last sync: ${diffH} h ago`;
+    if (diffH < 24) return t("dashboard.lastSync.hAgo").replace("{n}", String(diffH));
     const diffD = Math.round(diffH / 24);
-    return `Last sync: ${diffD} day${diffD > 1 ? "s" : ""} ago`;
-  }, [lastWearableSync]);
+    return diffD > 1 ? t("dashboard.lastSync.daysAgo").replace("{n}", String(diffD)) : t("dashboard.lastSync.dayAgo").replace("{n}", String(diffD));
+  }, [lastWearableSync, t]);
 
   // Fetch current mood and focus values
   useEffect(() => {
@@ -338,22 +340,23 @@ function BodyClockCard({
   hasRhythmData?: boolean;
   onOpenBodyClock: () => void;
 }) {
+  const { t } = useTranslation();
   const noData = hasRhythmData === false || (!circadian && score <= 0);
 
   const headingText = useMemo(() => {
-    if (noData) return "Body clock score coming soon";
-    if (score >= 80) return "Your body clock is strongly aligned";
-    if (score >= 70) return "Your body clock is in sync";
-    if (score >= 55) return "Your body clock is slightly out of sync";
-    return "Your body clock is out of sync";
-  }, [score, noData]);
+    if (noData) return t("dashboard.bodyClock.comingSoon");
+    if (score >= 80) return t("dashboard.bodyClock.stronglyAligned");
+    if (score >= 70) return t("dashboard.bodyClock.inSync");
+    if (score >= 55) return t("dashboard.bodyClock.slightlyOut");
+    return t("dashboard.bodyClock.outOfSync");
+  }, [score, noData, t]);
 
   return (
     <button
       type="button"
       onClick={onOpenBodyClock}
       className="block w-full text-left focus:outline-none"
-      aria-label="Open Body Clock page"
+      aria-label={t("dashboard.bodyClock.openAria")}
     >
       <section
         className={[
@@ -374,8 +377,8 @@ function BodyClockCard({
             </h3>
             <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
               {noData
-                ? "Log a few nights of sleep and add your shifts to unlock your Body Clock score."
-                : "Calculated from your recent sleep, rota pattern and light timing over the last few days."}
+                ? t("dashboard.bodyClock.unlockHint")
+                : t("dashboard.bodyClock.calculatedFrom")}
             </p>
           </div>
 
@@ -392,6 +395,7 @@ function BodyClockCard({
 /* -------------------- HOME ADJUSTED CALORIES CARD -------------------- */
 
 function HomeAdjustedCaloriesCard() {
+  const { t } = useTranslation();
   const { data } = useTodayNutrition();
 
   if (!data) return null;
@@ -409,7 +413,7 @@ function HomeAdjustedCaloriesCard() {
     const rhythmDelta = Math.round(base * (data.rhythmFactor - 1));
     if (rhythmDelta !== 0) {
       deltas.push({
-        label: rhythmScore != null ? `Rhythm score ${Math.round(rhythmScore)}` : "Rhythm",
+        label: rhythmScore != null ? `${t("dashboard.rhythm")} score ${Math.round(rhythmScore)}` : t("dashboard.rhythm"),
         value: `${rhythmDelta >= 0 ? "+" : ""}${rhythmDelta} kcal`,
         color: rhythmDelta >= 0 ? "text-emerald-600" : "text-amber-600",
       });
@@ -432,12 +436,12 @@ function HomeAdjustedCaloriesCard() {
     if (shiftDelta !== 0) {
       const shiftLabel =
         shiftType === "night"
-          ? "Night shift"
+          ? t("dashboard.shiftLabel.night")
           : shiftType === "day"
-          ? "Day shift"
+          ? t("dashboard.shiftLabel.day")
           : shiftType === "off"
-          ? "Day off"
-          : "Shift";
+          ? t("dashboard.shiftLabel.dayOff")
+          : t("dashboard.shiftLabel.shift");
       deltas.push({
         label: shiftLabel,
         value: `${shiftDelta >= 0 ? "+" : ""}${shiftDelta} kcal`,
@@ -2244,6 +2248,7 @@ type DetailedMealTimingData = {
 };
 
 function DetailedMealTimesCard() {
+  const { t } = useTranslation();
   const [data, setData] = useState<DetailedMealTimingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showInfo, setShowInfo] = useState(false);
@@ -2409,7 +2414,7 @@ function DetailedMealTimesCard() {
             <UtensilsCrossed className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
             <div>
               <h2 className="text-[15px] font-semibold tracking-tight">
-                Meal Times
+                {t('dashboard.mealTimes.title')}
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {data.totalCalories.toLocaleString()} kcal today
@@ -2417,7 +2422,7 @@ function DetailedMealTimesCard() {
               <div className="flex items-center gap-2 mt-1.5">
                 <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 bg-emerald-100/70 dark:bg-emerald-950/30 text-emerald-700/80 dark:text-emerald-300 border border-emerald-200/40 dark:border-emerald-800/40 text-[11px] font-medium">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/60" />
-                  {data.shiftType === 'night' ? 'Night Shift' : data.shiftType === 'day' ? 'Day Shift' : data.shiftType === 'late' ? 'Late Shift' : 'Day Off'}
+                  {data.shiftType === 'night' ? t('dashboard.shiftLabel.night') : data.shiftType === 'day' ? t('dashboard.shiftLabel.day') : data.shiftType === 'late' ? t('dashboard.shiftLabel.late') : t('dashboard.shiftLabel.dayOff')}
                 </span>
               </div>
             </div>
@@ -2425,7 +2430,7 @@ function DetailedMealTimesCard() {
           <button
             onClick={() => setShowInfo(!showInfo)}
             className="flex-shrink-0 p-1 rounded-md hover:bg-slate-100/60 dark:hover:bg-slate-800/50 transition-colors group"
-            aria-label="Why meal timing matters"
+            aria-label={t('dashboard.mealTimes.whyAria')}
           >
             <Info className="h-4 w-4 text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors" strokeWidth={2} />
           </button>
@@ -2435,11 +2440,11 @@ function DetailedMealTimesCard() {
         {showInfo && (
           <div className="relative z-20 rounded-xl bg-white/95 dark:bg-slate-800/70 backdrop-blur-xl border border-slate-200/60 dark:border-slate-700/40 p-4 space-y-3 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.12)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.12),0_8px_24px_-12px_rgba(0,0,0,0.3)]">
             <div className="flex items-start justify-between">
-              <h3 className="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100">Why Meal Timing Matters</h3>
+              <h3 className="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100">{t('dashboard.mealTimes.whyTitle')}</h3>
               <button
                 onClick={() => setShowInfo(false)}
                 className="p-1 rounded-md hover:bg-slate-100/60 dark:hover:bg-slate-800/50 transition-colors"
-                aria-label="Close"
+                aria-label={t('dashboard.mealTimes.closeAria')}
               >
                 <X className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
               </button>
@@ -2591,6 +2596,7 @@ type MealTimingData = {
 };
 
 function AdjustedMealTimesCard() {
+  const { t } = useTranslation();
   const [mealTiming, setMealTiming] = useState<MealTimingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showInfo, setShowInfo] = useState(false);
@@ -2738,7 +2744,7 @@ function AdjustedMealTimesCard() {
              actualSlot === recommendedMeal.slot?.toLowerCase();
     });
     
-    if (!actualMeal) return { status: 'pending', label: 'Not logged' };
+    if (!actualMeal) return { status: 'pending', label: t('dashboard.mealTimes.notLogged') };
     
     // If we have window times, check if actual is within window
     if (recommendedMeal.windowStart && recommendedMeal.windowEnd) {
@@ -2754,19 +2760,19 @@ function AdjustedMealTimesCard() {
         windowEnd.setHours(endH, endM, 0, 0);
         
         if (actualTime >= windowStart && actualTime <= windowEnd) {
-          return { status: 'onTime', label: 'On time' };
+          return { status: 'onTime', label: t('dashboard.mealTimes.onTime') };
         }
         
         const diffMinutes = Math.abs(actualTime.getTime() - windowStart.getTime()) / (1000 * 60);
         if (diffMinutes <= 60) {
-          return { status: 'close', label: 'Close' };
+          return { status: 'close', label: t('dashboard.mealTimes.closeStatus') };
         }
       } catch (e) {
         // Fall through to default
       }
     }
     
-    return { status: 'late', label: 'Logged' };
+    return { status: 'late', label: t('dashboard.mealTimes.logged') };
   };
 
   return (
@@ -2790,17 +2796,17 @@ function AdjustedMealTimesCard() {
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <h2 className="text-[15px] font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                Meal Times
+                {t('dashboard.mealTimes.title')}
               </h2>
               <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-100/80 dark:bg-slate-800/60">
-                {(mealTiming as any)?.shiftType === 'night' ? 'Night' : (mealTiming as any)?.shiftType === 'day' ? 'Day' : (mealTiming as any)?.shiftType === 'late' ? 'Late' : 'Off'}
+                {(mealTiming as any)?.shiftType === 'night' ? t('dashboard.mealTimes.night') : (mealTiming as any)?.shiftType === 'day' ? t('dashboard.mealTimes.day') : (mealTiming as any)?.shiftType === 'late' ? t('dashboard.mealTimes.late') : t('dashboard.mealTimes.off')}
               </span>
             </div>
           </div>
           <button
             onClick={() => setShowInfo(!showInfo)}
             className="relative z-20 flex-shrink-0 p-1 rounded-md hover:bg-slate-100/60 dark:hover:bg-slate-800/50 transition-all group"
-            aria-label="Why meal timing matters"
+            aria-label={t('dashboard.mealTimes.whyAria')}
           >
             <Info className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors" />
           </button>
@@ -2810,11 +2816,11 @@ function AdjustedMealTimesCard() {
         {showInfo && (
           <div className="relative z-20 rounded-xl bg-gradient-to-br from-white to-slate-50/90 border border-slate-200/60 p-4 space-y-3 shadow-[0_12px_40px_rgba(15,23,42,0.12)]">
             <div className="flex items-start justify-between">
-              <h3 className="text-[14px] font-bold text-slate-900">Why Meal Timing Matters</h3>
+              <h3 className="text-[14px] font-bold text-slate-900">{t('dashboard.mealTimes.whyTitle')}</h3>
               <button
                 onClick={() => setShowInfo(false)}
                 className="p-1 rounded-md hover:bg-slate-100/60 transition-colors"
-                aria-label="Close"
+                aria-label={t('dashboard.mealTimes.closeAria')}
               >
                 <X className="h-3.5 w-3.5 text-slate-400" />
               </button>

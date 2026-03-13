@@ -60,8 +60,8 @@ export function SettingsSelect({
           focus:outline-none focus:ring-2 focus:ring-sky-400/50 dark:focus:ring-sky-400/50
           disabled:opacity-50 disabled:cursor-not-allowed
           transition-all
-          bg-white/70 dark:bg-slate-800/50
-          border-slate-200/60 dark:border-slate-700/40
+          bg-white dark:bg-slate-800
+          border-slate-200 dark:border-slate-700
           text-slate-900 dark:text-slate-100
           ${className}
         `}

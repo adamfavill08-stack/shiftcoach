@@ -22,8 +22,20 @@ export function SettingsRow({ label, description, right }:{ label:string; descri
   return (
     <div className="flex items-center justify-between gap-3 py-2">
       <div className="flex-1">
-        <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{label}</p>
-        {description && (<p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{description}</p>)}
+        <p
+          className="text-sm font-medium"
+          style={{ color: '#020617' }} // slate-950-ish for strong contrast
+        >
+          {label}
+        </p>
+        {description && (
+          <p
+            className="text-xs mt-0.5"
+            style={{ color: '#1f2937' }} // dark slate for body text
+          >
+            {description}
+          </p>
+        )}
       </div>
       {right}
     </div>

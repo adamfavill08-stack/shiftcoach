@@ -591,10 +591,10 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
   }
 
   return (
-    <div className="flex flex-1 justify-center bg-gradient-to-br from-slate-50 dark:from-slate-950 via-white dark:via-slate-900 to-slate-50 dark:to-slate-950">
-      {/* Dark status bar background */}
+    <div className="flex flex-1 justify-center bg-gradient-to-b from-white via-sky-50/40 to-white">
+      {/* Light status bar background */}
       <div 
-        className="fixed top-0 left-0 right-0 w-full bg-slate-900 dark:bg-slate-950 z-50"
+        className="fixed top-0 left-0 right-0 w-full bg-white z-50"
         style={{ 
           height: 'calc(env(safe-area-inset-top, 0px) + 0px)',
           minHeight: 'env(safe-area-inset-top, 24px)'
@@ -604,10 +604,10 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
 
       <div className="relative flex h-full w-full max-w-md flex-col px-3 py-3" style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
 
-        {/* Single premium card containing header, month nav and weeks */}
+        {/* Main rota card */}
         <div 
           ref={calendarCardRef}
-          className="flex flex-1 flex-col min-h-0 rounded-3xl bg-white/90 dark:bg-slate-900/65 backdrop-blur-xl border border-slate-200/70 dark:border-slate-800/70 shadow-[0_8px_24px_rgba(15,23,42,0.06)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.7)] px-3.5 py-3.5 gap-3 select-none"
+          className="flex flex-1 flex-col min-h-0 rounded-3xl bg-white border border-slate-100 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] px-3.5 py-3.5 gap-3 select-none"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -616,23 +616,23 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
           onMouseUp={handleMouseUp}
           onMouseLeave={() => setSwipeStart(null)}
         >
-          {/* Header with premium search + controls */}
+          {/* Header with search + controls */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <div className="flex-1">
-              <div className="relative rounded-2xl bg-slate-900/5 dark:bg-slate-900/70 border border-slate-200/70 dark:border-slate-800/70 px-4 py-2.5 flex items-center gap-3 shadow-[0_2px_8px_rgba(15,23,42,0.06)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.5)]">
-                <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+              <div className="relative rounded-2xl bg-slate-50 border border-slate-200 px-4 py-2.5 flex items-center gap-3 shadow-[0_2px_6px_rgba(15,23,42,0.04)]">
+                <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
                 <input
                   type="text"
                   placeholder="Search shifts and events..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 bg-transparent text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
+                  className="flex-1 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
                 />
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setShowViewSwitcher(true)}
-                    className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80 active:scale-95 transition"
+                    className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 active:scale-95 transition"
                     aria-label="Change calendar view"
                   >
                     <Grid3x3 className="w-3.5 h-3.5" />
@@ -640,20 +640,20 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                   <button
                     type="button"
                     onClick={() => setShowTasks(true)}
-                    className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 active:scale-95 transition"
+                    className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-100/80 active:scale-95 transition"
                     aria-label="Open tasks"
                   >
                     {/* CalAI-style task icon (stacked filter lines) */}
                     <span className="h-3.5 w-3.5 inline-flex flex-col items-center justify-center gap-[2px]">
-                      <span className="block h-[2px] w-3 rounded-full bg-slate-700 dark:bg-slate-200" />
-                      <span className="block h-[2px] w-2 rounded-full bg-slate-700/90 dark:bg-slate-200/90" />
-                      <span className="block h-[2px] w-[6px] rounded-full bg-slate-700/80 dark:bg-slate-200/80" />
+                      <span className="block h-[2px] w-3 rounded-full bg-slate-700" />
+                      <span className="block h-[2px] w-2 rounded-full bg-slate-700/90" />
+                      <span className="block h-[2px] w-[6px] rounded-full bg-slate-700/80" />
                     </span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowSettingsMenu(true)}
-                    className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80 active:scale-95 transition"
+                    className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 active:scale-95 transition"
                     aria-label="Calendar settings"
                   >
                     <MoreVertical className="w-3.5 h-3.5" />
@@ -668,18 +668,18 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
             <button
               type="button"
               onClick={goToPrevMonth}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 dark:text-slate-300 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 active:scale-95"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-all duration-200 hover:bg-slate-100 active:scale-95"
               aria-label="Previous month"
             >
               <span className="text-lg font-light leading-none">‹</span>
             </button>
 
-            <h2 className="text-base font-bold tracking-tight text-slate-900 dark:text-slate-100 antialiased">{monthLabel}</h2>
+            <h2 className="text-base font-bold tracking-tight text-slate-900 antialiased">{monthLabel}</h2>
 
             <button
               type="button"
               onClick={goToNextMonth}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 dark:text-slate-300 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 active:scale-95"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-all duration-200 hover:bg-slate-100 active:scale-95"
               aria-label="Next month"
             >
               <span className="text-lg font-light leading-none">›</span>
@@ -692,7 +692,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
             <div className="grid grid-cols-7 gap-1 mb-1 mt-1">
               {weekdayLabels.map((label, idx) => (
                 <div key={`${label}-${idx}`} className="text-center">
-                  <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider antialiased">
+                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider antialiased">
                     {label}
                   </span>
                 </div>
@@ -771,20 +771,16 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                           <div key={day.date} className="flex flex-col items-center justify-center">
                             {isToday ? (
                               <span className="relative inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white antialiased transition-all duration-200">
-                                {/* Soft CalAI ink glow */}
-                                <span className="absolute -inset-1 rounded-full bg-gradient-to-br from-slate-900/40 via-slate-900/25 to-slate-900/45 blur-md opacity-80" />
-                                <span className="relative inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-900/90 dark:bg-slate-900/85 border border-slate-800/80">
+                                <span className="absolute -inset-1 rounded-full bg-sky-500/40 blur-md opacity-80" />
+                                <span className="relative inline-flex h-7 w-7 items-center justify-center rounded-full bg-sky-500 border border-sky-500/80">
                                   {day.dayOfMonth}
                                 </span>
                               </span>
                             ) : (
                               <span
-                                className={[
-                                  'text-xs font-semibold antialiased transition-colors',
-                                  day.isCurrentMonth
-                                    ? 'text-slate-900 dark:text-slate-100'
-                                    : 'text-slate-400 dark:text-slate-600',
-                                ].join(' ')}
+                                className={`text-xs font-semibold antialiased transition-colors ${
+                                  day.isCurrentMonth ? 'text-slate-900' : 'text-slate-400'
+                                }`}
                               >
                                 {day.dayOfMonth}
                               </span>
@@ -906,19 +902,19 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
           </div>
 
           {loading && (
-            <div className="mt-3 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm px-4 py-3 text-center text-xs font-semibold text-slate-600 dark:text-slate-300 shadow-[0_2px_8px_rgba(15,23,42,0.06)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)] flex-shrink-0">
+            <div className="mt-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-xs font-semibold text-slate-600 shadow-[0_2px_8px_rgba(15,23,42,0.06)] flex-shrink-0">
               Loading…
             </div>
           )}
 
           {!loading && !pattern && (
-            <div className="mt-3 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 bg-gradient-to-br from-slate-50/90 dark:from-slate-800/50 to-white/80 dark:to-slate-900/50 backdrop-blur-sm px-4 py-3 text-center text-xs font-semibold text-slate-600 dark:text-slate-300 shadow-[0_2px_8px_rgba(15,23,42,0.06)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)] flex-shrink-0">
+            <div className="mt-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-xs font-semibold text-slate-600 shadow-[0_2px_8px_rgba(15,23,42,0.06)] flex-shrink-0">
               No rota set yet. Go to Rota Setup to configure your shift pattern.
             </div>
           )}
 
           {error && (
-            <div className="mt-3 rounded-2xl border border-red-200/60 dark:border-red-800/40 bg-gradient-to-br from-red-50/90 dark:from-red-950/30 to-white/80 dark:to-slate-900/50 backdrop-blur-sm px-4 py-3 text-center text-xs font-semibold text-red-600 dark:text-red-400 shadow-[0_2px_8px_rgba(239,68,68,0.1)] dark:shadow-[0_4px_12px_rgba(239,68,68,0.2)] flex-shrink-0">
+            <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-center text-xs font-semibold text-red-600 shadow-[0_2px_8px_rgba(239,68,68,0.12)] flex-shrink-0">
               {error}
             </div>
           )}
@@ -934,9 +930,9 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                       setMenuOpen(false)
                       router.push('/rota/setup')
                     }}
-                    className="flex items-center gap-2.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 bg-white/98 dark:bg-slate-800/70 backdrop-blur-sm px-5 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 shadow-[0_8px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] transition-all duration-200 hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_12px_32px_rgba(0,0,0,0.5)] hover:scale-105 active:scale-95"
+                    className="flex items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-[0_8px_24px_rgba(15,23,42,0.08)] transition-all duration-200 hover:shadow-[0_12px_32px_rgba(15,23,42,0.12)] hover:scale-105 active:scale-95"
                   >
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 dark:from-sky-600 dark:to-indigo-600 text-xs font-bold text-white shadow-sm">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 text-xs font-bold text-white shadow-sm">
                       R
                     </span>
                     Rota Setup
@@ -947,9 +943,9 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                       setMenuOpen(false)
                       router.push('/rota/event')
                     }}
-                    className="flex items-center gap-2.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 bg-white/98 dark:bg-slate-800/70 backdrop-blur-sm px-5 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 shadow-[0_8px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] transition-all duration-200 hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_12px_32px_rgba(0,0,0,0.5)] hover:scale-105 active:scale-95"
+                    className="flex items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-[0_8px_24px_rgba(15,23,42,0.08)] transition-all duration-200 hover:shadow-[0_12px_32px_rgba(15,23,42,0.12)] hover:scale-105 active:scale-95"
                   >
-                    <CalendarPlus size={18} className="text-sky-500 dark:text-sky-400" strokeWidth={2.5} />
+                    <CalendarPlus size={18} className="text-sky-500" strokeWidth={2.5} />
                     Event
                   </button>
                 </>
@@ -997,38 +993,28 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
 
         {/* Edit/Delete Modal */}
         {selectedBlock && (
-          <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div
               ref={menuRef}
-              className="bg-white dark:bg-slate-900/95 rounded-2xl shadow-2xl dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-6 max-w-sm w-full border border-slate-200/80 dark:border-slate-700/40"
+              className="relative bg-white rounded-2xl shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] p-6 max-w-sm w-full border border-slate-100"
             >
-              {/* Premium gradient overlay */}
-              <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-b from-white/98 dark:from-slate-900/70 via-white/90 dark:via-slate-900/50 to-white/85 dark:to-slate-950/60" />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/20 dark:from-blue-950/15 via-transparent to-indigo-50/20 dark:to-indigo-950/15" />
-              
-              {/* Subtle colored glow hints - dark mode only */}
-              <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
-              
-              {/* Inner ring */}
-              <div className="pointer-events-none absolute inset-0 rounded-2xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
-              
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Event Options</h3>
+                  <h3 className="text-lg font-semibold text-slate-900">Event Options</h3>
                   <button
                     onClick={() => {
                       setSelectedBlock(null)
                       setDeleteConfirm(false)
                     }}
-                    className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800/50 rounded-lg transition-colors"
+                    className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors"
                   >
-                    <X className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                    <X className="w-5 h-5 text-slate-500" />
                   </button>
                 </div>
 
-                <div className="mb-4 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/40">
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{selectedBlock.label}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                <div className="mb-4 p-3 rounded-lg bg-slate-50 border border-slate-200">
+                  <p className="text-sm font-medium text-slate-700">{selectedBlock.label}</p>
+                  <p className="text-xs text-slate-500 mt-1">
                     {new Date(selectedBlock.date).toLocaleDateString('en-GB', {
                       weekday: 'long',
                       day: 'numeric',
@@ -1067,20 +1053,20 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <p className="text-sm text-slate-700 dark:text-slate-300 text-center">
+                    <p className="text-sm text-slate-700 text-center">
                       Are you sure you want to delete this event?
                     </p>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setDeleteConfirm(false)}
-                        className="flex-1 px-4 py-2.5 bg-slate-200 dark:bg-slate-700/50 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-medium transition-colors"
+                        className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium transition-colors"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={handleDelete}
                         disabled={deleting}
-                        className="flex-1 px-4 py-2.5 bg-red-500 dark:bg-red-600 hover:bg-red-600 dark:hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
+                        className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
                       >
                         {deleting ? 'Deleting...' : 'Delete'}
                       </button>

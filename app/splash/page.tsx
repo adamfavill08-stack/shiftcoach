@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useAuth } from '@/components/AuthProvider'
+import { useTranslation } from '@/components/providers/language-provider'
 
 export default function SplashPage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const { user, loading } = useAuth()
 
   const [showContent, setShowContent] = useState(false)
@@ -17,10 +19,21 @@ export default function SplashPage() {
     // Trigger entrance animation
     setShowContent(true)
 
-    const timer = setTimeout(() => {
-      // Simple routing: send signed-in users to dashboard, others to sign-in
+    const timer = setTimeout(async () => {
+      // After splash, route based on auth + subscription status
       if (user) {
-        router.replace('/dashboard')
+        try {
+          const { checkSubscriptionStatus } = await import('@/lib/subscription/checkSubscription')
+          const result = await checkSubscriptionStatus()
+          if (!result.hasAccess) {
+            router.replace('/select-plan')
+          } else {
+            router.replace('/dashboard')
+          }
+        } catch (err) {
+          console.error('[splash] Subscription check failed, sending to dashboard as fallback', err)
+          router.replace('/dashboard')
+        }
       } else {
         router.replace('/auth/sign-in')
       }
@@ -49,17 +62,17 @@ export default function SplashPage() {
             />
           </div>
           <p className="text-sm sm:text-base font-semibold text-slate-800 tracking-tight leading-relaxed max-w-sm mx-auto">
-            The only app dedicated to shift workers&apos; health and wellbeing
+            {t('splash.tagline')}
           </p>
           <p className="mt-3 text-xs text-slate-500 tracking-tight leading-relaxed max-w-sm mx-auto">
-            Built with nurses, paramedics, guards, chefs and operators in mind.
+            {t('splash.audience')}
           </p>
 
           {/* Micro loading cue */}
           <div className="mt-6 flex items-center justify-center gap-2.5">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-sm" />
             <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500 font-medium">
-              Preparing your shift plan…
+              {t('splash.preparing')}
             </span>
           </div>
         </div>
@@ -72,7 +85,7 @@ export default function SplashPage() {
         >
           <Image
             src="/groupsc.png"
-            alt="Group of shift workers"
+            alt={t('splash.imageAlt')}
             width={800}
             height={600}
             className="w-full h-auto max-h-[60vh] object-contain"

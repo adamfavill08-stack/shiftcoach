@@ -7,8 +7,10 @@ import { useAuth } from '@/components/AuthProvider'
 import { cmToFeetInches, feetInchesToCm, kgToLb, lbToKg, mlToFloz, flozToMl } from '@/lib/units'
 import { DEV_USER_ID } from '@/lib/dev-user'
 import { ChevronRight, ChevronLeft } from 'lucide-react'
+import { useTranslation } from '@/components/providers/language-provider'
 
 export default function OnboardingPage() {
+  const { t } = useTranslation()
   const { user, loading } = useAuth()
   const router = useRouter()
   const [step, setStep] = useState(1)
@@ -82,7 +84,7 @@ export default function OnboardingPage() {
     
     // Age validation
     if (age !== '' && (typeof age !== 'number' || age < 13 || age > 120)) {
-      errors.age = 'Age must be between 13 and 120'
+      errors.age = t('onboarding.validation.ageRange')
     }
     
     // Date of birth validation
@@ -96,13 +98,13 @@ export default function OnboardingPage() {
         : ageFromDob
       
       if (calculatedAge < 13) {
-        errors.dateOfBirth = 'You must be at least 13 years old'
+        errors.dateOfBirth = t('onboarding.validation.dobMin')
       }
       
       // Check if age matches DOB (if both provided)
       if (age !== '' && typeof age === 'number') {
         if (Math.abs(calculatedAge - age) > 1) {
-          errors.age = `Age doesn't match date of birth (should be around ${calculatedAge})`
+          errors.age = t('onboarding.validation.ageMismatch').replace('{age}', String(calculatedAge))
         }
       }
     }
@@ -117,22 +119,22 @@ export default function OnboardingPage() {
     // Height validation
     if (units === 'metric') {
       if (height_cm === '' || (typeof height_cm === 'number' && (height_cm < 100 || height_cm > 250))) {
-        errors.height_cm = 'Height must be between 100cm and 250cm'
+        errors.height_cm = t('onboarding.validation.heightCm')
       }
     } else {
       if (heightFt === '' || heightIn === '') {
-        errors.height = 'Please enter both feet and inches'
+        errors.height = t('onboarding.validation.heightBoth')
       } else {
         const totalInches = Number(heightFt) * 12 + Number(heightIn)
         if (totalInches < 39 || totalInches > 98) {
-          errors.height = 'Height must be between 3ft 3in and 8ft 2in'
+          errors.height = t('onboarding.validation.heightRange')
         }
       }
     }
     
     // Weight validation
     if (weight_kg === '' || (typeof weight_kg === 'number' && (weight_kg < 30 || weight_kg > 300))) {
-      errors.weight = 'Weight must be between 30kg and 300kg (66-660 lbs)'
+      errors.weight = t('onboarding.validation.weightRange')
     }
     
     setFieldErrors(errors)
@@ -144,12 +146,12 @@ export default function OnboardingPage() {
     
     // Sleep goal validation
     if (sleep_goal_h < 4 || sleep_goal_h > 12) {
-      errors.sleep_goal_h = 'Sleep goal must be between 4 and 12 hours'
+      errors.sleep_goal_h = t('onboarding.validation.sleepRange')
     }
     
     // Water goal validation
     if (water_goal_ml < 1000 || water_goal_ml > 5000) {
-      errors.water_goal_ml = 'Water goal must be between 1000ml and 5000ml'
+      errors.water_goal_ml = t('onboarding.validation.waterRange')
     }
     
     setFieldErrors(errors)
@@ -231,14 +233,14 @@ export default function OnboardingPage() {
       }
     } catch (fetchError: any) {
       console.error('[onboarding] Fetch error:', fetchError)
-      setErr(fetchError.message || 'Network error. Please check your connection.')
+      setErr(fetchError.message || t('onboarding.networkError'))
       setBusy(false)
       return
     }
 
     if (!response.ok) {
       // Extract error message from response
-      let errorMessage = `Failed to save profile (${response.status})`
+      let errorMessage = `${t('onboarding.saveFailed')} (${response.status})`
       
       if (data) {
         if (data.error) {
@@ -303,7 +305,7 @@ export default function OnboardingPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-white flex items-center justify-center px-4">
-        <div className="text-slate-500">Loading…</div>
+        <div className="text-slate-500">{t('onboarding.loading')}</div>
       </main>
     )
   }
@@ -326,10 +328,10 @@ export default function OnboardingPage() {
             {/* Header */}
             <div className="pt-7 pb-5 px-6 text-center border-b border-slate-200/60">
               <h1 className="text-[20px] font-semibold tracking-tight text-slate-900 mb-1.5">
-                Welcome to ShiftCoach
+                {t('onboarding.title')}
               </h1>
               <p className="text-sm leading-relaxed text-slate-600">
-                Let&apos;s set up your profile
+                {t('onboarding.subtitle')}
               </p>
             </div>
 
@@ -337,7 +339,7 @@ export default function OnboardingPage() {
             <div className="px-6 pt-6 pb-5">
               <div className="flex items-center justify-between mb-2.5">
                 <span className="text-xs font-medium text-slate-500 tabular-nums">
-                  Step {step} of {totalSteps}
+                  {t('onboarding.stepOf').replace('{step}', String(step)).replace('{total}', String(totalSteps))}
                 </span>
                 <span className="text-xs font-medium text-slate-500 tabular-nums">
                   {Math.round(progress)}%
@@ -357,19 +359,19 @@ export default function OnboardingPage() {
                 <div className="space-y-5">
                   <div>
                     <label className="block text-sm font-medium text-slate-800 mb-2">
-                      Name
+                      {t('onboarding.name')}
                     </label>
                     <input
                       className="w-full rounded-xl px-4 py-3 bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/60 focus:border-emerald-400 transition-all text-sm"
                       type="text"
-                      placeholder="Enter your name"
+                      placeholder={t('onboarding.namePlaceholder')}
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-800 mb-2.5">
-                      Gender
+                      {t('onboarding.gender')}
                     </label>
                     <div className="grid grid-cols-3 gap-2">
                       {(['male', 'female', 'other'] as const).map((option) => (
@@ -383,14 +385,14 @@ export default function OnboardingPage() {
                               : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                           }`}
                         >
-                          {option === 'male' ? 'Male' : option === 'female' ? 'Female' : 'Other'}
+                          {option === 'male' ? t('onboarding.male') : option === 'female' ? t('onboarding.female') : t('onboarding.other')}
                         </button>
                       ))}
                     </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-800 mb-2">
-                      Date of Birth <span className="text-slate-400 font-normal">(optional)</span>
+                      {t('onboarding.dateOfBirth')} <span className="text-slate-400 font-normal">{t('onboarding.optional')}</span>
                     </label>
                     <input
                       className={`w-full rounded-xl px-4 py-3 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm ${
@@ -424,12 +426,12 @@ export default function OnboardingPage() {
                       <p className="text-xs text-red-600 mt-1.5">{fieldErrors.dateOfBirth}</p>
                     )}
                     {!fieldErrors.dateOfBirth && (
-                      <p className="text-xs text-slate-500 mt-1.5">You must be at least 13 years old</p>
+                      <p className="text-xs text-slate-500 mt-1.5">{t('onboarding.dobHint')}</p>
                     )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-800 mb-2">
-                      Age <span className="text-slate-400 font-normal">(optional)</span>
+                      {t('onboarding.age')} <span className="text-slate-400 font-normal">{t('onboarding.optional')}</span>
                     </label>
                     <input
                       className={`w-full rounded-xl px-4 py-3 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
@@ -450,14 +452,14 @@ export default function OnboardingPage() {
                             if (num >= 13 && num <= 120) {
                               setAge(num)
                             } else if (num < 13) {
-                              setFieldErrors(prev => ({ ...prev, age: 'Age must be at least 13' }))
+                              setFieldErrors(prev => ({ ...prev, age: t('onboarding.validation.ageMin') }))
                             } else {
-                              setFieldErrors(prev => ({ ...prev, age: 'Age must be 120 or less' }))
+                              setFieldErrors(prev => ({ ...prev, age: t('onboarding.validation.ageMax') }))
                             }
                           }
                         }
                       }}
-                      placeholder="Enter your age"
+                      placeholder={t('onboarding.agePlaceholder')}
                       min={13}
                       max={120}
                     />
@@ -465,7 +467,7 @@ export default function OnboardingPage() {
                       <p className="text-xs text-red-600 mt-1.5">{fieldErrors.age}</p>
                     )}
                     {!fieldErrors.age && (
-                      <p className="text-xs text-slate-500 mt-1.5">Must be between 13 and 120</p>
+                      <p className="text-xs text-slate-500 mt-1.5">{t('onboarding.ageRange')}</p>
                     )}
                   </div>
                 </div>
@@ -475,7 +477,7 @@ export default function OnboardingPage() {
                 <div className="space-y-5">
                   <div>
                     <label className="block text-sm font-medium text-slate-800 mb-2.5">
-                      Measurement units
+                      {t('onboarding.units')}
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                       {(['metric', 'imperial'] as const).map((unit) => (
@@ -489,7 +491,7 @@ export default function OnboardingPage() {
                               : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                           }`}
                         >
-                          {unit === 'metric' ? 'Metric (cm, kg)' : 'Imperial (ft/in)'}
+                          {unit === 'metric' ? t('onboarding.metric') : t('onboarding.imperial')}
                         </button>
                       ))}
                     </div>
@@ -499,7 +501,7 @@ export default function OnboardingPage() {
                     <>
                       <div>
                         <label className="block text-sm font-medium text-slate-800 mb-2">
-                          Height (cm)
+                          {t('onboarding.heightCm')}
                         </label>
                         <input
                           className={`w-full rounded-xl px-4 py-3 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
@@ -508,7 +510,7 @@ export default function OnboardingPage() {
                               : 'border-slate-200 focus:ring-emerald-400/60 focus:border-emerald-400'
                           }`}
                           type="number"
-                          placeholder="175"
+                          placeholder={t('onboarding.heightCmPlaceholder')}
                           value={height_cm}
                           onChange={(e) => {
                             setFieldErrors(prev => ({ ...prev, height_cm: '' }))
@@ -524,7 +526,7 @@ export default function OnboardingPage() {
                             }
                             setHeight_cm(num)
                             if (num < 100 || num > 250) {
-                              setFieldErrors(prev => ({ ...prev, height_cm: 'Height must be between 100cm and 250cm' }))
+                              setFieldErrors(prev => ({ ...prev, height_cm: t('onboarding.validation.heightCm') }))
                             }
                           }}
                           min={100}
@@ -535,12 +537,12 @@ export default function OnboardingPage() {
                           <p className="text-xs text-red-600 mt-1.5">{fieldErrors.height_cm}</p>
                         )}
                         {!fieldErrors.height_cm && (
-                          <p className="text-xs text-slate-500 mt-1.5">Enter your height in centimeters</p>
+                          <p className="text-xs text-slate-500 mt-1.5">{t('onboarding.validation.heightCmHint')}</p>
                         )}
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-slate-900 mb-2">
-                          Weight
+                          {t('onboarding.weight')}
                         </label>
                         {/* Weight Unit Selector */}
                         <div className="flex gap-2 mb-3">
@@ -578,7 +580,7 @@ export default function OnboardingPage() {
                         {weightUnit === 'st+lb' ? (
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-xs text-slate-600 mb-1">Stone</label>
+                              <label className="block text-xs text-slate-600 mb-1">{t('onboarding.stone')}</label>
                               <input
                                 className={`w-full rounded-xl px-3 py-2.5 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                                   fieldErrors.weight 
@@ -600,7 +602,7 @@ export default function OnboardingPage() {
                                     if (kg >= 30 && kg <= 300) {
                                       setWeight_kg(kg)
                                     } else {
-                                      setFieldErrors(prev => ({ ...prev, weight: 'Weight must be between 30kg and 300kg' }))
+                                      setFieldErrors(prev => ({ ...prev, weight: t('onboarding.validation.weightKg') }))
                                     }
                                   } else if (stone === '' || poundsInput === '') {
                                     setWeight_kg('')
@@ -609,7 +611,7 @@ export default function OnboardingPage() {
                               />
                             </div>
                             <div>
-                              <label className="block text-xs text-slate-600 mb-1">Pounds</label>
+                              <label className="block text-xs text-slate-600 mb-1">{t('onboarding.pounds')}</label>
                               <input
                                 className={`w-full rounded-xl px-3 py-2.5 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                                   fieldErrors.weight 
@@ -631,7 +633,7 @@ export default function OnboardingPage() {
                                     if (kg >= 30 && kg <= 300) {
                                       setWeight_kg(kg)
                                     } else {
-                                      setFieldErrors(prev => ({ ...prev, weight: 'Weight must be between 30kg and 300kg' }))
+                                      setFieldErrors(prev => ({ ...prev, weight: t('onboarding.validation.weightKg') }))
                                     }
                                   } else if (stoneInput === '' || pounds === '') {
                                     setWeight_kg('')
@@ -663,7 +665,7 @@ export default function OnboardingPage() {
                                   if (kg >= 30 && kg <= 300) {
                                     setWeight_kg(kg)
                                   } else {
-                                    setFieldErrors(prev => ({ ...prev, weight: 'Weight must be between 66lbs and 660lbs' }))
+                                    setFieldErrors(prev => ({ ...prev, weight: t('onboarding.validation.weightLb') }))
                                   }
                                 } else {
                                   setWeight_kg('')
@@ -703,7 +705,7 @@ export default function OnboardingPage() {
                                 if (!isNaN(kg) && isFinite(kg)) {
                                   setWeight_kg(kg)
                                   if (kg < 30 || kg > 300) {
-                                    setFieldErrors(prev => ({ ...prev, weight: 'Weight must be between 30kg and 300kg' }))
+                                    setFieldErrors(prev => ({ ...prev, weight: t('onboarding.validation.weightKg') }))
                                   }
                                 }
                               }}
@@ -712,7 +714,7 @@ export default function OnboardingPage() {
                                 const value = e.target.value
                                 const kg = parseFloat(value)
                                 if (!isNaN(kg) && (kg < 30 || kg > 300)) {
-                                  setFieldErrors(prev => ({ ...prev, weight: 'Weight must be between 30kg and 300kg' }))
+                                  setFieldErrors(prev => ({ ...prev, weight: t('onboarding.validation.weightKg') }))
                                 }
                               }}
                             />
@@ -727,11 +729,11 @@ export default function OnboardingPage() {
                     <>
                       <div>
                         <label className="block text-sm font-medium text-slate-800 mb-2">
-                          Height
+                          {t('onboarding.height')}
                         </label>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-xs text-slate-600 mb-1">Feet</label>
+                            <label className="block text-xs text-slate-600 mb-1">{t('onboarding.feet')}</label>
                             <input
                               className={`w-full rounded-xl px-4 py-3 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                                 fieldErrors.height 
@@ -752,14 +754,14 @@ export default function OnboardingPage() {
                                   if (totalInches >= 39 && totalInches <= 98) {
                                     setHeight_cm(feetInchesToCm(Number(ft), Number(heightIn)))
                                   } else {
-                                    setFieldErrors(prev => ({ ...prev, height: 'Height must be between 3ft 3in and 8ft 2in' }))
+                                    setFieldErrors(prev => ({ ...prev, height: t('onboarding.validation.heightRange') }))
                                   }
                                 }
                               }}
                             />
                           </div>
                           <div>
-                            <label className="block text-xs text-slate-600 mb-1">Inches</label>
+                            <label className="block text-xs text-slate-600 mb-1">{t('onboarding.inches')}</label>
                             <input
                               className={`w-full rounded-xl px-4 py-3 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                                 fieldErrors.height 
@@ -780,7 +782,7 @@ export default function OnboardingPage() {
                                   if (totalInches >= 39 && totalInches <= 98) {
                                     setHeight_cm(feetInchesToCm(Number(heightFt), Number(inches)))
                                   } else {
-                                    setFieldErrors(prev => ({ ...prev, height: 'Height must be between 3ft 3in and 8ft 2in' }))
+                                    setFieldErrors(prev => ({ ...prev, height: t('onboarding.validation.heightRange') }))
                                   }
                                 }
                               }}
@@ -791,12 +793,12 @@ export default function OnboardingPage() {
                           <p className="text-xs text-red-600 mt-1.5">{fieldErrors.height}</p>
                         )}
                         {!fieldErrors.height && (
-                          <p className="text-xs text-slate-500 mt-1.5">Enter your height in feet and inches</p>
+                          <p className="text-xs text-slate-500 mt-1.5">{t('onboarding.validation.heightHint')}</p>
                         )}
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-slate-900 mb-2">
-                          Weight
+                          {t('onboarding.weight')}
                         </label>
                         {/* Weight Unit Selector */}
                         <div className="flex gap-2 mb-3">
@@ -834,7 +836,7 @@ export default function OnboardingPage() {
                         {weightUnit === 'st+lb' ? (
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-xs text-slate-600 mb-1">Stone</label>
+                              <label className="block text-xs text-slate-600 mb-1">{t('onboarding.stone')}</label>
                               <input
                                 className={`w-full rounded-xl px-3 py-2.5 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                                   fieldErrors.weight 
@@ -856,7 +858,7 @@ export default function OnboardingPage() {
                                     if (kg >= 30 && kg <= 300) {
                                       setWeight_kg(kg)
                                     } else {
-                                      setFieldErrors(prev => ({ ...prev, weight: 'Weight must be between 30kg and 300kg' }))
+                                      setFieldErrors(prev => ({ ...prev, weight: t('onboarding.validation.weightKg') }))
                                     }
                                   } else if (stone === '' || poundsInput === '') {
                                     setWeight_kg('')
@@ -865,7 +867,7 @@ export default function OnboardingPage() {
                               />
                             </div>
                             <div>
-                              <label className="block text-xs text-slate-600 mb-1">Pounds</label>
+                              <label className="block text-xs text-slate-600 mb-1">{t('onboarding.pounds')}</label>
                               <input
                                 className={`w-full rounded-xl px-3 py-2.5 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
                                   fieldErrors.weight 
@@ -887,7 +889,7 @@ export default function OnboardingPage() {
                                     if (kg >= 30 && kg <= 300) {
                                       setWeight_kg(kg)
                                     } else {
-                                      setFieldErrors(prev => ({ ...prev, weight: 'Weight must be between 30kg and 300kg' }))
+                                      setFieldErrors(prev => ({ ...prev, weight: t('onboarding.validation.weightKg') }))
                                     }
                                   } else if (stoneInput === '' || pounds === '') {
                                     setWeight_kg('')
@@ -919,7 +921,7 @@ export default function OnboardingPage() {
                                   if (kg >= 30 && kg <= 300) {
                                     setWeight_kg(kg)
                                   } else {
-                                    setFieldErrors(prev => ({ ...prev, weight: 'Weight must be between 66lbs and 660lbs' }))
+                                    setFieldErrors(prev => ({ ...prev, weight: t('onboarding.validation.weightLb') }))
                                   }
                                 } else {
                                   setWeight_kg('')
@@ -952,7 +954,7 @@ export default function OnboardingPage() {
                                     if (kg >= 30 && kg <= 300) {
                                       setWeight_kg(kg)
                                     } else {
-                                      setFieldErrors(prev => ({ ...prev, weight: 'Weight must be between 30kg and 300kg' }))
+                                      setFieldErrors(prev => ({ ...prev, weight: t('onboarding.validation.weightKg') }))
                                     }
                                   }
                                 }
@@ -973,7 +975,7 @@ export default function OnboardingPage() {
                 <div className="space-y-5">
                   <div>
                     <label className="block text-sm font-medium text-slate-800 mb-2.5">
-                      Goal
+                      {t('onboarding.goal')}
                     </label>
                     <div className="grid grid-cols-3 gap-2">
                       {(['lose', 'maintain', 'gain'] as const).map((option) => (
@@ -987,14 +989,14 @@ export default function OnboardingPage() {
                               : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                           }`}
                         >
-                          {option === 'lose' ? 'Lose' : option === 'maintain' ? 'Maintain' : 'Gain'}
+                          {option === 'lose' ? t('onboarding.lose') : option === 'maintain' ? t('onboarding.maintain') : t('onboarding.gain')}
                         </button>
                       ))}
                     </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-800 mb-2">
-                      Sleep goal (hours)
+                      {t('onboarding.sleepGoal')}
                     </label>
                     <input
                       className={`w-full rounded-xl px-4 py-3 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
@@ -1014,7 +1016,7 @@ export default function OnboardingPage() {
                           if (value >= 4 && value <= 12) {
                             setSleep_goal_h(value)
                           } else {
-                            setFieldErrors(prev => ({ ...prev, sleep_goal_h: 'Sleep goal must be between 4 and 12 hours' }))
+                            setFieldErrors(prev => ({ ...prev, sleep_goal_h: t('onboarding.validation.sleepRange') }))
                           }
                         }
                       }}
@@ -1023,12 +1025,12 @@ export default function OnboardingPage() {
                       <p className="text-xs text-red-600 mt-1.5">{fieldErrors.sleep_goal_h}</p>
                     )}
                     {!fieldErrors.sleep_goal_h && (
-                      <p className="text-xs text-slate-500 mt-1.5">Recommended: 7–9 hours for adults</p>
+                      <p className="text-xs text-slate-500 mt-1.5">{t('onboarding.sleepHint')}</p>
                     )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-800 mb-2">
-                      Water goal (L)
+                      {t('onboarding.waterGoal')}
                     </label>
                     <input
                       className={`w-full rounded-xl px-4 py-3 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
@@ -1055,7 +1057,7 @@ export default function OnboardingPage() {
                             setWater_goal_ml(ml)
                           } else {
                             setWater_goal_ml(ml)
-                            setFieldErrors(prev => ({ ...prev, water_goal_ml: 'Water goal must be between 1.0L and 5.0L' }))
+                            setFieldErrors(prev => ({ ...prev, water_goal_ml: t('onboarding.validation.waterRange') }))
                           }
                         }
                       }}
@@ -1065,7 +1067,7 @@ export default function OnboardingPage() {
                     )}
                     {!fieldErrors.water_goal_ml && (
                       <p className="text-xs text-slate-500 mt-1.5">
-                        Recommended: 2.0–3.0L per day based on scientific guidelines
+                        {t('onboarding.waterHint')}
                       </p>
                     )}
                   </div>
@@ -1085,7 +1087,7 @@ export default function OnboardingPage() {
                     className="flex items-center gap-2 px-4 py-2.5 rounded-full border border-slate-200 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all"
                   >
                     <ChevronLeft className="w-4 h-4" />
-                    Back
+                    {t('onboarding.back')}
                   </button>
                 ) : (
                   <div />
@@ -1095,7 +1097,7 @@ export default function OnboardingPage() {
                     onClick={handleNextStep}
                     className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-slate-900 text-white text-sm font-semibold shadow-[0_10px_26px_-14px_rgba(15,23,42,0.35)] hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all ml-auto"
                   >
-                    Continue
+                    {t('onboarding.continue')}
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 ) : (
@@ -1104,7 +1106,7 @@ export default function OnboardingPage() {
                     disabled={busy}
                     className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-slate-900 text-white text-sm font-semibold shadow-[0_10px_26px_-14px_rgba(15,23,42,0.35)] hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
                   >
-                    {busy ? 'Saving…' : 'Complete Setup'}
+                    {busy ? t('onboarding.saving') : t('onboarding.complete')}
                     {!busy && <ChevronRight className="w-4 h-4" />}
                   </button>
                 )}

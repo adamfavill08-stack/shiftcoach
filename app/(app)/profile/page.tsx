@@ -375,10 +375,10 @@ function ProfilePageContent() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 dark:from-slate-950 via-blue-50/30 dark:via-slate-900 to-slate-50 dark:to-slate-950">
-        <div className="max-w-md mx-auto px-6 py-8">
-          <div className="relative overflow-hidden rounded-2xl bg-white/90 dark:bg-slate-900/45 backdrop-blur-xl border border-white/90 dark:border-slate-700/40 shadow-[0_8px_24px_rgba(15,23,42,0.08)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-8">
-            <div className="animate-pulse text-sm text-slate-500 dark:text-slate-400">Loading profile...</div>
+      <main className="min-h-screen bg-gradient-to-b from-white via-sky-50/40 to-white">
+        <div className="max-w-md mx-auto px-4 py-8">
+          <div className="rounded-3xl bg-white px-6 py-5">
+            <div className="animate-pulse text-sm text-slate-500">Loading profile...</div>
           </div>
         </div>
       </main>
@@ -388,14 +388,14 @@ function ProfilePageContent() {
   // If no profile after loading, show error message
   if (!profile) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 dark:from-slate-950 via-blue-50/30 dark:via-slate-900 to-slate-50 dark:to-slate-950">
-        <div className="max-w-md mx-auto px-6 py-8">
-          <div className="relative overflow-hidden rounded-2xl bg-white/90 dark:bg-slate-900/45 backdrop-blur-xl border border-white/90 dark:border-slate-700/40 shadow-[0_8px_24px_rgba(15,23,42,0.08)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-8">
+      <main className="min-h-screen bg-gradient-to-b from-white via-sky-50/40 to-white">
+        <div className="max-w-md mx-auto px-4 py-8">
+          <div className="rounded-3xl bg-white px-6 py-5">
             <div className="text-center">
-              <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">No profile found. Please complete onboarding.</p>
+              <p className="text-sm text-slate-600 mb-4">No profile found. Please complete onboarding.</p>
               <button
                 onClick={() => router.push('/onboarding')}
-                className="px-6 py-3 rounded-full bg-blue-600 dark:bg-blue-500 text-white font-semibold shadow-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
+                className="px-6 py-3 rounded-full bg-slate-900 text-white font-semibold shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] hover:opacity-95 transition-colors"
               >
                 Go to Onboarding
               </button>
@@ -412,7 +412,7 @@ function ProfilePageContent() {
                   }
                   setLoading(false)
                 }}
-                className="mt-3 px-6 py-3 rounded-full bg-slate-200 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 font-semibold shadow-lg hover:bg-slate-300 dark:hover:bg-slate-800/70 transition-colors"
+                className="mt-3 px-6 py-3 rounded-full bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200 transition-colors"
               >
                 Refresh Profile
               </button>
@@ -441,7 +441,7 @@ function ProfilePageContent() {
   }
 
   // Calculate display values - ensure we handle null/undefined correctly
-  const displayWeight = profile?.weight_kg != null 
+  const displayWeight = profile?.weight_kg != null
     ? getDisplayWeight(profile.weight_kg, weightUnit)
     : '—'
 
@@ -453,6 +453,16 @@ function ProfilePageContent() {
         })()
       : `${Math.round(profile.height_cm)} cm`
     : '—'
+
+  const displayAge =
+    profile?.age !== null && profile?.age !== undefined && typeof profile.age === 'number' && profile.age > 0
+      ? `${profile.age}`
+      : profile?.date_of_birth
+      ? (() => {
+          const age = calculateAge(profile.date_of_birth)
+          return age !== null ? `${age}` : '—'
+        })()
+      : '—'
 
   const goalLabel = profile?.goal === 'lose' ? 'Lose' 
     : profile?.goal === 'gain' ? 'Gain' 
@@ -663,25 +673,13 @@ function ProfilePageContent() {
 
       return (
         <>
-          <main className="min-h-screen bg-gradient-to-b from-slate-50 dark:from-slate-950 to-white dark:to-slate-950 pb-8">
+          <main className="min-h-screen bg-gradient-to-b from-white via-sky-50/40 to-white pb-8">
             <div className="mx-auto max-w-md px-4 py-6">
-              {/* Premium Glass Sheet */}
-              <div className="relative overflow-hidden rounded-3xl bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-5 pb-6">
-                {/* Highlight overlay */}
-                <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
-                
-                {/* Subtle colored glow hints - dark mode only */}
-                <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
-                
-                {/* Inner ring for premium feel */}
-                <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
-                
-                <div className="relative z-10">
-                {/* System Calm Header */}
-                <div className="flex items-center justify-between mb-4">
+              <div className="rounded-3xl bg-white pb-6">
+                <div className="flex items-center justify-between px-5 pt-5 pb-3">
                   <button
                     onClick={() => router.back()}
-                    className="text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+                    className="text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors"
                   >
                     Back
                   </button>
@@ -698,78 +696,90 @@ function ProfilePageContent() {
                       }
                       setLoading(false)
                     }}
-                    className="text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+                    className="text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors"
                     title="Refresh profile data"
                   >
                     Refresh
                   </button>
                 </div>
-                <h1 className="mt-2 text-[18px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                <h1 className="px-5 text-[18px] font-semibold tracking-tight text-slate-900">
                   Profile
                 </h1>
 
-                {/* Premium Identity Block */}
-                <div className="mt-4 flex items-center gap-3 rounded-2xl bg-slate-50/40 dark:bg-slate-800/30 border border-slate-200/40 dark:border-slate-700/40 p-4">
-                  <div className="h-10 w-10 rounded-2xl bg-white/70 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 grid place-items-center text-slate-600 dark:text-slate-400 font-semibold flex-shrink-0">
+                {/* Identity Block */}
+                <div className="mt-4 mx-5 flex items-center gap-3 rounded-xl bg-slate-50 border border-slate-100 px-4 py-3">
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-400 grid place-items-center text-white font-semibold flex-shrink-0">
                     {getInitials(userName || 'User')}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{getFirstName(userName) || 'User'}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">ShiftCoach profile</p>
+                    <p className="text-sm font-semibold text-slate-900">{getFirstName(userName) || 'User'}</p>
+                    <p className="text-xs text-slate-500">ShiftCoach profile</p>
                   </div>
                 </div>
 
-                {/* Grouped List - One Glass Sheet */}
-                <div className="mt-4 rounded-2xl border border-slate-200/50 dark:border-slate-700/40 bg-white/60 dark:bg-slate-800/50 p-2">
+                {/* Quick stats row */}
+                <div className="mt-3 mx-5 grid grid-cols-3 gap-2">
+                  <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
+                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Weight</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900 truncate">{displayWeight}</p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
+                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Height</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900 truncate">{displayHeight}</p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
+                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Age</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900 truncate">
+                      {displayAge !== '—' ? `${displayAge} yr` : '—'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Cards */}
+                <div className="mt-4 space-y-2 px-5">
                   {/* Gender */}
                   <button
                     onClick={() => setShowGenderModal(true)}
-                    className="group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 bg-slate-50/35 dark:bg-slate-800/30 hover:bg-white/70 dark:hover:bg-slate-800/50 transition-colors w-full"
+                    className="group flex items-center justify-between gap-3 rounded-xl px-4 py-3 bg-white border border-slate-100 shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:border-sky-100 hover:shadow-[0_4px_12px_rgba(15,23,42,0.12)] transition-colors w-full"
                   >
                     <div className="flex items-center gap-3 flex-1">
-                      <div className="h-9 w-9 rounded-xl bg-white/70 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 grid place-items-center flex-shrink-0">
-                        <User className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
+                      <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-sky-500 to-emerald-400 grid place-items-center flex-shrink-0 shadow-sm">
+                        <User className="h-4 w-4 text-white" strokeWidth={2} />
                       </div>
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Gender</p>
+                      <p className="text-sm font-medium text-slate-900">Gender</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 tabular-nums">{genderLabel}</p>
-                      <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
+                      <p className="text-sm font-semibold text-slate-900 tabular-nums">{genderLabel}</p>
+                      <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-sky-400 transition" strokeWidth={2} />
                     </div>
                   </button>
-
-                  <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 dark:via-slate-700/50 to-transparent my-2" />
 
                   {/* Goal */}
                   <button
                     onClick={() => setShowGoalModal(true)}
-                    className="group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 bg-slate-50/35 dark:bg-slate-800/30 hover:bg-white/70 dark:hover:bg-slate-800/50 transition-colors w-full"
+                    className="group flex items-center justify-between gap-3 rounded-xl px-4 py-3 bg-white border border-slate-100 shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:border-sky-100 hover:shadow-[0_4px_12px_rgba(15,23,42,0.12)] transition-colors w-full"
                   >
                     <div className="flex items-center gap-3 flex-1">
-                      <div className="h-9 w-9 rounded-xl bg-white/70 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 grid place-items-center flex-shrink-0">
-                        <Target className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
+                      <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-violet-500 to-sky-500 grid place-items-center flex-shrink-0 shadow-sm">
+                        <Target className="h-4 w-4 text-white" strokeWidth={2} />
                       </div>
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Goal</p>
+                      <p className="text-sm font-medium text-slate-900">Goal</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 tabular-nums">{goalLabel}</p>
-                      <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
+                      <p className="text-sm font-semibold text-slate-900 tabular-nums">{goalLabel}</p>
+                      <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-sky-400 transition" strokeWidth={2} />
                     </div>
                   </button>
-
-                  <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 dark:via-slate-700/50 to-transparent my-2" />
 
                   {/* Body Weight */}
                   <button
                     onClick={() => {
-                      // Initialize inputs based on current weight and selected unit
                       if (profile?.weight_kg) {
                         if (weightUnit === 'kg') {
                           setWeightInput(Math.round(profile.weight_kg).toString())
                         } else if (weightUnit === 'lb') {
                           setWeightInput(Math.round(profile.weight_kg * 2.20462).toString())
                         } else {
-                          // st+lb
                           const totalPounds = profile.weight_kg * 2.20462
                           const stone = Math.floor(totalPounds / 14)
                           const pounds = Math.round(totalPounds % 14)
@@ -779,21 +789,19 @@ function ProfilePageContent() {
                       }
                       setShowWeightModal(true)
                     }}
-                    className="group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 bg-slate-50/35 dark:bg-slate-800/30 hover:bg-white/70 dark:hover:bg-slate-800/50 transition-colors w-full"
+                    className="group flex items-center justify-between gap-3 rounded-xl px-4 py-3 bg-white border border-slate-100 shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:border-sky-100 hover:shadow-[0_4px_12px_rgba(15,23,42,0.12)] transition-colors w-full"
                   >
                     <div className="flex items-center gap-3 flex-1">
-                      <div className="h-9 w-9 rounded-xl bg-white/70 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 grid place-items-center flex-shrink-0">
-                        <Scale className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
+                      <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-400 to-sky-500 grid place-items-center flex-shrink-0 shadow-sm">
+                        <Scale className="h-4 w-4 text-white" strokeWidth={2} />
                       </div>
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Body Weight</p>
+                      <p className="text-sm font-medium text-slate-900">Body Weight</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 tabular-nums">{displayWeight}</p>
-                      <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
+                      <p className="text-sm font-semibold text-slate-900 tabular-nums">{displayWeight}</p>
+                      <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-sky-400 transition" strokeWidth={2} />
                     </div>
                   </button>
-
-                  <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 dark:via-slate-700/50 to-transparent my-2" />
 
                   {/* Height */}
                   <button
@@ -801,38 +809,31 @@ function ProfilePageContent() {
                       setHeightInput(profile?.height_cm ? Math.round(profile.height_cm).toString() : '')
                       setShowHeightModal(true)
                     }}
-                    className="group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 bg-slate-50/35 dark:bg-slate-800/30 hover:bg-white/70 dark:hover:bg-slate-800/50 transition-colors w-full"
+                    className="group flex items-center justify-between gap-3 rounded-xl px-4 py-3 bg-white border border-slate-100 shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:border-sky-100 hover:shadow-[0_4px_12px_rgba(15,23,42,0.12)] transition-colors w-full"
                   >
                     <div className="flex items-center gap-3 flex-1">
-                      <div className="h-9 w-9 rounded-xl bg-white/70 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 grid place-items-center flex-shrink-0">
-                        <Ruler className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
+                      <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-sky-500 to-indigo-500 grid place-items-center flex-shrink-0 shadow-sm">
+                        <Ruler className="h-4 w-4 text-white" strokeWidth={2} />
                       </div>
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Height</p>
+                      <p className="text-sm font-medium text-slate-900">Height</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 tabular-nums">{displayHeight}</p>
-                      <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
+                      <p className="text-sm font-semibold text-slate-900 tabular-nums">{displayHeight}</p>
+                      <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-sky-400 transition" strokeWidth={2} />
                     </div>
                   </button>
-
-                  <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 dark:via-slate-700/50 to-transparent my-2" />
 
                   {/* Age / Date of Birth */}
                   <button
                     onClick={() => {
-                      // Initialize input with current DOB if available
                       if (profile?.date_of_birth) {
-                        // Parse date string directly (YYYY-MM-DD format) to avoid timezone issues
                         const dobStr = profile.date_of_birth
                         if (dobStr.includes('T')) {
-                          // If it's a full ISO datetime, extract just the date part
                           const [datePart] = dobStr.split('T')
                           setDobInput(datePart)
                         } else if (dobStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                          // Already in YYYY-MM-DD format
                           setDobInput(dobStr)
                         } else {
-                          // Try to parse as date and format
                           const dob = new Date(dobStr)
                           if (!isNaN(dob.getTime())) {
                             const year = dob.getFullYear()
@@ -848,132 +849,119 @@ function ProfilePageContent() {
                       }
                       setShowAgeModal(true)
                     }}
-                    className="group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 bg-slate-50/35 dark:bg-slate-800/30 hover:bg-white/70 dark:hover:bg-slate-800/50 transition-colors w-full"
+                    className="group flex items-center justify-between gap-3 rounded-xl px-4 py-3 bg-white border border-slate-100 shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:border-sky-100 hover:shadow-[0_4px_12px_rgba(15,23,42,0.12)] transition-colors w-full"
                   >
                     <div className="flex items-center gap-3 flex-1">
-                      <div className="h-9 w-9 rounded-xl bg-white/70 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 grid place-items-center flex-shrink-0">
-                        <Calendar className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
+                      <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-sky-500 to-violet-500 grid place-items-center flex-shrink-0 shadow-sm">
+                        <Calendar className="h-4 w-4 text-white" strokeWidth={2} />
                       </div>
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Age / Date of Birth</p>
+                      <p className="text-sm font-medium text-slate-900">Age / Date of Birth</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
+                      <p className="text-sm font-semibold text-slate-900 tabular-nums">
                         {profile?.age !== null && profile?.age !== undefined && typeof profile.age === 'number' && profile.age > 0
                           ? `${profile.age} years`
                           : '—'}
                       </p>
-                      <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
+                      <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-sky-400 transition" strokeWidth={2} />
                     </div>
                   </button>
                 </div>
 
-                {/* Calm Action Buttons */}
-                <button
-                  onClick={handleLogout}
-                  disabled={isLoggingOut}
-                  className="mt-4 w-full rounded-full px-5 py-3 bg-white/70 dark:bg-slate-800/50 backdrop-blur border border-slate-200/60 dark:border-slate-700/40 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-white/90 dark:hover:bg-slate-800/70 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoggingOut ? 'Logging out...' : 'Log out'}
-                </button>
+                {/* Actions */}
+                <div className="px-5">
+                  <button
+                    onClick={handleLogout}
+                    disabled={isLoggingOut}
+                    className="mt-5 w-full rounded-full px-5 py-3 bg-slate-900 text-white text-sm font-semibold shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] hover:opacity-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoggingOut ? 'Logging out...' : 'Log out'}
+                  </button>
 
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="mt-3 w-full rounded-full px-5 py-3 bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200/50 dark:border-rose-800/40 text-sm font-medium text-rose-700/90 dark:text-rose-300 hover:bg-rose-50/80 dark:hover:bg-rose-950/40 transition"
-                >
-                  Cancel subscription
-                </button>
-
-                {/* Muted Disclaimer */}
-                <p className="mt-5 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-                  ShiftCoach is coaching, not medical advice. If you have concerns, consult a professional.
-                </p>
+                  <div className="mt-6 pt-4 border-t border-slate-100 text-center">
+                    <p className="text-[10px] font-semibold tracking-[0.22em] text-slate-400 mb-1">
+                      SHIFTCOACH
+                    </p>
+                    <p className="text-[11px] leading-relaxed text-slate-500">
+                      A coaching app only and does not replace medical advice. Please speak to a healthcare
+                      professional about any health concerns.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
           </main>
 
-          {/* Gender Modal */}
+        {/* Gender Modal */}
         {showGenderModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="relative overflow-hidden rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-white/90 dark:border-slate-700/40 shadow-[0_8px_24px_rgba(15,23,42,0.12)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-6 w-full max-w-sm">
-              <div className="absolute inset-0 bg-gradient-to-b from-white/98 dark:from-slate-900/70 via-white/90 dark:via-slate-900/50 to-white/85 dark:to-slate-950/60" />
-              <div className="relative z-10">
-                <h4 className="text-lg font-bold bg-gradient-to-r from-slate-900 dark:from-slate-100 to-slate-800 dark:to-slate-200 bg-clip-text text-transparent mb-4">Select Gender</h4>
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="rounded-2xl bg-white border border-slate-200 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] p-6 w-full max-w-sm">
+              <h4 className="text-lg font-semibold text-slate-900 mb-4">Select gender</h4>
                 <div className="space-y-2">
                   {(['male', 'female', 'other'] as const).map((sex) => (
                     <button
                       key={sex}
                       onClick={() => handleSaveGender(sex)}
                       disabled={saving === 'gender'}
-                      className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
+                      className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-semibold transition-colors ${
                         profile?.sex === sex
-                          ? 'border-blue-500 dark:border-blue-400 bg-gradient-to-br from-blue-50 dark:from-blue-950/30 to-indigo-50 dark:to-indigo-950/30 shadow-[0_4px_12px_rgba(59,130,246,0.15)] dark:shadow-[0_4px_12px_rgba(59,130,246,0.3)]'
-                          : 'border-slate-200 dark:border-slate-700/40 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm'
+                          ? 'border-sky-500 bg-sky-50 text-slate-900'
+                          : 'border-slate-200 text-slate-900 hover:bg-slate-50'
                       } ${saving === 'gender' ? 'opacity-50 cursor-wait' : ''}`}
                     >
-                      <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        {sex === 'male' ? 'Male' : sex === 'female' ? 'Female' : 'Other'}
-                      </span>
+                      {sex === 'male' ? 'Male' : sex === 'female' ? 'Female' : 'Other'}
                     </button>
                   ))}
                 </div>
                 <button
                   onClick={() => setShowGenderModal(false)}
                   disabled={saving === 'gender'}
-                  className="mt-4 w-full py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 disabled:opacity-50 transition-colors"
+                className="mt-4 w-full py-2.5 text-sm font-medium text-slate-500 hover:text-slate-900 disabled:opacity-50 transition-colors"
                 >
                   Cancel
-                </button>
-              </div>
+              </button>
             </div>
           </div>
         )}
 
         {/* Goal Modal */}
         {showGoalModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="relative overflow-hidden rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-white/90 dark:border-slate-700/40 shadow-[0_8px_24px_rgba(15,23,42,0.12)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-6 w-full max-w-sm">
-              <div className="absolute inset-0 bg-gradient-to-b from-white/98 dark:from-slate-900/70 via-white/90 dark:via-slate-900/50 to-white/85 dark:to-slate-950/60" />
-              <div className="relative z-10">
-                <h4 className="text-lg font-bold bg-gradient-to-r from-slate-900 dark:from-slate-100 to-slate-800 dark:to-slate-200 bg-clip-text text-transparent mb-4">Select Goal</h4>
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="rounded-2xl bg-white border border-slate-200 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] p-6 w-full max-w-sm">
+              <h4 className="text-lg font-semibold text-slate-900 mb-4">Select goal</h4>
                 <div className="space-y-2">
                   {(['lose', 'maintain', 'gain'] as const).map((goal) => (
                     <button
                       key={goal}
                       onClick={() => handleSaveGoal(goal)}
                       disabled={saving === 'goal'}
-                      className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
+                      className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-semibold transition-colors ${
                         profile?.goal === goal
-                          ? 'border-indigo-500 dark:border-indigo-400 bg-gradient-to-br from-indigo-50 dark:from-indigo-950/30 to-purple-50 dark:to-purple-950/30 shadow-[0_4px_12px_rgba(99,102,241,0.15)] dark:shadow-[0_4px_12px_rgba(99,102,241,0.3)]'
-                          : 'border-slate-200 dark:border-slate-700/40 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm'
+                          ? 'border-emerald-500 bg-emerald-50 text-slate-900'
+                          : 'border-slate-200 text-slate-900 hover:bg-slate-50'
                       } ${saving === 'goal' ? 'opacity-50 cursor-wait' : ''}`}
                     >
-                      <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        {goal === 'lose' ? 'Lose' : goal === 'gain' ? 'Gain' : 'Maintain'}
-                      </span>
+                      {goal === 'lose' ? 'Lose' : goal === 'gain' ? 'Gain' : 'Maintain'}
                     </button>
                   ))}
                 </div>
                 <button
                   onClick={() => setShowGoalModal(false)}
                   disabled={saving === 'goal'}
-                  className="mt-4 w-full py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 disabled:opacity-50 transition-colors"
+                className="mt-4 w-full py-2.5 text-sm font-medium text-slate-500 hover:text-slate-900 disabled:opacity-50 transition-colors"
                 >
                   Cancel
                 </button>
-              </div>
             </div>
           </div>
         )}
 
         {/* Weight Modal */}
         {showWeightModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="relative overflow-hidden rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-white/90 dark:border-slate-700/40 shadow-[0_8px_24px_rgba(15,23,42,0.12)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-6 w-full max-w-sm">
-              <div className="absolute inset-0 bg-gradient-to-b from-white/98 dark:from-slate-900/70 via-white/90 dark:via-slate-900/50 to-white/85 dark:to-slate-950/60" />
-              <div className="relative z-10">
-                <h4 className="text-lg font-bold bg-gradient-to-r from-slate-900 dark:from-slate-100 to-slate-800 dark:to-slate-200 bg-clip-text text-transparent mb-4">Body Weight</h4>
-                
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="rounded-2xl bg-white border border-slate-200 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] p-6 w-full max-w-sm">
+              <h4 className="text-lg font-semibold text-slate-900 mb-4">Body weight</h4>
+
                 {/* Unit Selector */}
                 <div className="mb-4">
                   <div className="flex gap-2">
@@ -983,7 +971,6 @@ function ProfilePageContent() {
                         onClick={() => {
                           setWeightUnit(unit)
                           localStorage.setItem('weightUnit', unit)
-                          // Convert current weight to new unit for display
                           if (profile?.weight_kg) {
                             if (unit === 'kg') {
                               setWeightInput(Math.round(profile.weight_kg).toString())
@@ -1003,10 +990,10 @@ function ProfilePageContent() {
                             }
                           }
                         }}
-                        className={`flex-1 py-2.5 px-3 text-sm font-semibold rounded-xl border transition-all ${
+                        className={`flex-1 py-2.5 px-3 text-sm font-semibold rounded-xl border transition-colors ${
                           weightUnit === unit
-                            ? 'border-emerald-500 dark:border-emerald-400 bg-gradient-to-br from-emerald-50 dark:from-emerald-950/30 to-teal-50 dark:to-teal-950/30 text-emerald-700 dark:text-emerald-300 shadow-[0_4px_12px_rgba(16,185,129,0.15)] dark:shadow-[0_4px_12px_rgba(16,185,129,0.3)]'
-                            : 'border-slate-200 dark:border-slate-700/40 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm'
+                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                            : 'border-slate-200 text-slate-700 hover:bg-slate-50'
                         }`}
                       >
                         {unit === 'st+lb' ? 'st+lb' : unit.toUpperCase()}
@@ -1019,24 +1006,24 @@ function ProfilePageContent() {
                 {weightUnit === 'st+lb' ? (
                   <div className="flex items-center gap-2 mb-4">
                     <div className="flex-1">
-                      <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 block">Stone</label>
+                      <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Stone</label>
                       <input
                         type="number"
                         value={stoneInput}
                         onChange={(e) => setStoneInput(e.target.value)}
                         placeholder="0"
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 focus:border-emerald-500 dark:focus:border-emerald-400 transition-all bg-white dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white text-slate-900 placeholder:text-slate-400"
                         autoFocus
                       />
                     </div>
                     <div className="flex-1">
-                      <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 block">Pounds</label>
+                      <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Pounds</label>
                       <input
                         type="number"
                         value={poundsInput}
                         onChange={(e) => setPoundsInput(e.target.value)}
                         placeholder="0"
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 focus:border-emerald-500 dark:focus:border-emerald-400 transition-all bg-white dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white text-slate-900 placeholder:text-slate-400"
                       />
                     </div>
                   </div>
@@ -1047,10 +1034,10 @@ function ProfilePageContent() {
                       value={weightInput}
                       onChange={(e) => setWeightInput(e.target.value)}
                       placeholder={`Weight in ${weightUnit}`}
-                      className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-700/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 focus:border-emerald-500 dark:focus:border-emerald-400 transition-all bg-white dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                      className="flex-1 px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white text-slate-900 placeholder:text-slate-400"
                       autoFocus
                     />
-                    <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">{weightUnit}</span>
+                    <span className="text-sm font-semibold text-slate-600">{weightUnit}</span>
                   </div>
                 )}
 
@@ -1072,33 +1059,30 @@ function ProfilePageContent() {
                       saving === 'weight' || 
                       (weightUnit === 'st+lb' ? (!stoneInput && !poundsInput) : !weightInput)
                     }
-                    className="flex-1 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-600 dark:from-emerald-600 dark:to-teal-700 rounded-xl hover:from-emerald-600 hover:to-teal-700 dark:hover:from-emerald-700 dark:hover:to-teal-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_12px_rgba(16,185,129,0.3)] dark:shadow-[0_4px_12px_rgba(16,185,129,0.5)] hover:shadow-[0_6px_16px_rgba(16,185,129,0.4)] dark:hover:shadow-[0_6px_16px_rgba(16,185,129,0.6)] transition-all"
+                    className="flex-1 py-2.5 text-sm font-semibold text-white bg-slate-900 rounded-xl hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] transition-all"
                   >
                     {saving === 'weight' ? 'Saving...' : 'Save'}
                   </button>
                 </div>
-              </div>
             </div>
           </div>
         )}
 
         {/* Height Modal */}
         {showHeightModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="relative overflow-hidden rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-white/90 dark:border-slate-700/40 shadow-[0_8px_24px_rgba(15,23,42,0.12)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-6 w-full max-w-sm">
-              <div className="absolute inset-0 bg-gradient-to-b from-white/98 dark:from-slate-900/70 via-white/90 dark:via-slate-900/50 to-white/85 dark:to-slate-950/60" />
-              <div className="relative z-10">
-                <h4 className="text-lg font-bold bg-gradient-to-r from-slate-900 dark:from-slate-100 to-slate-800 dark:to-slate-200 bg-clip-text text-transparent mb-4">Height</h4>
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="rounded-2xl bg-white border border-slate-200 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] p-6 w-full max-w-sm">
+              <h4 className="text-lg font-semibold text-slate-900 mb-4">Height</h4>
                 <div className="flex items-center gap-2 mb-4">
                   <input
                     type="number"
                     value={heightInput}
                     onChange={(e) => setHeightInput(e.target.value)}
                     placeholder="Height in cm"
-                    className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-700/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 dark:focus:ring-amber-400 focus:border-amber-500 dark:focus:border-amber-400 transition-all bg-white dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    className="flex-1 px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all bg-white text-slate-900 placeholder:text-slate-400"
                     autoFocus
                   />
-                  <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">cm</span>
+                  <span className="text-sm font-semibold text-slate-600">cm</span>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -1113,40 +1097,37 @@ function ProfilePageContent() {
                   <button
                     onClick={handleSaveHeight}
                     disabled={saving === 'height' || !heightInput}
-                    className="flex-1 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-600 dark:from-amber-600 dark:to-orange-700 rounded-xl hover:from-amber-600 hover:to-orange-700 dark:hover:from-amber-700 dark:hover:to-orange-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_12px_rgba(245,158,11,0.3)] dark:shadow-[0_4px_12px_rgba(245,158,11,0.5)] hover:shadow-[0_6px_16px_rgba(245,158,11,0.4)] dark:hover:shadow-[0_6px_16px_rgba(245,158,11,0.6)] transition-all"
+                    className="flex-1 py-2.5 text-sm font-semibold text-white bg-slate-900 rounded-xl hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] transition-all"
                   >
                     {saving === 'height' ? 'Saving...' : 'Save'}
                   </button>
                 </div>
-              </div>
             </div>
           </div>
         )}
 
         {/* Age / Date of Birth Modal */}
         {showAgeModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="relative overflow-hidden rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-white/90 dark:border-slate-700/40 shadow-[0_8px_24px_rgba(15,23,42,0.12)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-6 w-full max-w-sm">
-              <div className="absolute inset-0 bg-gradient-to-b from-white/98 dark:from-slate-900/70 via-white/90 dark:via-slate-900/50 to-white/85 dark:to-slate-950/60" />
-              <div className="relative z-10">
-                <h4 className="text-lg font-bold bg-gradient-to-r from-slate-900 dark:from-slate-100 to-slate-800 dark:to-slate-200 bg-clip-text text-transparent mb-4">Date of Birth</h4>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="rounded-2xl bg-white border border-slate-200 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] p-6 w-full max-w-sm">
+              <h4 className="text-lg font-semibold text-slate-900 mb-2">Date of birth</h4>
+              <p className="text-xs text-slate-600 mb-4">
                   Age will be calculated automatically from your date of birth.
                 </p>
                 <div className="mb-4">
-                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 block">Date of Birth</label>
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Date of birth</label>
                   <input
                     type="date"
                     value={dobInput}
                     onChange={(e) => setDobInput(e.target.value)}
                     max={new Date().toISOString().split('T')[0]} // Can't be in the future
-                    className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-all bg-white dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all bg-white text-slate-900 placeholder:text-slate-400"
                     autoFocus
                   />
                 </div>
                 {dobInput && calculateAge(dobInput) !== null && (
-                  <div className="mb-4 p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40">
-                    <p className="text-sm text-blue-800 dark:text-blue-300">
+                  <div className="mb-4 p-3 rounded-xl bg-sky-50 border border-sky-100">
+                    <p className="text-sm text-sky-800">
                       Age: <span className="font-semibold">{calculateAge(dobInput)} years</span>
                     </p>
                   </div>
@@ -1157,110 +1138,22 @@ function ProfilePageContent() {
                       setShowAgeModal(false)
                       setDobInput('')
                     }}
-                    className="flex-1 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
+                    className="flex-1 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSaveDOB}
                     disabled={saving === 'dob' || !dobInput}
-                    className="flex-1 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-blue-500 to-indigo-600 dark:from-blue-600 dark:to-indigo-700 rounded-xl hover:from-blue-600 hover:to-indigo-700 dark:hover:from-blue-700 dark:hover:to-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_12px_rgba(59,130,246,0.3)] dark:shadow-[0_4px_12px_rgba(59,130,246,0.5)] hover:shadow-[0_6px_16px_rgba(59,130,246,0.4)] dark:hover:shadow-[0_6px_16px_rgba(59,130,246,0.6)] transition-all"
+                    className="flex-1 py-2.5 text-sm font-semibold text-white bg-slate-900 rounded-xl hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] transition-all"
                   >
                     {saving === 'dob' ? 'Saving...' : 'Save'}
                   </button>
                 </div>
-              </div>
             </div>
           </div>
         )}
 
-        {/* Cancel Subscription Modal */}
-        {showDeleteConfirm && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="relative overflow-hidden rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-red-200/50 dark:border-red-800/40 shadow-[0_8px_24px_rgba(239,68,68,0.15)] dark:shadow-[0_8px_24px_rgba(239,68,68,0.3)] p-6 w-full max-w-sm">
-              <div className="absolute inset-0 bg-gradient-to-b from-red-50/30 dark:from-red-950/30 via-white/90 dark:via-slate-900/70 to-white/85 dark:to-slate-950/60" />
-              <div className="relative z-10">
-                <h4 className="text-lg font-bold text-red-900 dark:text-red-300 mb-2">Cancel Subscription</h4>
-                <p className="text-sm text-slate-600 dark:text-slate-300 mb-2">
-                  This will cancel future payments and schedule your account for deletion at the end of your current paid period.
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-                  You'll keep access until your subscription period ends, then your account and all data will be permanently deleted.
-                </p>
-                <p className="text-sm text-slate-700 dark:text-slate-300 font-medium mb-4">Type DELETE to confirm:</p>
-                <input
-                  type="text"
-                  value={deleteConfirmText}
-                  onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  placeholder="Type DELETE"
-                  className="w-full px-4 py-3 border border-red-300 dark:border-red-800/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-red-500 dark:focus:border-red-400 mb-4 transition-all bg-white dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
-                  autoFocus
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setShowDeleteConfirm(false)
-                      setDeleteConfirmText('')
-                    }}
-                    className="flex-1 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (deleteConfirmText !== 'DELETE') {
-                        showToast('Please type DELETE to confirm', 'error')
-                        return
-                      }
-
-                      try {
-                        setBusy(true)
-                        
-                        // Call the cancel subscription API
-                        const res = await fetch('/api/subscription/cancel', {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                          },
-                        })
-
-                        const data = await res.json()
-                        
-                        if (!res.ok) {
-                          showToast(data.error || 'Failed to cancel subscription', 'error')
-                          setBusy(false)
-                          return
-                        }
-
-                        // Success - show message and close modal
-                        showToast(
-                          data.message || 'Subscription canceled successfully',
-                          'success'
-                        )
-                        
-                        setShowDeleteConfirm(false)
-                        setDeleteConfirmText('')
-                        
-                        // Refresh profile to show updated status
-                        await refreshProfile()
-                        
-                        setBusy(false)
-                      } catch (err) {
-                        console.error('Cancel subscription error:', err)
-                        showToast('Failed to cancel subscription', 'error')
-                        setBusy(false)
-                      }
-                    }}
-                    disabled={busy}
-                    className="flex-1 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 dark:from-red-500 dark:to-red-600 rounded-xl hover:from-red-700 hover:to-red-800 dark:hover:from-red-600 dark:hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_12px_rgba(239,68,68,0.3)] dark:shadow-[0_4px_12px_rgba(239,68,68,0.5)] hover:shadow-[0_6px_16px_rgba(239,68,68,0.4)] dark:hover:shadow-[0_6px_16px_rgba(239,68,68,0.6)] transition-all"
-                  >
-                    {busy ? 'Processing...' : 'Confirm Cancellation'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
         </>
       )
 }
@@ -1268,10 +1161,10 @@ function ProfilePageContent() {
 export default function ProfilePage() {
   return (
     <Suspense fallback={
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 dark:from-slate-950 via-blue-50/30 dark:via-slate-900 to-slate-50 dark:to-slate-950">
-        <div className="max-w-md mx-auto px-6 py-8">
-          <div className="relative overflow-hidden rounded-2xl bg-white/90 dark:bg-slate-900/45 backdrop-blur-xl border border-white/90 dark:border-slate-700/40 shadow-[0_8px_24px_rgba(15,23,42,0.08)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-8">
-            <div className="animate-pulse text-sm text-slate-500 dark:text-slate-400">Loading profile...</div>
+      <main className="min-h-screen bg-gradient-to-b from-white via-sky-50/40 to-white">
+        <div className="max-w-md mx-auto px-4 py-8">
+          <div className="rounded-3xl bg-white px-6 py-5">
+            <div className="animate-pulse text-sm text-slate-500">Loading profile...</div>
           </div>
         </div>
       </main>

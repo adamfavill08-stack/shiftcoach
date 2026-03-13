@@ -11,7 +11,6 @@ import { LanguageSection } from './components/LanguageSection'
 import { AICoachSection } from './components/AICoachSection'
 import { DataPrivacySection } from './components/DataPrivacySection'
 import { TesterFeedbackSection } from './components/TesterFeedbackSection'
-import { SubscriptionPlanSection } from './components/SubscriptionPlanSection'
 import { useTranslation } from '@/components/providers/language-provider'
 
 export default function SettingsPage() {
@@ -21,8 +20,8 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-        <div className="rounded-3xl bg-white border border-slate-200 shadow-sm px-6 py-5">
+      <main className="min-h-screen bg-gradient-to-b from-white via-sky-50/40 to-white flex items-center justify-center px-4">
+        <div className="rounded-3xl bg-white border border-slate-100 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] px-6 py-5">
           <div className="animate-pulse text-sm text-slate-500">Loading settings...</div>
         </div>
       </main>
@@ -30,14 +29,14 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 flex items-start justify-center px-4 py-6 pb-20 overflow-y-auto">
+    <main className="min-h-screen bg-gradient-to-b from-white via-sky-50/40 to-white flex items-start justify-center px-4 py-6 pb-20 overflow-y-auto">
       <div className="w-full max-w-md">
-        <div className="rounded-3xl bg-white border border-slate-200 shadow-sm pb-4">
+        <div className="rounded-3xl bg-white pb-4">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
             <button
               onClick={() => router.back()}
-              className="inline-flex items-center justify-center rounded-full w-8 h-8 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+              className="inline-flex items-center justify-center rounded-full w-8 h-8 text-slate-500 hover:bg-sky-50 hover:text-slate-900 transition-colors"
               aria-label="Back"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -52,18 +51,17 @@ export default function SettingsPage() {
           <div className="divide-y divide-slate-100">
             {/* Account Section */}
             <section className="pt-3">
-              <p className="px-4 pb-1 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+              <p className="px-4 pb-1 text-[11px] font-semibold tracking-wide text-sky-600 uppercase">
                 {t('settings.section.account')}
               </p>
               <div className="space-y-1 px-2 pb-2">
                 <ProfilePlanSection />
-                <SubscriptionPlanSection />
               </div>
             </section>
 
             {/* Preferences Section */}
             <section className="pt-3">
-              <p className="px-4 pb-1 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+              <p className="px-4 pb-1 text-[11px] font-semibold tracking-wide text-sky-600 uppercase">
                 {t('settings.section.preferences')}
               </p>
               <div className="space-y-1 px-2 pb-2">
@@ -75,7 +73,7 @@ export default function SettingsPage() {
 
             {/* Coaching Section */}
             <section className="pt-3">
-              <p className="px-4 pb-1 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+              <p className="px-4 pb-1 text-[11px] font-semibold tracking-wide text-sky-600 uppercase">
                 {t('settings.section.coaching')}
               </p>
               <div className="space-y-1 px-2 pb-2">
@@ -85,7 +83,7 @@ export default function SettingsPage() {
 
             {/* Support Section */}
             <section className="pt-3">
-              <p className="px-4 pb-1 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+              <p className="px-4 pb-1 text-[11px] font-semibold tracking-wide text-sky-600 uppercase">
                 {t('settings.section.support')}
               </p>
               <div className="space-y-1 px-2 pb-3">
@@ -99,7 +97,7 @@ export default function SettingsPage() {
           <div className="px-4 pt-3 border-t border-slate-100">
             <p className="text-xs text-center text-slate-500">
               Version 1.0 ·{' '}
-              <span className="text-slate-400 cursor-pointer hover:text-slate-600 hover:underline transition-colors">
+              <span className="text-sky-600 cursor-pointer hover:text-sky-700 hover:underline transition-colors">
                 Contact support
               </span>
             </p>

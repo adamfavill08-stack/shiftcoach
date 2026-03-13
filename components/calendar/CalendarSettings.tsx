@@ -204,7 +204,7 @@ export function CalendarSettings() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <RefreshCw className="w-6 h-6 text-slate-400 dark:text-slate-500 animate-spin" />
+        <RefreshCw className="w-6 h-6 text-slate-400 animate-spin" />
       </div>
     )
   }
@@ -213,21 +213,21 @@ export function CalendarSettings() {
     <div className="space-y-6">
       {/* General Settings */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
           <Calendar className="w-4 h-4" />
           General
         </h3>
 
-        <div className="space-y-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/40 p-4">
+        <div className="space-y-3 rounded-xl bg-slate-50 border border-slate-200 p-4">
           {/* Week Start Day */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">
               Week Starts On
             </label>
             <select
               value={settings.weekStartDay}
               onChange={(e) => setSettings({ ...settings, weekStartDay: parseInt(e.target.value) })}
-              className="w-full rounded-lg px-3 py-2 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/40 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50 dark:focus:ring-sky-500/50"
+              className="w-full rounded-lg px-3 py-2 bg-white border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
             >
               <option value={0}>Sunday</option>
               <option value={1}>Monday</option>
@@ -242,10 +242,10 @@ export function CalendarSettings() {
           {/* Hour Format */}
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              <label className="text-sm font-medium text-slate-900">
                 24-Hour Format
               </label>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Use 24-hour time format
               </p>
             </div>
@@ -253,17 +253,17 @@ export function CalendarSettings() {
               type="checkbox"
               checked={settings.use24HourFormat}
               onChange={(e) => setSettings({ ...settings, use24HourFormat: e.target.checked })}
-              className="h-5 w-5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500"
+              className="h-5 w-5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
             />
           </div>
 
           {/* Show Week Numbers */}
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              <label className="text-sm font-medium text-slate-900">
                 Show Week Numbers
               </label>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Display week numbers in calendar views
               </p>
             </div>
@@ -271,17 +271,17 @@ export function CalendarSettings() {
               type="checkbox"
               checked={settings.showWeekNumbers}
               onChange={(e) => setSettings({ ...settings, showWeekNumbers: e.target.checked })}
-              className="h-5 w-5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500"
+              className="h-5 w-5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
             />
           </div>
 
           {/* Highlight Weekends */}
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              <label className="text-sm font-medium text-slate-900">
                 Highlight Weekends
               </label>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Highlight Saturday and Sunday
               </p>
             </div>
@@ -289,21 +289,21 @@ export function CalendarSettings() {
               type="checkbox"
               checked={settings.highlightWeekends}
               onChange={(e) => setSettings({ ...settings, highlightWeekends: e.target.checked })}
-              className="h-5 w-5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500"
+              className="h-5 w-5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
             />
           </div>
 
           {/* Weekend Color */}
           {settings.highlightWeekends && (
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">
                 Weekend Highlight Color
               </label>
               <input
                 type="color"
                 value={settings.highlightWeekendsColor}
                 onChange={(e) => setSettings({ ...settings, highlightWeekendsColor: e.target.value })}
-                className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700/40 cursor-pointer"
+                className="w-full h-10 rounded-lg border border-slate-200 cursor-pointer"
               />
             </div>
           )}
@@ -311,10 +311,10 @@ export function CalendarSettings() {
           {/* Show Grid */}
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              <label className="text-sm font-medium text-slate-900">
                 Show Grid
               </label>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Display grid lines in calendar
               </p>
             </div>
@@ -322,19 +322,19 @@ export function CalendarSettings() {
               type="checkbox"
               checked={settings.showGrid}
               onChange={(e) => setSettings({ ...settings, showGrid: e.target.checked })}
-              className="h-5 w-5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500"
+              className="h-5 w-5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
             />
           </div>
 
           {/* Font Size */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">
               Font Size
             </label>
             <select
               value={settings.fontSize}
               onChange={(e) => setSettings({ ...settings, fontSize: e.target.value as any })}
-              className="w-full rounded-lg px-3 py-2 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/40 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50 dark:focus:ring-sky-500/50"
+              className="w-full rounded-lg px-3 py-2 bg-white border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
             >
               <option value="small">Small</option>
               <option value="medium">Medium</option>
@@ -347,21 +347,21 @@ export function CalendarSettings() {
 
       {/* Weekly View Settings */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
           <Calendar className="w-4 h-4" />
           Weekly View
         </h3>
 
-        <div className="space-y-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/40 p-4">
+        <div className="space-y-3 rounded-xl bg-slate-50 border border-slate-200 p-4">
           {/* Weekly Start Time */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">
               Weekly View Starts At
             </label>
             <select
               value={settings.weeklyStartTime}
               onChange={(e) => setSettings({ ...settings, weeklyStartTime: parseInt(e.target.value) })}
-              className="w-full rounded-lg px-3 py-2 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/40 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50 dark:focus:ring-sky-500/50"
+              className="w-full rounded-lg px-3 py-2 bg-white border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
             >
               {Array.from({ length: 17 }, (_, i) => (
                 <option key={i} value={i}>
@@ -374,10 +374,10 @@ export function CalendarSettings() {
           {/* Midnight Spanning Events */}
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              <label className="text-sm font-medium text-slate-900">
                 Show Midnight-Spanning Events at Top
               </label>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Display events that span midnight at the top
               </p>
             </div>
@@ -385,17 +385,17 @@ export function CalendarSettings() {
               type="checkbox"
               checked={settings.showMidnightSpanningEventsAtTop}
               onChange={(e) => setSettings({ ...settings, showMidnightSpanningEventsAtTop: e.target.checked })}
-              className="h-5 w-5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500"
+              className="h-5 w-5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
             />
           </div>
 
           {/* Allow Customize Day Count */}
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              <label className="text-sm font-medium text-slate-900">
                 Allow Customize Day Count
               </label>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Allow customizing number of days in weekly view
               </p>
             </div>
@@ -403,17 +403,17 @@ export function CalendarSettings() {
               type="checkbox"
               checked={settings.allowCustomizeDayCount}
               onChange={(e) => setSettings({ ...settings, allowCustomizeDayCount: e.target.checked })}
-              className="h-5 w-5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500"
+              className="h-5 w-5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
             />
           </div>
 
           {/* Start Week With Current Day */}
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              <label className="text-sm font-medium text-slate-900">
                 Start Week With Current Day
               </label>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Start weekly view with today
               </p>
             </div>
@@ -421,7 +421,7 @@ export function CalendarSettings() {
               type="checkbox"
               checked={settings.startWeekWithCurrentDay}
               onChange={(e) => setSettings({ ...settings, startWeekWithCurrentDay: e.target.checked })}
-              className="h-5 w-5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500"
+              className="h-5 w-5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
             />
           </div>
         </div>
@@ -429,21 +429,21 @@ export function CalendarSettings() {
 
       {/* Event Lists Settings */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
           <Eye className="w-4 h-4" />
           Event Lists
         </h3>
 
-        <div className="space-y-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/40 p-4">
+        <div className="space-y-3 rounded-xl bg-slate-50 border border-slate-200 p-4">
           {/* Display Past Events */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">
               Display Past Events
             </label>
             <select
               value={settings.displayPastEvents}
               onChange={(e) => setSettings({ ...settings, displayPastEvents: parseInt(e.target.value) })}
-              className="w-full rounded-lg px-3 py-2 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/40 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50 dark:focus:ring-sky-500/50"
+              className="w-full rounded-lg px-3 py-2 bg-white border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
             >
               <option value={0}>Never</option>
               <option value={5}>5 minutes</option>
@@ -458,7 +458,7 @@ export function CalendarSettings() {
               <option value={4320}>3 days</option>
               <option value={10080}>1 week</option>
             </select>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 mt-1">
               Currently: {formatDisplayPastEvents(settings.displayPastEvents)}
             </p>
           </div>
@@ -466,10 +466,10 @@ export function CalendarSettings() {
           {/* Dim Past Events */}
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              <label className="text-sm font-medium text-slate-900">
                 Dim Past Events
               </label>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Make past events appear dimmed
               </p>
             </div>
@@ -477,17 +477,17 @@ export function CalendarSettings() {
               type="checkbox"
               checked={settings.dimPastEvents}
               onChange={(e) => setSettings({ ...settings, dimPastEvents: e.target.checked })}
-              className="h-5 w-5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500"
+              className="h-5 w-5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
             />
           </div>
 
           {/* Dim Completed Tasks */}
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              <label className="text-sm font-medium text-slate-900">
                 Dim Completed Tasks
               </label>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Make completed tasks appear dimmed
               </p>
             </div>
@@ -495,17 +495,17 @@ export function CalendarSettings() {
               type="checkbox"
               checked={settings.dimCompletedTasks}
               onChange={(e) => setSettings({ ...settings, dimCompletedTasks: e.target.checked })}
-              className="h-5 w-5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500"
+              className="h-5 w-5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
             />
           </div>
 
           {/* Coloured Shift Bars */}
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              <label className="text-sm font-medium text-slate-900">
                 Show coloured shift bars
               </label>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Turn off if you prefer a cleaner calendar without long coloured blocks.
               </p>
             </div>
@@ -513,7 +513,7 @@ export function CalendarSettings() {
               type="checkbox"
               checked={settings.showShiftBars}
               onChange={(e) => setSettings({ ...settings, showShiftBars: e.target.checked })}
-              className="h-5 w-5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500"
+              className="h-5 w-5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
             />
           </div>
         </div>
@@ -521,19 +521,19 @@ export function CalendarSettings() {
 
       {/* Reminders Settings */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
           <Bell className="w-4 h-4" />
           Reminders
         </h3>
 
-        <div className="space-y-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/40 p-4">
+        <div className="space-y-3 rounded-xl bg-white border border-slate-200 p-4">
           {/* Vibrate */}
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              <label className="text-sm font-medium text-slate-900">
                 Vibrate on Reminder
               </label>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Vibrate device when reminder triggers
               </p>
             </div>
@@ -541,19 +541,19 @@ export function CalendarSettings() {
               type="checkbox"
               checked={settings.vibrateOnReminder}
               onChange={(e) => setSettings({ ...settings, vibrateOnReminder: e.target.checked })}
-              className="h-5 w-5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500"
+              className="h-5 w-5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
             />
           </div>
 
           {/* Reminder Audio Stream */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">
               Reminder Audio Stream
             </label>
             <select
               value={settings.reminderAudioStream}
               onChange={(e) => setSettings({ ...settings, reminderAudioStream: e.target.value as any })}
-              className="w-full rounded-lg px-3 py-2 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/40 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50 dark:focus:ring-sky-500/50"
+              className="w-full rounded-lg px-3 py-2 bg-white border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
             >
               <option value="alarm">Alarm</option>
               <option value="system">System</option>
@@ -565,10 +565,10 @@ export function CalendarSettings() {
           {/* Use Same Snooze */}
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              <label className="text-sm font-medium text-slate-900">
                 Use Same Snooze Time
               </label>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Use same snooze time for all reminders
               </p>
             </div>
@@ -576,7 +576,7 @@ export function CalendarSettings() {
               type="checkbox"
               checked={settings.useSameSnooze}
               onChange={(e) => setSettings({ ...settings, useSameSnooze: e.target.checked })}
-              className="h-5 w-5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500"
+              className="h-5 w-5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
             />
           </div>
 
@@ -636,19 +636,19 @@ export function CalendarSettings() {
           {/* Default Reminders */}
           {!settings.usePreviousEventReminders && (
             <>
-              <div className="pt-2 border-t border-slate-200 dark:border-slate-700/40">
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
+              <div className="pt-2 border-t border-slate-200">
+                <label className="block text-xs font-medium text-slate-600 mb-2">
                   Default Reminders
                 </label>
                 <div className="space-y-2">
                   <div>
-                    <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">
+                    <label className="block text-xs text-slate-500 mb-1">
                       Reminder 1
                     </label>
                     <select
                       value={settings.defaultReminder1}
                       onChange={(e) => setSettings({ ...settings, defaultReminder1: parseInt(e.target.value) })}
-                      className="w-full rounded-lg px-3 py-2 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/40 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50 dark:focus:ring-sky-500/50"
+                      className="w-full rounded-lg px-3 py-2 bg-white border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
                     >
                       <option value={-1}>Off</option>
                       <option value={0}>At time of event</option>
@@ -661,13 +661,13 @@ export function CalendarSettings() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">
+                    <label className="block text-xs text-slate-500 mb-1">
                       Reminder 2
                     </label>
                     <select
                       value={settings.defaultReminder2}
                       onChange={(e) => setSettings({ ...settings, defaultReminder2: parseInt(e.target.value) })}
-                      className="w-full rounded-lg px-3 py-2 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/40 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50 dark:focus:ring-sky-500/50"
+                      className="w-full rounded-lg px-3 py-2 bg-white border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
                     >
                       <option value={-1}>Off</option>
                       <option value={0}>At time of event</option>
@@ -680,13 +680,13 @@ export function CalendarSettings() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">
+                    <label className="block text-xs text-slate-500 mb-1">
                       Reminder 3
                     </label>
                     <select
                       value={settings.defaultReminder3}
                       onChange={(e) => setSettings({ ...settings, defaultReminder3: parseInt(e.target.value) })}
-                      className="w-full rounded-lg px-3 py-2 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/40 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50 dark:focus:ring-sky-500/50"
+                      className="w-full rounded-lg px-3 py-2 bg-white border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
                     >
                       <option value={-1}>Off</option>
                       <option value={0}>At time of event</option>
@@ -707,15 +707,15 @@ export function CalendarSettings() {
 
       {/* New Events Settings */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
           <Zap className="w-4 h-4" />
           New Events
         </h3>
 
-        <div className="space-y-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/40 p-4">
+        <div className="space-y-3 rounded-xl bg-white border border-slate-200 p-4">
           {/* Default Start Time */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">
               Default Start Time
             </label>
             <select
@@ -731,7 +731,7 @@ export function CalendarSettings() {
                   setSettings({ ...settings, defaultStartTime: now.getHours() * 60 + now.getMinutes() })
                 }
               }}
-              className="w-full rounded-lg px-3 py-2 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/40 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50 dark:focus:ring-sky-500/50"
+              className="w-full rounded-lg px-3 py-2 bg-white border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
             >
               <option value="current">Current Time</option>
               <option value="next_hour">Next Full Hour</option>
@@ -759,19 +759,19 @@ export function CalendarSettings() {
 
       {/* Tasks Settings */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
           <Bell className="w-4 h-4" />
           Tasks
         </h3>
 
-        <div className="space-y-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/40 p-4">
+        <div className="space-y-3 rounded-xl bg-white border border-slate-200 p-4">
           {/* Allow Creating Tasks */}
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              <label className="text-sm font-medium text-slate-900">
                 Allow Creating Tasks
               </label>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Enable task creation in calendar
               </p>
             </div>
@@ -779,17 +779,17 @@ export function CalendarSettings() {
               type="checkbox"
               checked={settings.allowCreatingTasks}
               onChange={(e) => setSettings({ ...settings, allowCreatingTasks: e.target.checked })}
-              className="h-5 w-5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500"
+              className="h-5 w-5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
             />
           </div>
 
           {/* Show Completed Tasks */}
           <div className="flex items-center justify-between">
             <div>
-              <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              <label className="text-sm font-medium text-slate-900">
                 Show Completed Tasks
               </label>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Display completed tasks in task lists
               </p>
             </div>
@@ -797,7 +797,7 @@ export function CalendarSettings() {
               type="checkbox"
               checked={settings.showCompletedTasks}
               onChange={(e) => setSettings({ ...settings, showCompletedTasks: e.target.checked })}
-              className="h-5 w-5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500"
+              className="h-5 w-5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
             />
           </div>
         </div>
@@ -805,12 +805,12 @@ export function CalendarSettings() {
 
       {/* Description Settings */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
           <FileText className="w-4 h-4" />
           Description
         </h3>
 
-        <div className="space-y-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/40 p-4">
+        <div className="space-y-3 rounded-xl bg-white border border-slate-200 p-4">
           {/* Display Description */}
           <div className="flex items-center justify-between">
             <div>
@@ -853,12 +853,12 @@ export function CalendarSettings() {
 
       {/* Time Zones Settings */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
           <Globe className="w-4 h-4" />
           Time Zones
         </h3>
 
-        <div className="space-y-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/40 p-4">
+        <div className="space-y-3 rounded-xl bg-white border border-slate-200 p-4">
           {/* Allow Changing Time Zones */}
           <div className="flex items-center justify-between">
             <div>
@@ -903,12 +903,12 @@ export function CalendarSettings() {
 
       {/* Import/Export */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
           <Download className="w-4 h-4" />
           Import & Export
         </h3>
 
-        <div className="space-y-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/40 p-4">
+        <div className="space-y-3 rounded-xl bg-white border border-slate-200 p-4">
           {/* Export Events */}
           <button
             onClick={async () => {
@@ -1020,12 +1020,12 @@ export function CalendarSettings() {
 
       {/* Backups */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
           <Download className="w-4 h-4" />
           Backups
         </h3>
 
-        <div className="space-y-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/40 p-4">
+        <div className="space-y-3 rounded-xl bg-white border border-slate-200 p-4">
           {/* Auto Backup */}
           <div className="flex items-center justify-between">
             <div>
@@ -1093,12 +1093,12 @@ export function CalendarSettings() {
 
       {/* Delete All Events */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-red-600 dark:text-red-400 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-red-600 flex items-center gap-2">
           <AlertCircle className="w-4 h-4" />
           Danger Zone
         </h3>
 
-        <div className="space-y-3 rounded-xl bg-red-50/50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 p-4">
+        <div className="space-y-3 rounded-xl bg-red-50 border border-red-200 p-4">
           <button
             onClick={() => setShowDeleteConfirm(true)}
             className="w-full px-4 py-2.5 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition flex items-center justify-center gap-2"
@@ -1111,18 +1111,18 @@ export function CalendarSettings() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-md w-full mx-4 border border-slate-200 dark:border-slate-700/40 shadow-xl">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 border border-slate-200 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)]">
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">
               Delete All Events?
             </h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+            <p className="text-sm text-slate-600 mb-6">
               This will permanently delete all events and tasks. This action cannot be undone.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                className="flex-1 px-4 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
               >
                 Cancel
               </button>
@@ -1138,7 +1138,7 @@ export function CalendarSettings() {
       )}
 
       {/* Save Button */}
-      <div className="pt-4 border-t border-slate-200/50 dark:border-slate-700/40">
+      <div className="pt-4 border-t border-slate-200/50">
         <button
           onClick={saveSettings}
           disabled={saving}
