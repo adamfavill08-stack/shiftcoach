@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Droplets, ChevronLeft, ChevronUp, ChevronDown } from "lucide-react"
 import Link from "next/link"
 import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition"
@@ -13,7 +13,14 @@ export default function HydrationPage() {
   const targetMl = data?.hydrationTargets?.water_ml ?? 0
   const consumedMlInitial = data?.hydrationIntake?.water_ml ?? 0
 
+  const [baseMl, setBaseMl] = useState<number>(consumedMlInitial)
   const [selectedMl, setSelectedMl] = useState<number>(consumedMlInitial)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setBaseMl(consumedMlInitial)
+    setSelectedMl(consumedMlInitial)
+  }, [consumedMlInitial])
 
   const targetLitres = useMemo(
     () => (targetMl > 0 ? (targetMl / 1000).toFixed(targetMl >= 2000 ? 1 : 2) : "—"),
@@ -65,6 +72,38 @@ export default function HydrationPage() {
     return "Goal nearly there — amazing consistency on your hydration."
   }, [selectedMl, targetMl])
 
+  const handleSave = async () => {
+    const delta = Math.max(0, Math.round(selectedMl - baseMl))
+    if (!delta) return
+
+    try {
+      setSaving(true)
+      const res = await fetch("/api/logs/water", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ml: delta }),
+      })
+
+      if (!res.ok) {
+        // Silently fail for now; could add toast later
+        return
+      }
+
+      const json = await res.json().catch(() => null as any)
+      const total = typeof json?.total === "number" ? json.total : baseMl + delta
+      setBaseMl(total)
+      setSelectedMl(total)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  useEffect(() => {
+    if (saving) return
+    if (selectedMl <= baseMl) return
+    void handleSave()
+  }, [selectedMl, baseMl, saving])
+
   return (
     <main className="min-h-screen bg-white">
       <div className="max-w-[430px] mx-auto min-h-screen px-4 pt-4 pb-8 flex flex-col gap-4">
@@ -89,7 +128,7 @@ export default function HydrationPage() {
         </header>
 
         {/* Summary + jug card (single, borderless) */}
-        <section className="rounded-xl bg-white px-4 py-4 flex flex-col items-center gap-4">
+        <section className="rounded-xl bg-white px-4 py-3.5 flex flex-col items-center gap-2.5">
           <div className="w-full flex items-center justify-between text-xs text-slate-600">
             <div>
               <p className="font-semibold text-slate-900 text-[11px] uppercase tracking-[0.16em]">
@@ -109,7 +148,7 @@ export default function HydrationPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-center gap-6">
+          <div className="flex items-center justify-center gap-5">
             {/* Left arrow - increase */}
             <div className="flex flex-col gap-2">
               <button

@@ -1,190 +1,306 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 
+type BingeRisk = {
+  score: number
+  level: 'low' | 'medium' | 'high'
+  drivers: string[]
+  explanation: string
+}
+
 export default function BingeRiskPage() {
+  const [risk, setRisk] = useState<BingeRisk | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await fetch('/api/shift-rhythm', { cache: 'no-store' })
+        if (!res.ok) return
+        const json = await res.json().catch(() => ({}))
+        if (!cancelled && json?.bingeRisk) {
+          setRisk(json.bingeRisk as BingeRisk)
+        }
+      } catch {
+        // keep null – page stays readable
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const score = risk?.score ?? 0
+  const level = risk?.level ?? 'low'
+
+  const levelLabel = level === 'low' ? 'Low' : level === 'medium' ? 'Medium' : 'High'
+
+  const ringGradientId = 'bingeGaugeGradient'
+
+  const ringFillFraction =
+    level === 'low' ? Math.min(1, score / 60) : level === 'medium' ? 0.5 + Math.min(0.3, score / 200) : 0.8
+
+  const ringBg =
+    level === 'low'
+      ? 'bg-emerald-50 text-emerald-600'
+      : level === 'medium'
+      ? 'bg-amber-50 text-amber-600'
+      : 'bg-rose-50 text-rose-600'
+
+  const chipClass =
+    level === 'low'
+      ? 'bg-emerald-50 text-emerald-700'
+      : level === 'medium'
+      ? 'bg-amber-50 text-amber-700'
+      : 'bg-rose-50 text-rose-700'
+
+  const headline =
+    level === 'low'
+      ? 'Cravings in a steady place'
+      : level === 'medium'
+      ? 'Cravings more likely on tired shifts'
+      : 'High risk of big cravings and binges'
+
+  const explainer =
+    risk?.explanation ??
+    'Based on your recent sleep, shifts and habits, this estimates how likely strong cravings or binges are in the next day or two.'
+
   return (
-    <main
-      style={{
-        backgroundImage: 'radial-gradient(circle at top, var(--bg-soft), var(--bg))',
-      }}
-    >
+    <main className="min-h-screen bg-white">
       <div className="max-w-[430px] mx-auto min-h-screen px-4 pb-8 pt-4 flex flex-col gap-5">
         {/* Header */}
         <header className="flex items-center gap-2 mb-2">
           <Link
             href="/dashboard"
-            className="p-2 rounded-full backdrop-blur-xl border transition-all"
-            style={{
-              backgroundColor: 'var(--card)',
-              borderColor: 'var(--border-subtle)',
-              color: 'var(--text-main)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--card-subtle)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--card)'
-            }}
+            className="p-2 rounded-full border border-slate-200 bg-white text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
             aria-label="Back to dashboard"
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
-          <h1 className="text-xl font-semibold tracking-tight" style={{ color: 'var(--text-main)' }}>Binge Risk</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Binge Risk</h1>
         </header>
 
-        {/* Key facts strip */}
-        <div
-          className="rounded-2xl backdrop-blur-xl border px-4 py-3 flex flex-col gap-1 text-xs"
-          style={{
-            backgroundColor: 'var(--card-subtle)',
-            borderColor: 'var(--border-subtle)',
-            color: 'var(--text-soft)',
-          }}
-        >
-          <span>• Binge Risk estimates how likely you are to overeat based on sleep, shifts and recent habits.</span>
-          <span>• Low = stable. Medium = watch your triggers. High = extra support & planning.</span>
-        </div>
-
-        {/* What it is */}
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-2"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-lg">🧠</span>
-            <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>What is binge risk?</p>
+        {/* Hero binge risk ring */}
+        <section className="rounded-2xl bg-white px-5 py-5 flex flex-col items-center gap-4">
+          <div className="flex items-center justify-center">
+            <div className="relative h-40 w-40">
+              <svg viewBox="0 0 132 132" className="h-40 w-40">
+                <defs>
+                  <linearGradient id={ringGradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#22c55e" />
+                    <stop offset="50%" stopColor="#facc15" />
+                    <stop offset="100%" stopColor="#fb7185" />
+                  </linearGradient>
+                </defs>
+                {/* Track */}
+                <circle
+                  cx="66"
+                  cy="66"
+                  r="52"
+                  stroke="#e5e7eb"
+                  strokeWidth="8.5"
+                  fill="none"
+                />
+                {/* Progress arc */}
+                <circle
+                  cx="66"
+                  cy="66"
+                  r="52"
+                  stroke={`url(#${ringGradientId})`}
+                  strokeWidth="8.5"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeDasharray={2 * Math.PI * 52}
+                  strokeDashoffset={(2 * Math.PI * 52) * (1 - ringFillFraction)}
+                  transform="rotate(-90 66 66)"
+                />
+              </svg>
+              <div className={`absolute inset-0 flex flex-col items-center justify-center ${ringBg} rounded-full mx-8 my-8`}>
+                <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500">
+                  Score
+                </span>
+                <span className="text-2xl font-semibold text-slate-900 tabular-nums">
+                  {score}
+                </span>
+                <span className="mt-1 text-[11px] font-medium text-slate-800">
+                  {levelLabel} risk
+                </span>
+              </div>
+            </div>
           </div>
-          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-main)' }}>
-            Binge Risk in Shift Coach is an estimate of how likely you are to have
-            <span className="font-semibold"> big cravings, mindless snacking or a full-on binge</span>
-            in the next day or two, based on your sleep, shift pattern and recent habits.
-          </p>
-          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-main)' }}>
-            Shift workers are hit harder because tired brains crave quick energy –
-            <span className="font-semibold"> sugar, fat and huge portions</span> – especially after nights,
-            early starts and long commutes.
-          </p>
+
+          <div className="w-full flex-1 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="space-y-1">
+                <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-slate-700">
+                  Binge risk on shifts
+                </p>
+                <p className="text-sm font-semibold text-slate-900">
+                  {headline}
+                </p>
+                <p className="text-[11px] text-slate-600">
+                  {explainer}
+                </p>
+              </div>
+              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-medium ${chipClass}`}>
+                {risk ? levelLabel : 'No recent data'}
+              </span>
+            </div>
+
+            {risk && risk.drivers?.length > 0 && (
+              <div className="mt-1">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1">
+                  Main drivers this week
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {risk.drivers.slice(0, 4).map((d) => (
+                    <span
+                      key={d}
+                      className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-700"
+                    >
+                      {d}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Key facts strip */}
+        <section className="rounded-xl bg-white border border-slate-200 px-4 py-3 flex flex-col gap-1 text-[11px] shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+          <span>Binge Risk estimates how likely you are to overeat based on sleep, shifts and recent habits.</span>
+          <span>Low = stable. Medium = watch your triggers. High = extra support & planning.</span>
         </section>
 
         {/* Colour scale */}
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-lg">🧩</span>
-            <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>What the colours mean</p>
-          </div>
-          <div className="flex flex-col gap-2 text-sm" style={{ color: 'var(--text-main)' }}>
+        <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 flex flex-col gap-3 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+          <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-slate-700">
+            What the colours mean
+          </p>
+          <div className="flex flex-col gap-2 text-[13px] text-slate-700">
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              <p className="font-medium" style={{ color: 'var(--text-main)' }}>Low</p>
-              <p className="text-xs" style={{ color: 'var(--text-soft)' }}>Balanced, stable pattern.</p>
+              <span className="font-semibold">Low</span>
+              <span className="text-[12px] text-slate-500">Balanced, stable pattern.</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-              <p className="font-medium" style={{ color: 'var(--text-main)' }}>Medium</p>
-              <p className="text-xs" style={{ color: 'var(--text-soft)' }}>Some red flags – be extra intentional with meals, sleep and caffeine.</p>
+              <span className="font-semibold">Medium</span>
+              <span className="text-[12px] text-slate-500">
+                Some red flags – be extra intentional with meals, sleep and caffeine.
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-rose-500" />
-              <p className="font-medium" style={{ color: 'var(--text-main)' }}>High</p>
-              <p className="text-xs" style={{ color: 'var(--text-soft)' }}>Your body is running on fumes – plan support and recovery now.</p>
+              <span className="font-semibold">High</span>
+              <span className="text-[12px] text-slate-500">
+                Your body is running on fumes – plan support and recovery now.
+              </span>
             </div>
           </div>
         </section>
 
         {/* Why shift workers struggle */}
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-2"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
+        <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 flex flex-col gap-2 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">🤍</span>
-            <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>Why shift workers binge more</p>
+            <p className="text-sm font-semibold text-slate-900">Why shift workers binge more</p>
           </div>
-          <ul className="text-sm list-disc list-inside space-y-1" style={{ color: 'var(--text-main)' }}>
-            <li><span className="font-semibold">Sleep debt:</span> less sleep = more hunger hormone (ghrelin) and less "I'm full" signal (leptin).</li>
-            <li><span className="font-semibold">Circadian mismatch:</span> eating at 3–4am when your body expects sleep makes you crave junk and store more fat.</li>
-            <li><span className="font-semibold">Stress &amp; emotion:</span> long, busy shifts with no breaks make food the easiest reward.</li>
-            <li><span className="font-semibold">Environment:</span> vending machines, takeaways and energy drinks are always available on nights.</li>
+          <ul className="text-[13px] list-disc list-inside space-y-1.5 text-slate-700">
+            <li>
+              <span className="font-semibold">Sleep debt:</span> less sleep = more hunger hormone
+              (ghrelin) and less "I&apos;m full" signal (leptin).
+            </li>
+            <li>
+              <span className="font-semibold">Circadian mismatch:</span> eating at 3–4am when your
+              body expects sleep makes you crave junk and store more fat.
+            </li>
+            <li>
+              <span className="font-semibold">Stress &amp; emotion:</span> long, busy shifts with
+              no breaks make food the easiest reward.
+            </li>
+            <li>
+              <span className="font-semibold">Environment:</span> vending machines, takeaways and
+              energy drinks are always available on nights.
+            </li>
           </ul>
         </section>
 
         {/* How Shift Coach helps */}
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
+        <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 flex flex-col gap-2 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">📋</span>
-            <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>How Shift Coach helps you combat it</p>
+            <p className="text-sm font-semibold text-slate-900">How ShiftCoach helps you combat it</p>
           </div>
-          <ul className="text-sm list-disc list-inside space-y-2" style={{ color: 'var(--text-main)' }}>
-            <li><span className="font-semibold">Keeps sleep on track:</span> the app nudges you towards enough sleep and better timing for your shifts.</li>
-            <li><span className="font-semibold">Times meals for your rota:</span> Smart Shift Meal Prep plans protein-focused meals when you're most alert.</li>
-            <li><span className="font-semibold">Flags danger windows:</span> high-risk nights show up on your dashboard so you can plan ahead.</li>
-            <li><span className="font-semibold">Encourages steady fuel:</span> instead of starving then binging, you get small, regular meal suggestions.</li>
+          <ul className="text-[13px] list-disc list-inside space-y-1.5 text-slate-700">
+            <li>
+              <span className="font-semibold">Keeps sleep on track:</span> nudges you towards
+              enough sleep and better timing for your shifts.
+            </li>
+            <li>
+              <span className="font-semibold">Times meals for your rota:</span> plans
+              protein‑focused meals when you&apos;re most alert, not when your body expects sleep.
+            </li>
+            <li>
+              <span className="font-semibold">Flags danger windows:</span> high‑risk nights show up
+              on your dashboard so you can plan ahead.
+            </li>
+            <li>
+              <span className="font-semibold">Encourages steady fuel:</span> instead of starving
+              then binging, you get small, regular meal suggestions.
+            </li>
           </ul>
         </section>
 
         {/* Practical tips */}
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
+        <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 flex flex-col gap-2 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">🌿</span>
-            <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>Quick actions when risk is Medium or High</p>
+            <p className="text-sm font-semibold text-slate-900">
+              Quick actions when risk is Medium or High
+            </p>
           </div>
-          <ul className="text-sm list-disc list-inside space-y-2" style={{ color: 'var(--text-main)' }}>
-            <li>Eat a <span className="font-semibold">planned snack</span> (protein + fibre) before you get home from a long or night shift.</li>
-            <li>Set a <span className="font-semibold">"kitchen closed" time</span> so you don't default to grazing late at night.</li>
-            <li>Use a <span className="font-semibold">non-food reward</span> after work: shower, music, short walk, call someone, game, etc.</li>
-            <li>On days off, prioritise <span className="font-semibold">one solid sleep</span> instead of lots of tiny naps.</li>
+          <ul className="text-[13px] list-disc list-inside space-y-1.5 text-slate-700">
+            <li>
+              Eat a <span className="font-semibold">planned snack</span> (protein + fibre) before
+              you get home from a long or night shift.
+            </li>
+            <li>
+              Set a <span className="font-semibold">"kitchen closed" time</span> so you don&apos;t
+              default to grazing late at night.
+            </li>
+            <li>
+              Use a <span className="font-semibold">non‑food reward</span> after work: shower,
+              music, short walk, call someone, game, etc.
+            </li>
+            <li>
+              On days off, prioritise <span className="font-semibold">one solid sleep</span>{" "}
+              instead of lots of tiny naps.
+            </li>
           </ul>
-          <p className="text-sm" style={{ color: 'var(--text-main)' }}>
-            The goal isn't to be perfect – it's to stack the odds in your favour so binges become <span className="font-semibold">rare slips</span>, not your normal pattern.
+          <p className="text-[13px] text-slate-700">
+            The goal isn&apos;t to be perfect – it&apos;s to stack the odds in your favour so
+            binges become <span className="font-semibold">rare slips</span>, not your normal
+            pattern.
           </p>
         </section>
 
-        {/* CTA */}
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-4 flex flex-col gap-2"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>See your current Binge Risk</p>
-          <p className="text-xs" style={{ color: 'var(--text-soft)' }}>Check your live score and personalised suggestions on your dashboard.</p>
-          <Link href="/dashboard" className="mt-1 inline-flex items-center justify-center rounded-full bg-gradient-to-r from-sky-500 to-violet-500 px-4 py-2 text-sm font-medium text-white transition-all duration-200 active:scale-95">
-            Go to Dashboard
-          </Link>
-        </section>
+        
+        {/* ShiftCoach logo footer */}
+        <div className="pt-6 pb-4 flex flex-col items-center gap-1">
+          <div className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-400">
+            ShiftCoach
+          </div>
+          <p className="text-[10px] text-slate-400 text-center max-w-[260px]">
+            A coaching app only and does not replace medical advice. Please speak to a healthcare
+            professional about any health concerns.
+          </p>
+        </div>
       </div>
     </main>
   )
