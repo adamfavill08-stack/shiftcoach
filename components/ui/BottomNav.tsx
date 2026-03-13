@@ -40,8 +40,8 @@ export default function BottomNav() {
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-[100] flex justify-center">
-      <div className="w-full max-w-[430px] bg-white/95 border-t border-slate-200/80 backdrop-blur-xl px-2 pb-safe pt-1.5">
-        <nav className="flex items-center justify-around">
+      <div className="w-full max-w-[430px] bg-white/95 border-t border-slate-200/80 backdrop-blur-xl px-2 pb-safe pt-3">
+        <nav className="flex items-center justify-around mb-3">
           {navItems.map((item) => {
             const Icon = item.icon
             const active = isActive(item.href)
