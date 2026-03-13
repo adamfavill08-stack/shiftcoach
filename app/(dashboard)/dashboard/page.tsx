@@ -141,14 +141,13 @@ export default function DashboardPage() {
     ;(async () => {
       const uid = await loadUser()
       if (!uid) return
-      setLoading(true)
-      await Promise.all([
-        fetchSleep(uid),
-        fetchCircadian(),
-        fetchShiftRhythm(),
-        fetchShiftLag(),
-      ])
+      // Show the dashboard shell as soon as the user is known
       setLoading(false)
+      // Kick off data fetches in the background so first paint is faster
+      void fetchSleep(uid)
+      void fetchCircadian()
+      void fetchShiftRhythm()
+      void fetchShiftLag()
     })()
   }, [loadUser, fetchSleep, fetchCircadian, fetchShiftRhythm, fetchShiftLag])
 

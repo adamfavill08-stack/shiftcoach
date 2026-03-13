@@ -40,7 +40,10 @@ export function FloatingCoachBubble() {
       )}
 
       {/* Google Fit–style floating FAB */}
-      <div className="fixed inset-x-0 bottom-24 z-[90] flex justify-end pointer-events-none">
+      <div
+        className="fixed inset-x-0 z-[90] flex justify-end pointer-events-none"
+        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 168px)" }}
+      >
         <div className="w-full max-w-[430px] mx-auto flex justify-end px-4">
           <button
             type="button"

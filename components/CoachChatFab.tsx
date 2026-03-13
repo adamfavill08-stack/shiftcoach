@@ -24,7 +24,7 @@ export function CoachChatFab({ unreadCount = 3, className }: CoachChatFabProps) 
         "transition-transform hover:scale-105 active:scale-95",
         className,
       )}
-      style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 96px)" }}
+      style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 192px)" }}
       aria-label="Open coach chat"
     >
       <MessageCircle className="h-6 w-6" strokeWidth={2.4} />

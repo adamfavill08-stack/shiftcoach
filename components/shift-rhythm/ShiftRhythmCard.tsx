@@ -3,13 +3,13 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { ChevronRight, Info, X, Clock, UtensilsCrossed, AlertCircle, Sparkles, MessageSquareText, Droplets } from "lucide-react";
 import { useGoalChange } from "@/lib/hooks/useGoalChange";
 import { ShiftLagCard } from "@/components/shiftlag/ShiftLagCard";
 import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition";
 import { ShiftWeekStrip } from "@/components/dashboard/ShiftWeekStrip";
 import { useActivityToday } from "@/lib/hooks/useActivityToday";
-import { useRouter } from "next/navigation";
 
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import type { ShiftLagMetrics } from '@/lib/circadian/calculateShiftLag'
@@ -42,6 +42,7 @@ type ShiftRhythmCardProps = {
 };
 
 function ShiftRhythmCard({ score, circadian, socialJetlag, shiftLag, bingeRisk, hasRhythmData }: ShiftRhythmCardProps) {
+  const router = useRouter();
   // Use circadian phase if available, otherwise fall back to normalized score
   const displayScore = circadian?.circadianPhase ?? normalizeScore(score);
   const inSync = displayScore >= 70;
@@ -247,6 +248,7 @@ function ShiftRhythmCard({ score, circadian, socialJetlag, shiftLag, bingeRisk, 
         circadian={circadian}
         wearableLastSyncLabel={wearableLastSyncLabel}
         hasRhythmData={hasRhythmData}
+        onOpenBodyClock={() => router.push("/body-clock")}
       />
 
       {/* Adjusted calories summary above meal timings */}
@@ -327,12 +329,14 @@ function BodyClockCard({
   circadian,
   wearableLastSyncLabel,
   hasRhythmData,
+  onOpenBodyClock,
 }: {
   score: number;
   inSync: boolean;
   circadian?: CircadianOutput | null;
   wearableLastSyncLabel: string;
   hasRhythmData?: boolean;
+  onOpenBodyClock: () => void;
 }) {
   const noData = hasRhythmData === false || (!circadian && score <= 0);
 
@@ -345,36 +349,43 @@ function BodyClockCard({
   }, [score, noData]);
 
   return (
-    <section
-      className={[
-        "relative overflow-hidden rounded-3xl",
-        "bg-transparent",
-        "text-slate-900 dark:text-slate-100",
-        "p-4 pb-2",
-      ].join(" ")}
+    <button
+      type="button"
+      onClick={onOpenBodyClock}
+      className="block w-full text-left focus:outline-none"
+      aria-label="Open Body Clock page"
     >
-      <div className="relative z-10 flex flex-col items-center text-center gap-4">
-        {/* Main circular gauge */}
-        <CircadianGauge score={score} />
+      <section
+        className={[
+          "relative overflow-hidden rounded-3xl",
+          "bg-transparent",
+          "text-slate-900 dark:text-slate-100",
+          "p-4 pb-2",
+        ].join(" ")}
+      >
+        <div className="relative z-10 flex flex-col items-center text-center gap-4">
+          {/* Main circular gauge */}
+          <CircadianGauge score={score} />
 
-        {/* Heading + explanation */}
-        <div className="space-y-2 max-w-xs">
-          <h3 className="text-[18px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-            {headingText}
-          </h3>
-          <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-            {noData
-              ? "Log a few nights of sleep and add your shifts to unlock your Body Clock score."
-              : "Calculated from your recent sleep, rota pattern and light timing over the last few days."}
+          {/* Heading + explanation */}
+          <div className="space-y-2 max-w-xs">
+            <h3 className="text-[18px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+              {headingText}
+            </h3>
+            <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+              {noData
+                ? "Log a few nights of sleep and add your shifts to unlock your Body Clock score."
+                : "Calculated from your recent sleep, rota pattern and light timing over the last few days."}
+            </p>
+          </div>
+
+          {/* Last sync label */}
+          <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+            {wearableLastSyncLabel}
           </p>
         </div>
-
-        {/* Last sync label */}
-        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-          {wearableLastSyncLabel}
-        </p>
-      </div>
-    </section>
+      </section>
+    </button>
   );
 }
 
@@ -441,7 +452,7 @@ function HomeAdjustedCaloriesCard() {
   return (
     <Link
       href="/adjusted-calories"
-      className="block rounded-xl bg-white border border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
+      className="block rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-colors hover:bg-slate-50"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 space-y-1.5">
@@ -454,7 +465,7 @@ function HomeAdjustedCaloriesCard() {
                 Shift‑tuned target for today.
               </span>
             </div>
-            <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+            <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />
           </div>
 
           <div className="mt-1">
@@ -484,9 +495,7 @@ function HomeAdjustedCaloriesCard() {
                 <span className="text-slate-700">Total adjustment</span>
                 <span
                   className={`font-semibold tabular-nums ${
-                    deltaPct >= 0
-                      ? "text-emerald-700"
-                      : "text-amber-700"
+                    deltaPct >= 0 ? "text-emerald-700" : "text-amber-700"
                   }`}
                 >
                   {deltaPct >= 0 ? "+" : ""}
