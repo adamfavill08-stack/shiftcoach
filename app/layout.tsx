@@ -128,7 +128,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <QuickAddProvider>
                   <AutoHealthSync />
                   <EventNotificationLoader />
-                  <main className="relative min-h-screen pb-16">
+                  <main className="relative min-h-screen pb-24">
                     {children}
                     <QuickAddSheet />
                     <ToastContainer />
