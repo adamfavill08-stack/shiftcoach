@@ -14,8 +14,8 @@ export function FloatingCoachBubble() {
   const { notifications, unreadCount, markAsRead, markAllAsRead, loading } =
     useNotifications();
 
-  // Show only on the main home dashboard (Google Fit–style)
-  const isHome = pathname === "/dashboard" || pathname === "/";
+  // Show only on the main home dashboard (Google Fit–style), not on splash
+  const isHome = pathname === "/dashboard";
   if (!isHome) {
     return null;
   }
