@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
+import { useTranslation } from '@/components/providers/language-provider'
 
 type BingeRisk = {
   score: number
