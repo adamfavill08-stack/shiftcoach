@@ -1,8 +1,8 @@
-\"use client\";
+"use client";
 
-import React, { useState, useEffect } from \"react\";
-import Link from \"next/link\";
-import Image from \"next/image\";
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
+import Image from "next/image";
 import { ChevronRight, Info, X } from "lucide-react";
 import { MoodFocus } from "./MoodFocus";
 import { SleepDeficitCard } from "./SleepDeficitCard";
