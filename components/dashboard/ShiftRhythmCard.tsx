@@ -1,9 +1,8 @@
-"use client";
+\"use client\";
 
-import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect } from \"react\";
+import Link from \"next/link\";
+import Image from \"next/image\";
 import { ChevronRight, Info, X } from "lucide-react";
 import { MoodFocus } from "./MoodFocus";
 import { SleepDeficitCard } from "./SleepDeficitCard";
@@ -35,7 +34,6 @@ type ShiftRhythmCardProps = {
 };
 
 function ShiftRhythmCard({ score, circadian, sleepDeficit, socialJetlag, shiftLag }: ShiftRhythmCardProps) {
-  const router = useRouter();
   // Use circadian phase if available, otherwise fall back to normalized score
   const displayScore = circadian?.circadianPhase ?? normalizeScore(score);
   const inSync = displayScore >= 70;
@@ -650,14 +648,13 @@ function BodyClockCard({
 
           {/* RIGHT: Main circadian gauge + ShiftLag card */}
           <div className="flex-shrink-0 flex flex-col items-center gap-4">
-            <button
-              type="button"
-              onClick={() => router.push("/body-clock")}
+            <Link
+              href="/body-clock"
               className="flex flex-col items-center gap-2 focus:outline-none"
               aria-label="Open Body Clock page"
             >
               <CircadianGauge score={score} />
-            </button>
+            </Link>
             
             {/* ShiftLag Card - Ultra Premium Square */}
             {shiftLag && (
