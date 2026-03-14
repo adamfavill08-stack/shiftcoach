@@ -32,7 +32,12 @@ export function WearableStatusPill() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch("/api/wearables/status");
+      const now = Date.now();
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const startTimeMillis = startOfDay.getTime();
+      const url = `/api/wearables/status?startTimeMillis=${startTimeMillis}&endTimeMillis=${now}`;
+      const res = await fetch(url);
       const data = await res.json().catch(() => ({}));
       setConnected(!!data.connected);
       setStepsToday(typeof data.stepsToday === "number" ? data.stepsToday : null);
@@ -62,7 +67,15 @@ export function WearableStatusPill() {
   const handleSync = useCallback(async () => {
     setSyncState("syncing");
     try {
-      const res = await fetch("/api/wearables/sync", { method: "POST" });
+      const now = Date.now();
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const startTimeMillis = startOfDay.getTime();
+      const res = await fetch("/api/wearables/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ startTimeMillis, endTimeMillis: now }),
+      });
       const data = await res.json().catch(() => ({}));
 
       if (data.error === "no_google_fit_connection") {

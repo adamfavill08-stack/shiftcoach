@@ -7,8 +7,12 @@ import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
  * Returns whether the current user has Google Fit connected (tokens stored).
  * When connected, verifies by calling Google Fit for today's steps and returns
  * stepsToday so the UI can show concrete proof the wearable is working.
+ *
+ * Query params (optional): startTimeMillis, endTimeMillis — "today" in the user's
+ * local timezone so the step count matches the Google Fit app. If omitted, uses
+ * server "today" (UTC).
  */
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const { userId } = await getServerSupabaseAndUserId()
     const { supabaseServer } = await import('@/lib/supabase-server')
@@ -34,11 +38,30 @@ export async function GET() {
       return NextResponse.json({ connected: true, verified: false })
     }
 
-    // Verify: call Google Fit for today's steps so we can show concrete proof
-    const endTimeMillis = Date.now()
-    const startOfDay = new Date()
-    startOfDay.setHours(0, 0, 0, 0)
-    const startTimeMillis = startOfDay.getTime()
+    // Use client's "today" (local timezone) if provided, so steps match Google Fit app
+    const url = new URL(req.url)
+    const clientStart = url.searchParams.get('startTimeMillis')
+    const clientEnd = url.searchParams.get('endTimeMillis')
+    let startTimeMillis: number
+    let endTimeMillis: number
+    if (clientStart != null && clientEnd != null) {
+      const s = Number(clientStart)
+      const e = Number(clientEnd)
+      if (Number.isFinite(s) && Number.isFinite(e) && s < e) {
+        startTimeMillis = s
+        endTimeMillis = e
+      } else {
+        endTimeMillis = Date.now()
+        const startOfDay = new Date()
+        startOfDay.setHours(0, 0, 0, 0)
+        startTimeMillis = startOfDay.getTime()
+      }
+    } else {
+      endTimeMillis = Date.now()
+      const startOfDay = new Date()
+      startOfDay.setHours(0, 0, 0, 0)
+      startTimeMillis = startOfDay.getTime()
+    }
 
     const fitResponse = await fetch(
       'https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate',
@@ -50,7 +73,7 @@ export async function GET() {
         },
         body: JSON.stringify({
           aggregateBy: [{ dataTypeName: 'com.google.step_count.delta' }],
-          bucketByTime: { durationMillis: endTimeMillis - startTimeMillis },
+          bucketByTime: { durationMillis: Math.max(1, endTimeMillis - startTimeMillis) },
           startTimeMillis,
           endTimeMillis,
         }),

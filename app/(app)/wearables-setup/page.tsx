@@ -19,7 +19,12 @@ export default function WearablesSetupPage() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch("/api/wearables/status");
+      const now = Date.now();
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const startTimeMillis = startOfDay.getTime();
+      const url = `/api/wearables/status?startTimeMillis=${startTimeMillis}&endTimeMillis=${now}`;
+      const res = await fetch(url);
       const data = await res.json().catch(() => ({}));
       setStatus({
         connected: !!data.connected,

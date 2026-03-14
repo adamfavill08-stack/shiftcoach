@@ -31,7 +31,15 @@ export default function SyncWearableButton() {
   async function handleClick() {
     try {
       setState('syncing')
-      const res = await fetch('/api/wearables/sync', { method: 'POST' })
+      const now = Date.now()
+      const startOfDay = new Date()
+      startOfDay.setHours(0, 0, 0, 0)
+      const startTimeMillis = startOfDay.getTime()
+      const res = await fetch('/api/wearables/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startTimeMillis, endTimeMillis: now }),
+      })
       const data = await res.json().catch(() => ({}))
 
       // Check if user needs to connect Google Fit first

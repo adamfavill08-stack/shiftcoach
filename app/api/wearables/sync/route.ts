@@ -40,18 +40,35 @@ export async function POST(req: NextRequest) {
 
     const accessToken = tokenRow.access_token as string
 
-    // Build aggregate request for today's steps
-    const endTimeMillis = Date.now()
-    const startOfDay = new Date()
-    startOfDay.setHours(0, 0, 0, 0)
-    const startTimeMillis = startOfDay.getTime()
+    // Use client's "today" (local timezone) if provided, so steps match Google Fit app
+    let startTimeMillis: number
+    let endTimeMillis: number
+    try {
+      const body = await req.json().catch(() => ({}))
+      const s = body?.startTimeMillis != null ? Number(body.startTimeMillis) : NaN
+      const e = body?.endTimeMillis != null ? Number(body.endTimeMillis) : NaN
+      if (Number.isFinite(s) && Number.isFinite(e) && s < e) {
+        startTimeMillis = s
+        endTimeMillis = e
+      } else {
+        endTimeMillis = Date.now()
+        const startOfDay = new Date()
+        startOfDay.setHours(0, 0, 0, 0)
+        startTimeMillis = startOfDay.getTime()
+      }
+    } catch {
+      endTimeMillis = Date.now()
+      const startOfDay = new Date()
+      startOfDay.setHours(0, 0, 0, 0)
+      startTimeMillis = startOfDay.getTime()
+    }
 
     const aggregateBody = {
       aggregateBy: [
         { dataTypeName: 'com.google.step_count.delta' },
       ],
       bucketByTime: {
-        durationMillis: endTimeMillis - startTimeMillis,
+        durationMillis: Math.max(1, endTimeMillis - startTimeMillis),
       },
       startTimeMillis,
       endTimeMillis,
