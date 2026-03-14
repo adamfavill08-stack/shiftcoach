@@ -11,15 +11,23 @@ type DeviceChoice = "apple" | "samsung" | "other";
 export default function WearablesSetupPage() {
   const { t } = useTranslation();
   const [choice, setChoice] = useState<DeviceChoice | null>(null);
-  const [connected, setConnected] = useState<boolean | null>(null);
+  const [status, setStatus] = useState<{
+    connected: boolean;
+    verified?: boolean;
+    stepsToday?: number;
+  } | null>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
       const res = await fetch("/api/wearables/status");
       const data = await res.json().catch(() => ({}));
-      setConnected(!!data.connected);
+      setStatus({
+        connected: !!data.connected,
+        verified: data.verified === true,
+        stepsToday: typeof data.stepsToday === "number" ? data.stepsToday : undefined,
+      });
     } catch {
-      setConnected(false);
+      setStatus({ connected: false });
     }
   }, []);
 
@@ -307,18 +315,18 @@ export default function WearablesSetupPage() {
           </ul>
         </section>
 
-        {/* Connection status: green if connected, red if not, with explanation */}
+        {/* Connection status: green if connected (with verified + steps when available), red if not */}
         <section
           className="border px-5 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
           style={{
             borderRadius: 8,
-            ...(connected === true
+            ...(status?.connected === true
               ? {
                   backgroundColor: "rgb(236 253 245)",
                   borderColor: "rgb(34 197 94)",
                   boxShadow: "0 1px 3px rgba(34, 197, 94, 0.15)",
                 }
-              : connected === false
+              : status?.connected === false
                 ? {
                     backgroundColor: "rgb(254 242 242)",
                     borderColor: "rgb(239 68 68)",
@@ -332,7 +340,7 @@ export default function WearablesSetupPage() {
           }}
         >
           <div className="flex flex-col gap-1 min-w-0 flex-1">
-            {connected === null ? (
+            {status === null ? (
               <>
                 <p className="text-sm font-semibold" style={{ color: "#0f172a" }}>
                   {t("detail.wearablesSetup.readyToSync")}
@@ -341,7 +349,7 @@ export default function WearablesSetupPage() {
                   {t("detail.wearablesSetup.tapBelow")}
                 </p>
               </>
-            ) : connected ? (
+            ) : status.connected ? (
               <>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-600" aria-hidden />
@@ -349,9 +357,21 @@ export default function WearablesSetupPage() {
                     {t("detail.wearablesSetup.statusConnected")}
                   </p>
                 </div>
-                <p className="text-xs pl-7" style={{ color: "#047857" }}>
-                  {t("detail.wearablesSetup.statusConnectedDesc")}
-                </p>
+                {status.verified && (
+                  <p className="text-xs pl-7 font-medium" style={{ color: "#047857" }}>
+                    {t("detail.wearablesSetup.verifiedWorking")}
+                  </p>
+                )}
+                {typeof status.stepsToday === "number" && (
+                  <p className="text-xs pl-7" style={{ color: "#047857" }}>
+                    {t("detail.wearablesSetup.stepsToday").replace("{count}", String(status.stepsToday))}
+                  </p>
+                )}
+                {!status.verified && (
+                  <p className="text-xs pl-7" style={{ color: "#047857" }}>
+                    {t("detail.wearablesSetup.statusConnectedDesc")}
+                  </p>
+                )}
               </>
             ) : (
               <>
@@ -368,7 +388,7 @@ export default function WearablesSetupPage() {
             )}
           </div>
           <div className="flex flex-shrink-0 items-center gap-2">
-            {connected === false ? (
+            {status?.connected === false ? (
               <a
                 href="/api/google-fit/auth"
                 className="inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
@@ -381,6 +401,11 @@ export default function WearablesSetupPage() {
             )}
           </div>
         </section>
+        {status?.connected && status.verified && (
+          <p className="text-center text-xs text-emerald-700 dark:text-emerald-400">
+            {t("detail.wearablesSetup.verifiedConfirmation")}
+          </p>
+        )}
       </div>
     </main>
   );

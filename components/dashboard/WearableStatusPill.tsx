@@ -24,6 +24,7 @@ export function WearableStatusPill() {
   const { t } = useTranslation();
   const searchParams = useSearchParams();
   const [connected, setConnected] = useState<boolean | null>(null);
+  const [stepsToday, setStepsToday] = useState<number | null>(null);
   const [syncState, setSyncState] = useState<"idle" | "syncing" | "synced">("idle");
 
   const errorParam = searchParams.get("googleFitError");
@@ -34,8 +35,10 @@ export function WearableStatusPill() {
       const res = await fetch("/api/wearables/status");
       const data = await res.json().catch(() => ({}));
       setConnected(!!data.connected);
+      setStepsToday(typeof data.stepsToday === "number" ? data.stepsToday : null);
     } catch {
       setConnected(false);
+      setStepsToday(null);
     }
   }, []);
 
@@ -107,9 +110,16 @@ export function WearableStatusPill() {
     );
   }
 
-  // Green: connected — tap to sync
+  // Green: connected — tap to sync; show steps today when verified for concrete confirmation
   if (connected === true) {
-    const label = syncState === "syncing" ? t("dashboard.wearable.syncing") : syncState === "synced" ? t("dashboard.wearable.synced") : t("dashboard.wearable.connected");
+    const label =
+      syncState === "syncing"
+        ? t("dashboard.wearable.syncing")
+        : syncState === "synced"
+          ? t("dashboard.wearable.synced")
+          : stepsToday != null
+            ? `${t("dashboard.wearable.connected")} • ${stepsToday.toLocaleString()} steps`
+            : t("dashboard.wearable.connected");
     return (
       <button
         type="button"
