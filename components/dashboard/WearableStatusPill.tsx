@@ -17,13 +17,14 @@ const ERROR_TO_KEY: Record<string, string> = {
 };
 
 /**
- * Pill under body clock: white "Tap to connect" by default, green when connected,
- * red with reason when connection failed. Uses real status so desktop doesn't show false "connected".
+ * Pill under body clock: tap to connect (or sync if already connected).
+ * White by default, green when connected, red on error. Tapping runs sync or redirects to connect.
  */
 export function WearableStatusPill() {
   const { t } = useTranslation();
   const searchParams = useSearchParams();
   const [connected, setConnected] = useState<boolean | null>(null);
+  const [syncState, setSyncState] = useState<"idle" | "syncing" | "synced">("idle");
 
   const errorParam = searchParams.get("googleFitError");
   const errorKey = errorParam ? ERROR_TO_KEY[errorParam] ?? "errorGeneric" : null;
@@ -55,7 +56,41 @@ export function WearableStatusPill() {
     };
   }, [fetchStatus]);
 
-  // Red: connection failed (from OAuth callback redirect)
+  const handleSync = useCallback(async () => {
+    setSyncState("syncing");
+    try {
+      const res = await fetch("/api/wearables/sync", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+
+      if (data.error === "no_google_fit_connection") {
+        window.location.href = "/api/google-fit/auth";
+        return;
+      }
+
+      if (!res.ok) {
+        setSyncState("idle");
+        return;
+      }
+
+      const ts = data.lastSyncedAt ? new Date(data.lastSyncedAt).getTime() : Date.now();
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem("wearables:lastSyncedAt", String(ts));
+      }
+      try {
+        window.dispatchEvent(new CustomEvent("wearables-synced", { detail: { ts } }));
+      } catch {
+        // ignore
+      }
+
+      setSyncState("synced");
+      fetchStatus();
+      setTimeout(() => setSyncState("idle"), 3000);
+    } catch {
+      setSyncState("idle");
+    }
+  }, [fetchStatus]);
+
+  // Red: connection failed — link to setup to try again
   if (errorKey) {
     return (
       <Link
@@ -72,34 +107,46 @@ export function WearableStatusPill() {
     );
   }
 
-  // Green: connected
+  // Green: connected — tap to sync
   if (connected === true) {
+    const label = syncState === "syncing" ? t("dashboard.wearable.syncing") : syncState === "synced" ? t("dashboard.wearable.synced") : t("dashboard.wearable.connected");
     return (
-      <div
-        className="inline-flex items-center gap-2 rounded-full border-2 border-emerald-500 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-300"
-        role="status"
-        aria-label={t("dashboard.wearable.connected")}
+      <button
+        type="button"
+        onClick={handleSync}
+        disabled={syncState === "syncing"}
+        className="inline-flex items-center gap-2 rounded-full border-2 border-emerald-500 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-300 hover:opacity-90 disabled:opacity-70 transition-opacity"
+        aria-label={label}
       >
         <Watch className="h-4 w-4 flex-shrink-0" aria-hidden />
-        <span>{t("dashboard.wearable.connected")}</span>
-      </div>
+        <span>{label}</span>
+      </button>
     );
   }
 
-  // White: tap to connect — same in all themes (white pill, dark text/icon) so it acts the same everywhere
+  // White: tap to connect or sync (tries sync first; redirects to Google if not connected)
+  const label =
+    syncState === "syncing"
+      ? t("dashboard.wearable.syncing")
+      : syncState === "synced"
+        ? t("dashboard.wearable.synced")
+        : t("dashboard.wearable.tapToConnect");
+
   return (
-    <Link
-      href="/wearables-setup"
-      className="inline-flex items-center gap-2 rounded-full border-2 px-4 py-2 text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity"
+    <button
+      type="button"
+      onClick={handleSync}
+      disabled={syncState === "syncing"}
+      className="inline-flex items-center gap-2 rounded-full border-2 px-4 py-2 text-sm font-semibold shadow-sm hover:opacity-90 disabled:opacity-70 transition-opacity"
       style={{
         backgroundColor: "#ffffff",
         borderColor: "#e2e8f0",
         color: "#1e293b",
       }}
-      aria-label={t("dashboard.wearable.tapToConnect")}
+      aria-label={label}
     >
       <Watch className="h-4 w-4 flex-shrink-0" style={{ color: "#1e293b" }} aria-hidden />
-      <span>{t("dashboard.wearable.tapToConnect")}</span>
-    </Link>
+      <span>{label}</span>
+    </button>
   );
 }
