@@ -345,6 +345,11 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'detail.wearablesSetup.benefit3': 'Better calorie and recovery targets that reflect how hard your actual shifts are.',
     'detail.wearablesSetup.readyToSync': 'Ready to sync your wearable?',
     'detail.wearablesSetup.tapBelow': "Tap below after you've followed the steps for your device.",
+    'detail.wearablesSetup.statusConnected': 'Google Fit connected',
+    'detail.wearablesSetup.statusConnectedDesc': 'Your wearable is linked. Tap sync to pull the latest steps and sleep.',
+    'detail.wearablesSetup.statusNotConnected': 'Wearable not connected',
+    'detail.wearablesSetup.notConnectedWhy': "ShiftCoach needs access to Google Fit to read your watch's steps and sleep. First connect Samsung Health (or your watch app) to Google Fit on your phone, then tap Connect below and sign in with the same Google account.",
+    'detail.wearablesSetup.connectGoogleFit': 'Connect Google Fit',
   },
   es: {
     'nav.home': 'Inicio',
@@ -623,6 +628,11 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'detail.wearablesSetup.benefit3': 'Mejores objetivos de calorías y recuperación según la carga real de tus turnos.',
     'detail.wearablesSetup.readyToSync': '¿Listo para sincronizar tu wearable?',
     'detail.wearablesSetup.tapBelow': 'Pulsa abajo después de seguir los pasos de tu dispositivo.',
+    'detail.wearablesSetup.statusConnected': 'Google Fit conectado',
+    'detail.wearablesSetup.statusConnectedDesc': 'Tu wearable está vinculado. Pulsa sincronizar para obtener los últimos pasos y sueño.',
+    'detail.wearablesSetup.statusNotConnected': 'Wearable no conectado',
+    'detail.wearablesSetup.notConnectedWhy': 'ShiftCoach necesita acceso a Google Fit para leer los pasos y el sueño de tu reloj. Primero conecta Samsung Health (o la app de tu reloj) a Google Fit en el móvil, luego pulsa Conectar abajo e inicia sesión con la misma cuenta de Google.',
+    'detail.wearablesSetup.connectGoogleFit': 'Conectar Google Fit',
   },
   de: {
     'nav.home': 'Start',
@@ -901,6 +911,11 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'detail.wearablesSetup.benefit3': 'Bessere Kalorien- und Erholungsziele, die deine tatsächliche Schichtbelastung widerspiegeln.',
     'detail.wearablesSetup.readyToSync': 'Bereit, dein Wearable zu synchronisieren?',
     'detail.wearablesSetup.tapBelow': "Tippe unten, nachdem du die Schritte für dein Gerät ausgeführt hast.",
+    'detail.wearablesSetup.statusConnected': 'Google Fit verbunden',
+    'detail.wearablesSetup.statusConnectedDesc': 'Dein Wearable ist verbunden. Tippe auf Sync, um die neuesten Schritte und den Schlaf zu laden.',
+    'detail.wearablesSetup.statusNotConnected': 'Wearable nicht verbunden',
+    'detail.wearablesSetup.notConnectedWhy': 'ShiftCoach braucht Zugriff auf Google Fit, um Schritte und Schlaf deiner Uhr zu lesen. Verbinde zuerst Samsung Health (oder deine Uhren-App) mit Google Fit auf dem Handy, dann tippe unten auf Verbinden und melde dich mit demselben Google-Konto an.',
+    'detail.wearablesSetup.connectGoogleFit': 'Google Fit verbinden',
   },
 }
 
