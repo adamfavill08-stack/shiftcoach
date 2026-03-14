@@ -8,7 +8,14 @@ import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
  */
 export async function GET() {
   try {
-    const { userId } = await getServerSupabaseAndUserId()
+    const { userId, isDevFallback } = await getServerSupabaseAndUserId()
+
+    // When using fallback user (e.g. production serverless), don't show as connected
+    // so the pill shows "Tap to connect" instead of a false positive.
+    if (isDevFallback) {
+      return NextResponse.json({ connected: false })
+    }
+
     const { supabaseServer } = await import('@/lib/supabase-server')
     const supabase = supabaseServer
 
