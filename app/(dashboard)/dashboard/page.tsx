@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import { useTranslation } from '@/components/providers/language-provider'
@@ -21,7 +21,7 @@ const GOOGLE_FIT_ERROR_MESSAGES: Record<string, string> = {
   unexpected: 'An unexpected error occurred. Check Vercel function logs.',
 }
 
-export default function DashboardPage() {
+function DashboardContent() {
   const { t } = useTranslation()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -318,6 +318,21 @@ export default function DashboardPage() {
         </main>
       </div>
     </div>
+  )
+}
+
+export default function DashboardPage() {
+  const { t } = useTranslation()
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 pb-6 pt-10 text-center text-sm text-slate-500">
+          {t('dashboard.loading')}
+        </main>
+      }
+    >
+      <DashboardContent />
+    </Suspense>
   )
 }
 
