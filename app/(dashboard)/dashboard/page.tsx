@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 import { useTranslation } from '@/components/providers/language-provider'
 import { supabase } from '@/lib/supabase'
@@ -11,11 +11,23 @@ import DashboardHeader from '@/components/dashboard/DashboardHeader'
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import ShiftRhythmCard from '@/components/shift-rhythm/ShiftRhythmCard'
 
+const GOOGLE_FIT_ERROR_MESSAGES: Record<string, string> = {
+  access_denied: 'Google Fit connection was denied.',
+  server_not_configured: 'Google Fit is not configured on the server. Check Vercel env vars and redeploy.',
+  redirect_uri_mismatch: 'Redirect URI mismatch. Ensure GOOGLE_FIT_REDIRECT_URI in Vercel matches Google Cloud exactly.',
+  token_exchange_failed: 'Token exchange failed. Check client secret and that the redirect URI matches.',
+  no_access_token: 'Google did not return an access token.',
+  missing_code: 'Google did not return an authorization code.',
+  unexpected: 'An unexpected error occurred. Check Vercel function logs.',
+}
+
 export default function DashboardPage() {
   const { t } = useTranslation()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [googleFitMessage, setGoogleFitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const [circadian, setCircadian] = useState<CircadianOutput | null>(null)
   const [socialJetlag, setSocialJetlag] = useState<any>(null)
@@ -138,6 +150,22 @@ export default function DashboardPage() {
       setShiftLag(null)
     }
   }, [])
+
+  // Show Google Fit callback result and clear URL
+  useEffect(() => {
+    const error = searchParams.get('googleFitError')
+    const connected = searchParams.get('googleFitConnected')
+    if (connected === '1') {
+      setGoogleFitMessage({ type: 'success', text: 'Google Fit connected. You can sync wearables now.' })
+      router.replace('/dashboard', { scroll: false })
+      return
+    }
+    if (error) {
+      const text = GOOGLE_FIT_ERROR_MESSAGES[error] ?? `Google Fit error: ${error}`
+      setGoogleFitMessage({ type: 'error', text })
+      router.replace('/dashboard', { scroll: false })
+    }
+  }, [searchParams, router])
 
   useEffect(() => {
     ;(async () => {
@@ -263,6 +291,25 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-white flex justify-center">
       <div className="w-full max-w-md bg-white">
+        {googleFitMessage && (
+          <div
+            className={`mx-4 mt-2 rounded-lg px-3 py-2 text-sm ${
+              googleFitMessage.type === 'success'
+                ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
+                : 'bg-rose-50 text-rose-800 dark:bg-rose-900/30 dark:text-rose-200'
+            }`}
+          >
+            {googleFitMessage.text}
+            <button
+              type="button"
+              aria-label="Dismiss"
+              className="ml-2 font-medium underline"
+              onClick={() => setGoogleFitMessage(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
         <main className="min-h-screen pb-6 bg-white">
           <div id="phone-root" className="pb-4 relative">
             <DashboardHeader />
