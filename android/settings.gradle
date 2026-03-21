@@ -2,4 +2,11 @@ include ':app'
 include ':capacitor-cordova-android-plugins'
 project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
 
+// Wear OS modules (used to generate/send wearable samples to the mobile app)
+include ':wear'
+project(':wear').projectDir = new File('./wear')
+
+include ':shared-kotlin'
+project(':shared-kotlin').projectDir = new File('./shared-kotlin')
+
 apply from: 'capacitor.settings.gradle'

@@ -1,0 +1,73 @@
+apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
+
+android {
+    namespace "com.shiftcoach.wear"
+    compileSdk rootProject.ext.compileSdkVersion
+
+    buildFeatures {
+        compose true
+        buildConfig true
+    }
+
+    defaultConfig {
+        applicationId "com.shiftcoach.wear"
+        // Wear Compose Material 3 requires a higher minSdk than the shared project default.
+        minSdkVersion 25
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+        // Override with: -PSHIFTCOACH_API_BASE_URL=https://yourdomain.com
+        // Default follows production web host used by Capacitor.
+        def apiBaseUrl = project.findProperty("SHIFTCOACH_API_BASE_URL") ?: "https://www.shiftcoach.app"
+        buildConfigField "String", "API_BASE_URL", "\"${apiBaseUrl}\""
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion '1.5.15'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+
+    kotlinOptions {
+        jvmTarget = "21"
+    }
+}
+
+// Fix Kotlin stdlib version conflicts introduced by transitive dependencies.
+// The build was failing with "Duplicate class kotlin.*" from kotlin-stdlib 1.8.22 and 1.6.21.
+configurations.all {
+    resolutionStrategy {
+        // Keep Kotlin stdlib versions consistent across modules.
+        force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.25'
+        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.25'
+        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.25'
+    }
+}
+
+dependencies {
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.activity:activity:$androidxActivityVersion"
+    implementation "androidx.activity:activity-compose:1.9.2"
+
+    // Keep Compose dependency versions consistent.
+    implementation platform("androidx.compose:compose-bom:2025.08.01")
+    implementation "androidx.compose.material3:material3"
+    implementation "androidx.compose.material:material-icons-extended:1.7.8"
+
+    implementation "androidx.wear.compose:compose-foundation:1.5.0"
+    implementation "androidx.wear.compose:compose-material3:1.5.0"
+    implementation "com.google.android.gms:play-services-wearable:18.2.0"
+}
+

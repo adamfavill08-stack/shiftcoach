@@ -11,6 +11,7 @@ type DeviceChoice = "apple" | "samsung" | "other";
 export default function WearablesSetupPage() {
   const { t } = useTranslation();
   const [choice, setChoice] = useState<DeviceChoice | null>(null);
+  const [watchAckTs, setWatchAckTs] = useState<number>(0);
   const [status, setStatus] = useState<{
     connected: boolean;
     verified?: boolean;
@@ -52,6 +53,36 @@ export default function WearablesSetupPage() {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [fetchStatus]);
+
+  useEffect(() => {
+    const saved = Number(window.localStorage.getItem("wearables:watchAckTs") || "0");
+    if (saved > 0) setWatchAckTs(saved);
+
+    const onWatchAck = (evt: Event) => {
+      const customEvt = evt as CustomEvent;
+      const detail = customEvt.detail;
+      let ts = 0;
+      if (typeof detail === "string") {
+        try {
+          const parsed = JSON.parse(detail);
+          ts = Number(parsed?.ts || 0);
+        } catch {
+          ts = 0;
+        }
+      } else if (detail && typeof detail === "object") {
+        ts = Number((detail as { ts?: number }).ts || 0);
+      }
+      if (ts > 0) {
+        setWatchAckTs(ts);
+        window.localStorage.setItem("wearables:watchAckTs", String(ts));
+      }
+    };
+
+    window.addEventListener("shiftcoach-watch-ack", onWatchAck as EventListener);
+    return () => window.removeEventListener("shiftcoach-watch-ack", onWatchAck as EventListener);
+  }, []);
+
+  const watchConnected = watchAckTs > 0 && Date.now() - watchAckTs < 2 * 60 * 1000;
 
   return (
     <main
@@ -231,47 +262,21 @@ export default function WearablesSetupPage() {
               className="text-sm list-decimal list-inside space-y-2"
               style={{ color: "var(--text-main)" }}
             >
-              <li>{t("detail.wearablesSetup.samsungStep1")}</li>
-              <li>{t("detail.wearablesSetup.samsungStep2")}</li>
-              <li>{t("detail.wearablesSetup.samsungStep3")}</li>
+              <li>Join the ShiftCoach closed test using the same Google account on phone and watch.</li>
+              <li>Install ShiftCoach on your phone from Play Store, then install ShiftCoach on your Wear OS watch from Play Store.</li>
+              <li>Open ShiftCoach on both phone and watch once, and keep Bluetooth enabled.</li>
               <li>
-                {t("detail.wearablesSetup.samsungStep4")}
-                <span className="font-semibold">“Connect Apple Health”</span>              </li>
-            </ol>
-            <p className="text-xs" style={{ color: "var(--text-soft)" }}>
-              {t("detail.wearablesSetup.samsungDone")}
-            </p>
-          </section>
-        )}
-
-        {/* Samsung / Android section */}
-        {choice === "samsung" && (
-          <section
-            className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-            style={{
-              backgroundColor: "var(--card)",
-              borderColor: "var(--border-subtle)",
-              boxShadow: "var(--shadow-soft)",
-            }}
-          >
-            <h2 className="text-sm font-semibold" style={{ color: "var(--text-main)" }}>
-              {t("detail.wearablesSetup.stepsSamsung")}
-            </h2>
-            <ol
-              className="text-sm list-decimal list-inside space-y-2"
-              style={{ color: "var(--text-main)" }}
-            >
-              <li>{t("detail.wearablesSetup.samsungStep1")}</li>
-              <li>{t("detail.wearablesSetup.samsungStep2")}</li>
-              <li>{t("detail.wearablesSetup.samsungStep3")}</li>
+                In ShiftCoach mobile, check the watch status pill. It should show{" "}
+                <span className="font-semibold">“Watch app connected”</span>.
+              </li>
               <li>
-                In ShiftCoach, tap the{" "}
-                <span className="font-semibold">“Sync wearables”</span> button on the
-                dashboard and sign in with the same Google account.
+                Tap{" "}
+                <span className="font-semibold">“Sync wearables”</span>{" "}
+                to refresh steps, sleep, and heart-rate data.
               </li>
             </ol>
             <p className="text-xs" style={{ color: "var(--text-soft)" }}>
-              {t("detail.wearablesSetup.samsungDone")}
+              If watch status is not connected, open ShiftCoach on the watch and return to this screen.
             </p>
           </section>
         )}
@@ -345,6 +350,15 @@ export default function WearablesSetupPage() {
           }}
         >
           <div className="flex flex-col gap-1 min-w-0 flex-1">
+            <div className="flex items-center gap-2 pb-1">
+              <span
+                className={`inline-block h-2.5 w-2.5 rounded-full ${watchConnected ? "bg-emerald-500" : "bg-slate-400"}`}
+                aria-hidden
+              />
+              <p className="text-xs font-medium" style={{ color: "var(--text-soft)" }}>
+                {watchConnected ? "Watch app connected" : "Watch app not connected"}
+              </p>
+            </div>
             {status === null ? (
               <>
                 <p className="text-sm font-semibold" style={{ color: "#0f172a" }}>
@@ -411,6 +425,11 @@ export default function WearablesSetupPage() {
             {t("detail.wearablesSetup.verifiedConfirmation")}
           </p>
         )}
+        <p className="text-center text-xs">
+          <Link href="/wearables-debug" className="underline" style={{ color: "var(--text-soft)" }}>
+            Open wearables data health debug
+          </Link>
+        </p>
       </div>
     </main>
   );

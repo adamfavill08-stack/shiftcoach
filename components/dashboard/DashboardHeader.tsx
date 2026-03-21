@@ -36,6 +36,7 @@ export default function DashboardHeader() {
   const [shifts, setShifts] = useState<Shift[]>([])
   const [events, setEvents] = useState<Map<string, RotaEvent>>(new Map())
   const [loadingShifts, setLoadingShifts] = useState(true)
+  const [watchAckTs, setWatchAckTs] = useState<number>(0)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -170,6 +171,36 @@ export default function DashboardHeader() {
     }
   }, [])
 
+  useEffect(() => {
+    const saved = Number(window.localStorage.getItem('wearables:watchAckTs') || '0')
+    if (saved > 0) setWatchAckTs(saved)
+
+    const onWatchAck = (evt: Event) => {
+      const customEvt = evt as CustomEvent
+      const detail = customEvt.detail as unknown
+      let ts = 0
+      if (typeof detail === 'string') {
+        try {
+          const parsed = JSON.parse(detail)
+          ts = Number(parsed?.ts || 0)
+        } catch {
+          ts = 0
+        }
+      } else if (detail && typeof detail === 'object') {
+        ts = Number((detail as { ts?: number }).ts || 0)
+      }
+      if (ts > 0) {
+        setWatchAckTs(ts)
+        window.localStorage.setItem('wearables:watchAckTs', String(ts))
+      }
+    }
+
+    window.addEventListener('shiftcoach-watch-ack', onWatchAck as EventListener)
+    return () => window.removeEventListener('shiftcoach-watch-ack', onWatchAck as EventListener)
+  }, [])
+
+  const watchConnected = watchAckTs > 0 && Date.now() - watchAckTs < 2 * 60 * 1000
+
   const getDayStyle = (shift: Shift, isToday: boolean) => {
     const dateStr = shift.date
     const event = events.get(dateStr)
@@ -279,7 +310,28 @@ export default function DashboardHeader() {
       <header 
         className="w-full bg-transparent px-4 pt-3 pb-1"
       >
-        <div className="mx-auto max-w-md h-6" />
+        <div className="mx-auto max-w-md">
+          <div className="h-6" />
+          <div className="pb-2">
+            <button
+              type="button"
+              onClick={() => router.push('/wearables-setup')}
+              className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-90"
+              style={{
+                backgroundColor: watchConnected ? 'rgb(236 253 245)' : 'rgb(248 250 252)',
+                borderColor: watchConnected ? 'rgb(16 185 129)' : 'rgb(203 213 225)',
+                color: watchConnected ? 'rgb(6 95 70)' : 'rgb(71 85 105)',
+              }}
+              aria-label={watchConnected ? 'Watch app connected. Open wearables setup' : 'Watch app not connected. Open wearables setup'}
+            >
+              <span
+                className={`inline-block h-2 w-2 rounded-full ${watchConnected ? 'bg-emerald-500' : 'bg-slate-400'}`}
+                aria-hidden
+              />
+              {watchConnected ? 'Watch app connected' : 'Watch app not connected'}
+            </button>
+          </div>
+        </div>
       </header>
 
       {isCoachChatOpen && (

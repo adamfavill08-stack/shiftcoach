@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Moon } from "lucide-react";
 import { LogSleepModal } from "@/components/sleep/LogSleepModal";
 import { Sleep7DayBars } from "@/components/sleep/Sleep7DayBars";
@@ -511,6 +511,7 @@ function SleepMetricsRow() {
 export default function SleepPage() {
   const [tonightTarget, setTonightTarget] = useState<{ targetHours: number; explanation: string } | null>(null)
   const [loadingTarget, setLoadingTarget] = useState(true)
+  const lastWearableSleepRefreshRef = useRef<number>(0)
 
   // Fetch tonight's target
   useEffect(() => {
@@ -584,6 +585,95 @@ export default function SleepPage() {
       window.removeEventListener('sleep-refreshed', handleSleepRefresh)
     }
   }, [fetchSleepData])
+
+  // When the phone receives wearable JSON, refresh the sleep card if payload looks like sleep.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const looksLikeSleepPayload = (payload: any) => {
+      if (!payload || typeof payload !== "object") return false
+
+      // Direct/explicit sleep indicators
+      const sleepMinutes =
+        (typeof payload.sleepMinutes === "number" && payload.sleepMinutes > 0) ||
+        (typeof payload.sleep_minutes === "number" && payload.sleep_minutes > 0)
+
+      const isAsleepTrue =
+        (typeof payload.isAsleep === "boolean" && payload.isAsleep === true) ||
+        (typeof payload.is_asleep === "boolean" && payload.is_asleep === true)
+
+      const sleepStagePresent =
+        payload.sleepStage != null ||
+        payload.sleep_stage != null ||
+        payload.sleepStageLabel != null ||
+        payload.sleep_stage_label != null
+
+      // Stage breakdown keys (either flat numeric minutes/percentages or nested objects)
+      const hasStageKeys = ["deep", "rem", "light", "awake"].some((k) => {
+        const v = payload[k]
+        const vSnake = payload[`${k}_minutes`]
+        return v != null || vSnake != null
+      })
+
+      // New schema start/end keys
+      const hasStartEnd =
+        (payload.start_at != null && payload.end_at != null) ||
+        (payload.start_ts != null && payload.end_ts != null) ||
+        (payload.startAt != null && payload.endAt != null)
+
+      // Raw log containers (some payloads may just include these collections)
+      const hasSleepCollections = payload.sleep_records != null || payload.sleep_logs != null
+
+      // If we have explicit stage/sleep timing, trust it. Otherwise allow isAsleep=true only if
+      // stage/timing details are also present.
+      return (
+        sleepMinutes ||
+        hasStartEnd ||
+        hasSleepCollections ||
+        hasStageKeys ||
+        (isAsleepTrue && (sleepStagePresent || hasStageKeys || hasStartEnd))
+      )
+    }
+
+    const handleWearData = (e: Event) => {
+      try {
+        const detail = (e as CustomEvent).detail
+        if (detail == null) return
+
+        // Android bridge usually sends `jsonStr` (string); handle both string and object cases.
+        // To keep the UI responsive, do a fast "likely sleep" check before JSON.parse.
+        let payload: any
+        if (typeof detail === "string") {
+          if (!/sleep|deep|rem|light|awake|start[_a-z]*|end[_a-z]*|sleepStage|isAsleep/i.test(detail)) return
+          payload = JSON.parse(detail)
+        } else if (typeof detail === "object") {
+          payload = detail
+        } else {
+          const s = String(detail)
+          if (!/sleep|deep|rem|light|awake|start[_a-z]*|end[_a-z]*|sleepStage|isAsleep/i.test(s)) return
+          payload = JSON.parse(s)
+        }
+
+        if (!looksLikeSleepPayload(payload)) return
+
+        const now = Date.now()
+        if (now - lastWearableSleepRefreshRef.current < 15000) return
+        lastWearableSleepRefreshRef.current = now
+
+        // Dispatch a refresh event consumed by this page.
+        window.localStorage.setItem("sleepRefresh", now.toString())
+        console.log("[SleepPage] wearDataReceived looks like sleep -> dispatch sleep-refreshed")
+        window.dispatchEvent(new CustomEvent("sleep-refreshed", { detail: { ts: now } }))
+      } catch (err) {
+        console.error("[SleepPage] Failed to handle wearDataReceived:", err)
+      }
+    }
+
+    window.addEventListener("wearDataReceived", handleWearData as EventListener)
+    return () => {
+      window.removeEventListener("wearDataReceived", handleWearData as EventListener)
+    }
+  }, [])
 
   const handleLogSleep = async (data: {
     type: 'sleep' | 'nap'

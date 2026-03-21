@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ShiftCoach Wear</string>
+
+    <string name="label_loading">Loading…</string>
+    <string name="label_error">Error</string>
+    <string name="label_unknown">—</string>
+</resources>
+

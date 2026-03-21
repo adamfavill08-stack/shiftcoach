@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Watch } from "lucide-react";
 import { useTranslation } from "@/components/providers/language-provider";
@@ -106,22 +105,8 @@ export function WearableStatusPill() {
     }
   }, [fetchStatus]);
 
-  // Red: connection failed — link to setup to try again
-  if (errorKey) {
-    return (
-      <Link
-        href="/wearables-setup"
-        className="inline-flex flex-col items-center gap-1 rounded-full border-2 border-red-400 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 dark:border-red-500 dark:bg-red-950/40 dark:text-red-300"
-        aria-label={t("dashboard.wearable.errorGeneric")}
-      >
-        <span className="inline-flex items-center gap-2">
-          <Watch className="h-4 w-4 flex-shrink-0" aria-hidden />
-          <span>{t(`dashboard.wearable.${errorKey}`)}</span>
-        </span>
-        <span className="text-xs font-medium opacity-90">{t("dashboard.wearable.tapToConnect")}</span>
-      </Link>
-    );
-  }
+  // Hidden when connection failed.
+  if (errorKey) return null;
 
   // Green: connected — tap to sync; show steps today when verified for concrete confirmation
   if (connected === true) {
@@ -147,29 +132,6 @@ export function WearableStatusPill() {
     );
   }
 
-  // White: tap to connect or sync (tries sync first; redirects to Google if not connected)
-  const label =
-    syncState === "syncing"
-      ? t("dashboard.wearable.syncing")
-      : syncState === "synced"
-        ? t("dashboard.wearable.synced")
-        : t("dashboard.wearable.tapToConnect");
-
-  return (
-    <button
-      type="button"
-      onClick={handleSync}
-      disabled={syncState === "syncing"}
-      className="inline-flex items-center gap-2 rounded-full border-2 px-4 py-2 text-sm font-semibold shadow-sm hover:opacity-90 disabled:opacity-70 transition-opacity"
-      style={{
-        backgroundColor: "#ffffff",
-        borderColor: "#e2e8f0",
-        color: "#1e293b",
-      }}
-      aria-label={label}
-    >
-      <Watch className="h-4 w-4 flex-shrink-0" style={{ color: "#1e293b" }} aria-hidden />
-      <span>{label}</span>
-    </button>
-  );
+  // Hidden until a wearable connection is established.
+  return null;
 }
