@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Android emulator uses http://10.0.2.2:<port> to reach the host machine.
+  // Silence dev warning and keep HMR / _next/* working when testing via Capacitor/WebView.
+  allowedDevOrigins: ["10.0.2.2", "http://10.0.2.2:3000", "http://10.0.2.2:3001"],
+
   // Mobile-only app - optimize for Capacitor/WebView
   // Use the default runtime output so dynamic routes (Supabase APIs) work correctly.
   

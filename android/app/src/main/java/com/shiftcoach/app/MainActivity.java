@@ -1,5 +1,10 @@
 package com.shiftcoach.app;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
 import com.google.android.gms.tasks.Tasks;
 import com.google.android.gms.wearable.MessageClient;
@@ -14,6 +19,47 @@ public class MainActivity extends BridgeActivity {
     private static final String PREFS = "shiftcoach_wear";
     private static final String KEY_LAST_ACK_TS = "watch_last_ack_ts";
     private static final long WATCH_CONNECTED_WINDOW_MS = 2 * 60 * 1000;
+
+    private final BroadcastReceiver wearDataBridgeReceiver =
+            new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    if (!WearBridgeBroadcast.ACTION.equals(intent.getAction())) {
+                        return;
+                    }
+                    String json = intent.getStringExtra(WearBridgeBroadcast.EXTRA_JSON);
+                    if (json == null) {
+                        return;
+                    }
+                    runOnUiThread(
+                            () -> {
+                                if (bridge != null) {
+                                    bridge.triggerJSEvent("wearDataReceived", "window", json);
+                                }
+                            });
+                }
+            };
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        IntentFilter filter = new IntentFilter(WearBridgeBroadcast.ACTION);
+        ContextCompat.registerReceiver(
+                this,
+                wearDataBridgeReceiver,
+                filter,
+                ContextCompat.RECEIVER_NOT_EXPORTED);
+    }
+
+    @Override
+    protected void onStop() {
+        try {
+            unregisterReceiver(wearDataBridgeReceiver);
+        } catch (IllegalArgumentException ignored) {
+            // Receiver was not registered
+        }
+        super.onStop();
+    }
 
     @Override
     public void onResume() {

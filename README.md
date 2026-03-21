@@ -51,8 +51,10 @@ Shift Coach helps shift workers manage their health and wellbeing by tracking sl
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd shiftcali
+   cd shiftcoach
    ```
+
+   Mobile + Wear workflow: see **[docs/GOLDEN_PATH_MOBILE.md](docs/GOLDEN_PATH_MOBILE.md)**.
 
 2. **Install dependencies**
    ```bash

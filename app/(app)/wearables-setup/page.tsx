@@ -11,7 +11,6 @@ type DeviceChoice = "apple" | "samsung" | "other";
 export default function WearablesSetupPage() {
   const { t } = useTranslation();
   const [choice, setChoice] = useState<DeviceChoice | null>(null);
-  const [watchAckTs, setWatchAckTs] = useState<number>(0);
   const [status, setStatus] = useState<{
     connected: boolean;
     verified?: boolean;
@@ -53,36 +52,6 @@ export default function WearablesSetupPage() {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [fetchStatus]);
-
-  useEffect(() => {
-    const saved = Number(window.localStorage.getItem("wearables:watchAckTs") || "0");
-    if (saved > 0) setWatchAckTs(saved);
-
-    const onWatchAck = (evt: Event) => {
-      const customEvt = evt as CustomEvent;
-      const detail = customEvt.detail;
-      let ts = 0;
-      if (typeof detail === "string") {
-        try {
-          const parsed = JSON.parse(detail);
-          ts = Number(parsed?.ts || 0);
-        } catch {
-          ts = 0;
-        }
-      } else if (detail && typeof detail === "object") {
-        ts = Number((detail as { ts?: number }).ts || 0);
-      }
-      if (ts > 0) {
-        setWatchAckTs(ts);
-        window.localStorage.setItem("wearables:watchAckTs", String(ts));
-      }
-    };
-
-    window.addEventListener("shiftcoach-watch-ack", onWatchAck as EventListener);
-    return () => window.removeEventListener("shiftcoach-watch-ack", onWatchAck as EventListener);
-  }, []);
-
-  const watchConnected = watchAckTs > 0 && Date.now() - watchAckTs < 2 * 60 * 1000;
 
   return (
     <main
@@ -350,15 +319,6 @@ export default function WearablesSetupPage() {
           }}
         >
           <div className="flex flex-col gap-1 min-w-0 flex-1">
-            <div className="flex items-center gap-2 pb-1">
-              <span
-                className={`inline-block h-2.5 w-2.5 rounded-full ${watchConnected ? "bg-emerald-500" : "bg-slate-400"}`}
-                aria-hidden
-              />
-              <p className="text-xs font-medium" style={{ color: "var(--text-soft)" }}>
-                {watchConnected ? "Watch app connected" : "Watch app not connected"}
-              </p>
-            </div>
             {status === null ? (
               <>
                 <p className="text-sm font-semibold" style={{ color: "#0f172a" }}>
