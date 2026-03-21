@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="healthBackground">#0B0D10</color>
+    <color name="healthCardBackground">#13161B</color>
+    <color name="healthCardStroke">#2A313A</color>
+    <color name="healthTextPrimary">#F1F3F5</color>
+    <color name="healthTextSecondary">#A6AFB8</color>
+    <color name="healthAccent">#00E676</color>
+    <color name="healthDivider">#24303B</color>
+    <color name="healthMuted">#6B7480</color>
+</resources>
+

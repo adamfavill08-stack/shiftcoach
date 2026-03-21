@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ShiftCoachWear" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorAccent">@color/healthAccent</item>
+        <item name="android:windowBackground">@color/healthBackground</item>
+        <item name="android:textColorPrimary">@color/healthTextPrimary</item>
+        <item name="android:textColorSecondary">@color/healthTextSecondary</item>
+    </style>
+
+    <style name="HealthSectionTitle">
+        <item name="android:textColor">@color/healthAccent</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">@dimen/health_section_title</item>
+    </style>
+
+    <style name="HealthLabel">
+        <item name="android:textColor">@color/healthTextSecondary</item>
+        <item name="android:textSize">@dimen/health_label_text</item>
+    </style>
+
+    <style name="HealthValue">
+        <item name="android:textColor">@color/healthTextPrimary</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">@dimen/health_value_text_big</item>
+    </style>
+</resources>
+

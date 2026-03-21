@@ -21,90 +21,246 @@ export async function GET(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
 
   const today = new Date().toISOString().slice(0, 10)
+  const now = new Date()
+  const nowIso = now.toISOString()
   const startOfDay = new Date(today + 'T00:00:00Z')
   const endOfDay = new Date(today + 'T23:59:59Z')
 
   try {
     // Calculate date ranges once for reuse
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+
+    // For shift workers, do NOT treat "today" as calendar midnight.
+    // Instead, compute the "activity window" from the current shift start -> now.
+    // Also include a travel buffer: start 1h before the rota shift start.
+    const SHIFT_WINDOW_BUFFER_MS = 60 * 60 * 1000
+    const nowPlusBufferAfterIso = new Date(now.getTime() + SHIFT_WINDOW_BUFFER_MS).toISOString()
+    const nowMinusBufferBeforeIso = new Date(now.getTime() - SHIFT_WINDOW_BUFFER_MS).toISOString()
+
+    let currentShift:
+      | { label: string | null; date: string | null; start_ts: string | null; end_ts: string | null }
+      | null = null
+
+    // Prefer an actual "current" shift (now is within start_ts/end_ts)
+    const { data: shiftInProgress } = await supabase
+      .from('shifts')
+      .select('label, date, start_ts, end_ts')
+      .eq('user_id', userId)
+      // Include shifts whose start is up to 1 hour in the future (travel buffer).
+      .lte('start_ts', nowPlusBufferAfterIso)
+      // And still consider it "active" for 1 hour after the shift ends.
+      .gt('end_ts', nowMinusBufferBeforeIso)
+      .maybeSingle()
+
+    if (shiftInProgress) {
+      currentShift = shiftInProgress as any
+    } else {
+      // Fallback: last shift that has started (covers cases where end_ts may be missing)
+      const { data: lastStartedShift } = await supabase
+        .from('shifts')
+        .select('label, date, start_ts, end_ts')
+        .eq('user_id', userId)
+        .lte('start_ts', nowPlusBufferAfterIso)
+        .gt('end_ts', nowMinusBufferBeforeIso)
+        .order('start_ts', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      currentShift = (lastStartedShift as any) ?? null
+    }
+
+    const windowStartDate =
+      currentShift?.start_ts != null
+        ? new Date(new Date(currentShift.start_ts).getTime() - SHIFT_WINDOW_BUFFER_MS)
+        : startOfDay
+
+    let windowEndDate =
+      currentShift?.end_ts != null
+        ? new Date(new Date(currentShift.end_ts).getTime() + SHIFT_WINDOW_BUFFER_MS)
+        : now
+    // For "see activity throughout the night", cap the window end at `now`.
+    if (windowEndDate.getTime() > now.getTime()) windowEndDate = now
+    // Safety: if something is off and end <= start, fall back to "start of day -> now"
+    if (windowEndDate.getTime() <= windowStartDate.getTime()) windowEndDate = now
+
+    const windowStartISO = windowStartDate.toISOString()
+    const windowEndISO = windowEndDate.toISOString()
     
     // Try to get today's activity - use timestamp filtering since 'date' column may not exist
     let activityResponse: any = { data: null, error: null }
     let activeMinutes: number | null = null
 
     // Strategy 1: Try with all columns using timestamp filter
-    activityResponse = await supabase
+    const activityQueryTs = await supabase
       .from('activity_logs')
       .select('steps,active_minutes,source,ts,shift_activity_level')
       .eq('user_id', userId)
-      .gte('ts', startOfDay.toISOString())
-      .lt('ts', endOfDay.toISOString())
+      .gte('ts', windowStartISO)
+      .lt('ts', windowEndISO)
       .order('ts', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+
+    if (activityQueryTs.error) {
+      activityResponse = activityQueryTs
+    } else {
+      const rows = activityQueryTs.data ?? []
+      const totalSteps = rows.reduce((sum: number, r: any) => sum + (r.steps ?? 0), 0)
+      const mostRecentRow = rows[0]
+      const activeMinutesVals = rows.map((r: any) => r.active_minutes).filter((v: any) => typeof v === 'number')
+      const totalActiveMinutes = activeMinutesVals.length
+        ? activeMinutesVals.reduce((sum: number, v: number) => sum + v, 0)
+        : null
+      activityResponse = {
+        data: {
+          steps: totalSteps,
+          active_minutes: totalActiveMinutes,
+          source: mostRecentRow?.source ?? null,
+          shift_activity_level: mostRecentRow?.shift_activity_level ?? null,
+        },
+        error: null,
+      }
+    }
 
     // Strategy 2: If ts doesn't exist, try created_at
     if (activityResponse.error && (activityResponse.error.code === '42703' || activityResponse.error.message?.includes('ts'))) {
-      activityResponse = await supabase
+      const activityQueryCreatedAt = await supabase
         .from('activity_logs')
         .select('steps,active_minutes,source,created_at,shift_activity_level')
         .eq('user_id', userId)
-        .gte('created_at', startOfDay.toISOString())
-        .lt('created_at', endOfDay.toISOString())
+        .gte('created_at', windowStartISO)
+        .lt('created_at', windowEndISO)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+
+      if (activityQueryCreatedAt.error) {
+        activityResponse = activityQueryCreatedAt
+      } else {
+        const rows = activityQueryCreatedAt.data ?? []
+        const totalSteps = rows.reduce((sum: number, r: any) => sum + (r.steps ?? 0), 0)
+        const mostRecentRow = rows[0]
+        const activeMinutesVals = rows.map((r: any) => r.active_minutes).filter((v: any) => typeof v === 'number')
+        const totalActiveMinutes = activeMinutesVals.length
+          ? activeMinutesVals.reduce((sum: number, v: number) => sum + v, 0)
+          : null
+        activityResponse = {
+          data: {
+            steps: totalSteps,
+            active_minutes: totalActiveMinutes,
+            source: mostRecentRow?.source ?? null,
+            shift_activity_level: mostRecentRow?.shift_activity_level ?? null,
+          },
+          error: null,
+        }
+      }
     }
 
     // Strategy 3: If active_minutes doesn't exist, remove it
     if (activityResponse.error && (activityResponse.error.code === '42703' || activityResponse.error.message?.includes('active_minutes'))) {
       console.warn('[/api/activity/today] active_minutes column missing, falling back without it')
-      activityResponse = await supabase
+      const activityQueryNoActiveMinutes = await supabase
         .from('activity_logs')
         .select('steps,source,ts,shift_activity_level')
         .eq('user_id', userId)
-        .gte('ts', startOfDay.toISOString())
-        .lt('ts', endOfDay.toISOString())
+        .gte('ts', windowStartISO)
+        .lt('ts', windowEndISO)
         .order('ts', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+      
+      if (activityQueryNoActiveMinutes.error) {
+        activityResponse = activityQueryNoActiveMinutes
+      } else {
+        const rows = activityQueryNoActiveMinutes.data ?? []
+        const totalSteps = rows.reduce((sum: number, r: any) => sum + (r.steps ?? 0), 0)
+        const mostRecentRow = rows[0]
+        activityResponse = {
+          data: {
+            steps: totalSteps,
+            active_minutes: null,
+            source: mostRecentRow?.source ?? null,
+            shift_activity_level: mostRecentRow?.shift_activity_level ?? null,
+          },
+          error: null,
+        }
+      }
       
       if (activityResponse.error && (activityResponse.error.code === '42703' || activityResponse.error.message?.includes('ts'))) {
-        activityResponse = await supabase
+        const activityQueryNoActiveMinutesNoTs = await supabase
           .from('activity_logs')
           .select('steps,source,created_at,shift_activity_level')
           .eq('user_id', userId)
-          .gte('created_at', startOfDay.toISOString())
-          .lt('created_at', endOfDay.toISOString())
+          .gte('created_at', windowStartISO)
+          .lt('created_at', windowEndISO)
           .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
+        
+        if (activityQueryNoActiveMinutesNoTs.error) {
+          activityResponse = activityQueryNoActiveMinutesNoTs
+        } else {
+          const rows = activityQueryNoActiveMinutesNoTs.data ?? []
+          const totalSteps = rows.reduce((sum: number, r: any) => sum + (r.steps ?? 0), 0)
+          const mostRecentRow = rows[0]
+          activityResponse = {
+            data: {
+              steps: totalSteps,
+              active_minutes: null,
+              source: mostRecentRow?.source ?? null,
+              shift_activity_level: mostRecentRow?.shift_activity_level ?? null,
+            },
+            error: null,
+          }
+        }
       }
     }
 
     // Strategy 4: If source doesn't exist, remove it
     if (activityResponse.error && (activityResponse.error.code === '42703' || activityResponse.error.message?.includes('source'))) {
       console.warn('[/api/activity/today] source column missing, falling back without it')
-      activityResponse = await supabase
+      const activityQueryNoSource = await supabase
         .from('activity_logs')
         .select('steps,ts,shift_activity_level')
         .eq('user_id', userId)
-        .gte('ts', startOfDay.toISOString())
-        .lt('ts', endOfDay.toISOString())
+        .gte('ts', windowStartISO)
+        .lt('ts', windowEndISO)
         .order('ts', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+      
+      if (activityQueryNoSource.error) {
+        activityResponse = activityQueryNoSource
+      } else {
+        const rows = activityQueryNoSource.data ?? []
+        const totalSteps = rows.reduce((sum: number, r: any) => sum + (r.steps ?? 0), 0)
+        const mostRecentRow = rows[0]
+        activityResponse = {
+          data: {
+            steps: totalSteps,
+            active_minutes: null,
+            source: null,
+            shift_activity_level: mostRecentRow?.shift_activity_level ?? null,
+          },
+          error: null,
+        }
+      }
       
       if (activityResponse.error && (activityResponse.error.code === '42703' || activityResponse.error.message?.includes('ts'))) {
-        activityResponse = await supabase
+        const activityQueryNoSourceNoTs = await supabase
           .from('activity_logs')
           .select('steps,created_at,shift_activity_level')
           .eq('user_id', userId)
-          .gte('created_at', startOfDay.toISOString())
-          .lt('created_at', endOfDay.toISOString())
+          .gte('created_at', windowStartISO)
+          .lt('created_at', windowEndISO)
           .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
+        
+        if (activityQueryNoSourceNoTs.error) {
+          activityResponse = activityQueryNoSourceNoTs
+        } else {
+          const rows = activityQueryNoSourceNoTs.data ?? []
+          const totalSteps = rows.reduce((sum: number, r: any) => sum + (r.steps ?? 0), 0)
+          const mostRecentRow = rows[0]
+          activityResponse = {
+            data: {
+              steps: totalSteps,
+              active_minutes: null,
+              source: null,
+              shift_activity_level: mostRecentRow?.shift_activity_level ?? null,
+            },
+            error: null,
+          }
+        }
       }
     }
 
@@ -123,21 +279,13 @@ export async function GET(req: NextRequest) {
       .eq('user_id', userId)
       .maybeSingle()
 
-    // Get today's shift to determine shift type and timing
-    const { data: todayShift } = await supabase
-      .from('shifts')
-      .select('label, date, start_ts, end_ts')
-      .eq('user_id', userId)
-      .eq('date', today)
-      .maybeSingle()
-
     // Determine shift type using shared utility
-    const standardType = toShiftType(todayShift?.label, todayShift?.start_ts)
+    const standardType = toShiftType(currentShift?.label, currentShift?.start_ts)
     const shiftType = toActivityShiftType(standardType) as ShiftType
 
     // Parse shift times
-    const shiftStart = todayShift?.start_ts ? new Date(todayShift.start_ts) : null
-    const shiftEnd = todayShift?.end_ts ? new Date(todayShift.end_ts) : null
+    const shiftStart = currentShift?.start_ts ? new Date(currentShift.start_ts) : null
+    const shiftEnd = currentShift?.end_ts ? new Date(currentShift.end_ts) : null
 
     // Get activity level and calculate impacts
     const shiftActivityLevel = activityResponse.data?.shift_activity_level as ShiftActivityLevel | null | undefined
@@ -355,7 +503,8 @@ export async function GET(req: NextRequest) {
       lastSyncedAt: null, // Column doesn't exist in database
       source: activityResponse.data?.source ?? 'Manual entry',
       goal: profileResponse.data?.daily_steps_goal ?? 10000,
-      date: today,
+      // Use shift date if we have it, so night-shift UI stays consistent.
+      date: currentShift?.date ?? today,
       // New activity level fields
       shiftActivityLevel: shiftActivityLevel ?? null,
       activityLabel: activityDetails?.label ?? null,

@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/healthBackground"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="@dimen/health_padding">
+
+        <!-- Activity -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Activity"
+            style="@style/HealthSectionTitle" />
+
+        <LinearLayout
+            android:id="@+id/card_activity"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/health_card_margin"
+            android:padding="@dimen/health_card_padding"
+            android:background="@drawable/health_card_bg"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Steps"
+                style="@style/HealthLabel" />
+
+            <TextView
+                android:id="@+id/steps_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="—"
+                style="@style/HealthValue" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Active minutes"
+                android:layout_marginTop="@dimen/health_value_margin_top"
+                style="@style/HealthLabel" />
+
+            <TextView
+                android:id="@+id/active_minutes_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="—"
+                style="@style/HealthValue" />
+        </LinearLayout>
+
+        <!-- Sleep -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Sleep"
+            android:layout_marginTop="@dimen/health_section_margin_top"
+            style="@style/HealthSectionTitle" />
+
+        <LinearLayout
+            android:id="@+id/card_sleep"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/health_card_margin"
+            android:padding="@dimen/health_card_padding"
+            android:background="@drawable/health_card_bg"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Last night"
+                style="@style/HealthLabel" />
+
+            <TextView
+                android:id="@+id/sleep_last_night_hours_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="—"
+                style="@style/HealthValue" />
+
+            <TextView
+                android:id="@+id/sleep_quality_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Quality: —"
+                android:layout_marginTop="@dimen/health_value_margin_top"
+                style="@style/HealthLabel" />
+        </LinearLayout>
+
+        <!-- Heart Rate -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Heart Rate"
+            android:layout_marginTop="@dimen/health_section_margin_top"
+            style="@style/HealthSectionTitle" />
+
+        <LinearLayout
+            android:id="@+id/card_heart"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/health_card_margin"
+            android:padding="@dimen/health_card_padding"
+            android:background="@drawable/health_card_bg"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Resting bpm"
+                style="@style/HealthLabel" />
+
+            <TextView
+                android:id="@+id/resting_bpm_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="—"
+                style="@style/HealthValue" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Average bpm"
+                android:layout_marginTop="@dimen/health_value_margin_top"
+                style="@style/HealthLabel" />
+
+            <TextView
+                android:id="@+id/avg_bpm_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="—"
+                style="@style/HealthValue" />
+        </LinearLayout>
+
+        <!-- Phone insights -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Coach Insights"
+            android:layout_marginTop="@dimen/health_section_margin_top"
+            style="@style/HealthSectionTitle" />
+
+        <LinearLayout
+            android:id="@+id/card_insights"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/health_card_margin"
+            android:padding="@dimen/health_card_padding"
+            android:background="@drawable/health_card_bg"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Bodyclock score"
+                style="@style/HealthLabel" />
+
+            <TextView
+                android:id="@+id/bodyclock_score_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="—"
+                style="@style/HealthValue" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Binge risk"
+                android:layout_marginTop="@dimen/health_value_margin_top"
+                style="@style/HealthLabel" />
+
+            <TextView
+                android:id="@+id/binge_risk_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="—"
+                style="@style/HealthValue" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Shift Lag"
+                android:layout_marginTop="@dimen/health_value_margin_top"
+                style="@style/HealthLabel" />
+
+            <TextView
+                android:id="@+id/shift_lag_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="—"
+                style="@style/HealthValue" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Next meal"
+                android:layout_marginTop="@dimen/health_value_margin_top"
+                style="@style/HealthLabel" />
+
+            <TextView
+                android:id="@+id/next_meal_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="—"
+                style="@style/HealthValue" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>
+

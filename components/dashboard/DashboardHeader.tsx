@@ -279,7 +279,10 @@ export default function DashboardHeader() {
       <header 
         className="w-full bg-transparent px-4 pt-3 pb-1"
       >
-        <div className="mx-auto max-w-md h-6" />
+        <div className="mx-auto max-w-md">
+          <div className="h-6" />
+          <div className="pb-2" />
+        </div>
       </header>
 
       {isCoachChatOpen && (

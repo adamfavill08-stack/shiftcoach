@@ -40,28 +40,64 @@ export async function POST(req: NextRequest) {
 
     const accessToken = tokenRow.access_token as string
 
-    // Use client's "today" (local timezone) if provided, so steps match Google Fit app
-    let startTimeMillis: number
-    let endTimeMillis: number
-    try {
-      const body = await req.json().catch(() => ({}))
-      const s = body?.startTimeMillis != null ? Number(body.startTimeMillis) : NaN
-      const e = body?.endTimeMillis != null ? Number(body.endTimeMillis) : NaN
-      if (Number.isFinite(s) && Number.isFinite(e) && s < e) {
-        startTimeMillis = s
-        endTimeMillis = e
-      } else {
-        endTimeMillis = Date.now()
-        const startOfDay = new Date()
-        startOfDay.setHours(0, 0, 0, 0)
-        startTimeMillis = startOfDay.getTime()
-      }
-    } catch {
-      endTimeMillis = Date.now()
-      const startOfDay = new Date()
-      startOfDay.setHours(0, 0, 0, 0)
-      startTimeMillis = startOfDay.getTime()
+    // Shift workers: aggregate steps from the rota shift start - 1h -> shift end + 1h.
+    // This avoids midnight resets for night shifts.
+    const SHIFT_WINDOW_BUFFER_MS = 60 * 60 * 1000
+    const now = new Date()
+    const nowIso = now.toISOString()
+    const nowPlusBufferAfterIso = new Date(now.getTime() + SHIFT_WINDOW_BUFFER_MS).toISOString()
+    const nowMinusBufferBeforeIso = new Date(now.getTime() - SHIFT_WINDOW_BUFFER_MS).toISOString()
+
+    let shift:
+      | { start_ts: string | null; end_ts: string | null }
+      | null = null
+
+    const { data: shiftInProgress } = await supabase
+      .from('shifts')
+      .select('start_ts,end_ts')
+      .eq('user_id', userId)
+      // Include shifts whose start is up to 1 hour in the future (travel buffer).
+      .lte('start_ts', nowPlusBufferAfterIso)
+      // And still consider it active for 1 hour after the shift ends.
+      .gt('end_ts', nowMinusBufferBeforeIso)
+      .maybeSingle()
+
+    if (shiftInProgress) {
+      shift = shiftInProgress as any
+    } else {
+      const { data: lastStartedShift } = await supabase
+        .from('shifts')
+        .select('start_ts,end_ts')
+        .eq('user_id', userId)
+        .lte('start_ts', nowPlusBufferAfterIso)
+        .gt('end_ts', nowMinusBufferBeforeIso)
+        .order('start_ts', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      shift = (lastStartedShift as any) ?? null
     }
+
+    const fallbackStartOfDay = new Date()
+    fallbackStartOfDay.setHours(0, 0, 0, 0)
+
+    const windowStartDate = shift?.start_ts
+      ? new Date(new Date(shift.start_ts).getTime() - SHIFT_WINDOW_BUFFER_MS)
+      : fallbackStartOfDay
+    let windowEndDate = shift?.end_ts
+      ? new Date(new Date(shift.end_ts).getTime() + SHIFT_WINDOW_BUFFER_MS)
+      : now
+
+    // If shift end is in the future (shouldn't happen for "in progress"), cap it to now.
+    if (windowEndDate.getTime() > now.getTime()) windowEndDate = now
+    // Safety: ensure a positive range
+    if (windowEndDate.getTime() <= windowStartDate.getTime()) {
+      windowStartDate.setHours(0, 0, 0, 0)
+      windowEndDate = now
+    }
+
+    const startTimeMillis = windowStartDate.getTime()
+    const endTimeMillis = windowEndDate.getTime()
 
     const aggregateBody = {
       aggregateBy: [
@@ -89,10 +125,18 @@ export async function POST(req: NextRequest) {
     const fitJson = await fitResponse.json()
 
     if (!fitResponse.ok) {
-      console.error('[wearables/sync] Google Fit error:', fitJson)
+      // Google Fit tokens often expire. This sync endpoint is also used to notify
+      // the UI that wearable data ingestion is done, so treat Google Fit failures
+      // as non-fatal and return 200 to keep the "wearables-synced" event flowing.
+      console.warn('[wearables/sync] Google Fit error (steps):', fitJson)
       return NextResponse.json(
-        { lastSyncedAt: null, error: 'google_fit_api_error', details: fitJson },
-        { status: 500 }
+        {
+          lastSyncedAt: new Date().toISOString(),
+          steps: 0,
+          error: 'google_fit_api_error',
+          details: fitJson,
+        },
+        { status: 200 }
       )
     }
 
@@ -115,10 +159,9 @@ export async function POST(req: NextRequest) {
 
     console.log('[wearables/sync] Google Fit total steps today:', totalSteps)
 
-    // Upsert today's activity_logs entry
-    const today = new Date().toISOString().slice(0, 10)
-    const startIso = new Date(today + 'T00:00:00Z').toISOString()
-    const endIso = new Date(today + 'T23:59:59Z').toISOString()
+    // Upsert the activity_logs entry for the current shift window
+    const startIso = windowStartDate.toISOString()
+    const endIso = windowEndDate.toISOString()
 
     // Try with ts column first
     let existingQuery = await supabase
@@ -164,7 +207,9 @@ export async function POST(req: NextRequest) {
           user_id: userId,
           steps: totalSteps,
           source: sourceLabel,
-          ts: new Date().toISOString(),
+          // Keep ts stable for this shift so we don't create multiple rows
+          // during long shifts that cross midnight.
+          ts: startIso,
         })
         .select('id')
         .single()
@@ -188,8 +233,6 @@ export async function POST(req: NextRequest) {
     } else if (existingQuery.error) {
       console.warn('[wearables/sync] activity_logs query error (non-fatal):', existingQuery.error.message)
     }
-
-    const nowIso = new Date().toISOString()
 
     // Fire-and-forget sleep sync in the background (best effort)
     try {

@@ -231,47 +231,21 @@ export default function WearablesSetupPage() {
               className="text-sm list-decimal list-inside space-y-2"
               style={{ color: "var(--text-main)" }}
             >
-              <li>{t("detail.wearablesSetup.samsungStep1")}</li>
-              <li>{t("detail.wearablesSetup.samsungStep2")}</li>
-              <li>{t("detail.wearablesSetup.samsungStep3")}</li>
+              <li>Join the ShiftCoach closed test using the same Google account on phone and watch.</li>
+              <li>Install ShiftCoach on your phone from Play Store, then install ShiftCoach on your Wear OS watch from Play Store.</li>
+              <li>Open ShiftCoach on both phone and watch once, and keep Bluetooth enabled.</li>
               <li>
-                {t("detail.wearablesSetup.samsungStep4")}
-                <span className="font-semibold">“Connect Apple Health”</span>              </li>
-            </ol>
-            <p className="text-xs" style={{ color: "var(--text-soft)" }}>
-              {t("detail.wearablesSetup.samsungDone")}
-            </p>
-          </section>
-        )}
-
-        {/* Samsung / Android section */}
-        {choice === "samsung" && (
-          <section
-            className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-            style={{
-              backgroundColor: "var(--card)",
-              borderColor: "var(--border-subtle)",
-              boxShadow: "var(--shadow-soft)",
-            }}
-          >
-            <h2 className="text-sm font-semibold" style={{ color: "var(--text-main)" }}>
-              {t("detail.wearablesSetup.stepsSamsung")}
-            </h2>
-            <ol
-              className="text-sm list-decimal list-inside space-y-2"
-              style={{ color: "var(--text-main)" }}
-            >
-              <li>{t("detail.wearablesSetup.samsungStep1")}</li>
-              <li>{t("detail.wearablesSetup.samsungStep2")}</li>
-              <li>{t("detail.wearablesSetup.samsungStep3")}</li>
+                In ShiftCoach mobile, check the watch status pill. It should show{" "}
+                <span className="font-semibold">“Watch app connected”</span>.
+              </li>
               <li>
-                In ShiftCoach, tap the{" "}
-                <span className="font-semibold">“Sync wearables”</span> button on the
-                dashboard and sign in with the same Google account.
+                Tap{" "}
+                <span className="font-semibold">“Sync wearables”</span>{" "}
+                to refresh steps, sleep, and heart-rate data.
               </li>
             </ol>
             <p className="text-xs" style={{ color: "var(--text-soft)" }}>
-              {t("detail.wearablesSetup.samsungDone")}
+              If watch status is not connected, open ShiftCoach on the watch and return to this screen.
             </p>
           </section>
         )}
@@ -411,6 +385,11 @@ export default function WearablesSetupPage() {
             {t("detail.wearablesSetup.verifiedConfirmation")}
           </p>
         )}
+        <p className="text-center text-xs">
+          <Link href="/wearables-debug" className="underline" style={{ color: "var(--text-soft)" }}>
+            Open wearables data health debug
+          </Link>
+        </p>
       </div>
     </main>
   );

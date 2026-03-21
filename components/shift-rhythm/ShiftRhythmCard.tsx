@@ -9,7 +9,6 @@ import { useGoalChange } from "@/lib/hooks/useGoalChange";
 import { ShiftLagCard } from "@/components/shiftlag/ShiftLagCard";
 import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition";
 import { ShiftWeekStrip } from "@/components/dashboard/ShiftWeekStrip";
-import { WearableStatusPill } from "@/components/dashboard/WearableStatusPill";
 import { useActivityToday } from "@/lib/hooks/useActivityToday";
 import { useTranslation } from "@/components/providers/language-provider";
 
@@ -253,11 +252,6 @@ function ShiftRhythmCard({ score, circadian, socialJetlag, shiftLag, bingeRisk, 
         hasRhythmData={hasRhythmData}
         onOpenBodyClock={() => router.push("/body-clock")}
       />
-
-      {/* Wearable connection status pill: green when connected, grey when not */}
-      <div className="flex justify-center -mt-2">
-        <WearableStatusPill />
-      </div>
 
       {/* Adjusted calories summary above meal timings */}
       <HomeAdjustedCaloriesCard />
