@@ -117,7 +117,6 @@ export function SleepLogCard({ onEdit, onDayClick }: SleepLogCardProps) {
       if (refreshTimeout) clearTimeout(refreshTimeout)
       window.removeEventListener('sleep-refreshed', handleRefresh)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const formatDayLabel = (dateStr: string) => {
