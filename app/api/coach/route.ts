@@ -7,6 +7,7 @@ import { classifyGoalFeedback } from '@/lib/coach/classifyGoalFeedback'
 import { z } from 'zod'
 import { parseJsonBody } from '@/lib/api/validation'
 import { apiServerError } from '@/lib/api/response'
+import { rateLimitByIp, requireSameOriginForSessionWrites } from '@/lib/api/security'
 
 const CoachRequestSchema = z.object({
   message: z.string().trim().min(1).max(4000),
@@ -24,6 +25,12 @@ function isRateLimitError(err: any) {
 
 export async function POST(req: NextRequest) {
   try {
+    const csrfBlock = requireSameOriginForSessionWrites(req)
+    if (csrfBlock) return csrfBlock
+
+    const rateLimited = rateLimitByIp(req, 'api_coach_post', 30, 60_000)
+    if (rateLimited) return rateLimited
+
     const { supabase, userId } = await getServerSupabaseAndUserId()
     if (!userId) return buildUnauthorizedResponse()
 

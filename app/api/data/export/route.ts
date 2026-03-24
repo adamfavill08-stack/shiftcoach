@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
+import { rateLimitByIp, getClientIp } from '@/lib/api/security'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,6 +11,9 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(req: NextRequest) {
   try {
+    const rateLimited = rateLimitByIp(req, 'api_data_export_get', 5, 60_000)
+    if (rateLimited) return rateLimited
+
     const { supabase, userId } = await getServerSupabaseAndUserId()
 
     if (!userId) return buildUnauthorizedResponse()
@@ -17,6 +21,8 @@ export async function GET(req: NextRequest) {
 
     // Get format (JSON or CSV) - default to JSON
     const format = req.nextUrl.searchParams.get('format') || 'json'
+    const requestIp = getClientIp(req)
+    const userAgent = req.headers.get('user-agent') ?? 'unknown'
 
     // Fetch all user data
     const [
@@ -137,6 +143,18 @@ export async function GET(req: NextRequest) {
         totalWeeklySummaries: weeklySummariesResult.data?.length || 0,
         totalRotaEvents: rotaEventsResult.data?.length || 0,
       },
+    }
+
+    // Best-effort audit log for export access tracing.
+    const { error: auditInsertError } = await supabase.from('export_audit_logs').insert({
+      user_id: userId,
+      format,
+      ip: requestIp,
+      user_agent: userAgent,
+      status: 'success',
+    })
+    if (auditInsertError) {
+      console.warn('[api/data/export] audit log insert failed', auditInsertError.message)
     }
 
     if (format === 'csv') {

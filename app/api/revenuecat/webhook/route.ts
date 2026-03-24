@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabase-server'
-import crypto from 'crypto'
 import { z } from 'zod'
+import { verifyHmacSha256Signature, rateLimitByIp } from '@/lib/api/security'
 
 const RevenueCatWebhookSchema = z.object({
   type: z.string(),
@@ -29,30 +29,31 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(req: NextRequest) {
   try {
+    const rateLimited = rateLimitByIp(req, 'api_revenuecat_webhook_post', 120, 60_000)
+    if (rateLimited) return rateLimited
+
     const rawBody = await req.text()
 
     // Verify webhook signature (if configured)
     const webhookSecret = process.env.REVENUECAT_WEBHOOK_SECRET
     if (webhookSecret) {
       const signature = req.headers.get('authorization')
-      
-      // RevenueCat webhook signature verification
-      // Format: "Bearer {signature}"
-      if (signature) {
-        const expectedSignature = crypto
-          .createHmac('sha256', webhookSecret)
-          .update(rawBody)
-          .digest('hex')
-        
-        const receivedSignature = signature.replace('Bearer ', '')
-        
-        if (receivedSignature !== expectedSignature) {
-          console.error('[api/revenuecat/webhook] Invalid webhook signature')
-          return NextResponse.json(
-            { error: 'Invalid signature' },
-            { status: 401 }
-          )
-        }
+
+      // RevenueCat signature is expected in Authorization header: "Bearer <hmac>"
+      if (!signature) {
+        console.error('[api/revenuecat/webhook] Missing webhook signature')
+        return NextResponse.json({ error: 'Missing signature' }, { status: 401 })
+      }
+
+      const receivedSignature = signature.replace(/^Bearer\s+/i, '')
+      const isValid = verifyHmacSha256Signature(rawBody, webhookSecret, receivedSignature)
+
+      if (!isValid) {
+        console.error('[api/revenuecat/webhook] Invalid webhook signature')
+        return NextResponse.json(
+          { error: 'Invalid signature' },
+          { status: 401 }
+        )
       }
     }
 
