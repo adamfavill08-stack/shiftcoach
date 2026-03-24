@@ -10,20 +10,26 @@ import { generateActivityRecommendation } from '@/lib/activity/generateActivityR
 import { getMyProfile } from '@/lib/profile'
 import { useTranslation } from '@/components/providers/language-provider'
 
+/** Light accent tints — avoids flat grey tracks and panels */
+const TINT_BORDER = 'rgba(14, 165, 233, 0.14)'
+const TINT_TRACK = 'rgba(14, 165, 233, 0.16)'
+const TINT_PANEL = 'rgba(240, 249, 255, 0.65)'
+const TINT_SHADOW = '0 8px 22px rgba(79, 70, 229, 0.06)'
+
 const premiumSectionClass =
-  'rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-4 transition-all duration-200'
+  'rounded-2xl backdrop-blur-xl border px-4 py-3 flex flex-col gap-3 transition-all duration-200 w-full max-w-[360px] mx-auto'
 
 const premiumSectionStyle: React.CSSProperties = {
-  backgroundColor: 'var(--card)',
-  borderColor: 'var(--border-subtle)',
-  boxShadow: 'var(--shadow-soft)',
+  backgroundColor: '#ffffff',
+  borderColor: TINT_BORDER,
+  boxShadow: TINT_SHADOW,
 }
 
-const insetPanelClass = 'rounded-2xl border px-4 py-3 backdrop-blur-xl'
+const insetPanelClass = 'rounded-xl border px-3 py-2 backdrop-blur-xl'
 
 const insetPanelStyle: React.CSSProperties = {
-  backgroundColor: 'var(--card-subtle)',
-  borderColor: 'var(--border-subtle)',
+  backgroundColor: TINT_PANEL,
+  borderColor: TINT_BORDER,
 }
 
 function percentage(value: number, target: number) {
@@ -32,78 +38,82 @@ function percentage(value: number, target: number) {
   return Math.max(0, Math.min(100, Math.round(pct)))
 }
 
-function CircularGauge({ value, max, label, subLabel, color = 'emerald' }: { 
-  value: number; 
-  max: number; 
-  label: string; 
-  subLabel?: string;
-  color?: 'emerald' | 'blue' | 'amber';
+/** Minimal ring gauge — matches hero ring; no stacked grey discs or border donuts */
+function CircularGauge({
+  value,
+  max,
+  label,
+  subLabel,
+  color = 'emerald',
+  sizePx = 56,
+}: {
+  value: number
+  max: number
+  label: string
+  subLabel?: string
+  color?: 'emerald' | 'blue' | 'amber'
+  sizePx?: number
 }) {
   const pct = percentage(value, max)
-  const radius = 42
-  const circumference = 2 * Math.PI * radius
-  const strokeLength = (pct / 100) * circumference
-  
-  const strokeColor = color === 'emerald' 
-    ? '#10b981' 
-    : color === 'amber'
-    ? '#f59e0b'
-    : '#3b82f6'
+  const stroke = Math.max(4, Math.round(sizePx * 0.078))
+  const r = (sizePx - stroke) / 2
+  const c = 2 * Math.PI * r
+  const dash = pct > 0 ? (pct / 100) * c : 0
+
+  const safeId = `${label.replace(/\s+/g, '-')}-${color}-grad`
+  const progressStops =
+    color === 'emerald'
+      ? ['#10b981', '#34d399']
+      : color === 'amber'
+        ? ['#f59e0b', '#fb923c']
+        : ['#0ea5e9', '#8b5cf6']
 
   return (
-    <div className="relative h-28 w-28 flex-shrink-0 mx-auto">
-      {/* Ring container */}
-      <div className="relative h-28 w-28 rounded-full bg-white/60 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[inset_0_1px_0_rgba(0,0,0,0.2)]">
-        <div className="absolute inset-2 rounded-full border border-slate-200/40 dark:border-slate-700/30 bg-white/50 dark:bg-slate-900/40" />
-        
-        <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full transform -rotate-90">
-          <defs>
-            <linearGradient id={`trackGradient-${label}`} x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#F1F5F9" />
-              <stop offset="100%" stopColor="#E2E8F0" />
-            </linearGradient>
-            <linearGradient id={`activeGradient-${label}`} x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor={strokeColor} />
-              <stop offset="100%" stopColor={strokeColor} stopOpacity="0.8" />
-            </linearGradient>
-          </defs>
-          
-          {/* Background circle */}
+    <div className="relative mx-auto flex-shrink-0" style={{ width: sizePx, height: sizePx }}>
+      <svg
+        width={sizePx}
+        height={sizePx}
+        viewBox={`0 0 ${sizePx} ${sizePx}`}
+        className="block -rotate-90"
+        aria-hidden
+      >
+        <defs>
+          <linearGradient id={safeId} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor={progressStops[0]} />
+            <stop offset="100%" stopColor={progressStops[1]} />
+          </linearGradient>
+        </defs>
+        <circle
+          cx={sizePx / 2}
+          cy={sizePx / 2}
+          r={r}
+          fill="none"
+          stroke="rgba(14, 165, 233, 0.13)"
+          strokeWidth={stroke}
+        />
+        {pct > 0 && (
           <circle
-            cx="50"
-            cy="50"
-            r={radius}
-            stroke={`url(#trackGradient-${label})`}
-            strokeWidth="6"
+            cx={sizePx / 2}
+            cy={sizePx / 2}
+            r={r}
             fill="none"
-          />
-          {/* Progress circle */}
-          <circle
-            cx="50"
-            cy="50"
-            r={radius}
-            stroke={`url(#activeGradient-${label})`}
-            strokeWidth="6"
-            fill="none"
-            strokeDasharray={`${strokeLength} ${circumference - strokeLength}`}
+            stroke={`url(#${safeId})`}
+            strokeWidth={stroke}
             strokeLinecap="round"
-            style={{
-              transition: 'stroke-dasharray 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
-            }}
+            strokeDasharray={`${dash} ${c - dash}`}
+            style={{ transition: 'stroke-dasharray 0.65s cubic-bezier(0.4, 0, 0.2, 1)' }}
           />
-        </svg>
-        
-        {/* Center content */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
-          <div className="text-2xl font-semibold tracking-tight tabular-nums leading-none" style={{ color: 'var(--text-main)' }}>
-            {value}
-          </div>
-          {subLabel && (
-            <div className="text-xs font-medium mt-1 leading-tight" style={{ color: 'var(--text-soft)' }}>
-              ({subLabel})
-            </div>
-          )}
-        </div>
+        )}
+      </svg>
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+        <span className="text-[15px] font-semibold tabular-nums leading-none" style={{ color: 'var(--text-main)' }}>
+          {value}
+        </span>
+        {subLabel ? (
+          <span className="mt-0.5 max-w-[4.5rem] truncate text-[9px] font-medium leading-tight" style={{ color: 'var(--text-soft)' }}>
+            ({subLabel})
+          </span>
+        ) : null}
       </div>
     </div>
   )
@@ -206,9 +216,7 @@ export default function ActivityAndStepsPage() {
 
   const hasConsistencyData =
     !!(consistencyData && Array.isArray(consistencyData.dailyData) && consistencyData.dailyData.some((d: any) => d.hasData))
-  const hasAnyActivity =
-    activeMinutes > 0 || hasConsistencyData
-  
+
   // Recovery and Activity scores (from API)
   const recoveryScore = data.recoveryScore ?? 50
   const recoveryLevel = data.recoveryLevel ?? 'Moderate'
@@ -270,8 +278,8 @@ export default function ActivityAndStepsPage() {
   }
 
   const heroRing = useMemo(() => {
-    const size = 88
-    const stroke = 9
+    const size = 72
+    const stroke = 8
     const r = (size - stroke) / 2
     const c = 2 * Math.PI * r
     const dash = (activePct / 100) * c
@@ -281,24 +289,23 @@ export default function ActivityAndStepsPage() {
   return (
     <main
       style={{
-        backgroundImage: 'radial-gradient(circle at top, var(--bg-soft), var(--bg))',
+        backgroundImage: 'linear-gradient(165deg, #ffffff 0%, #f0f9ff 42%, #faf5ff 100%)',
       }}
     >
-      <div className="max-w-[430px] mx-auto min-h-screen px-4 pb-28 pt-4 flex flex-col gap-5">
+      <div className="max-w-[380px] mx-auto min-h-screen px-3 pb-28 pt-3 flex flex-col gap-3.5">
         <header className="flex items-center gap-2 mb-1">
           <Link
             href="/dashboard"
-            className="p-2 rounded-full backdrop-blur-xl border transition-all min-h-11 min-w-11 flex items-center justify-center"
+            className="p-2 rounded-full backdrop-blur-xl border transition-all min-h-11 min-w-11 flex items-center justify-center bg-white"
             style={{
-              backgroundColor: 'var(--card)',
-              borderColor: 'var(--border-subtle)',
+              borderColor: TINT_BORDER,
               color: 'var(--text-main)',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--card-subtle)'
+              e.currentTarget.style.backgroundColor = TINT_PANEL
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--card)'
+              e.currentTarget.style.backgroundColor = '#ffffff'
             }}
             aria-label={t('detail.common.backToDashboard')}
           >
@@ -315,28 +322,26 @@ export default function ActivityAndStepsPage() {
         </header>
         
         {/* Activity summary */}
-        <section className={`${premiumSectionClass} gap-5`} style={premiumSectionStyle}>
-          <div className="space-y-5">
+        <section className={premiumSectionClass} style={premiumSectionStyle}>
+          <div className="space-y-3">
             <div>
-              <p className="text-[11px] font-semibold tracking-[0.18em] uppercase" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-[10px] font-semibold tracking-[0.18em] uppercase" style={{ color: 'var(--text-muted)' }}>
                 Activity
               </p>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
                 <span
-                  className="rounded-full border px-2.5 py-1 text-[11px] backdrop-blur-xl"
+                  className="rounded-full border px-2 py-0.5 text-[10px] backdrop-blur-xl bg-white"
                   style={{
-                    backgroundColor: 'var(--card-subtle)',
-                    borderColor: 'var(--border-subtle)',
+                    borderColor: TINT_BORDER,
                     color: 'var(--text-soft)',
                   }}
                 >
                   {activitySourceLabel.startsWith('Source: ') ? activitySourceLabel : `Source: ${activitySourceLabel}`}
                 </span>
                 <span
-                  className="rounded-full border px-2.5 py-1 text-[11px] backdrop-blur-xl"
+                  className="rounded-full border px-2 py-0.5 text-[10px] backdrop-blur-xl bg-white"
                   style={{
-                    backgroundColor: 'var(--card-subtle)',
-                    borderColor: 'var(--border-subtle)',
+                    borderColor: TINT_BORDER,
                     color: 'var(--text-soft)',
                   }}
                 >
@@ -345,11 +350,11 @@ export default function ActivityAndStepsPage() {
               </div>
             </div>
 
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 space-y-2 min-w-0">
-                <h2 className="text-[22px] font-semibold tracking-tight" style={{ color: 'var(--text-main)' }}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 space-y-1 min-w-0">
+                <h2 className="text-xl font-semibold tracking-tight" style={{ color: 'var(--text-main)' }}>
                   {activeMinutes}{' '}
-                  <span className="text-base font-medium" style={{ color: 'var(--text-soft)' }}>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-soft)' }}>
                     active min
                   </span>
                 </h2>
@@ -366,7 +371,7 @@ export default function ActivityAndStepsPage() {
                     cx={heroRing.size / 2}
                     cy={heroRing.size / 2}
                     r={heroRing.r}
-                    style={{ stroke: 'var(--ring-bg)' }}
+                    style={{ stroke: TINT_TRACK }}
                     strokeWidth={heroRing.stroke}
                     fill="none"
                   />
@@ -388,7 +393,7 @@ export default function ActivityAndStepsPage() {
                   </defs>
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-2xl font-semibold tabular-nums leading-none" style={{ color: 'var(--text-main)' }}>
+                  <span className="text-xl font-semibold tabular-nums leading-none" style={{ color: 'var(--text-main)' }}>
                     {activePct}
                   </span>
                   <span className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
@@ -398,7 +403,7 @@ export default function ActivityAndStepsPage() {
               </div>
             </div>
 
-            <div className={`${insetPanelClass} p-2 space-y-0`} style={insetPanelStyle}>
+            <div className={`${insetPanelClass} p-1.5 space-y-0`} style={insetPanelStyle}>
               {[
                 {
                   label: 'Light',
@@ -420,7 +425,7 @@ export default function ActivityAndStepsPage() {
 
                 return (
                   <React.Fragment key={item.label}>
-                    <div className="rounded-xl px-3 py-2.5" style={{ backgroundColor: 'rgba(255,255,255,0.5)' }}>
+                    <div className="rounded-lg px-2.5 py-2 bg-white/80">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>
                           {item.label}
@@ -437,7 +442,7 @@ export default function ActivityAndStepsPage() {
                           )}
                         </p>
                       </div>
-                      <div className="mt-2 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--ring-bg)' }}>
+                      <div className="mt-1.5 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: TINT_TRACK }}>
                         <div
                           className="h-full rounded-full bg-gradient-to-r from-sky-500 to-violet-500 transition-all duration-300"
                           style={{ width: `${Math.min(pct, 100)}%` }}
@@ -445,7 +450,7 @@ export default function ActivityAndStepsPage() {
                       </div>
                     </div>
                     {index < 2 && (
-                      <div className="h-px my-2" style={{ background: 'linear-gradient(90deg, transparent, var(--border-subtle), transparent)' }} />
+                      <div className="h-px my-1.5" style={{ background: 'linear-gradient(90deg, transparent, rgba(14,165,233,0.2), transparent)' }} />
                     )}
                   </React.Fragment>
                 )
@@ -455,13 +460,13 @@ export default function ActivityAndStepsPage() {
             <button
               type="button"
               onClick={() => router.push('/steps')}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 min-h-11 text-sm font-semibold text-white bg-gradient-to-r from-sky-500 to-violet-500 hover:brightness-110 active:scale-[0.98] transition-all shadow-sm"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 min-h-10 text-sm font-semibold text-white bg-gradient-to-r from-sky-500 to-violet-500 hover:brightness-110 active:scale-[0.98] transition-all shadow-sm"
             >
               Open detailed steps
               <ChevronRight className="h-4 w-4 opacity-90" />
             </button>
 
-            <div className={`${insetPanelClass} p-4`} style={insetPanelStyle}>
+            <div className={`${insetPanelClass} p-3`} style={insetPanelStyle}>
               <p className="text-xs font-semibold tracking-tight flex items-center gap-2" style={{ color: 'var(--text-main)' }}>
                 <Sparkles className="h-4 w-4 shrink-0" style={{ color: 'var(--text-muted)' }} />
                 Best next step
@@ -485,14 +490,14 @@ export default function ActivityAndStepsPage() {
         </section>
 
         {/* Movement consistency */}
-        <section className={`${premiumSectionClass} gap-5`} style={premiumSectionStyle}>
-          <div className="space-y-5">
+        <section className={premiumSectionClass} style={premiumSectionStyle}>
+          <div className="space-y-3">
             <div>
-              <p className="text-[11px] font-semibold tracking-[0.18em] uppercase" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-[10px] font-semibold tracking-[0.18em] uppercase" style={{ color: 'var(--text-muted)' }}>
                 Movement consistency
               </p>
-              <div className="mt-3">
-                <h2 className="text-[22px] font-semibold tracking-tight tabular-nums" style={{ color: 'var(--text-main)' }}>
+              <div className="mt-2">
+                <h2 className="text-xl font-semibold tracking-tight tabular-nums" style={{ color: 'var(--text-main)' }}>
                   {hasConsistencyData ? movementConsistency : '—'}
                 </h2>
                 <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--text-soft)' }}>
@@ -514,8 +519,8 @@ export default function ActivityAndStepsPage() {
             
             {/* Day-by-day visualization */}
             {hasConsistencyData && consistencyData && consistencyData.dailyData.length > 0 ? (
-              <div className="space-y-3 pt-2">
-                <div className="flex items-end justify-between gap-1.5">
+              <div className="space-y-2 pt-1">
+                <div className="flex items-end justify-between gap-1">
                   {consistencyData.dailyData.map((day, idx) => {
                     const maxSteps = Math.max(...consistencyData.dailyData.map(d => d.steps), 1)
                     const height = maxSteps > 0 ? (day.steps / maxSteps) * 100 : 0
@@ -523,15 +528,15 @@ export default function ActivityAndStepsPage() {
                     const isWearable = day.source && day.source !== 'Manual entry' && day.source !== 'manual'
                     
                     return (
-                      <div key={idx} className="flex-1 flex flex-col items-center gap-2">
+                      <div key={idx} className="flex-1 flex flex-col items-center gap-1">
                         {/* Bar visualization */}
-                        <div className="relative w-full flex items-end justify-center" style={{ height: '48px' }}>
+                        <div className="relative w-full flex items-end justify-center" style={{ height: '36px' }}>
                           {hasData ? (
                             <div
                               className={`w-full rounded-t transition-all duration-200 ${
                                 isWearable
                                   ? 'bg-gradient-to-t from-sky-500 to-violet-500'
-                                  : 'bg-gradient-to-t from-slate-400 to-slate-300'
+                                  : 'bg-gradient-to-t from-sky-300 to-cyan-400'
                               }`}
                               style={{ 
                                 height: `${Math.max(height, 5)}%`,
@@ -540,7 +545,7 @@ export default function ActivityAndStepsPage() {
                               title={`${day.steps.toLocaleString()} steps${day.source ? ` (${day.source})` : ''}`}
                             />
                           ) : (
-                            <div className="w-full h-0.5 rounded-full" style={{ backgroundColor: 'var(--ring-bg)' }} />
+                            <div className="w-full h-0.5 rounded-full" style={{ backgroundColor: TINT_TRACK }} />
                           )}
                         </div>
                         
@@ -573,7 +578,7 @@ export default function ActivityAndStepsPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-slate-400" />
+                      <div className="w-2 h-2 rounded-full bg-gradient-to-br from-sky-300 to-cyan-400" />
                       <span className="text-[10px]" style={{ color: 'var(--text-soft)' }}>
                         Manual
                       </span>
@@ -593,7 +598,7 @@ export default function ActivityAndStepsPage() {
             
             {/* Insights */}
             {hasConsistencyData && consistencyData && consistencyData.insights.length > 0 && (
-              <div className="pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+              <div className="pt-2" style={{ borderTop: `1px solid ${TINT_BORDER}` }}>
                 <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-soft)' }}>
                   {consistencyData.insights[0]}
                 </p>
@@ -603,13 +608,13 @@ export default function ActivityAndStepsPage() {
         </section>
 
         {/* Shift movement plan */}
-        <section className={`${premiumSectionClass} gap-5`} style={premiumSectionStyle}>
-          <div className="flex items-start justify-between gap-4">
+        <section className={premiumSectionClass} style={premiumSectionStyle}>
+          <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-semibold tracking-[0.18em] uppercase" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-[10px] font-semibold tracking-[0.18em] uppercase" style={{ color: 'var(--text-muted)' }}>
                 Today&apos;s shift movement plan
               </p>
-              <h2 className="mt-3 text-[17px] font-semibold tracking-tight" style={{ color: 'var(--text-main)' }}>
+              <h2 className="mt-2 text-base font-semibold tracking-tight" style={{ color: 'var(--text-main)' }}>
                 {movementPlan.title}
               </h2>
             </div>
@@ -623,10 +628,10 @@ export default function ActivityAndStepsPage() {
             </div>
           </div>
 
-          <div className={`${insetPanelClass} p-2 space-y-0`} style={insetPanelStyle}>
+          <div className={`${insetPanelClass} p-1.5 space-y-0`} style={insetPanelStyle}>
             {movementPlan.activities.map((activity, idx) => (
               <React.Fragment key={idx}>
-                <div className="rounded-xl px-3 py-3" style={{ backgroundColor: 'rgba(255,255,255,0.5)' }}>
+                <div className="rounded-lg px-2.5 py-2 bg-white/80">
                   <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -635,10 +640,9 @@ export default function ActivityAndStepsPage() {
                         </span>
                         {activity.suggestedTime && (
                           <span
-                            className="rounded-full border px-2.5 py-1 text-[11px] font-medium"
+                            className="rounded-full border px-2 py-0.5 text-[10px] font-medium bg-white"
                             style={{
-                              backgroundColor: 'var(--card-subtle)',
-                              borderColor: 'var(--border-subtle)',
+                              borderColor: TINT_BORDER,
                               color: 'var(--text-soft)',
                             }}
                           >
@@ -659,8 +663,8 @@ export default function ActivityAndStepsPage() {
                 </div>
                 {idx < movementPlan.activities.length - 1 && (
                   <div
-                    className="h-px my-2"
-                    style={{ background: 'linear-gradient(90deg, transparent, var(--border-subtle), transparent)' }}
+                    className="h-px my-1.5"
+                    style={{ background: 'linear-gradient(90deg, transparent, rgba(14,165,233,0.2), transparent)' }}
                   />
                 )}
               </React.Fragment>
@@ -669,25 +673,29 @@ export default function ActivityAndStepsPage() {
         </section>
 
         {/* Recovery & activity */}
-        <section className={`${premiumSectionClass} gap-6`} style={premiumSectionStyle}>
-          <p className="text-[11px] font-semibold tracking-[0.18em] uppercase" style={{ color: 'var(--text-muted)' }}>
+        <section
+          className="rounded-2xl backdrop-blur-xl border px-3 py-2.5 flex flex-col gap-2 transition-all duration-200 w-full max-w-[320px] mx-auto"
+          style={{ ...premiumSectionStyle, boxShadow: '0 6px 18px rgba(79, 70, 229, 0.05)' }}
+        >
+          <p className="text-[9px] font-semibold tracking-[0.2em] uppercase" style={{ color: '#0284c7' }}>
             Recovery &amp; activity
           </p>
 
-          <div className="grid grid-cols-2 gap-6 sm:gap-8">
-            <div className="flex flex-col items-center text-center space-y-4">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col items-center text-center space-y-1.5">
               <CircularGauge
                 value={recoveryScore}
                 max={100}
                 label="Recovery"
                 subLabel={recoveryLevel}
                 color={recoveryScore >= 75 ? 'emerald' : recoveryScore >= 50 ? 'blue' : 'amber'}
+                sizePx={52}
               />
-              <div className="space-y-2 w-full">
-                <h3 className="text-sm font-semibold tracking-tight" style={{ color: 'var(--text-main)' }}>
+              <div className="w-full space-y-0.5">
+                <h3 className="text-[11px] font-semibold tracking-tight" style={{ color: 'var(--text-main)' }}>
                   Recovery
                 </h3>
-                <p className="text-sm leading-relaxed" style={{ color: 'var(--text-soft)' }}>
+                <p className="text-[10px] leading-snug" style={{ color: 'var(--text-soft)' }}>
                   {hasRecoveryData
                     ? recoveryDescription
                     : 'Log a few nights of sleep to unlock your personalised recovery score.'}
@@ -695,19 +703,20 @@ export default function ActivityAndStepsPage() {
               </div>
             </div>
 
-            <div className="flex flex-col items-center text-center space-y-4">
+            <div className="flex flex-col items-center text-center space-y-1.5">
               <CircularGauge
                 value={activityScore}
                 max={100}
                 label="Activity"
                 subLabel={activityLevel}
                 color={activityScore >= 70 ? 'emerald' : activityScore >= 50 ? 'blue' : activityScore >= 30 ? 'amber' : 'blue'}
+                sizePx={52}
               />
-              <div className="space-y-2 w-full">
-                <h3 className="text-sm font-semibold tracking-tight" style={{ color: 'var(--text-main)' }}>
+              <div className="w-full space-y-0.5">
+                <h3 className="text-[11px] font-semibold tracking-tight" style={{ color: 'var(--text-main)' }}>
                   Activity
                 </h3>
-                <p className="text-sm leading-relaxed" style={{ color: 'var(--text-soft)' }}>
+                <p className="text-[10px] leading-snug" style={{ color: 'var(--text-soft)' }}>
                   {hasActivityData
                     ? activityDescription
                     : 'Log steps or connect a wearable to see how your daily movement compares to your target.'}
@@ -718,8 +727,8 @@ export default function ActivityAndStepsPage() {
         </section>
 
         {/* Recommendation */}
-        <section className={`${premiumSectionClass} gap-4`} style={premiumSectionStyle}>
-          <h2 className="text-[17px] font-semibold tracking-tight" style={{ color: 'var(--text-main)' }}>
+        <section className={premiumSectionClass} style={premiumSectionStyle}>
+          <h2 className="text-base font-semibold tracking-tight" style={{ color: 'var(--text-main)' }}>
             Today&apos;s recommendation
           </h2>
           <p className="text-sm leading-relaxed" style={{ color: 'var(--text-soft)' }}>
