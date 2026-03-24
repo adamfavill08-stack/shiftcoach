@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as SupabaseServer from '@/lib/supabase-server'
-import { buildShiftRhythmInputs } from '@/app/api/shift-rhythm/route'
+import { buildShiftRhythmInputs } from '@/lib/shift-rhythm/buildShiftRhythmInputs'
 import { calculateShiftRhythm } from '@/lib/shift-rhythm/engine'
 import { calculateShiftLag } from '@/lib/shiftlag/calculateShiftLag'
 import { calculateCircadianPhase } from '@/lib/circadian/calcCircadianPhase'

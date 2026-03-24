@@ -16,7 +16,7 @@ export const revalidate = 60
 
 type SupabaseClient = Awaited<ReturnType<typeof getServerSupabaseAndUserId>>['supabase']
 
-export async function buildShiftRhythmInputs(supabase: SupabaseClient, userId: string) {
+async function buildShiftRhythmInputs(supabase: SupabaseClient, userId: string) {
   const today = new Date()
   const sevenDaysAgo = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000)
   const todayIso = today.toISOString().slice(0, 10)

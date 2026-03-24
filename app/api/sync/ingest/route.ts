@@ -1,6 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabase-server'
 
+type IngestSleepItem = {
+  start: string
+  end: string
+  stage?: 'asleep' | 'inbed' | 'light' | 'deep' | 'rem' | 'awake'
+  quality?: string
+  meta?: Record<string, unknown>
+}
+
+type IngestHeartRateItem = {
+  bpm: number
+  ts: string
+  meta?: Record<string, unknown>
+}
+
+type IngestPayload = {
+  platform: 'ios_healthkit' | 'android_health_connect' | 'health_connect' | 'android_googlefit'
+  lastSyncedAt?: string | null
+  sleep: IngestSleepItem[]
+  heartRate?: IngestHeartRateItem[]
+}
+
 export async function POST(req: NextRequest) {
   try {
     const auth = req.headers.get('authorization') || ''
@@ -14,23 +35,8 @@ export async function POST(req: NextRequest) {
     }
     const user_id = userInfo.user.id
 
-    const body = await req.json()
-    const { platform, lastSyncedAt, sleep } = body as {
-      platform: 'ios_healthkit' | 'android_health_connect' | 'health_connect' | 'android_googlefit',
-      lastSyncedAt?: string | null,
-      sleep: Array<{
-        start: string, // ISO
-        end: string,   // ISO
-        stage?: 'asleep'|'inbed'|'light'|'deep'|'rem'|'awake',
-        quality?: string,
-        meta?: Record<string, any>
-      }>,
-      heartRate?: Array<{
-        bpm: number,
-        ts: string,
-        meta?: Record<string, any>
-      }>
-    }
+    const body = (await req.json()) as IngestPayload
+    const { platform, sleep } = body
 
     if (!platform || !Array.isArray(sleep)) {
       return NextResponse.json({ error: 'bad payload' }, { status: 400 })
@@ -71,7 +77,7 @@ export async function POST(req: NextRequest) {
         : (platform.includes('health_connect') ? 'health_connect' : 'google_fit')
 
       const heartRows = body.heartRate
-        .filter((h) => typeof h?.bpm === 'number' && typeof h?.ts === 'string')
+        .filter((h: IngestHeartRateItem) => typeof h?.bpm === 'number' && typeof h?.ts === 'string')
         .map((h) => ({
           user_id,
           source,
