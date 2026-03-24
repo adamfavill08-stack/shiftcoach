@@ -2,6 +2,7 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { apiUnauthorized } from '@/lib/api/response'
 
 export class UnauthorizedError extends Error {
   override name = 'UnauthorizedError'
@@ -12,7 +13,7 @@ export class UnauthorizedError extends Error {
 
 /** Consistent 401 for API routes when session user is missing. */
 export function buildUnauthorizedResponse(_message?: string): NextResponse {
-  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  return apiUnauthorized(_message ?? 'Unauthorized')
 }
 
 export async function requireServerUser() {

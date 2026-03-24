@@ -3,8 +3,10 @@ import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/sup
 import { z } from 'zod'
 import { parseJsonBody } from '@/lib/api/validation'
 import { apiServerError } from '@/lib/api/response'
+import { rateLimitByIp } from '@/lib/api/security'
 
 const SleepItemSchema = z.object({
+  sampleId: z.string().trim().min(1).optional(),
   start: z.string(),
   end: z.string(),
   stage: z.string().optional(),
@@ -33,6 +35,9 @@ const HealthConnectSyncSchema = z.object({
  */
 export async function POST(req: NextRequest) {
   try {
+    const rateLimited = rateLimitByIp(req, 'api_health_connect_sync_post', 60, 60_000)
+    if (rateLimited) return rateLimited
+
     const { userId } = await getServerSupabaseAndUserId()
     if (!userId) return buildUnauthorizedResponse()
 
@@ -88,14 +93,48 @@ export async function POST(req: NextRequest) {
           end_at: new Date(s.end).toISOString(),
           stage: s.stage ?? 'asleep',
           quality: s.quality ?? null,
-          meta: s.meta ?? {},
+          meta: s.sampleId ? { ...(s.meta ?? {}), sample_id: s.sampleId } : (s.meta ?? {}),
         }))
         .filter((r) => !Number.isNaN(new Date(r.start_at).getTime()) && !Number.isNaN(new Date(r.end_at).getTime()))
 
       if (rows.length > 0) {
-        await supabase
-          .from('sleep_records')
-          .upsert(rows, { onConflict: 'user_id,source,start_at,end_at' })
+        const rowsWithSampleId = rows.filter((r) => typeof (r.meta as any)?.sample_id === 'string')
+        const rowsWithoutSampleId = rows.filter((r) => typeof (r.meta as any)?.sample_id !== 'string')
+
+        for (const row of rowsWithSampleId) {
+          const sampleId = (row.meta as any).sample_id as string
+          const { data: existingBySample } = await supabase
+            .from('sleep_records')
+            .select('id')
+            .eq('user_id', row.user_id)
+            .eq('source', row.source)
+            .contains('meta', { sample_id: sampleId })
+            .limit(1)
+            .maybeSingle()
+
+          if (existingBySample?.id) {
+            await supabase
+              .from('sleep_records')
+              .update({
+                start_at: row.start_at,
+                end_at: row.end_at,
+                stage: row.stage,
+                quality: row.quality,
+                meta: row.meta,
+              })
+              .eq('id', existingBySample.id)
+          } else {
+            await supabase
+              .from('sleep_records')
+              .upsert([row], { onConflict: 'user_id,source,start_at,end_at' })
+          }
+        }
+
+        if (rowsWithoutSampleId.length > 0) {
+          await supabase
+            .from('sleep_records')
+            .upsert(rowsWithoutSampleId, { onConflict: 'user_id,source,start_at,end_at' })
+        }
       }
     }
 

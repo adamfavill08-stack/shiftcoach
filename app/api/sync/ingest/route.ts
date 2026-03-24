@@ -4,8 +4,10 @@ import { z } from 'zod'
 import { parseJsonBody } from '@/lib/api/validation'
 import { apiUnauthorized, apiBadRequest, apiServerError } from '@/lib/api/response'
 import { getBearerToken } from '@/lib/api/auth'
+import { rateLimitByIp } from '@/lib/api/security'
 
 const IngestSleepItemSchema = z.object({
+  sampleId: z.string().trim().min(1).optional(),
   start: z.string(),
   end: z.string(),
   stage: z.enum(['asleep', 'inbed', 'light', 'deep', 'rem', 'awake']).optional(),
@@ -28,6 +30,9 @@ const IngestPayloadSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const rateLimited = rateLimitByIp(req, 'api_sync_ingest_post', 60, 60_000)
+    if (rateLimited) return rateLimited
+
     const token = getBearerToken(req)
     if (!token) return apiUnauthorized('Missing access token')
 
@@ -54,7 +59,9 @@ export async function POST(req: NextRequest) {
       last_synced_at: new Date().toISOString()
     }, { onConflict: 'user_id,platform' })
 
-    // Upsert sleep rows with deterministic dedupe identity.
+    // Sleep dedupe precedence:
+    // 1) provider-native sampleId (stored in meta.sample_id) when present
+    // 2) timestamp-window identity fallback via upsert on user/source/start/end
     if (sleep.length) {
       const rows = sleep.map(s => ({
         user_id,
@@ -65,15 +72,56 @@ export async function POST(req: NextRequest) {
         end_at: new Date(s.end).toISOString(),
         stage: s.stage ?? 'asleep',
         quality: s.quality ?? null,
-        meta: s.meta ?? {}
+        meta: s.sampleId ? { ...(s.meta ?? {}), sample_id: s.sampleId } : (s.meta ?? {})
       }))
       .filter((r) => !Number.isNaN(new Date(r.start_at).getTime()) && !Number.isNaN(new Date(r.end_at).getTime()))
 
-      const { error } = await supabaseServer
-        .from('sleep_records')
-        .upsert(rows, { onConflict: 'user_id,source,start_at,end_at' })
-      if (error) {
-        console.error('[ingest] insert error', error)
+      const rowsWithSampleId = rows.filter((r) => typeof (r.meta as any)?.sample_id === 'string')
+      const rowsWithoutSampleId = rows.filter((r) => typeof (r.meta as any)?.sample_id !== 'string')
+
+      // Sample-id-first reconciliation.
+      for (const row of rowsWithSampleId) {
+        const sampleId = (row.meta as any).sample_id as string
+        const { data: existingBySample } = await supabaseServer
+          .from('sleep_records')
+          .select('id')
+          .eq('user_id', row.user_id)
+          .eq('source', row.source)
+          .contains('meta', { sample_id: sampleId })
+          .limit(1)
+          .maybeSingle()
+
+        if (existingBySample?.id) {
+          const { error: updateError } = await supabaseServer
+            .from('sleep_records')
+            .update({
+              start_at: row.start_at,
+              end_at: row.end_at,
+              stage: row.stage,
+              quality: row.quality,
+              meta: row.meta,
+            })
+            .eq('id', existingBySample.id)
+          if (updateError) {
+            console.error('[ingest] sleep update-by-sample error', updateError)
+          }
+        } else {
+          const { error: insertError } = await supabaseServer
+            .from('sleep_records')
+            .upsert([row], { onConflict: 'user_id,source,start_at,end_at' })
+          if (insertError) {
+            console.error('[ingest] sleep insert-by-sample error', insertError)
+          }
+        }
+      }
+
+      if (rowsWithoutSampleId.length > 0) {
+        const { error } = await supabaseServer
+          .from('sleep_records')
+          .upsert(rowsWithoutSampleId, { onConflict: 'user_id,source,start_at,end_at' })
+        if (error) {
+          console.error('[ingest] insert error', error)
+        }
       }
     }
 
