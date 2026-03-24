@@ -79,40 +79,6 @@ function DashboardContent() {
     return
   }, [])
 
-  const fetchCircadian = useCallback(async () => {
-    try {
-      const res = await fetch('/api/circadian/calculate', {
-        next: { revalidate: 30 },
-      })
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}))
-        if (res.status === 503 || json.type === 'network_error') {
-          console.warn('[dashboard] circadian fetch - database temporarily unavailable')
-          // Don't log as error for network issues - it's expected when DB is down
-        } else {
-          console.error('[dashboard] circadian fetch failed', res.status, json.error || '')
-        }
-        setCircadian(null)
-        return
-      }
-      const json = await res.json()
-      setCircadian(json.circadian ?? null)
-      cacheDashboardState({ circadian: json.circadian ?? null })
-      setIsUsingCachedData(false)
-    } catch (err: any) {
-      // Network errors are expected when DB is unreachable
-      if (err?.message?.includes('fetch') || err?.message?.includes('network')) {
-        console.warn('[dashboard] circadian fetch - network error (database may be unreachable)')
-      } else {
-        console.error('[dashboard] circadian fetch error', err)
-      }
-      setCircadian(null)
-      if (!isOnline) {
-        loadCachedDashboardState()
-      }
-    }
-  }, [cacheDashboardState, isOnline, loadCachedDashboardState])
-
   const [bingeRisk, setBingeRisk] = useState<any>(null)
 
   const cacheDashboardState = useCallback(
@@ -147,6 +113,40 @@ function DashboardContent() {
       return false
     }
   }, [])
+
+  const fetchCircadian = useCallback(async () => {
+    try {
+      const res = await fetch('/api/circadian/calculate', {
+        next: { revalidate: 30 },
+      })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        if (res.status === 503 || json.type === 'network_error') {
+          console.warn('[dashboard] circadian fetch - database temporarily unavailable')
+          // Don't log as error for network issues - it's expected when DB is down
+        } else {
+          console.error('[dashboard] circadian fetch failed', res.status, json.error || '')
+        }
+        setCircadian(null)
+        return
+      }
+      const json = await res.json()
+      setCircadian(json.circadian ?? null)
+      cacheDashboardState({ circadian: json.circadian ?? null })
+      setIsUsingCachedData(false)
+    } catch (err: any) {
+      // Network errors are expected when DB is unreachable
+      if (err?.message?.includes('fetch') || err?.message?.includes('network')) {
+        console.warn('[dashboard] circadian fetch - network error (database may be unreachable)')
+      } else {
+        console.error('[dashboard] circadian fetch error', err)
+      }
+      setCircadian(null)
+      if (!isOnline) {
+        loadCachedDashboardState()
+      }
+    }
+  }, [cacheDashboardState, isOnline, loadCachedDashboardState])
 
   const fetchShiftRhythm = useCallback(async () => {
     try {
