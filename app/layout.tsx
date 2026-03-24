@@ -11,6 +11,7 @@ import { LanguageProvider } from '@/components/providers/language-provider'
 import { BottomNavWrapper } from '@/components/layout/BottomNavWrapper'
 import { FloatingCoachBubble } from '@/components/layout/FloatingCoachBubble'
 import { AutoHealthSync } from '@/components/wearables/AutoHealthSync'
+import { NativeAndroidBackButton } from '@/components/native/NativeAndroidBackButton'
 
 export const metadata: Metadata = {
   title: 'ShiftCoach - Health App for Shift Workers',
@@ -129,6 +130,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <AuthProvider>
                 <QuickAddProvider>
                   <AutoHealthSync />
+                  <NativeAndroidBackButton />
                   <EventNotificationLoader />
                   <main className="relative min-h-screen pb-24 bg-white">
                     {children}
