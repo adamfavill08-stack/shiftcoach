@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Mail, Lock } from 'lucide-react'
 import { useTranslation } from '@/components/providers/language-provider'
+import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus'
 
 function SignInContent() {
   const { t } = useTranslation()
@@ -16,6 +17,7 @@ function SignInContent() {
   const [busy, setBusy] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { isOnline } = useNetworkStatus()
   const emailInputId = 'sign-in-email'
   const passwordInputId = 'sign-in-password'
   const signInErrorId = 'sign-in-error'
@@ -46,6 +48,10 @@ function SignInContent() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!isOnline) {
+      setErr('You are offline. Reconnect to sign in.')
+      return
+    }
     setBusy(true)
     setErr(undefined)
     

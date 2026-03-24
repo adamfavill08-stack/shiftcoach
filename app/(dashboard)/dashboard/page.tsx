@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslation } from '@/components/providers/language-provider'
 import { supabase } from '@/lib/supabase'
 import { useShiftRhythm } from '@/lib/hooks/useShiftRhythm'
+import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus'
 import { DashboardPager } from '@/components/dashboard/DashboardPager'
 import DashboardHeader from '@/components/dashboard/DashboardHeader'
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
@@ -29,6 +30,8 @@ function DashboardContent() {
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [googleFitMessage, setGoogleFitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [isUsingCachedData, setIsUsingCachedData] = useState(false)
+  const { isOnline } = useNetworkStatus()
 
   const [circadian, setCircadian] = useState<CircadianOutput | null>(null)
   const [socialJetlag, setSocialJetlag] = useState<any>(null)
@@ -94,6 +97,8 @@ function DashboardContent() {
       }
       const json = await res.json()
       setCircadian(json.circadian ?? null)
+      cacheDashboardState({ circadian: json.circadian ?? null })
+      setIsUsingCachedData(false)
     } catch (err: any) {
       // Network errors are expected when DB is unreachable
       if (err?.message?.includes('fetch') || err?.message?.includes('network')) {
@@ -102,10 +107,46 @@ function DashboardContent() {
         console.error('[dashboard] circadian fetch error', err)
       }
       setCircadian(null)
+      if (!isOnline) {
+        loadCachedDashboardState()
+      }
     }
-  }, [])
+  }, [cacheDashboardState, isOnline, loadCachedDashboardState])
 
   const [bingeRisk, setBingeRisk] = useState<any>(null)
+
+  const cacheDashboardState = useCallback(
+    (partial: { circadian?: CircadianOutput | null; socialJetlag?: any; shiftLag?: any; bingeRisk?: any }) => {
+      if (typeof window === 'undefined') return
+      const snapshot = {
+        circadian,
+        socialJetlag,
+        shiftLag,
+        bingeRisk,
+        ...partial,
+        cachedAt: new Date().toISOString(),
+      }
+      window.localStorage.setItem('dashboard:lastKnownState', JSON.stringify(snapshot))
+    },
+    [circadian, socialJetlag, shiftLag, bingeRisk],
+  )
+
+  const loadCachedDashboardState = useCallback(() => {
+    if (typeof window === 'undefined') return false
+    const raw = window.localStorage.getItem('dashboard:lastKnownState')
+    if (!raw) return false
+    try {
+      const cached = JSON.parse(raw)
+      setCircadian(cached.circadian ?? null)
+      setSocialJetlag(cached.socialJetlag ?? null)
+      setShiftLag(cached.shiftLag ?? null)
+      setBingeRisk(cached.bingeRisk ?? null)
+      setIsUsingCachedData(true)
+      return true
+    } catch {
+      return false
+    }
+  }, [])
 
   const fetchShiftRhythm = useCallback(async () => {
     try {
@@ -122,12 +163,17 @@ function DashboardContent() {
       setSocialJetlag(json.socialJetlag ?? null)
       const bingeRiskValue = json.bingeRisk ?? null
       setBingeRisk(bingeRiskValue)
+      cacheDashboardState({ socialJetlag: json.socialJetlag ?? null, bingeRisk: bingeRiskValue })
+      setIsUsingCachedData(false)
     } catch (err: any) {
       console.error('[dashboard] shift-rhythm fetch error', err)
       setSocialJetlag(null)
       setBingeRisk(null)
+      if (!isOnline) {
+        loadCachedDashboardState()
+      }
     }
-  }, [])
+  }, [cacheDashboardState, isOnline, loadCachedDashboardState])
 
   const fetchShiftLag = useCallback(async () => {
     try {
@@ -146,11 +192,16 @@ function DashboardContent() {
         return
       }
       setShiftLag(json)
+      cacheDashboardState({ shiftLag: json })
+      setIsUsingCachedData(false)
     } catch (err: any) {
       console.error('[dashboard] shiftlag fetch error', err)
       setShiftLag(null)
+      if (!isOnline) {
+        loadCachedDashboardState()
+      }
     }
-  }, [])
+  }, [cacheDashboardState, isOnline, loadCachedDashboardState])
 
   // Show Google Fit callback result and clear URL
   useEffect(() => {
@@ -169,6 +220,9 @@ function DashboardContent() {
   }, [searchParams, router])
 
   useEffect(() => {
+    if (!isOnline) {
+      loadCachedDashboardState()
+    }
     ;(async () => {
       const uid = await loadUser()
       if (!uid) return
@@ -180,7 +234,7 @@ function DashboardContent() {
       void fetchShiftRhythm()
       void fetchShiftLag()
     })()
-  }, [loadUser, fetchSleep, fetchCircadian, fetchShiftRhythm, fetchShiftLag])
+  }, [isOnline, loadCachedDashboardState, loadUser, fetchSleep, fetchCircadian, fetchShiftRhythm, fetchShiftLag])
 
   // Load activity summary after the main dashboard data so first paint is faster
   useEffect(() => {
@@ -309,6 +363,16 @@ function DashboardContent() {
             >
               Dismiss
             </button>
+          </div>
+        )}
+        {!isOnline && (
+          <div className="mx-4 mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status" aria-live="polite">
+            You are offline. Showing last available dashboard data where possible.
+          </div>
+        )}
+        {isUsingCachedData && (
+          <div className="mx-4 mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700" role="status" aria-live="polite">
+            Displaying cached guidance until connection is restored.
           </div>
         )}
         <main className="min-h-screen pb-6 bg-white">

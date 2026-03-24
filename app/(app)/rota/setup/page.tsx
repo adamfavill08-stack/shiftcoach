@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Clock, ChevronDown, Sun, Moon, X, Sparkles, Calendar, Check, Car, Trash2 } from 'lucide-react'
 import { getPatternsByLength, type ShiftLength } from '@/lib/rota/comprehensivePatterns'
 import { getPatternSlots } from '@/lib/rota/patternSlots'
+import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus'
 
 type ShiftType = 'off' | 'day' | 'night'
 
@@ -15,6 +16,7 @@ type DetailTab = 'times' | 'commute' | 'today'
 
 export default function RotaSetup() {
   const router = useRouter()
+  const { isOnline } = useNetworkStatus()
   const today = useMemo(() => new Date(), [])
   const [cursorDate, setCursorDate] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1))
   const [currentStep, setCurrentStep] = useState<SetupStep>(1)
@@ -481,6 +483,10 @@ export default function RotaSetup() {
       setShowClearConfirm(true)
       return
     }
+    if (!isOnline) {
+      alert('You are offline. Reconnect to clear your rota.')
+      return
+    }
 
     setClearing(true)
     try {
@@ -543,6 +549,10 @@ export default function RotaSetup() {
   const handleSavePattern = async () => {
     if (!selectedPattern || !selectedShiftHours || selectedTodayPosition === null) {
       alert('Please complete all steps: select pattern, configure times, and select your position today')
+      return
+    }
+    if (!isOnline) {
+      alert('You are offline. Pattern save/apply needs a connection. Your current selections remain on screen.')
       return
     }
 
@@ -638,6 +648,10 @@ export default function RotaSetup() {
   const handleRetryApply = async () => {
     if (!lastApplyPayload) {
       alert('No saved apply request found. Please save pattern again.')
+      return
+    }
+    if (!isOnline) {
+      alert('You are offline. Reconnect to retry applying your pattern.')
       return
     }
 
@@ -906,6 +920,14 @@ export default function RotaSetup() {
     <>
     <div className="min-h-screen bg-gradient-to-b from-white via-sky-50/40 to-white">
       <div className="mx-auto max-w-md px-4 py-6">
+          {!isOnline && (
+            <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3" role="status" aria-live="polite">
+              <p className="text-xs font-semibold text-amber-900">Offline mode</p>
+              <p className="mt-1 text-xs text-amber-800">
+                You can still edit settings locally, but save/apply actions will require reconnecting.
+              </p>
+            </div>
+          )}
           <div className="sr-only" aria-live="polite" role="status">
             {saving ? 'Saving shift pattern changes' : ''}
           </div>
