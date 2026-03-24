@@ -3,7 +3,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 // Development config - points to localhost
 const config: CapacitorConfig = {
   appId: 'com.shiftcoach.app',
-  appName: 'shiftcoach-app',
+  appName: 'shiftcoach',
   webDir: 'public',
   server: {
     // Point to local dev server (must be running on port 3000)

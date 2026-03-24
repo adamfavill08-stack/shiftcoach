@@ -12,7 +12,7 @@ const serverUrl =
 
 const config: CapacitorConfig = {
   appId: 'com.shiftcoach.app',
-  appName: 'shiftcoach-app',
+  appName: 'shiftcoach',
   webDir: 'public',
   server: {
     // In dev, point WebView at the local Next dev server.
