@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiServerError } from '@/lib/api/response'
+
+const WearablesSyncSchema = z.object({
+  provider: z.enum(['health_connect', 'apple_health']).optional(),
+})
 
 /**
  * POST /api/wearables/sync
@@ -13,8 +20,9 @@ export async function POST(req: NextRequest) {
     const { userId } = await getServerSupabaseAndUserId()
     if (!userId) return buildUnauthorizedResponse()
 
-    const body = await req.json().catch(() => ({} as any))
-    const requestedProvider = typeof body?.provider === 'string' ? String(body.provider) : null
+    const parsed = await parseJsonBody(req, WearablesSyncSchema)
+    if (!parsed.ok) return parsed.response
+    const requestedProvider = parsed.data.provider ?? null
 
     const { supabaseServer } = await import('@/lib/supabase-server')
     const supabase = supabaseServer
@@ -61,10 +69,7 @@ export async function POST(req: NextRequest) {
       message: err?.message,
       stack: err?.stack,
     })
-    return NextResponse.json(
-      { lastSyncedAt: null, error: 'unexpected' },
-      { status: 500 }
-    )
+    return apiServerError('unexpected_error', 'Unexpected error')
   }
 }
 

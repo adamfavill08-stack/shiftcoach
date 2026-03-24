@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiBadRequest, apiServerError } from '@/lib/api/response'
+
+const PlanSchema = z.object({
+  plan: z.enum(['monthly', 'yearly', 'tester']),
+  promoCode: z.string().trim().optional(),
+})
 
 /**
  * POST /api/profile/plan
@@ -13,24 +21,14 @@ export async function POST(req: NextRequest) {
     if (!userId) return buildUnauthorizedResponse()
 
 
-    const body = await req.json()
-    const { plan, promoCode } = body
-
-    // Allow 'tester' plan if promo code is provided
-    if (!plan || (plan !== 'monthly' && plan !== 'yearly' && plan !== 'tester')) {
-      return NextResponse.json(
-        { error: 'Invalid plan. Must be "monthly", "yearly", or "tester"' },
-        { status: 400 }
-      )
-    }
+    const parsed = await parseJsonBody(req, PlanSchema)
+    if (!parsed.ok) return parsed.response
+    const { plan, promoCode } = parsed.data
 
     // If tester plan, validate promo code
     if (plan === 'tester') {
       if (!promoCode) {
-        return NextResponse.json(
-          { error: 'Promo code required for tester plan' },
-          { status: 400 }
-        )
+        return apiBadRequest('promo_code_required', 'Promo code required for tester plan')
       }
 
       const normalizedCode = promoCode.trim().toUpperCase()
@@ -44,26 +42,17 @@ export async function POST(req: NextRequest) {
         .single()
 
       if (fetchError || !promoCodeData) {
-        return NextResponse.json(
-          { error: 'Invalid promo code' },
-          { status: 400 }
-        )
+        return apiBadRequest('invalid_promo_code', 'Invalid promo code')
       }
 
       // Check if code has expired
       if (promoCodeData.expires_at && new Date(promoCodeData.expires_at) < new Date()) {
-        return NextResponse.json(
-          { error: 'This promo code has expired' },
-          { status: 400 }
-        )
+        return apiBadRequest('promo_code_expired', 'This promo code has expired')
       }
 
       // Check if code has reached max uses
       if (promoCodeData.max_uses !== null && promoCodeData.current_uses >= promoCodeData.max_uses) {
-        return NextResponse.json(
-          { error: 'This promo code has already been used' },
-          { status: 400 }
-        )
+        return apiBadRequest('promo_code_exhausted', 'This promo code has already been used')
       }
 
       // Check if user has already used this code
@@ -75,10 +64,7 @@ export async function POST(req: NextRequest) {
         .single()
 
       if (existingUsage) {
-        return NextResponse.json(
-          { error: 'You have already used this promo code' },
-          { status: 400 }
-        )
+        return apiBadRequest('promo_code_already_used', 'You have already used this promo code')
       }
 
       // Record code usage
@@ -114,10 +100,7 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error('[api/profile/plan] Error updating plan:', error)
-      return NextResponse.json(
-        { error: error.message || 'Failed to save plan' },
-        { status: 500 }
-      )
+      return apiServerError('update_plan_failed', error.message || 'Failed to save plan')
     }
 
     return NextResponse.json({ 
@@ -126,10 +109,7 @@ export async function POST(req: NextRequest) {
     })
   } catch (error: any) {
     console.error('[api/profile/plan] Unexpected error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 }
-    )
+    return apiServerError('unexpected_error', error.message || 'Internal server error')
   }
 }
 

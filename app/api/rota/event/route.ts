@@ -2,8 +2,28 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { logSupabaseError } from '@/lib/supabase/error-handler'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiServerError } from '@/lib/api/response'
 
 export const dynamic = 'force-dynamic'
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+  Pragma: 'no-cache',
+  Expires: '0',
+}
+
+const RotaEventCreateSchema = z.object({
+  title: z.string().min(1),
+  startDate: z.string().min(1),
+  endDate: z.string().optional(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  allDay: z.boolean().optional(),
+  eventType: z.string().optional(),
+  color: z.string().optional(),
+  description: z.string().optional(),
+})
 
 // GET ?month=11&year=2025 -> list events for month
 export async function GET(req: NextRequest) {
@@ -55,7 +75,7 @@ export async function GET(req: NextRequest) {
     } catch (timeoutError: any) {
       if (timeoutError?.message === 'Query timeout') {
         console.warn('[api/rota/event] Query timeout, returning empty events')
-        return NextResponse.json({ events: [] }, { status: 200 })
+        return NextResponse.json({ events: [] }, { status: 200, headers: NO_STORE_HEADERS })
       }
       throw timeoutError
     }
@@ -66,13 +86,13 @@ export async function GET(req: NextRequest) {
       // Check if it's a table not found error (non-fatal)
       if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
         console.warn('[api/rota/event] rota_events table not found, returning empty events')
-        return NextResponse.json({ events: [] }, { status: 200 })
+        return NextResponse.json({ events: [] }, { status: 200, headers: NO_STORE_HEADERS })
       }
       logSupabaseError('api/rota/event', error, { level: 'warn' })
-      return NextResponse.json({ events: [] }, { status: 200 }) // don't break UI
+      return NextResponse.json({ events: [] }, { status: 200, headers: NO_STORE_HEADERS }) // don't break UI
     }
 
-    return NextResponse.json({ events: data ?? [] })
+    return NextResponse.json({ events: data ?? [] }, { headers: NO_STORE_HEADERS })
   } catch (e: any) {
     // Handle any unexpected errors gracefully
     console.error('[api/rota/event] fatal GET', {
@@ -80,7 +100,7 @@ export async function GET(req: NextRequest) {
       message: e?.message,
       stack: e?.stack?.slice(0, 500), // Limit stack trace length
     })
-    return NextResponse.json({ events: [] }, { status: 200 })
+    return NextResponse.json({ events: [] }, { status: 200, headers: NO_STORE_HEADERS })
   }
 }
 
@@ -93,7 +113,9 @@ export async function POST(req: NextRequest) {
     // Use service role client (bypasses RLS) when in dev fallback mode
     const supabase = isDevFallback ? supabaseServer : authSupabase
     
-    const body = await req.json()
+    const parsed = await parseJsonBody(req, RotaEventCreateSchema)
+    if (!parsed.ok) return parsed.response
+    const body = parsed.data
 
     console.log('[api/rota/event] incoming body', body)
 
@@ -242,14 +264,7 @@ export async function POST(req: NextRequest) {
         hint: error.hint,
         fullError: error,
       })
-      return NextResponse.json(
-        { 
-          error: 'insert_failed',
-          detail: error.message ?? String(error),
-          code: error.code,
-        },
-        { status: 500 }
-      )
+      return apiServerError('rota_event_insert_failed', error.message ?? 'Insert failed')
     }
 
     console.log('[api/rota/event] saved', data?.length || 0, 'event(s)')
@@ -262,11 +277,8 @@ export async function POST(req: NextRequest) {
       fullError: e,
     })
     return NextResponse.json(
-      { 
-        error: 'fatal',
-        detail: e?.message || String(e),
-      },
-      { status: 500 }
+      { ok: false, error: e?.message || 'Fatal error', code: 'internal_error' },
+      { status: 500 },
     )
   }
 }
@@ -301,11 +313,8 @@ export async function DELETE(req: NextRequest) {
     if (error) {
       console.error('[api/rota/event] delete error', error)
       return NextResponse.json(
-        { 
-          error: 'delete_failed',
-          detail: error.message ?? String(error),
-        },
-        { status: 500 }
+        { ok: false, error: error.message ?? 'Delete failed', code: 'rota_event_delete_failed' },
+        { status: 500 },
       )
     }
     
@@ -319,11 +328,8 @@ export async function DELETE(req: NextRequest) {
       fullError: e,
     })
     return NextResponse.json(
-      { 
-        error: 'fatal',
-        detail: e?.message || String(e),
-      },
-      { status: 500 }
+      { ok: false, error: e?.message || 'Fatal error', code: 'internal_error' },
+      { status: 500 },
     )
   }
 }

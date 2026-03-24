@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiServerError } from '@/lib/api/response'
+
+const FeedbackSchema = z.object({
+  subject: z.string().trim().min(1).max(200),
+  message: z.string().trim().min(1).max(5000),
+  userEmail: z.string().trim().email().optional(),
+})
 
 /**
  * POST /api/feedback
@@ -12,15 +21,9 @@ export async function POST(req: NextRequest) {
     if (!userId) return buildUnauthorizedResponse()
 
 
-    const body = await req.json()
-    const { subject, message, userEmail } = body
-
-    if (!subject || !message) {
-      return NextResponse.json(
-        { error: 'Subject and message are required' },
-        { status: 400 }
-      )
-    }
+    const parsed = await parseJsonBody(req, FeedbackSchema)
+    if (!parsed.ok) return parsed.response
+    const { subject, message, userEmail } = parsed.data
 
     const emailContent = `
 New Tester Feedback from ShiftCoach
@@ -69,7 +72,7 @@ This feedback was submitted from the ShiftCoach app.
         
         // Only add replyTo if we have a valid email
         if (isValidEmail(userEmail)) {
-          emailOptions.replyTo = userEmail.trim()
+          emailOptions.replyTo = (userEmail ?? '').trim()
         }
         
         console.log('[api/feedback] Sending email with options:', {
@@ -84,7 +87,7 @@ This feedback was submitted from the ShiftCoach app.
         if (error) {
           console.error('[api/feedback] Resend error:', error)
           return NextResponse.json(
-            { error: `Failed to send email: ${error.message || JSON.stringify(error)}` },
+            { ok: false, error: `Failed to send email: ${error.message || JSON.stringify(error)}`, code: 'email_send_failed' },
             { status: 500 }
           )
         }
@@ -134,10 +137,7 @@ This feedback was submitted from the ShiftCoach app.
     // If no email service is configured, return an error
     if (!resendApiKey && !emailWebhookUrl) {
       console.error('[api/feedback] No email service configured. RESEND_API_KEY is required.')
-      return NextResponse.json(
-        { error: 'Email service not configured. Please contact support.' },
-        { status: 500 }
-      )
+      return apiServerError('email_service_not_configured', 'Email service not configured. Please contact support.')
     }
 
     return NextResponse.json({
@@ -146,10 +146,7 @@ This feedback was submitted from the ShiftCoach app.
     })
   } catch (error: any) {
     console.error('[api/feedback] Unexpected error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 }
-    )
+    return apiServerError('unexpected_error', error.message || 'Internal server error')
   }
 }
 

@@ -40,7 +40,7 @@
 
 ### 4. Payment System (Already Completed) ✅
 
-- Removed Stripe web checkout
+- Removed legacy web checkout
 - Native in-app purchases only (RevenueCat)
 - Mobile-optimized payment flow
 
@@ -84,7 +84,7 @@
 ### Code Quality ✅
 - [x] API caching implemented
 - [x] Mobile-optimized builds
-- [x] Web-only code removed (Stripe)
+- [x] Web-only payment code removed
 - [x] Bundle size optimized
 
 ---

@@ -39,6 +39,11 @@ type TodayNutrition = {
     water_ml: number
     caffeine_mg: number
   }
+  dataQuality?: {
+    caloriesModel?: string
+    consumedMacrosSource?: string
+    hydrationSource?: string
+  }
 }
 
 export function useTodayNutrition() {

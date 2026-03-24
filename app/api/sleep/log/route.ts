@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiBadRequest, apiServerError } from '@/lib/api/response'
+
+const SleepLogSchema = z.object({
+  type: z.enum(['sleep', 'nap']),
+  startAt: z.string(),
+  endAt: z.string(),
+  quality: z.string().optional(),
+  notes: z.string().max(4000).optional(),
+})
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,39 +24,20 @@ export async function POST(req: NextRequest) {
     if (!userId) return buildUnauthorizedResponse()
 
 
-    const body = await req.json()
-    console.log("[api/sleep/log] Received body:", body)
-    
-    const { type, startAt, endAt, quality, notes } = body as {
-      type: "sleep"|"nap"; startAt: string; endAt: string; quality: string; notes?: string
-    }
-
-    if (!type || !startAt || !endAt) {
-      console.error("[api/sleep/log] Missing required fields:", { type, startAt, endAt })
-      return NextResponse.json({ 
-        error: "Missing required fields", 
-        details: `Missing: ${!type ? 'type' : ''} ${!startAt ? 'startAt' : ''} ${!endAt ? 'endAt' : ''}`.trim()
-      }, { status: 400 })
-    }
+    const parsed = await parseJsonBody(req, SleepLogSchema)
+    if (!parsed.ok) return parsed.response
+    const { type, startAt, endAt, quality, notes } = parsed.data
 
     // Validate date strings
     const startDate = new Date(startAt)
     const endDate = new Date(endAt)
     
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-      console.error("[api/sleep/log] Invalid date format:", { startAt, endAt })
-      return NextResponse.json({ 
-        error: "Invalid date format", 
-        details: "startAt and endAt must be valid ISO date strings" 
-      }, { status: 400 })
+      return apiBadRequest('invalid_date_format', 'startAt and endAt must be valid ISO date strings')
     }
 
     if (endDate <= startDate) {
-      console.error("[api/sleep/log] End date must be after start date:", { startAt, endAt })
-      return NextResponse.json({ 
-        error: "Invalid date range", 
-        details: "End time must be after start time" 
-      }, { status: 400 })
+      return apiBadRequest('invalid_date_range', 'End time must be after start time')
     }
 
     // Extract date from start time (YYYY-MM-DD)
@@ -103,23 +95,13 @@ export async function POST(req: NextRequest) {
         details: error.details,
         fullError: JSON.stringify(error, null, 2)
       })
-      return NextResponse.json({ 
-        error: "Database error", 
-        details: error.message || "Unknown database error",
-        code: error.code,
-        hint: error.hint,
-        fullDetails: error.details
-      }, { status: 500 })
+      return apiServerError('sleep_log_insert_failed', error.message || 'Database error')
     }
 
     console.log("[api/sleep/log] Successfully inserted:", data)
     return NextResponse.json({ ok: true, data })
   } catch (e: any) {
     console.error("[api/sleep/log] fatal error", e)
-    return NextResponse.json({ 
-      error: "Failed to save", 
-      details: e?.message || "Unknown error",
-      stack: process.env.NODE_ENV === 'development' ? e?.stack : undefined
-    }, { status: 500 })
+    return apiServerError('sleep_log_fatal', e?.message || 'Failed to save')
   }
 }

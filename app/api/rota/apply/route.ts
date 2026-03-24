@@ -3,8 +3,20 @@ import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/sup
 import { supabaseServer } from '@/lib/supabase-server'
 import { getPatternSlots } from '@/lib/rota/patternSlots'
 import { inferShiftPattern } from '@/lib/rota/inferShiftPattern'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiServerError } from '@/lib/api/response'
 
 export const dynamic = 'force-dynamic'
+
+const RotaApplySchema = z.object({
+  patternId: z.string().min(1),
+  startDate: z.string().min(1),
+  startCycleIndex: z.number().int().min(0).optional(),
+  shiftTimes: z.record(z.string(), z.object({ start: z.string().optional(), end: z.string().optional() })).optional(),
+  commute: z.unknown().optional(),
+  endDate: z.string().optional(),
+})
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,12 +25,8 @@ export async function POST(req: NextRequest) {
 
     const supabase = isDevFallback ? supabaseServer : authSupabase
 
-    const body = await req.json().catch(() => null)
-
-    if (!body) {
-      return NextResponse.json({ error: 'Missing request body' }, { status: 400 })
-    }
-
+    const parsed = await parseJsonBody(req, RotaApplySchema)
+    if (!parsed.ok) return parsed.response
     const {
       patternId,
       startDate,
@@ -26,14 +34,7 @@ export async function POST(req: NextRequest) {
       shiftTimes,
       commute,
       endDate,
-    } = body
-
-    if (!patternId || !startDate || startCycleIndex === undefined) {
-      return NextResponse.json(
-        { error: 'Missing required fields: patternId, startDate, startCycleIndex' },
-        { status: 400 }
-      )
-    }
+    } = parsed.data
 
     // Get pattern slots
     const patternSlots = getPatternSlots(patternId)
@@ -202,10 +203,7 @@ export async function POST(req: NextRequest) {
 
     if (deleteError) {
       console.error('[api/rota/apply] delete error', deleteError)
-      return NextResponse.json(
-        { error: 'Failed to clear existing shifts', detail: deleteError.message },
-        { status: 500 }
-      )
+      return apiServerError('clear_existing_shifts_failed', deleteError.message)
     }
 
     // Insert new shifts (no need for upsert since we deleted first)
@@ -230,10 +228,7 @@ export async function POST(req: NextRequest) {
 
         if (insertError) {
           console.error('[api/rota/apply] insert error', insertError)
-          return NextResponse.json(
-            { error: 'Failed to save shifts', detail: insertError.message },
-            { status: 500 }
-          )
+          return apiServerError('save_shifts_failed', insertError.message)
         }
         totalInserted += batch.length
       }
@@ -289,10 +284,7 @@ export async function POST(req: NextRequest) {
     }, { status: 200 })
   } catch (err: any) {
     console.error('[api/rota/apply] fatal error', err)
-    return NextResponse.json(
-      { error: 'Unexpected server error', detail: err?.message || String(err) },
-      { status: 500 }
-    )
+    return apiServerError('unexpected_error', err?.message || 'Unexpected server error')
   }
 }
 

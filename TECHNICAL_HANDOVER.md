@@ -1,6 +1,6 @@
 # ShiftCoach Technical Handover
 
-Last updated: 2026-03-21  
+Last updated: 2026-03-24 (release readiness pass + native build hardening)  
 Repo root: `c:/dev/shiftcoach`
 
 ---
@@ -100,7 +100,7 @@ c:/dev/shiftcoach
 │  ├─ terms-of-service/page.tsx
 │  ├─ shift-lag/page.tsx
 │  ├─ test/page.tsx
-│  ├─ api/**/route.ts (92 endpoints)
+│  ├─ api/**/route.ts
 │  ├─ layout.tsx
 │  ├─ page.tsx
 │  ├─ globals.css
@@ -135,7 +135,7 @@ c:/dev/shiftcoach
 │  ├─ notifications/**/*.ts
 │  └─ helpers/calendar/**/*.ts
 ├─ supabase/
-│  └─ migrations/*.sql (43 files)
+│  └─ migrations/*.sql
 ├─ android/
 │  ├─ app/ (Capacitor phone shell + Wear bridge)
 │  ├─ wear/ (Wear OS app module)
@@ -332,7 +332,7 @@ Result: user-scoped API routes now explicitly reject missing session with `401`.
 
 ## 8) API Endpoints
 
-All endpoints are under `app/api/**/route.ts` (92 route files).  
+All endpoints are under `app/api/**/route.ts`.  
 Grouped inventory:
 
 ### Account
@@ -389,8 +389,6 @@ Grouped inventory:
 - `/api/profile/plan`
 
 ### Payments/subscriptions
-- `/api/payment/create-checkout`
-- `/api/payment/verify`
 - `/api/subscription/cancel`
 - `/api/revenuecat/cancel`
 - `/api/revenuecat/status`
@@ -463,7 +461,7 @@ These routes now reject missing user session with `{ error: 'Unauthorized' }`:
 - Circadian/coach: `/api/circadian/calculate`, `/api/coach`, `/api/coach/check-red`, `/api/coach/daily-greeting`, `/api/coach/state`, `/api/coach/tip`
 - Data/logs/nutrition: `/api/data/export`, `/api/engine/today`, `/api/feedback`, `/api/logs/caffeine`, `/api/logs/mood`, `/api/logs/water`, `/api/nutrition/today`, `/api/meal-timing/today`
 - Deprecated Google Fit routes (return deprecation behavior): `/api/google-fit/*`
-- Payments/profile/revenue: `/api/payment/create-checkout`, `/api/payment/verify`, `/api/profile`, `/api/profile/avatar`, `/api/profile/check-age-column`, `/api/profile/debug`, `/api/profile/plan`, `/api/revenuecat/cancel`, `/api/revenuecat/status`, `/api/revenuecat/validate-receipt`
+- Payments/profile/revenue: `/api/profile`, `/api/profile/avatar`, `/api/profile/check-age-column`, `/api/profile/debug`, `/api/profile/plan`, `/api/revenuecat/cancel`, `/api/revenuecat/status`, `/api/revenuecat/validate-receipt`
 - Rota/shift: `/api/rota/apply`, `/api/rota/clear`, `/api/rota/event`, `/api/rota/month`, `/api/rota/pattern`, `/api/rota/week`, `/api/shifts`, `/api/shift-rhythm`, `/api/shiftlag`
 - Sleep: `/api/sleep/24h-grouped`, `/api/sleep/7days`, `/api/sleep/consistency`, `/api/sleep/deficit`, `/api/sleep/history`, `/api/sleep/last7`, `/api/sleep/log`, `/api/sleep/log/[id]`, `/api/sleep/log/delete-by-date`, `/api/sleep/metrics-suggestions`, `/api/sleep/month`, `/api/sleep/overview`, `/api/sleep/predict-stages`, `/api/sleep/recent`, `/api/sleep/sessions/by-date`, `/api/sleep/sessions/[id]`, `/api/sleep/social-jetlag-suggestions`, `/api/sleep/summary`, `/api/sleep/today`, `/api/sleep/tonight-target`
 - Other user routes: `/api/subscription/cancel`, `/api/summary/week`, `/api/sync/status`, `/api/today`, `/api/wearables/sync`, `/api/wearables/status`, `/api/wearables/debug`, `/api/weekly-goals/latest`, `/api/weekly-summary/latest`
@@ -486,7 +484,7 @@ These routes now reject missing user session with `{ error: 'Unauthorized' }`:
 - Service role backend: `lib/supabase-server.ts`
 - Server auth resolver: `lib/supabase/server.ts`
 
-### Health Connect + legacy Google Fit
+### Health Connect + Google Fit deprecation stubs
 - Android primary ingestion: `app/api/health-connect/sync/route.ts`
 - Provider-agnostic wearable heart rate: `app/api/wearables/heart-rate/route.ts`
 - Wearables sync/status now provider-aware: `app/api/wearables/sync/route.ts`, `app/api/wearables/status/route.ts`
@@ -495,10 +493,7 @@ These routes now reject missing user session with `{ error: 'Unauthorized' }`:
 ### Apple Health
 - Ingestion endpoint: `app/api/apple-health/sync/route.ts`
 
-### Stripe
-- Checkout + verification routes: `app/api/payment/create-checkout/route.ts`, `app/api/payment/verify/route.ts`
-
-### RevenueCat
+### RevenueCat (App Store + Play Store)
 - Webhook/status/receipt handling in `app/api/revenuecat/*`
 
 ### OpenAI
@@ -529,15 +524,13 @@ Defined/consumed across `next.config.ts`, `lib/**`, and `app/api/**`.
 ### Revenue/subscription
 - `REVENUECAT_API_KEY`
 - `REVENUECAT_WEBHOOK_SECRET`
-- `STRIPE_SECRET_KEY`
-- `STRIPE_PRICE_ID_MONTHLY`
-- `STRIPE_PRICE_ID_YEARLY`
 
-### Legacy Google Fit (no longer used for active Android flow)
+### Google Fit legacy env vars (cleanup-only; not used by active ingestion)
 - `GOOGLE_FIT_CLIENT_ID`
 - `GOOGLE_FIT_CLIENT_SECRET`
 - `GOOGLE_FIT_REDIRECT_URI`
 - `GOOGLE_FIT_REDIRECT_URI_LOCAL`
+These remain only for controlled decommission cleanup and can be removed from deployment secrets after all environments complete token-table decommission rollout.
 
 ### Cron/security
 - `CRON_SECRET`
@@ -574,6 +567,124 @@ Representative known unfinished or placeholder areas:
   - `lib/purchases/native-purchases.ts`
 
 Also review `docs/GOLDEN_PATH_MOBILE.md` for the latest mobile/wear integration notes and caveats.
+
+---
+
+## 11.1) Payment Architecture (Final State)
+
+This repository is now mobile-store subscription only:
+
+- Billing and subscription validation use RevenueCat endpoints in `app/api/revenuecat/*`.
+- Subscription cancellation UX is store-native:
+  - iOS users cancel in App Store subscriptions.
+  - Android users cancel in Google Play subscriptions.
+- Legacy Stripe/web checkout runtime paths were removed:
+  - deleted: `app/api/payment/create-checkout/route.ts`
+  - deleted: `app/api/payment/verify/route.ts`
+  - removed dependency: `stripe` from `package.json`
+- App runtime no longer relies on Stripe env vars.
+
+Operational note:
+- `app/api/revenuecat/validate-receipt/route.ts` now accepts both iOS and Android receipt validation paths.
+
+---
+
+## 11.2) Production Surface Hardening (Implemented)
+
+To reduce accidental exposure of debug/test surfaces in production:
+
+- Middleware-level path blocking is implemented in `proxy.ts`.
+- Route-level production guards are implemented in:
+  - `app/api/test-openai/route.ts`
+  - `app/api/profile/debug/route.ts`
+  - `app/api/wearables/debug/route.ts`
+- Related debug pages are blocked in production:
+  - `app/test/page.tsx`
+  - `app/(app)/wearables-debug/page.tsx`
+
+---
+
+## 11.3) Account/Data Deletion Compliance (Implemented)
+
+Deletion and compliance paths are live and documented:
+
+- In-app signed-in deletion:
+  - `app/account/delete/page.tsx`
+  - `app/api/account/delete/route.ts`
+- Public deletion request flow:
+  - `app/account/delete-request/page.tsx`
+  - `app/api/account/delete-request/route.ts`
+- DB support:
+  - `supabase/migrations/20260321_account_deletion_compliance.sql`
+  - includes `public.account_deletion_requests`
+  - includes `public.delete_user_account_data(uuid)` RPC
+
+---
+
+## 11.4) Documentation Consolidation Notes
+
+During launch hardening, legacy or superseded root docs were removed to prevent conflicting guidance:
+
+- removed `STRIPE_SETUP_GUIDE.md`
+- removed `SUBSCRIPTION_PAYMENT_EXPLANATION.md`
+- removed `STORE_READINESS_ACTION_PLAN.md`
+- removed `REVENUECAT_INTEGRATION_PLAN.md`
+- removed `COMPREHENSIVE_TECHNICAL_DOCUMENTATION.md`
+
+Primary handover source of truth is this file plus:
+- `docs/GOLDEN_PATH_MOBILE.md`
+- `docs/GOOGLE_FIT_DECOMMISSION_CHECKLIST.md`
+- `docs/PLAY_HEALTH_COMPLIANCE_CHECKLIST.md`
+
+---
+
+## 11.5) API Hardening Status (Final JSON Validation Closure)
+
+Route hardening baseline is now established and the previously identified final JSON validation queue is closed:
+
+- Shared baseline utilities are in active use:
+  - `lib/api/validation.ts` (`parseJsonBody`)
+  - `lib/api/response.ts` (standardized error helpers)
+  - `lib/api/auth.ts` (shared auth parsing helper)
+- The final 6 direct JSON handlers from the route-audit queue were converted to `zod` + `parseJsonBody`:
+  - `app/api/sleep/sessions/[id]/route.ts`
+  - `app/api/rota/pattern/route.ts`
+  - `app/api/sleep/social-jetlag-suggestions/route.ts`
+  - `app/api/sleep/predict-stages/route.ts`
+  - `app/api/sleep/metrics-suggestions/route.ts`
+  - `app/api/sleep/predict/route.ts`
+- Validation coverage from the tracked route-audit pass is now `27` hardened routes, and the previously tracked "last 6" gap is complete (`0` remaining in that queue).
+
+Reference:
+- `docs/ROUTE_AUDIT_FINAL_SWEEP_2026-03-21.md`
+
+---
+
+## 11.6) Native Release Readiness (Android + Wear)
+
+Pre-submission native sanity checks were run to validate current release posture:
+
+- SDK targets verified from Gradle config:
+  - `android/variables.gradle` uses `compileSdkVersion = 35`, `targetSdkVersion = 35`
+  - Applies to both `android/app` and `android/wear` modules (meets current Play/Wear targets)
+- Web gates were re-verified as green:
+  - `npm run lint` passed
+  - `npm run build` passed
+- Native build blocker fixes applied:
+  - Removed duplicate launcher resources (`.png` duplicates alongside `.webp`) in:
+    - `android/app/src/main/res/mipmap-*/ic_launcher*.png`
+    - `android/wear/src/main/res/mipmap-*/ic_launcher*.png`
+  - Fixed Java override visibility in `android/app/src/main/java/com/shiftcoach/app/MainActivity.java`:
+    - `onStart()` changed to `public`
+    - `onStop()` changed to `public`
+- Build status after fixes:
+  - `:app:assembleDebug` passed
+  - `:wear:assembleDebug` passed
+  - `:wear:bundleRelease` passed (artifact generated: `android/wear/build/outputs/bundle/release/wear-release.aab`)
+  - `:app:assembleRelease` / `:app:bundleRelease` currently blocked by missing release keystore file at configured path from `android/keystore.properties`
+
+Operational note:
+- To complete signed app release artifacts, place the configured keystore file in `android/app/` (or update `MYAPP_RELEASE_STORE_FILE` in `android/keystore.properties` to the real filename), then rerun release bundle tasks.
 
 ---
 
@@ -620,7 +731,8 @@ Also review `docs/GOLDEN_PATH_MOBILE.md` for the latest mobile/wear integration 
    Risk: session drift, inconsistent identity interpretation across routes.
 
 3. **Large API/domain surface with limited hard boundaries**  
-   Many endpoints and cross-cutting domain logic in `lib/`; harder to reason about ownership and side effects.
+   Many endpoints and cross-cutting domain logic in `lib/`; harder to reason about ownership and side effects.  
+   Note: the previously identified final JSON body-validation queue has been closed (`zod` + `parseJsonBody` rollout complete for that tracked set), reducing one major consistency risk.
 
 4. **High lint warning debt / brownfield quality drag**  
    Warnings intentionally suppressed in `eslint.config.mjs`; faster short term, but technical debt remains high.
@@ -633,11 +745,13 @@ Also review `docs/GOLDEN_PATH_MOBILE.md` for the latest mobile/wear integration 
 ## 14) Suggested Immediate Stabilization Priorities
 
 1. Reduce service-role usage in session routes; prefer session client + RLS where possible.
-2. Roll out DB cleanup migration for Google Fit token removal in all environments (`20260321_drop_google_fit_tokens.sql`).
-3. Standardize API auth strategy (cookie session vs bearer token vs cron secret) and keep this checklist current.
-4. Add API contract docs (method/auth/table touch points) generated from `app/api/**/route.ts`.
-5. Continue wearable end-to-end smoke coverage (phone<->watch ack + sync endpoints).
-6. Gradually re-enable lint rules by folder/domain with ownership.
+2. Standardize API auth strategy (cookie session vs bearer token vs cron secret) and keep this checklist current.
+3. Add API contract docs (method/auth/table touch points) generated from `app/api/**/route.ts`.
+4. Add CI guardrail: fail/flag when new JSON routes do not use shared validation baseline (`parseJsonBody` + schema).
+5. Roll out DB cleanup migration for Google Fit token removal in all environments (`20260321_drop_google_fit_tokens.sql`).
+6. Continue wearable end-to-end smoke coverage (phone<->watch ack + sync endpoints).
+7. Gradually re-enable lint rules by folder/domain with ownership.
+8. Keep RevenueCat offerings and product IDs aligned across App Store Connect and Google Play Console to avoid plan mapping drift.
 
 ---
 

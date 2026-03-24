@@ -1,19 +1,27 @@
 import { NextRequest } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiServerError } from '@/lib/api/response'
+
+const WaterLogSchema = z.object({
+  ml: z.number().positive().max(5000),
+})
 
 export async function POST(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
   if (!userId) return buildUnauthorizedResponse()
 
-  const { ml } = await req.json().catch(() => ({} as Record<string, unknown>))
-  if (!ml) return new Response(JSON.stringify({ ok: false, error: 'ml required' }), { status: 400 })
+  const parsed = await parseJsonBody(req, WaterLogSchema)
+  if (!parsed.ok) return parsed.response
+  const { ml } = parsed.data
 
   const { error: insErr } = await supabase
     .from('water_logs')
     .insert({ user_id: userId, ml })
 
   if (insErr) {
-    return new Response(JSON.stringify({ ok:false, error: insErr.message }), { status: 500 })
+    return apiServerError('db_insert_failed', insErr.message)
   }
 
   // Return today's total (UTC-safe)
@@ -27,10 +35,10 @@ export async function POST(req: NextRequest) {
     .eq('user_id', userId)
 
   if (error) {
-    return new Response(JSON.stringify({ ok:false, error: error.message }), { status: 500 })
+    return apiServerError('db_query_failed', error.message)
   }
 
   const total = (data || []).reduce((a: number, r: any) => a + r.ml, 0)
-  return Response.json({ ok: true, total })
+  return new Response(JSON.stringify({ ok: true, total }), { status: 200 })
 }
 

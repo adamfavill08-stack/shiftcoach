@@ -39,7 +39,7 @@ export default function PrivacyPolicyPage() {
                 <li>Activity and step data (from Health Connect on Android or Apple Health on iOS, if connected)</li>
                 <li>Mood and focus ratings</li>
                 <li>Nutrition preferences and goals</li>
-                <li>Payment information (processed securely through Stripe)</li>
+                <li>Subscription and purchase metadata (processed via RevenueCat and Google Play)</li>
                 <li>Messages and interactions with our AI coach</li>
               </ul>
               <p className="mt-4">
@@ -70,7 +70,7 @@ export default function PrivacyPolicyPage() {
               <p>We use the following third-party services to operate our app:</p>
               <ul className="list-disc pl-6 space-y-2">
                 <li><strong>Supabase:</strong> Database and authentication services. Your data is stored securely on Supabase&apos;s servers.</li>
-                <li><strong>Stripe:</strong> Payment processing. Payment information is handled directly by Stripe and never stored on our servers.</li>
+                <li><strong>RevenueCat + Google Play:</strong> Subscription validation and billing infrastructure. Payment instruments are handled by Google Play and are not stored on our servers.</li>
                 <li><strong>Health Connect / Apple Health:</strong> Optional health data integration. We only access data you explicitly authorize.</li>
                 <li><strong>OpenAI:</strong> AI coaching features. Your messages and context may be processed by OpenAI to provide personalized coaching.</li>
                 <li><strong>Resend:</strong> Email delivery service for notifications and account-related emails.</li>
@@ -90,8 +90,8 @@ export default function PrivacyPolicyPage() {
               </p>
               <p className="mt-2">
                 Your data is stored on secure servers provided by Supabase, which implements
-                industry-standard security measures. Payment information is processed securely through
-                Stripe and never stored on our servers.
+                industry-standard security measures. Subscription billing is handled by Google Play
+                through RevenueCat integration, and payment instruments are never stored on our servers.
               </p>
             </section>
 

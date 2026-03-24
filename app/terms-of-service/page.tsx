@@ -104,7 +104,7 @@ export default function TermsOfServicePage() {
               <ul className="list-disc pl-6 space-y-2">
                 <li>Pay the subscription fee at the time of purchase</li>
                 <li>Automatic renewal unless cancelled before the renewal date</li>
-                <li>Payment processing through Stripe</li>
+                <li>Payment processing through Google Play via RevenueCat</li>
                 <li>All fees are non-refundable except as required by law</li>
               </ul>
               <p className="mt-4">

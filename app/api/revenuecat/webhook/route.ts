@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import crypto from 'crypto'
+import { z } from 'zod'
+
+const RevenueCatWebhookSchema = z.object({
+  type: z.string(),
+  app_user_id: z.string().optional(),
+  product_id: z.string().optional(),
+  entitlements: z.unknown().optional(),
+  expiration_at_ms: z.union([z.number(), z.string()]).optional(),
+}).passthrough()
 
 export const dynamic = 'force-dynamic'
 
@@ -20,18 +29,19 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(req: NextRequest) {
   try {
+    const rawBody = await req.text()
+
     // Verify webhook signature (if configured)
     const webhookSecret = process.env.REVENUECAT_WEBHOOK_SECRET
     if (webhookSecret) {
       const signature = req.headers.get('authorization')
-      const body = await req.text()
       
       // RevenueCat webhook signature verification
       // Format: "Bearer {signature}"
       if (signature) {
         const expectedSignature = crypto
           .createHmac('sha256', webhookSecret)
-          .update(body)
+          .update(rawBody)
           .digest('hex')
         
         const receivedSignature = signature.replace('Bearer ', '')
@@ -46,7 +56,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const event = await req.json()
+    const parsedJson = JSON.parse(rawBody)
+    const parsedEvent = RevenueCatWebhookSchema.safeParse(parsedJson)
+    if (!parsedEvent.success) {
+      console.warn('[api/revenuecat/webhook] Invalid payload shape')
+      return NextResponse.json({ received: true }, { status: 200 })
+    }
+    const event = parsedEvent.data
     
     console.log('[api/revenuecat/webhook] Received event:', {
       type: event.type,
@@ -104,8 +120,8 @@ export async function POST(req: NextRequest) {
       case 'CANCELLATION':
         // User canceled, but still has access until period end
         // Schedule account deletion for end of period
-        const periodEnd = event.expiration_at_ms 
-          ? new Date(event.expiration_at_ms)
+        const periodEnd = event.expiration_at_ms
+          ? new Date(Number(event.expiration_at_ms))
           : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // Default: 30 days
 
         await supabaseServer

@@ -35,7 +35,7 @@ export type Profile = {
   revenuecat_user_id?: string | null
   revenuecat_subscription_id?: string | null
   revenuecat_entitlements?: any | null // JSONB
-  subscription_platform?: 'stripe' | 'revenuecat_ios' | 'revenuecat_android' | null
+  subscription_platform?: 'revenuecat_ios' | 'revenuecat_android' | null
   subscription_status?: 'active' | 'canceled' | 'past_due' | 'trialing' | 'incomplete' | null
 }
 
@@ -66,6 +66,7 @@ function inferRegionAndCurrencyFromEnv() {
 }
 
 export async function getMyProfile(): Promise<Profile | null> {
+  const isDev = process.env.NODE_ENV !== 'production'
   try {
     let user = null
     let authError = null
@@ -83,7 +84,7 @@ export async function getMyProfile(): Promise<Profile | null> {
         return null
       }
       // Unexpected error - log it
-      console.error('[getMyProfile] Unexpected auth exception:', err)
+      if (isDev) console.error('[getMyProfile] Unexpected auth exception:', err)
       return null
     }
     
@@ -91,7 +92,7 @@ export async function getMyProfile(): Promise<Profile | null> {
       // Don't log AuthSessionMissingError - it's expected
       if (authError.name !== 'AuthSessionMissingError' && 
           !authError.message?.includes('Auth session missing')) {
-        console.error('[getMyProfile] Auth error:', authError)
+        if (isDev) console.error('[getMyProfile] Auth error:', authError)
       }
       return null
     }
@@ -101,18 +102,20 @@ export async function getMyProfile(): Promise<Profile | null> {
       return null
     }
 
-    console.log('[getMyProfile] Fetching profile for user:', user.id)
+    if (isDev) console.log('[getMyProfile] Fetching profile for user:', user.id)
     let { data, error } = await supabase.from('profiles').select('*').eq('user_id', user.id).single()
     
     if (error) {
-      console.error('[getMyProfile] ========== DATABASE ERROR ==========')
-      console.error('[getMyProfile] Error code:', error.code)
-      console.error('[getMyProfile] Error message:', error.message)
-      console.error('[getMyProfile] Error details:', error.details)
-      console.error('[getMyProfile] Error hint:', error.hint)
-      console.error('[getMyProfile] This might be an RLS (Row Level Security) issue!')
-      console.error('[getMyProfile] Check if RLS policies allow users to SELECT their own profiles')
-      console.error('[getMyProfile] ======================================')
+      if (isDev) {
+        console.error('[getMyProfile] ========== DATABASE ERROR ==========')
+        console.error('[getMyProfile] Error code:', error.code)
+        console.error('[getMyProfile] Error message:', error.message)
+        console.error('[getMyProfile] Error details:', error.details)
+        console.error('[getMyProfile] Error hint:', error.hint)
+        console.error('[getMyProfile] This might be an RLS (Row Level Security) issue!')
+        console.error('[getMyProfile] Check if RLS policies allow users to SELECT their own profiles')
+        console.error('[getMyProfile] ======================================')
+      }
       return null
     }
 
@@ -144,7 +147,7 @@ export async function getMyProfile(): Promise<Profile | null> {
         .single()
 
       if (insertError) {
-        console.error('[getMyProfile] Failed to create default profile:', insertError)
+        if (isDev) console.error('[getMyProfile] Failed to create default profile:', insertError)
         return null
       }
 
@@ -170,23 +173,25 @@ export async function getMyProfile(): Promise<Profile | null> {
       }
     }
 
-    console.log('[getMyProfile] ========== PROFILE FETCHED ==========')
-    console.log('[getMyProfile] Has data:', !!data)
-    console.log('[getMyProfile] User ID:', data?.user_id)
-    console.log('[getMyProfile] Critical fields:')
-    console.log('[getMyProfile]   - sex:', data?.sex)
-    console.log('[getMyProfile]   - goal:', data?.goal)
-    console.log('[getMyProfile]   - weight_kg:', data?.weight_kg, 'Type:', typeof data?.weight_kg)
-    console.log('[getMyProfile]   - height_cm:', data?.height_cm, 'Type:', typeof data?.height_cm)
-    console.log('[getMyProfile]   - age:', data?.age, 'Type:', typeof data?.age)
-    console.log('[getMyProfile]   - region:', data?.region)
-    console.log('[getMyProfile]   - currency:', data?.currency)
-    console.log('[getMyProfile] All keys:', data ? Object.keys(data) : [])
-    console.log('[getMyProfile] ======================================')
+    if (isDev) {
+      console.log('[getMyProfile] ========== PROFILE FETCHED ==========')
+      console.log('[getMyProfile] Has data:', !!data)
+      console.log('[getMyProfile] User ID:', data?.user_id)
+      console.log('[getMyProfile] Critical fields:')
+      console.log('[getMyProfile]   - sex:', data?.sex)
+      console.log('[getMyProfile]   - goal:', data?.goal)
+      console.log('[getMyProfile]   - weight_kg:', data?.weight_kg, 'Type:', typeof data?.weight_kg)
+      console.log('[getMyProfile]   - height_cm:', data?.height_cm, 'Type:', typeof data?.height_cm)
+      console.log('[getMyProfile]   - age:', data?.age, 'Type:', typeof data?.age)
+      console.log('[getMyProfile]   - region:', data?.region)
+      console.log('[getMyProfile]   - currency:', data?.currency)
+      console.log('[getMyProfile] All keys:', data ? Object.keys(data) : [])
+      console.log('[getMyProfile] ======================================')
+    }
 
     return data as Profile
   } catch (err: any) {
-    console.error('[getMyProfile] Unexpected error:', err)
+    if (isDev) console.error('[getMyProfile] Unexpected error:', err)
     return null
   }
 }

@@ -1,23 +1,30 @@
 import { NextRequest } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiServerError } from '@/lib/api/response'
+
+const MoodLogSchema = z.object({
+  mood: z.number().int().min(1).max(5),
+  focus: z.number().int().min(1).max(5),
+})
 
 export async function POST(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
   if (!userId) return buildUnauthorizedResponse()
 
-  const { mood, focus } = await req.json().catch(() => ({} as Record<string, unknown>))
-  if (!mood || !focus) {
-    return new Response(JSON.stringify({ ok: false, error: 'mood & focus required' }), { status: 400 })
-  }
+  const parsed = await parseJsonBody(req, MoodLogSchema)
+  if (!parsed.ok) return parsed.response
+  const { mood, focus } = parsed.data
 
   const { error } = await supabase
     .from('mood_logs')
     .insert({ user_id: userId, mood, focus })
 
   if (error) {
-    return new Response(JSON.stringify({ ok: false, error: error.message }), { status: 500 })
+    return apiServerError('db_insert_failed', error.message)
   }
 
-  return Response.json({ ok: true })
+  return new Response(JSON.stringify({ ok: true }), { status: 200 })
 }
 

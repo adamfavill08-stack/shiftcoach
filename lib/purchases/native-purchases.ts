@@ -4,7 +4,7 @@
  * 
  * For iOS: Uses StoreKit via Capacitor plugin
  * For Android: Uses Google Play Billing via Capacitor plugin
- * For Web: Falls back to Stripe Checkout
+ * For Web: Native purchases are unavailable
  */
 
 import { Capacitor } from '@capacitor/core'
@@ -56,7 +56,7 @@ export async function getAvailableProducts(): Promise<PurchaseProduct[]> {
   const platform = getPurchasePlatform()
   
   if (platform === 'web') {
-    // Web uses Stripe, not native purchases
+    // Web does not support native purchases in this app
     return []
   }
   
@@ -78,7 +78,7 @@ export async function purchaseProduct(productId: string): Promise<PurchaseResult
   if (platform === 'web') {
     return {
       success: false,
-      error: 'Native purchases not available on web. Use Stripe Checkout instead.'
+      error: 'Native purchases not available on web.'
     }
   }
   

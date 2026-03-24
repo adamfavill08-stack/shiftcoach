@@ -11,12 +11,6 @@
 - ✅ **Android**: Play Store billing (via RevenueCat)
 - ❌ **Web**: Not supported (app is mobile-only)
 
-### Stripe Status
-- **Can be removed** or kept for future use
-- **Not needed** for current mobile-only app
-- If removed, can add back later if web support is needed
-
----
 
 ## 💳 How Payments Work
 
@@ -96,7 +90,7 @@
 ## 📋 Code Changes Made
 
 ### 1. Plan Selection Page
-- Removed Stripe Checkout flow
+- Removed legacy web checkout flow
 - Only uses native purchases
 - Shows error if accessed on web (shouldn't happen)
 
@@ -139,30 +133,6 @@
 6. ⏳ Install Capacitor plugin
 7. ⏳ Test purchase flow
 8. ⏳ Set up webhook
-
----
-
-## 💡 Stripe Removal (Optional)
-
-If you want to remove Stripe completely:
-
-1. **Remove Stripe dependencies** (optional):
-   ```bash
-   npm uninstall stripe
-   ```
-
-2. **Remove Stripe API routes** (optional):
-   - `app/api/payment/create-checkout/route.ts`
-   - `app/api/payment/verify/route.ts`
-   - `app/payment/success/page.tsx`
-
-3. **Remove Stripe environment variables** (optional):
-   - `STRIPE_SECRET_KEY`
-   - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-   - `STRIPE_PRICE_ID_MONTHLY`
-   - `STRIPE_PRICE_ID_YEARLY`
-
-**Note**: You can keep Stripe code for future use if you ever add web support. It won't interfere with mobile-only app.
 
 ---
 

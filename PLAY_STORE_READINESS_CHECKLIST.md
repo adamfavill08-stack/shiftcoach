@@ -16,7 +16,7 @@
 
 **⚠️ Action Required:** Review these pages to ensure they:
 - Cover all data you collect (sleep, activity, health data, Google Fit, etc.)
-- Mention Supabase, Stripe, Resend, OpenAI (third-party services)
+- Mention Supabase, RevenueCat, Resend, OpenAI (third-party services)
 - Include your contact information
 - Are accurate and complete
 
@@ -173,7 +173,7 @@ cd android
 
 **Decide:**
 - [ ] Free or paid app?
-- [ ] In-app purchases? (You have Stripe integration)
+- [ ] In-app subscriptions configured via RevenueCat + Google Play Billing
 - [ ] Which countries to launch in?
 - [ ] Age restrictions?
 

@@ -21,6 +21,12 @@ export function useNotifications() {
       try {
         setLoading(true)
         const profile = await getMyProfile()
+        if (!profile) {
+          // Not signed in (or session not ready) - avoid protected API calls that would 401.
+          setNotifications([])
+          setLoading(false)
+          return
+        }
         
         // Check if notifications are enabled
         const notificationsEnabled = profile?.mood_focus_alerts_enabled ?? true

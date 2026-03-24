@@ -10,7 +10,7 @@ export type SubscriptionStatus = 'active' | 'trialing' | 'expired' | 'canceled' 
 export interface SubscriptionCheckResult {
   hasAccess: boolean
   status: SubscriptionStatus
-  platform: 'stripe' | 'revenuecat_ios' | 'revenuecat_android' | null
+  platform: 'revenuecat_ios' | 'revenuecat_android' | null
   plan: 'monthly' | 'yearly' | 'tester' | null
   needsPayment: boolean
   message?: string
@@ -22,7 +22,7 @@ export interface SubscriptionCheckResult {
  * Returns:
  * - hasAccess: true if user can access the app
  * - status: Current subscription status
- * - platform: Payment platform (stripe/revenuecat_ios/revenuecat_android)
+ * - platform: Payment platform (revenuecat_ios/revenuecat_android)
  * - plan: Subscription plan (monthly/yearly/tester)
  * - needsPayment: true if user needs to subscribe
  */

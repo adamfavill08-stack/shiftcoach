@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { RotaDay } from '@/lib/data/buildRotaMonth'
+import { createClientComponentClient } from '@/lib/supabase'
 
 export type RotaPatternPayload = {
   shift_length: string
@@ -39,21 +40,31 @@ const EMPTY_MONTH: RotaMonthResponse = {
 }
 
 export function useRotaMonth(month: number, year: number) {
+  const supabase = useMemo(() => createClientComponentClient(), [])
   const [monthData, setMonthData] = useState<RotaMonthResponse | null>(null)
   const [eventsByDate, setEventsByDate] = useState<Map<string, RotaEvent[]>>(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeUserId, setActiveUserId] = useState<string | null>(null)
 
   const fetchData = useCallback(
     async (targetMonth?: number, targetYear?: number) => {
       const m = typeof targetMonth === 'number' ? targetMonth : month
       const y = typeof targetYear === 'number' ? targetYear : year
 
+      if (!activeUserId) {
+        setMonthData({ ...EMPTY_MONTH, month: m + 1, year: y })
+        setEventsByDate(new Map())
+        setLoading(false)
+        setError(null)
+        return
+      }
+
       setLoading(true)
       setError(null)
 
       try {
-        const monthRes = await fetch(`/api/rota/month?month=${m + 1}&year=${y}`, { 
+        const monthRes = await fetch(`/api/rota/month?month=${m + 1}&year=${y}&uid=${encodeURIComponent(activeUserId)}`, {
           cache: 'no-store',
           headers: {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -77,7 +88,9 @@ export function useRotaMonth(month: number, year: number) {
         setMonthData(monthJson)
 
         try {
-          const eventsRes = await fetch(`/api/rota/event?month=${m + 1}&year=${y}`, { cache: 'no-store' })
+          const eventsRes = await fetch(`/api/rota/event?month=${m + 1}&year=${y}&uid=${encodeURIComponent(activeUserId)}`, {
+            cache: 'no-store',
+          })
 
           if (!eventsRes.ok) {
             const text = await eventsRes.text().catch(() => null)
@@ -159,12 +172,54 @@ export function useRotaMonth(month: number, year: number) {
         setLoading(false)
       }
     },
-    [month, year],
+    [month, year, activeUserId],
   )
 
   useEffect(() => {
+    let mounted = true
+
+    const loadCurrentUser = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (mounted) {
+          setActiveUserId(user?.id ?? null)
+        }
+      } catch {
+        if (mounted) {
+          setActiveUserId(null)
+        }
+      }
+    }
+
+    loadCurrentUser()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      const nextUserId = session?.user?.id ?? null
+      setActiveUserId((prev) => {
+        if (prev !== nextUserId) {
+          // Prevent stale account bleed: clear rota state immediately on account change.
+          setMonthData(null)
+          setEventsByDate(new Map())
+          setError(null)
+          setLoading(true)
+        }
+        return nextUserId
+      })
+    })
+
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
+  }, [supabase])
+
+  useEffect(() => {
     fetchData(month, year)
-  }, [fetchData, month, year])
+  }, [fetchData, month, year, activeUserId])
 
   return {
     data: monthData,

@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiBadRequest, apiServerError } from '@/lib/api/response'
+
+const PromoValidateSchema = z.object({
+  code: z.string().trim().min(1).max(128),
+})
 
 /**
  * POST /api/promo/validate
@@ -8,15 +15,9 @@ import { supabaseServer } from '@/lib/supabase-server'
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { code } = body
-
-    if (!code || typeof code !== 'string') {
-      return NextResponse.json(
-        { error: 'Promo code is required' },
-        { status: 400 }
-      )
-    }
+    const parsed = await parseJsonBody(req, PromoValidateSchema)
+    if (!parsed.ok) return parsed.response
+    const { code } = parsed.data
 
     const normalizedCode = code.trim().toUpperCase()
 
@@ -29,26 +30,17 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (fetchError || !promoCode) {
-      return NextResponse.json(
-        { error: 'Invalid promo code' },
-        { status: 400 }
-      )
+      return apiBadRequest('invalid_promo_code', 'Invalid promo code')
     }
 
     // Check if code has expired
     if (promoCode.expires_at && new Date(promoCode.expires_at) < new Date()) {
-      return NextResponse.json(
-        { error: 'This promo code has expired' },
-        { status: 400 }
-      )
+      return apiBadRequest('promo_code_expired', 'This promo code has expired')
     }
 
     // Check if code has reached max uses
     if (promoCode.max_uses !== null && promoCode.current_uses >= promoCode.max_uses) {
-      return NextResponse.json(
-        { error: 'This promo code has already been used' },
-        { status: 400 }
-      )
+      return apiBadRequest('promo_code_exhausted', 'This promo code has already been used')
     }
 
     // Check if user has already used this code
@@ -62,10 +54,7 @@ export async function POST(req: NextRequest) {
         .single()
 
       if (existingUsage) {
-        return NextResponse.json(
-          { error: 'You have already used this promo code' },
-          { status: 400 }
-        )
+        return apiBadRequest('promo_code_already_used', 'You have already used this promo code')
       }
     }
 
@@ -76,10 +65,7 @@ export async function POST(req: NextRequest) {
     })
   } catch (error: any) {
     console.error('[api/promo/validate] Error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 }
-    )
+    return apiServerError('unexpected_error', error.message || 'Internal server error')
   }
 }
 

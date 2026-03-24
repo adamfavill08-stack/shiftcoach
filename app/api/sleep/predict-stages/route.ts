@@ -2,8 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { predictSleepStages, type SleepStageInput } from '@/lib/sleep/predictSleepStages'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiServerError } from '@/lib/api/response'
 
 export const dynamic = 'force-dynamic'
+
+const PredictStagesSchema = z.object({
+  startAt: z.string(),
+  endAt: z.string(),
+  quality: z.string().nullable().optional(),
+  shiftType: z.string().nullable().optional(),
+  sleepDebtHours: z.number().optional(),
+})
 
 /**
  * POST /api/sleep/predict-stages
@@ -18,18 +29,9 @@ export async function POST(req: NextRequest) {
     if (!userId) return buildUnauthorizedResponse()
 
 
-    const body = await req.json()
-    const { startAt, endAt, quality, shiftType, sleepDebtHours } = body as {
-      startAt: string
-      endAt: string
-      quality?: string | null
-      shiftType?: string | null
-      sleepDebtHours?: number
-    }
-
-    if (!startAt || !endAt) {
-      return NextResponse.json({ error: 'Missing startAt or endAt' }, { status: 400 })
-    }
+    const parsed = await parseJsonBody(req, PredictStagesSchema)
+    if (!parsed.ok) return parsed.response
+    const { startAt, endAt, quality, shiftType, sleepDebtHours } = parsed.data
 
     const sleepStart = new Date(startAt)
     const sleepEnd = new Date(endAt)
@@ -70,10 +72,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ stages }, { status: 200 })
   } catch (err: any) {
     console.error('[api/sleep/predict-stages] Error:', err)
-    return NextResponse.json(
-      { error: err?.message || 'Failed to predict sleep stages' },
-      { status: 500 }
-    )
+    return apiServerError('predict_stages_failed', err?.message || 'Failed to predict sleep stages')
   }
 }
 

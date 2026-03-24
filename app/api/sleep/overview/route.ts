@@ -167,13 +167,34 @@ export async function GET(req: NextRequest) {
       // Build CircadianInput directly (similar to /api/circadian/calculate)
       const today = new Date()
       
-      // Get latest main sleep session
-      const { data: sleepLogs } = await supabase
+      // Get latest main sleep sessions with schema fallback (start_ts/end_ts OR start_at/end_at)
+      let sleepLogsResult = await supabase
         .from('sleep_logs')
         .select('start_ts, end_ts, sleep_hours, type, naps')
         .eq('user_id', userId)
         .order('start_ts', { ascending: false })
         .limit(14)
+
+      if (sleepLogsResult.error && (sleepLogsResult.error.code === 'PGRST204' || sleepLogsResult.error.message?.includes('start_ts'))) {
+        const fallback = await supabase
+          .from('sleep_logs')
+          .select('start_at, end_at, sleep_hours, type')
+          .eq('user_id', userId)
+          .order('start_at', { ascending: false })
+          .limit(14)
+
+        sleepLogsResult = {
+          data: (fallback.data ?? []).map((row: any) => ({
+            start_ts: row.start_at ?? null,
+            end_ts: row.end_at ?? null,
+            sleep_hours: row.sleep_hours ?? null,
+            type: row.type ?? null,
+            naps: row.type === 'nap' ? 1 : 0,
+          })),
+          error: fallback.error,
+        } as any
+      }
+      const sleepLogs = sleepLogsResult.data
       
       if (!sleepLogs || sleepLogs.length === 0) {
         throw new Error('No sleep data available')

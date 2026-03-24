@@ -1,5 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiServerError } from '@/lib/api/response'
+
+const SleepItemSchema = z.object({
+  start: z.string(),
+  end: z.string(),
+  stage: z.string().optional(),
+  quality: z.string().optional(),
+  meta: z.record(z.string(), z.unknown()).optional(),
+})
+
+const HeartRateItemSchema = z.object({
+  bpm: z.number(),
+  ts: z.string(),
+  meta: z.record(z.string(), z.unknown()).optional(),
+})
+
+const HealthConnectSyncSchema = z.object({
+  steps: z.number().optional(),
+  sleep: z.array(SleepItemSchema).optional().default([]),
+  heartRate: z.array(HeartRateItemSchema).optional().default([]),
+  syncedAt: z.string().optional(),
+})
 
 /**
  * POST /api/health-connect/sync
@@ -12,11 +36,11 @@ export async function POST(req: NextRequest) {
     const { userId } = await getServerSupabaseAndUserId()
     if (!userId) return buildUnauthorizedResponse()
 
-    const body = await req.json().catch(() => ({} as any))
-    const steps = typeof body?.steps === 'number' ? Math.max(0, Math.round(body.steps)) : null
-    const sleep = Array.isArray(body?.sleep) ? body.sleep : []
-    const heartRate = Array.isArray(body?.heartRate) ? body.heartRate : []
-    const syncedAt = typeof body?.syncedAt === 'string' ? body.syncedAt : new Date().toISOString()
+    const parsed = await parseJsonBody(req, HealthConnectSyncSchema)
+    if (!parsed.ok) return parsed.response
+    const { steps: rawSteps, sleep, heartRate, syncedAt: rawSyncedAt } = parsed.data
+    const steps = typeof rawSteps === 'number' ? Math.max(0, Math.round(rawSteps)) : null
+    const syncedAt = typeof rawSyncedAt === 'string' ? rawSyncedAt : new Date().toISOString()
 
     const { supabaseServer } = await import('@/lib/supabase-server')
     const supabase = supabaseServer
@@ -57,15 +81,14 @@ export async function POST(req: NextRequest) {
 
     if (sleep.length > 0) {
       const rows = sleep
-        .filter((s: any) => typeof s?.start === 'string' && typeof s?.end === 'string')
-        .map((s: any) => ({
+        .map((s) => ({
           user_id: userId,
           source: 'health_connect',
           start_at: s.start,
           end_at: s.end,
-          stage: typeof s?.stage === 'string' ? s.stage : 'asleep',
-          quality: typeof s?.quality === 'string' ? s.quality : null,
-          meta: s?.meta ?? {},
+          stage: s.stage ?? 'asleep',
+          quality: s.quality ?? null,
+          meta: s.meta ?? {},
         }))
 
       if (rows.length > 0) {
@@ -75,15 +98,14 @@ export async function POST(req: NextRequest) {
 
     if (heartRate.length > 0) {
       const hrRows = heartRate
-        .filter((h: any) => typeof h?.bpm === 'number' && typeof h?.ts === 'string')
-        .map((h: any) => ({
+        .map((h) => ({
           user_id: userId,
           source: 'health_connect',
           bpm: Math.max(1, Math.min(299, Math.round(h.bpm))),
           recorded_at: new Date(h.ts).toISOString(),
-          meta: h?.meta ?? {},
+          meta: h.meta ?? {},
         }))
-        .filter((r: any) => !Number.isNaN(new Date(r.recorded_at).getTime()))
+        .filter((r) => !Number.isNaN(new Date(r.recorded_at).getTime()))
 
       if (hrRows.length > 0) {
         await supabase
@@ -104,7 +126,7 @@ export async function POST(req: NextRequest) {
     })
   } catch (err: any) {
     console.error('[health-connect/sync] fatal', err)
-    return NextResponse.json({ error: 'server error' }, { status: 500 })
+    return apiServerError('unexpected_error', 'Server error')
   }
 }
 

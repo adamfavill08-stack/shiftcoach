@@ -10,7 +10,7 @@
 ⚠️ **Issues Found:**
 
 ### 1. Privacy Policy - Missing Critical Information
-- ❌ Doesn't mention third-party services (Supabase, Stripe, Google Fit, OpenAI, Resend)
+- ❌ Doesn't mention third-party services (Supabase, RevenueCat, Health Connect/Apple Health, OpenAI, Resend)
 - ❌ Doesn't explain data sharing with third parties
 - ❌ Doesn't mention subscription/payment data
 - ❌ Contact email may not be correct (privacy@shiftcoach.app)
@@ -34,8 +34,8 @@
 
 ### Third-Party Services to Disclose:
 1. **Supabase** - Database and authentication (data storage)
-2. **Stripe** - Payment processing (payment data)
-3. **Google Fit** - Health data integration (steps, sleep)
+2. **RevenueCat** - Subscription validation and status (purchase metadata)
+3. **Health Connect / Apple Health** - Health data integration (steps, sleep)
 4. **OpenAI** - AI coaching features (user messages, context)
 5. **Resend** - Email delivery (email addresses)
 

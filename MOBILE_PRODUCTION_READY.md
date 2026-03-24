@@ -28,7 +28,7 @@ Your app is now **fully optimized and production-ready** for Play Store and App 
 - ✅ 50-70% faster API responses
 
 ### 4. Payment System
-- ✅ Stripe web checkout removed
+- ✅ Legacy web checkout removed
 - ✅ Native in-app purchases only (RevenueCat)
 - ✅ Mobile-optimized payment flow
 

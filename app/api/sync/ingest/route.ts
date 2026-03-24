@@ -1,45 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabase-server'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiUnauthorized, apiBadRequest, apiServerError } from '@/lib/api/response'
+import { getBearerToken } from '@/lib/api/auth'
 
-type IngestSleepItem = {
-  start: string
-  end: string
-  stage?: 'asleep' | 'inbed' | 'light' | 'deep' | 'rem' | 'awake'
-  quality?: string
-  meta?: Record<string, unknown>
-}
+const IngestSleepItemSchema = z.object({
+  start: z.string(),
+  end: z.string(),
+  stage: z.enum(['asleep', 'inbed', 'light', 'deep', 'rem', 'awake']).optional(),
+  quality: z.string().optional(),
+  meta: z.record(z.string(), z.unknown()).optional(),
+})
 
-type IngestHeartRateItem = {
-  bpm: number
-  ts: string
-  meta?: Record<string, unknown>
-}
+const IngestHeartRateItemSchema = z.object({
+  bpm: z.number(),
+  ts: z.string(),
+  meta: z.record(z.string(), z.unknown()).optional(),
+})
 
-type IngestPayload = {
-  platform: 'ios_healthkit' | 'android_health_connect' | 'health_connect' | 'android_googlefit'
-  lastSyncedAt?: string | null
-  sleep: IngestSleepItem[]
-  heartRate?: IngestHeartRateItem[]
-}
+const IngestPayloadSchema = z.object({
+  platform: z.enum(['ios_healthkit', 'android_health_connect', 'health_connect', 'android_googlefit']),
+  lastSyncedAt: z.string().nullable().optional(),
+  sleep: z.array(IngestSleepItemSchema),
+  heartRate: z.array(IngestHeartRateItemSchema).optional(),
+})
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = req.headers.get('authorization') || ''
-    const token = auth.replace(/^Bearer\s+/i, '')
-    if (!token) return NextResponse.json({ error: 'missing token' }, { status: 401 })
+    const token = getBearerToken(req)
+    if (!token) return apiUnauthorized('Missing access token')
 
     // Verify token to get user id using service role client
     const { data: userInfo, error: verifyErr } = await supabaseServer.auth.getUser(token)
     if (verifyErr || !userInfo.user) {
-      return NextResponse.json({ error: 'invalid token' }, { status: 401 })
+      return apiUnauthorized('Invalid token')
     }
     const user_id = userInfo.user.id
 
-    const body = (await req.json()) as IngestPayload
+    const parsed = await parseJsonBody(req, IngestPayloadSchema)
+    if (!parsed.ok) return parsed.response
+    const body = parsed.data
     const { platform, sleep } = body
 
     if (!platform || !Array.isArray(sleep)) {
-      return NextResponse.json({ error: 'bad payload' }, { status: 400 })
+      return apiBadRequest('invalid_payload', 'Bad payload')
     }
 
     // Upsert device_sources row
@@ -77,7 +82,7 @@ export async function POST(req: NextRequest) {
         : (platform.includes('health_connect') ? 'health_connect' : 'google_fit')
 
       const heartRows = body.heartRate
-        .filter((h: IngestHeartRateItem) => typeof h?.bpm === 'number' && typeof h?.ts === 'string')
+        .filter((h) => typeof h?.bpm === 'number' && typeof h?.ts === 'string')
         .map((h) => ({
           user_id,
           source,
@@ -101,7 +106,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   } catch (e) {
     console.error('[ingest] fatal', e)
-    return NextResponse.json({ error: 'server error' }, { status: 500 })
+    return apiServerError('unexpected_error', 'Server error')
   }
 }
 

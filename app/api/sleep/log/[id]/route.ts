@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiBadRequest, apiServerError } from '@/lib/api/response'
+
+const SleepLogUpdateSchema = z.object({
+  startTime: z.string(),
+  endTime: z.string(),
+  quality: z.number().optional(),
+  naps: z.number().optional(),
+})
 
 export async function PUT(
   req: NextRequest,
@@ -10,34 +20,22 @@ export async function PUT(
   if (!userId) return buildUnauthorizedResponse()
 
   try {
-    const body = await req.json().catch(() => ({}))
-    const { startTime, endTime, quality, naps } = body
-
-    if (!startTime || !endTime) {
-      return NextResponse.json(
-        { error: 'startTime and endTime are required' },
-        { status: 400 }
-      )
-    }
+    const parsed = await parseJsonBody(req, SleepLogUpdateSchema)
+    if (!parsed.ok) return parsed.response
+    const { startTime, endTime, quality, naps } = parsed.data
 
     const startDate = new Date(startTime)
     const endDate = new Date(endTime)
 
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-      return NextResponse.json(
-        { error: 'Invalid date format' },
-        { status: 400 }
-      )
+      return apiBadRequest('invalid_date_format', 'Invalid date format')
     }
 
     const durationMin = (endDate.getTime() - startDate.getTime()) / 60000
     const sleepHours = durationMin / 60
 
     if (durationMin < 0) {
-      return NextResponse.json(
-        { error: 'endTime must be after startTime' },
-        { status: 400 }
-      )
+      return apiBadRequest('invalid_date_range', 'endTime must be after startTime')
     }
 
     // Get date from startDate (YYYY-MM-DD)
@@ -68,11 +66,11 @@ export async function PUT(
 
     if (error) {
       console.error('[/api/sleep/log/:id PUT] error:', error)
-      return NextResponse.json({ error: 'Failed to update log', details: error.message }, { status: 500 })
+      return apiServerError('sleep_log_update_failed', error.message)
     }
 
     if (!updated) {
-      return NextResponse.json({ error: 'Log not found' }, { status: 404 })
+      return NextResponse.json({ ok: false, error: 'Log not found', code: 'not_found' }, { status: 404 })
     }
 
     return NextResponse.json({ success: true, sleep_log: updated })
@@ -84,8 +82,8 @@ export async function PUT(
     })
 
     return NextResponse.json(
-      { error: 'Internal server error', details: err?.message },
-      { status: 500 }
+      { ok: false, error: err?.message || 'Internal server error', code: 'internal_error' },
+      { status: 500 },
     )
   }
 }
@@ -108,13 +106,13 @@ export async function DELETE(
 
     if (!id) {
       console.error('[/api/sleep/log/:id DELETE] missing id param')
-      return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+      return apiBadRequest('missing_id', 'Missing id')
     }
 
     // Basic UUID format guard to avoid 22P02
     if (!/^[0-9a-fA-F-]{36}$/.test(id)) {
       console.error('[/api/sleep/log/:id DELETE] invalid id format:', id)
-      return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+      return apiBadRequest('invalid_id', 'Invalid id')
     }
 
     console.log('[/api/sleep/log/:id DELETE] Attempting to delete sleep log:', { id, userId })
@@ -136,12 +134,8 @@ export async function DELETE(
         userId,
       })
       return NextResponse.json(
-        { 
-          error: 'Failed to delete sleep log',
-          details: error.message || 'Unknown database error',
-          code: error.code,
-        },
-        { status: 500 }
+        { ok: false, error: error.message || 'Failed to delete sleep log', code: 'sleep_log_delete_failed' },
+        { status: 500 },
       )
     }
 
@@ -156,11 +150,8 @@ export async function DELETE(
     })
 
     return NextResponse.json(
-      { 
-        error: 'Internal server error',
-        details: err?.message || 'Unknown error',
-      },
-      { status: 500 }
+      { ok: false, error: err?.message || 'Internal server error', code: 'internal_error' },
+      { status: 500 },
     )
   }
 }

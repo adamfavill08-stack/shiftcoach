@@ -23,7 +23,7 @@ Since this app will **only** be used as a mobile app (not on web), we can:
 - ✅ 50-70% faster API responses
 
 ### 2. Payment System
-- ✅ Removed Stripe web checkout (mobile-only uses RevenueCat)
+- ✅ Removed legacy web checkout (mobile-only uses RevenueCat)
 - ✅ Native in-app purchases configured
 
 ### 3. Capacitor Configuration

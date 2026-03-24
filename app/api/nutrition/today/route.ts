@@ -35,6 +35,11 @@ export async function GET(req: NextRequest) {
           consumedMacros: { protein_g: 0, carbs_g: 0, fat_g: 0, sat_fat_g: 0 },
           hydrationTargets,
           hydrationIntake,
+          dataQuality: {
+            caloriesModel: 'estimated',
+            consumedMacrosSource: 'placeholder_zero_until_meal_logging',
+            hydrationSource: 'logged_data_with_fallbacks',
+          },
         },
       },
       { status: 200 },

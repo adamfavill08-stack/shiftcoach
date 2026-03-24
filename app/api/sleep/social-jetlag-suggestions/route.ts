@@ -3,8 +3,19 @@ import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/sup
 import { SHIFT_CALI_COACH_SYSTEM_PROMPT } from '@/lib/coach/systemPrompt'
 import { getCoachingState } from '@/lib/coach/getCoachingState'
 import { openai } from '@/lib/openaiClient'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiServerError } from '@/lib/api/response'
 
 export const dynamic = 'force-dynamic'
+
+const SocialJetlagSuggestionsSchema = z.object({
+  currentMisalignmentHours: z.number().optional(),
+  weeklyAverageMisalignmentHours: z.number().optional(),
+  category: z.string().optional(),
+  baselineMidpointClock: z.number().optional(),
+  currentMidpointClock: z.number().optional(),
+})
 
 function isRateLimitError(err: any) {
   if (!err) return false
@@ -22,14 +33,15 @@ export async function POST(req: NextRequest) {
     if (!userId) return buildUnauthorizedResponse()
 
 
-    const body = await req.json().catch(() => ({}))
+    const parsed = await parseJsonBody(req, SocialJetlagSuggestionsSchema)
+    if (!parsed.ok) return parsed.response
     const {
       currentMisalignmentHours,
       weeklyAverageMisalignmentHours,
       category,
       baselineMidpointClock,
       currentMidpointClock,
-    } = body
+    } = parsed.data
 
     // Fetch user metrics for context
     const { getUserMetrics } = await import('@/lib/data/getUserMetrics')
@@ -157,10 +169,7 @@ Be encouraging, non-judgmental, and acknowledge the challenges of shift work. If
     return NextResponse.json({ suggestions }, { status: 200 })
   } catch (err: any) {
     console.error('[/api/sleep/social-jetlag-suggestions] error:', err)
-    return NextResponse.json(
-      { error: 'Failed to generate suggestions', details: err?.message },
-      { status: 500 }
-    )
+    return apiServerError('social_jetlag_suggestions_failed', err?.message || 'Failed to generate suggestions')
   }
 }
 

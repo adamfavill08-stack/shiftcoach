@@ -4,6 +4,14 @@ import { openai } from '@/lib/openaiClient'
 import { SHIFT_CALI_COACH_SYSTEM_PROMPT } from '@/lib/coach/systemPrompt'
 import { getCoachingState } from '@/lib/coach/getCoachingState'
 import { classifyGoalFeedback } from '@/lib/coach/classifyGoalFeedback'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiServerError } from '@/lib/api/response'
+
+const CoachRequestSchema = z.object({
+  message: z.string().trim().min(1).max(4000),
+  context: z.record(z.string(), z.unknown()).optional(),
+})
 
 function isRateLimitError(err: any) {
   if (!err) return false
@@ -23,16 +31,9 @@ export async function POST(req: NextRequest) {
 
     // ✅ From here down, use userId for all conversation logic
 
-    const body = await req.json().catch(() => null)
-    const message = body?.message as string | undefined
-    const context = body?.context ?? {}
-
-    if (!message || typeof message !== 'string') {
-      return NextResponse.json(
-        { error: 'Missing message', detail: 'Request body must include a "message" field' },
-        { status: 400 }
-      )
-    }
+    const parsed = await parseJsonBody(req, CoachRequestSchema)
+    if (!parsed.ok) return parsed.response
+    const { message, context = {} } = parsed.data
 
     console.log('[/api/coach] Received message:', message)
     console.log('[/api/coach] User:', userId)
@@ -304,16 +305,10 @@ Respond in a way that is explicitly tailored for this state:
       }
 
       if (errorMessage.includes('OPENAI_API_KEY') || errorMessage.includes('api key')) {
-        return NextResponse.json({
-          error: 'OpenAI API key not configured',
-          message: 'Please add OPENAI_API_KEY to your .env.local file and restart the server.',
-        }, { status: 500 })
+        return apiServerError('openai_not_configured', 'OpenAI API key not configured')
       }
 
-      return NextResponse.json({
-        error: 'OpenAI API error',
-        message: errorMessage,
-      }, { status: 500 })
+      return apiServerError('openai_api_error', errorMessage)
     }
 
     const reply = chatRes.choices[0]?.message?.content?.trim() || 'Sorry, something went wrong.'
@@ -335,10 +330,7 @@ Respond in a way that is explicitly tailored for this state:
     return NextResponse.json({ reply })
   } catch (err: any) {
     console.error('[/api/coach] FATAL ERROR:', err)
-    return NextResponse.json(
-      { error: err?.message || 'Internal server error' },
-      { status: 500 }
-    )
+    return apiServerError('unexpected_error', err?.message || 'Internal server error')
   }
 }
 

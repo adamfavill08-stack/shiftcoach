@@ -27,13 +27,28 @@ export async function GET(req: NextRequest) {
     const shiftType = toActivityShiftType(standardType)
 
     // Get wake time from latest sleep or estimate
-    const { data: latestSleep } = await supabase
+    let latestSleepResult = await supabase
       .from('sleep_logs')
       .select('end_ts')
       .eq('user_id', userId)
       .order('end_ts', { ascending: false })
       .limit(1)
       .maybeSingle()
+
+    if (latestSleepResult.error && (latestSleepResult.error.code === 'PGRST204' || latestSleepResult.error.message?.includes('end_ts'))) {
+      const fallback = await supabase
+        .from('sleep_logs')
+        .select('end_at')
+        .eq('user_id', userId)
+        .order('end_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      latestSleepResult = {
+        data: fallback.data ? { end_ts: fallback.data.end_at } : null,
+        error: fallback.error,
+      } as any
+    }
+    const latestSleep = latestSleepResult.data
 
     const wakeTime = latestSleep?.end_ts ? new Date(latestSleep.end_ts) : new Date()
     // If no sleep logged, estimate wake time based on shift
@@ -56,11 +71,20 @@ export async function GET(req: NextRequest) {
 
     // Get sleep hours last 24h
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-    const { data: sleepLogs } = await supabase
+    let sleepLogsResult = await supabase
       .from('sleep_logs')
       .select('sleep_hours')
       .eq('user_id', userId)
       .gte('start_ts', twentyFourHoursAgo.toISOString())
+
+    if (sleepLogsResult.error && (sleepLogsResult.error.code === 'PGRST204' || sleepLogsResult.error.message?.includes('start_ts'))) {
+      sleepLogsResult = await supabase
+        .from('sleep_logs')
+        .select('sleep_hours')
+        .eq('user_id', userId)
+        .gte('start_at', twentyFourHoursAgo.toISOString())
+    }
+    const sleepLogs = sleepLogsResult.data
 
     const sleepHoursLast24h = sleepLogs?.reduce((sum, s) => sum + (s.sleep_hours ?? 0), 0) ?? 0
     const sleepContext = `${Math.round(sleepHoursLast24h * 10) / 10}h sleep in last 24h`

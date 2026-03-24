@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiServerError } from '@/lib/api/response'
 
 // Cache for 5 minutes - profile data changes infrequently
 export const revalidate = 300
+
+const ProfilePayloadSchema = z.object({}).passthrough()
 
 /**
  * GET /api/profile
@@ -81,19 +86,9 @@ export async function POST(req: NextRequest) {
     
     if (!userId) return buildUnauthorizedResponse()
 
-    let body: any
-    try {
-      body = await req.json()
-    } catch (jsonError: any) {
-      console.error('[api/profile] Failed to parse request body:', jsonError)
-      return NextResponse.json(
-        { 
-          error: 'Invalid request body',
-          details: jsonError?.message || 'Failed to parse JSON'
-        },
-        { status: 400 }
-      )
-    }
+    const parsed = await parseJsonBody(req, ProfilePayloadSchema)
+    if (!parsed.ok) return parsed.response
+    const body: any = parsed.data
     console.log('[api/profile] Received body:', JSON.stringify(body, null, 2))
     console.log('[api/profile] Age in body:', body.age, 'Type:', typeof body.age)
     
@@ -425,14 +420,7 @@ export async function POST(req: NextRequest) {
     
     // Ensure we always return a valid JSON response
     try {
-      return NextResponse.json(
-        { 
-          error: err?.message || 'Failed to save profile',
-          details: err?.toString() || String(err),
-          type: 'unexpected_error'
-        },
-        { status: 500 }
-      )
+      return apiServerError('unexpected_error', err?.message || 'Failed to save profile')
     } catch (responseError: any) {
       // If even creating the response fails, return a minimal error
       console.error('[api/profile] Failed to create error response:', responseError)

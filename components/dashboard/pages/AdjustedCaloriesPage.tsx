@@ -1519,7 +1519,7 @@ export default function AdjustedCaloriesPage() {
                 Adjusted calories
               </h1>
               <p className="mt-1.5 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                Your adjusted target today based on your shift, sleep and goal.
+                Your estimated adjusted target today based on your shift, sleep and goal.
               </p>
             </div>
             <button
@@ -1704,7 +1704,7 @@ export default function AdjustedCaloriesPage() {
               <div className="flex items-center justify-between rounded-2xl px-4 py-3.5 bg-gradient-to-br from-indigo-50/40 dark:from-indigo-950/30 to-violet-50/40 dark:to-violet-950/30 border border-indigo-200/30 dark:border-indigo-800/30">
                 <div>
                   <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Your adjusted target</p>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">(shift worker optimized)</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">(shift worker estimate)</p>
                 </div>
                 <span className="text-lg font-semibold tabular-nums text-indigo-700 dark:text-indigo-400">
                   {adjustedCalories.toLocaleString()} kcal
@@ -1735,7 +1735,7 @@ export default function AdjustedCaloriesPage() {
                   </span>
                 </div>
                 <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                  This difference accounts for your shift pattern, circadian disruption, sleep debt, and shift-specific energy needs.
+                  This estimated difference accounts for shift pattern, circadian disruption, sleep debt, and shift-specific energy needs.
                 </p>
               </div>
             </div>

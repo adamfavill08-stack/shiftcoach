@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+  Pragma: 'no-cache',
+  Expires: '0',
+}
+
 export async function GET(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
   if (!userId) return buildUnauthorizedResponse()
@@ -23,13 +29,13 @@ export async function GET(req: NextRequest) {
 
     if (rotaError) {
       console.error('[/api/rota/week] query error:', rotaError)
-      return NextResponse.json({ days: [] }, { status: 200 })
+      return NextResponse.json({ days: [] }, { status: 200, headers: NO_STORE_HEADERS })
     }
 
-    return NextResponse.json({ days: data ?? [] }, { status: 200 })
+    return NextResponse.json({ days: data ?? [] }, { status: 200, headers: NO_STORE_HEADERS })
   } catch (err: any) {
     console.error('[/api/rota/week] fatal error:', err)
-    return NextResponse.json({ days: [] }, { status: 200 })
+    return NextResponse.json({ days: [] }, { status: 200, headers: NO_STORE_HEADERS })
   }
 }
 

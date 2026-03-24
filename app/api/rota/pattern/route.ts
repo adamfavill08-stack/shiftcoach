@@ -2,8 +2,53 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { inferShiftPattern } from '@/lib/rota/inferShiftPattern'
+import { getPatternSlots } from '@/lib/rota/patternSlots'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiServerError, apiBadRequest } from '@/lib/api/response'
 
 export const dynamic = 'force-dynamic'
+
+const RotaPatternSchema = z.object({
+  shiftLength: z.union([z.string().min(1), z.number().int().positive()]).optional(),
+  patternId: z.string().min(1).optional(),
+  patternSlots: z
+    .union([z.array(z.string()), z.string()])
+    .optional()
+    .transform((value) => {
+      if (Array.isArray(value)) return value.map((v) => String(v).trim()).filter(Boolean)
+      if (typeof value === 'string') {
+        return value
+          .split(',')
+          .map((v) => v.trim())
+          .filter(Boolean)
+      }
+      return []
+    }),
+  currentShiftIndex: z.preprocess((value) => {
+    if (value === null || value === undefined || value === '') return 0
+    const num = typeof value === 'number' ? value : Number(value)
+    return Number.isFinite(num) ? num : 0
+  }, z.number().int().min(0)),
+  startDate: z.string().min(1).optional(),
+  colorConfig: z.record(z.string(), z.unknown()).optional(),
+  notes: z.string().nullable().optional(),
+})
+
+function normalizeShiftLength(value: string | number | undefined): '8h' | '12h' | '16h' {
+  if (value === undefined) return '12h'
+  if (typeof value === 'number') {
+    if (value === 8 || value === 12 || value === 16) return `${value}h` as '8h' | '12h' | '16h'
+    return '12h'
+  }
+
+  const trimmed = value.trim().toLowerCase()
+  if (trimmed === '8h' || trimmed === '12h' || trimmed === '16h') return trimmed
+  if (trimmed === '8' || trimmed === '12' || trimmed === '16') return `${trimmed}h` as '8h' | '12h' | '16h'
+
+  // Legacy table constraint only permits 8h/12h/16h.
+  return '12h'
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,14 +59,8 @@ export async function POST(req: NextRequest) {
     // This is needed because RLS policies check auth.uid(), which is null without a real session
     const supabase = isDevFallback ? supabaseServer : authSupabase
 
-    const body = await req.json().catch(() => null)
-
-    console.log('[api/rota/pattern] incoming body', body)
-
-    if (!body) {
-      return NextResponse.json({ error: 'Missing request body' }, { status: 400 })
-    }
-
+    const parsed = await parseJsonBody(req, RotaPatternSchema)
+    if (!parsed.ok) return parsed.response
     const {
       shiftLength,
       patternId,
@@ -30,23 +69,18 @@ export async function POST(req: NextRequest) {
       startDate,
       colorConfig,
       notes,
-    } = body
+    } = parsed.data
 
-    if (!shiftLength || !patternId || !Array.isArray(patternSlots) || currentShiftIndex === undefined || !startDate) {
-      return NextResponse.json(
-        {
-          error: 'Missing required fields',
-          detail: {
-            shiftLength,
-            patternId,
-            patternSlots,
-            currentShiftIndex,
-            startDate,
-          },
-        },
-        { status: 400 },
-      )
+    const normalizedPatternId = patternId?.trim() || '12h-2d-2n-4off'
+    const normalizedPatternSlots =
+      Array.isArray(patternSlots) && patternSlots.length > 0 ? patternSlots : getPatternSlots(normalizedPatternId)
+    const normalizedStartDate = startDate?.trim() || new Date().toISOString().slice(0, 10)
+
+    if (!Array.isArray(normalizedPatternSlots) || normalizedPatternSlots.length === 0) {
+      return apiBadRequest('invalid_pattern_slots', 'patternSlots must include at least one slot')
     }
+
+    const normalizedShiftLength = normalizeShiftLength(shiftLength)
 
     const { error: deleteError } = await supabase
       .from('user_shift_patterns')
@@ -61,13 +95,13 @@ export async function POST(req: NextRequest) {
       .from('user_shift_patterns')
       .insert({
         user_id: userId,
-        shift_length: shiftLength,
-        pattern_id: patternId,
-        pattern_slots: patternSlots,
+        shift_length: normalizedShiftLength,
+        pattern_id: normalizedPatternId,
+        pattern_slots: normalizedPatternSlots,
         current_shift_index: currentShiftIndex,
-        start_date: startDate,
+        start_date: normalizedStartDate,
         color_config: colorConfig ?? {},
-        notes: notes ?? null,
+        notes: typeof notes === 'string' && notes.trim().length > 0 ? notes.trim() : null,
       })
       .select()
       .maybeSingle()
@@ -93,10 +127,10 @@ export async function POST(req: NextRequest) {
     console.log('[api/rota/pattern] saved pattern', data)
 
     // Auto-update shift_pattern in profiles based on the pattern
-    if (patternSlots && Array.isArray(patternSlots) && patternSlots.length > 0) {
+    if (normalizedPatternSlots && Array.isArray(normalizedPatternSlots) && normalizedPatternSlots.length > 0) {
       try {
-        console.log('[api/rota/pattern] patternSlots received:', patternSlots)
-        const inferredPattern = inferShiftPattern(patternSlots as any)
+        console.log('[api/rota/pattern] patternSlots received:', normalizedPatternSlots)
+        const inferredPattern = inferShiftPattern(normalizedPatternSlots as any)
         console.log('[api/rota/pattern] inferred pattern:', inferredPattern)
         
         const { data: updateData, error: profileUpdateError } = await supabase
@@ -127,7 +161,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       pattern: data,
-      shift_pattern_updated: patternSlots && Array.isArray(patternSlots) && patternSlots.length > 0
+      shift_pattern_updated: normalizedPatternSlots && Array.isArray(normalizedPatternSlots) && normalizedPatternSlots.length > 0
     }, { status: 200 })
   } catch (err: any) {
     console.error('[api/rota/pattern] fatal POST error', {
@@ -136,14 +170,7 @@ export async function POST(req: NextRequest) {
       stack: err?.stack,
       fullError: err,
     })
-    return NextResponse.json(
-      { 
-        error: 'Unexpected server error', 
-        detail: err?.message || String(err),
-        name: err?.name,
-      },
-      { status: 500 },
-    )
+    return apiServerError('unexpected_error', err?.message || 'Unexpected server error')
   }
 }
 

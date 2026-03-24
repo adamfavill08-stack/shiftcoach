@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiBadRequest, apiServerError } from '@/lib/api/response'
 
 export type ShiftActivityLevel = 'very_light' | 'light' | 'moderate' | 'busy' | 'intense'
+
+const ActivityLogSchema = z.object({
+  shift_activity_level: z.enum(['very_light', 'light', 'moderate', 'busy', 'intense']),
+  date: z.string().optional(),
+})
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,35 +26,16 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const body = await req.json().catch(() => ({}))
-    const { shift_activity_level, date } = body as {
-      shift_activity_level?: ShiftActivityLevel
-      date?: string
-    }
+    const parsed = await parseJsonBody(req, ActivityLogSchema)
+    if (!parsed.ok) return parsed.response
+    const { shift_activity_level, date } = parsed.data
 
     console.log('[/api/activity/log] Request received:', {
       userId,
       shift_activity_level,
       date,
-      bodyKeys: Object.keys(body),
+      bodyKeys: Object.keys(parsed.data),
     })
-
-    if (!shift_activity_level) {
-      console.error('[/api/activity/log] Missing shift_activity_level in request')
-      return NextResponse.json(
-        { error: 'shift_activity_level is required' },
-        { status: 400 }
-      )
-    }
-
-    // Validate activity level
-    const validLevels: ShiftActivityLevel[] = ['very_light', 'light', 'moderate', 'busy', 'intense']
-    if (!validLevels.includes(shift_activity_level)) {
-      return NextResponse.json(
-        { error: `shift_activity_level must be one of: ${validLevels.join(', ')}` },
-        { status: 400 }
-      )
-    }
 
     const targetDate = date || new Date().toISOString().slice(0, 10)
     const startOfDay = new Date(targetDate + 'T00:00:00Z')
@@ -183,24 +172,10 @@ WHERE shift_activity_level IS NOT NULL;
         
         // Check if it's a column missing error
         if (updateQuery.error.message?.includes('shift_activity_level') || updateQuery.error.code === '42703') {
-          return NextResponse.json(
-            { 
-              error: 'Database schema not updated',
-              details: 'The shift_activity_level column does not exist. Please run migration: 20250122_add_shift_activity_level.sql',
-              code: updateQuery.error.code,
-            },
-            { status: 500 }
-          )
+          return apiServerError('schema_not_updated', 'The shift_activity_level column does not exist. Please run migration: 20250122_add_shift_activity_level.sql')
         }
         
-        return NextResponse.json(
-          { 
-            error: 'Failed to update activity log',
-            details: updateQuery.error.message,
-            code: updateQuery.error.code,
-          },
-          { status: 500 }
-        )
+        return apiServerError('activity_update_failed', updateQuery.error.message || 'Failed to update activity log')
       }
 
       return NextResponse.json({
@@ -325,7 +300,7 @@ WHERE shift_activity_level IS NOT NULL;`,
     
     console.log('[/api/activity/log] Returning fatal error response:', JSON.stringify(errorResponse, null, 2))
     
-    return NextResponse.json(errorResponse, { status: 500 })
+    return apiServerError('unexpected_error', errorResponse.details)
   }
 }
 

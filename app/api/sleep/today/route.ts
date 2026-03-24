@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     const now = new Date()
     const sinceIso = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
 
-    const { data, error } = await supabase
+    let result = await supabase
       .from('sleep_logs')
       .select('id, start_ts, end_ts, quality, naps')
       .eq('user_id', userId)
@@ -31,6 +31,31 @@ export async function GET(req: NextRequest) {
       .order('start_ts', { ascending: false })
       .limit(1)
       .maybeSingle()
+
+    if (result.error && (result.error.code === 'PGRST204' || result.error.message?.includes('start_ts'))) {
+      const fallback = await supabase
+        .from('sleep_logs')
+        .select('id, start_at, end_at, quality, type')
+        .eq('user_id', userId)
+        .gte('start_at', sinceIso)
+        .order('start_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      result = {
+        data: fallback.data
+          ? {
+              id: fallback.data.id,
+              start_ts: fallback.data.start_at ?? null,
+              end_ts: fallback.data.end_at ?? null,
+              quality: fallback.data.quality ?? null,
+              naps: fallback.data.type === 'nap' ? 1 : 0,
+            }
+          : null,
+        error: fallback.error,
+      } as any
+    }
+    const { data, error } = result
 
     if (error) {
       console.error('[/api/sleep/today] query error:', error)

@@ -5,6 +5,11 @@ import { buildMonthFromPattern } from '@/lib/data/buildRotaMonth'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+  Pragma: 'no-cache',
+  Expires: '0',
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -90,12 +95,15 @@ export async function GET(req: NextRequest) {
         year,
       })
 
-      return NextResponse.json({
-        month,
-        year,
-        pattern: null,
-        weeks: emptyWeeks,
-      })
+      return NextResponse.json(
+        {
+          month,
+          year,
+          pattern: null,
+          weeks: emptyWeeks,
+        },
+        { headers: NO_STORE_HEADERS },
+      )
     }
 
     // Create a map of date -> shift label
@@ -178,17 +186,20 @@ export async function GET(req: NextRequest) {
       })
     )
 
-    return NextResponse.json({
-      month,
-      year,
-      pattern,
-      weeks: weeksWithShifts,
-    })
+    return NextResponse.json(
+      {
+        month,
+        year,
+        pattern,
+        weeks: weeksWithShifts,
+      },
+      { headers: NO_STORE_HEADERS },
+    )
   } catch (err: any) {
     console.error('[api/rota/month] fatal error', err)
     return NextResponse.json(
       { error: 'Unexpected server error', detail: err?.message || String(err) },
-      { status: 500 },
+      { status: 500, headers: NO_STORE_HEADERS },
     )
   }
 }

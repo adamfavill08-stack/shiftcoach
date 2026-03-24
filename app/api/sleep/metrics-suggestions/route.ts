@@ -3,8 +3,19 @@ import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/sup
 import { SHIFT_CALI_COACH_SYSTEM_PROMPT } from '@/lib/coach/systemPrompt'
 import { getCoachingState } from '@/lib/coach/getCoachingState'
 import { openai } from '@/lib/openaiClient'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiServerError } from '@/lib/api/response'
 
 export const dynamic = 'force-dynamic'
+
+const MetricsSuggestionsSchema = z.object({
+  tonightTarget: z.number().nullable().optional(),
+  consistencyScore: z.number().nullable().optional(),
+  sleepDeficit: z.number().nullable().optional(),
+  weeklyDeficitHours: z.number().nullable().optional(),
+  deficitCategory: z.string().nullable().optional(),
+})
 
 function isRateLimitError(err: any) {
   if (!err) return false
@@ -22,14 +33,15 @@ export async function POST(req: NextRequest) {
     if (!userId) return buildUnauthorizedResponse()
 
 
-    const body = await req.json().catch(() => ({}))
+    const parsed = await parseJsonBody(req, MetricsSuggestionsSchema)
+    if (!parsed.ok) return parsed.response
     const {
       tonightTarget,
       consistencyScore,
       sleepDeficit,
       weeklyDeficitHours,
       deficitCategory,
-    } = body
+    } = parsed.data
 
     // Fetch user metrics for context
     const { getUserMetrics } = await import('@/lib/data/getUserMetrics')
@@ -60,7 +72,7 @@ export async function POST(req: NextRequest) {
       sleepMetricsContext.push(`Sleep Consistency: ${consistencyScore}/100 (${consistencyLevel})`)
     }
     
-    if (sleepDeficit !== undefined && sleepDeficit !== null && weeklyDeficitHours !== undefined) {
+    if (sleepDeficit !== undefined && sleepDeficit !== null && weeklyDeficitHours !== undefined && weeklyDeficitHours !== null) {
       const deficitStatus = deficitCategory === 'high' ? 'high deficit' 
         : deficitCategory === 'medium' ? 'moderate deficit'
         : deficitCategory === 'low' ? 'low deficit'
@@ -158,10 +170,7 @@ Be encouraging, non-judgmental, and acknowledge the challenges of shift work.`.t
     return NextResponse.json({ suggestions }, { status: 200 })
   } catch (err: any) {
     console.error('[/api/sleep/metrics-suggestions] error:', err)
-    return NextResponse.json(
-      { error: 'Failed to generate suggestions', details: err?.message },
-      { status: 500 }
-    )
+    return apiServerError('metrics_suggestions_failed', err?.message || 'Failed to generate suggestions')
   }
 }
 

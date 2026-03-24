@@ -5,20 +5,21 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { predictSleep, type SleepType } from '@/lib/sleep/predictSleep'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiServerError } from '@/lib/api/response'
 
 export const dynamic = 'force-dynamic'
 
+const SleepPredictSchema = z.object({
+  type: z.enum(['main', 'post_shift', 'pre_shift_nap', 'recovery', 'nap']),
+})
+
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { type } = body as { type: SleepType }
-    
-    if (!type) {
-      return NextResponse.json(
-        { error: 'Missing type parameter' },
-        { status: 400 }
-      )
-    }
+    const parsed = await parseJsonBody(req, SleepPredictSchema)
+    if (!parsed.ok) return parsed.response
+    const { type } = parsed.data
     
     const prediction = await predictSleep(type)
     
@@ -38,10 +39,7 @@ export async function POST(req: NextRequest) {
     }, { status: 200 })
   } catch (err: any) {
     console.error('[api/sleep/predict] Error:', err)
-    return NextResponse.json(
-      { error: 'Internal server error', details: err?.message },
-      { status: 500 }
-    )
+    return apiServerError('unexpected_error', err?.message || 'Internal server error')
   }
 }
 

@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiServerError } from '@/lib/api/response'
 
 // Cache for 60 seconds - shifts don't change frequently
 export const revalidate = 60
+
+const ShiftPostSchema = z.object({
+  date: z.string().min(1),
+  label: z.string().optional(),
+  status: z.string().optional(),
+  start_ts: z.string().nullable().optional(),
+  end_ts: z.string().nullable().optional(),
+  segments: z.unknown().nullable().optional(),
+  notes: z.string().optional(),
+})
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,12 +27,8 @@ export async function POST(req: NextRequest) {
     // This is needed because RLS policies check auth.uid(), which is null without a real session
     const supabase = isDevFallback ? supabaseServer : authSupabase
 
-    const body = await req.json().catch(() => null)
-
-    if (!body) {
-      return NextResponse.json({ error: 'Missing request body' }, { status: 400 })
-    }
-
+    const parsed = await parseJsonBody(req, ShiftPostSchema)
+    if (!parsed.ok) return parsed.response
     const {
       date,
       label,
@@ -28,14 +37,7 @@ export async function POST(req: NextRequest) {
       end_ts,
       segments,
       notes,
-    } = body
-
-    if (!date) {
-      return NextResponse.json(
-        { error: 'Missing required field: date' },
-        { status: 400 }
-      )
-    }
+    } = parsed.data
 
     const payload = {
       user_id: userId,
@@ -56,22 +58,13 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error('[api/shifts] upsert error', error)
-      return NextResponse.json(
-        {
-          error: 'Failed to save shift',
-          detail: error.message ?? error,
-        },
-        { status: 500 }
-      )
+      return apiServerError('shift_upsert_failed', error.message ?? 'Failed to save shift')
     }
 
     return NextResponse.json({ success: true, shift: data }, { status: 200 })
   } catch (err: any) {
     console.error('[api/shifts] fatal error', err)
-    return NextResponse.json(
-      { error: 'Unexpected server error', detail: err?.message || String(err) },
-      { status: 500 }
-    )
+    return apiServerError('unexpected_error', err?.message || 'Unexpected server error')
   }
 }
 

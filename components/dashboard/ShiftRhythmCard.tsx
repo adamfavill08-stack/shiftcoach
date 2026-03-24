@@ -410,9 +410,9 @@ function ShiftRhythmCard({ score, circadian, sleepDeficit, socialJetlag, shiftLa
             <p className="text-[11px] text-slate-600 leading-relaxed max-w-[230px]">
               {recovery.message}
             </p>
-            <p className="mt-1 text-[10px] text-slate-400">
-              Based on your latest sleep and Google Fit steps.
-            </p>
+              <p className="mt-1 text-[10px] text-slate-400">
+                Based on your latest available sleep and activity data.
+              </p>
           </div>
           <div className="flex flex-col items-center justify-center">
             <div
@@ -539,7 +539,7 @@ function BodyClockCard({
               content={
                 <span>
                   Based on circadian science: we combine your recent sleep timing, shift pattern and regularity
-                  to estimate how aligned your internal clock is today.
+                  to estimate how aligned your internal clock is today (confidence increases with complete logs).
                 </span>
               }
               side="bottom"
@@ -608,10 +608,10 @@ function BodyClockCard({
                   : "Your body clock is out of sync"}
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                Based on your latest sleep, shifts and daytime patterns.
+                Estimated from your latest sleep, shifts and daytime patterns.
               </p>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                Source: Sleep from Google Fit &amp; ShiftCoach app · {wearableLastSyncLabel}
+                Source: Connected wearable + ShiftCoach logs · {wearableLastSyncLabel}
               </p>
             </div>
 

@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiBadRequest, apiServerError } from '@/lib/api/response'
 
 export const dynamic = 'force-dynamic'
+
+const SleepSessionPatchSchema = z.object({
+  start_time: z.string(),
+  end_time: z.string(),
+  session_type: z.enum(['sleep', 'nap']).optional(),
+  quality: z.union([z.string(), z.number()]).nullable().optional(),
+})
 
 /**
  * PATCH /api/sleep/sessions/[id]
@@ -21,8 +31,9 @@ export async function PATCH(
 
 
     const { id } = await context.params
-    const body = await req.json()
-    const { start_time, end_time, session_type, quality } = body
+    const parsed = await parseJsonBody(req, SleepSessionPatchSchema)
+    if (!parsed.ok) return parsed.response
+    const { start_time, end_time, session_type, quality } = parsed.data
 
     console.log('[api/sleep/sessions/:id PATCH] Received update request:', {
       id,
@@ -43,17 +54,11 @@ export async function PATCH(
     const endDate = new Date(end_time)
 
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-      return NextResponse.json(
-        { error: 'Invalid date format' },
-        { status: 400 }
-      )
+      return apiBadRequest('invalid_date_format', 'Invalid date format')
     }
 
     if (endDate.getTime() <= startDate.getTime()) {
-      return NextResponse.json(
-        { error: 'end_time must be after start_time' },
-        { status: 400 }
-      )
+      return apiBadRequest('invalid_time_range', 'end_time must be after start_time')
     }
 
     // Map session_type to type field
@@ -108,10 +113,7 @@ export async function PATCH(
 
     if (updateResult.error) {
       console.error('[api/sleep/sessions/:id PATCH] error:', updateResult.error)
-      return NextResponse.json(
-        { error: 'Failed to update sleep session', details: updateResult.error.message },
-        { status: 500 }
-      )
+      return apiServerError('sleep_session_update_failed', updateResult.error.message)
     }
 
     if (!updateResult.data) {
@@ -121,10 +123,7 @@ export async function PATCH(
     return NextResponse.json({ success: true, session: updateResult.data }, { status: 200 })
   } catch (err: any) {
     console.error('[api/sleep/sessions/:id PATCH] FATAL ERROR:', err)
-    return NextResponse.json(
-      { error: 'Internal server error', details: err?.message },
-      { status: 500 }
-    )
+    return apiServerError('unexpected_error', err?.message || 'Internal server error')
   }
 }
 
@@ -148,7 +147,7 @@ export async function DELETE(
 
     if (!id) {
       console.log('[api/sleep/session] DELETE missing id')
-      return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+      return apiBadRequest('missing_id', 'Missing id')
     }
 
     console.log('[api/sleep/session] DELETE id=', id, 'userId=', userId)
@@ -163,10 +162,7 @@ export async function DELETE(
 
     if (error) {
       console.error('[api/sleep/session] DELETE error:', error)
-      return NextResponse.json(
-        { error: 'Failed to delete sleep session', details: error.message },
-        { status: 500 }
-      )
+      return apiServerError('sleep_session_delete_failed', error.message)
     }
 
     // Check if any row was actually deleted
@@ -186,10 +182,7 @@ export async function DELETE(
       message: err?.message,
       stack: err?.stack,
     })
-    return NextResponse.json(
-      { error: 'Internal server error', details: err?.message },
-      { status: 500 }
-    )
+    return apiServerError('unexpected_error', err?.message || 'Internal server error')
   }
 }
 

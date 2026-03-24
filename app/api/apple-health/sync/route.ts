@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiServerError } from '@/lib/api/response'
+
+const AppleHealthSyncSchema = z.object({
+  steps: z.number(),
+  source: z.string().trim().min(1).optional(),
+  syncedAt: z.string().optional(),
+})
 
 /**
  * POST /api/apple-health/sync
@@ -28,19 +37,11 @@ export async function POST(req: NextRequest) {
     if (!userId) return buildUnauthorizedResponse()
 
 
-    const body = await req.json().catch(() => null)
-    const steps = typeof body?.steps === 'number' ? Math.max(0, Math.round(body.steps)) : null
-    const sourceOverride = typeof body?.source === 'string' && body.source.trim().length > 0
-      ? body.source.trim()
-      : null
-    const syncedAt = typeof body?.syncedAt === 'string' ? body.syncedAt : new Date().toISOString()
-
-    if (steps === null) {
-      return NextResponse.json(
-        { error: 'invalid_payload', details: 'steps (number) is required' },
-        { status: 400 },
-      )
-    }
+    const parsed = await parseJsonBody(req, AppleHealthSyncSchema)
+    if (!parsed.ok) return parsed.response
+    const steps = Math.max(0, Math.round(parsed.data.steps))
+    const sourceOverride = parsed.data.source ?? null
+    const syncedAt = parsed.data.syncedAt ?? new Date().toISOString()
 
     const { supabaseServer } = await import('@/lib/supabase-server')
     const supabase = supabaseServer
@@ -127,10 +128,7 @@ export async function POST(req: NextRequest) {
       message: err?.message,
       stack: err?.stack,
     })
-    return NextResponse.json(
-      { lastSyncedAt: null, error: 'unexpected' },
-      { status: 500 },
-    )
+    return apiServerError('unexpected_error', 'Unexpected error')
   }
 }
 

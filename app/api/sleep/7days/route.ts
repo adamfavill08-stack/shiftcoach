@@ -305,6 +305,10 @@ export async function GET(req: NextRequest) {
           date: d.date,
           totalMinutes: d.total,
           totalSleepHours: d.total / 60,
+          dataQuality: {
+            stages: stages ? 'predicted_from_available_logs' : 'insufficient_data',
+            sleepDebt: 'not_applied_in_stage_prediction',
+          },
           shift: shift ? {
             label: shift.label,
             type: shift.type,

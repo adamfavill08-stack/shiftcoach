@@ -133,7 +133,6 @@
 - Currently returns "plugin not yet installed" errors
 
 ### What Works Now:
-- ✅ Web users: Stripe Checkout (unchanged)
 - ✅ Platform detection: Correctly identifies iOS/Android/Web
 - ✅ Backend APIs: Ready to receive receipts and validate
 
@@ -176,12 +175,6 @@ Add these to `.env.local` and Vercel:
 # RevenueCat
 REVENUECAT_API_KEY=sk_your_secret_key_here
 REVENUECAT_WEBHOOK_SECRET=your_webhook_secret_here (optional)
-
-# Keep existing Stripe for web
-STRIPE_SECRET_KEY=sk_...
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_...
-STRIPE_PRICE_ID_MONTHLY=price_...
-STRIPE_PRICE_ID_YEARLY=price_...
 ```
 
 ---

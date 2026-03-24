@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
+import { z } from 'zod'
+import { parseJsonBody } from '@/lib/api/validation'
+import { apiServerError } from '@/lib/api/response'
 
 export const dynamic = 'force-dynamic'
+
+const ValidateReceiptSchema = z.object({
+  receipt: z.string().min(1),
+  platform: z.enum(['ios', 'android']),
+  productId: z.string().min(1),
+})
 
 /**
  * POST /api/revenuecat/validate-receipt
@@ -18,37 +27,14 @@ export async function POST(req: NextRequest) {
     if (!userId) return buildUnauthorizedResponse()
 
 
-    const body = await req.json()
-    const { receipt, platform, productId } = body
-
-    if (!receipt) {
-      return NextResponse.json(
-        { error: 'Receipt is required' },
-        { status: 400 }
-      )
-    }
-
-    if (!platform || (platform !== 'ios' && platform !== 'android')) {
-      return NextResponse.json(
-        { error: 'Platform must be "ios" or "android"' },
-        { status: 400 }
-      )
-    }
-
-    if (!productId) {
-      return NextResponse.json(
-        { error: 'Product ID is required' },
-        { status: 400 }
-      )
-    }
+    const parsed = await parseJsonBody(req, ValidateReceiptSchema)
+    if (!parsed.ok) return parsed.response
+    const { receipt, platform, productId } = parsed.data
 
     const revenuecatApiKey = process.env.REVENUECAT_API_KEY
     if (!revenuecatApiKey) {
       console.error('[api/revenuecat/validate-receipt] REVENUECAT_API_KEY not set')
-      return NextResponse.json(
-        { error: 'RevenueCat configuration error' },
-        { status: 500 }
-      )
+      return apiServerError('revenuecat_not_configured', 'RevenueCat configuration error')
     }
 
     // Create RevenueCat app user ID (format: shiftcoach_{userId})
@@ -65,7 +51,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         app_user_id: revenuecatUserId,
         fetch_token: receipt, // Receipt data from StoreKit/Play Billing
-        platform: platform, // 'ios' or 'android'
+        platform,
       }),
     })
 
@@ -128,10 +114,7 @@ export async function POST(req: NextRequest) {
 
     if (updateError) {
       console.error('[api/revenuecat/validate-receipt] Error updating profile:', updateError)
-      return NextResponse.json(
-        { error: 'Failed to update subscription status' },
-        { status: 500 }
-      )
+      return apiServerError('profile_update_failed', 'Failed to update subscription status')
     }
 
     return NextResponse.json({
@@ -145,9 +128,6 @@ export async function POST(req: NextRequest) {
     })
   } catch (error: any) {
     console.error('[api/revenuecat/validate-receipt] Unexpected error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 }
-    )
+    return apiServerError('unexpected_error', error.message || 'Internal server error')
   }
 }

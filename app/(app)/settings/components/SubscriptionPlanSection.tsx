@@ -117,14 +117,12 @@ export function SubscriptionPlanSection() {
     if (!subscriptionPlatform) return null
     if (subscriptionPlatform === 'revenuecat_ios') return 'App Store'
     if (subscriptionPlatform === 'revenuecat_android') return 'Play Store'
-    // Legacy Stripe support (shouldn't happen in mobile-only app, but handle gracefully)
-    if (subscriptionPlatform === 'stripe') return 'Web (Stripe)'
     return subscriptionPlatform
   }
 
   const getCancelInstructions = () => {
     if (!subscriptionPlatform) return null
-    
+
     if (subscriptionPlatform === 'revenuecat_ios') {
       return 'To cancel, go to iOS Settings → [Your Name] → Subscriptions → Shift Coach → Cancel Subscription. Your access continues until the end of your billing period.'
     }
@@ -239,18 +237,9 @@ export function SubscriptionPlanSection() {
                   </p>
                 </>
               ) : (
-                <>
-                  <button
-                    onClick={handleCancelSubscription}
-                    disabled={isCanceling}
-                    className="w-full rounded-xl border border-slate-200/50 dark:border-slate-700/40 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50/60 dark:hover:bg-slate-800/50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {isCanceling ? 'Canceling…' : 'Cancel subscription'}
-                  </button>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Your access will stay active until the end of your current paid period.
-                  </p>
-                </>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Subscription management is available through your app store subscription settings.
+                </p>
               )}
             </div>
           ) : null}

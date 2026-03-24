@@ -1,51 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
-import { supabaseServer } from '@/lib/supabase-server'
-import Stripe from 'stripe'
-
-let stripe: Stripe | null = null
-
-function getStripeClient(): Stripe | null {
-  if (!stripe) {
-    const secret = process.env.STRIPE_SECRET_KEY
-    if (!secret) {
-      console.warn(
-        '[api/subscription/cancel] STRIPE_SECRET_KEY is not set. Subscription cancel is disabled in this environment.',
-      )
-      return null
-    }
-    stripe = new Stripe(secret)
-  }
-  return stripe
-}
 
 /**
  * POST /api/subscription/cancel
- * Cancels the user's Stripe subscription and schedules account deletion
- * at the end of their current paid period
+ * RevenueCat mobile-store cancellation flow.
+ * Users cancel in App Store/Google Play; this endpoint marks local status as canceled.
  */
 export async function POST(req: NextRequest) {
   try {
-    const stripe = getStripeClient()
-    if (!stripe) {
-      return NextResponse.json(
-        {
-          error:
-            'Subscription cancellation is temporarily unavailable. Please contact support or try again later.',
-        },
-        { status: 503 },
-      )
-    }
-
     const { supabase, userId } = await getServerSupabaseAndUserId()
     
     if (!userId) return buildUnauthorizedResponse()
 
 
-    // Get user's profile with subscription info (Stripe or RevenueCat)
+    // RevenueCat only
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('stripe_subscription_id, stripe_customer_id, subscription_plan, subscription_platform, revenuecat_subscription_id')
+      .select('subscription_platform, subscription_status')
       .eq('user_id', userId)
       .single()
 
@@ -57,116 +28,33 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Check subscription platform and handle accordingly
-    const isRevenueCat = profile.subscription_platform?.startsWith('revenuecat_')
-    
-    if (isRevenueCat) {
-      // RevenueCat subscription - redirect to native store cancellation
-      const platform = profile.subscription_platform === 'revenuecat_ios' ? 'iOS' : 'Android'
-      
-      // Mark as canceled (webhook will handle actual cancellation)
-      await supabase
-        .from('profiles')
-        .update({ 
-          subscription_status: 'canceled',
-        })
-        .eq('user_id', userId)
-      
-      return NextResponse.json({ 
-        success: true,
-        message: `To cancel your subscription, please go to ${platform} Settings → Subscriptions and cancel there. Your access will continue until the end of your current billing period.`,
-        platform,
-      })
-    }
-    
-    // Check if user has an active Stripe subscription
-    if (!profile.stripe_subscription_id) {
-      // If no Stripe subscription, check if it's a tester account
-      if (profile.subscription_plan === 'tester') {
-        // For tester accounts, schedule immediate deletion (or within 24 hours)
-        const deletionDate = new Date()
-        deletionDate.setHours(deletionDate.getHours() + 24) // Give 24 hours notice
-        
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ 
-            scheduled_deletion_at: deletionDate.toISOString(),
-            subscription_status: 'canceled'
-          })
-          .eq('user_id', userId)
-
-        if (updateError) {
-          console.error('[api/subscription/cancel] Error scheduling deletion:', updateError)
-          return NextResponse.json(
-            { error: 'Failed to schedule account deletion' },
-            { status: 500 }
-          )
-        }
-
-        return NextResponse.json({ 
-          success: true,
-          message: 'Subscription canceled. Account will be deleted in 24 hours.',
-          scheduled_deletion_at: deletionDate.toISOString()
-        })
-      }
-      
+    if (!profile.subscription_platform?.startsWith('revenuecat_')) {
       return NextResponse.json(
-        { error: 'No active subscription found' },
+        { error: 'Only RevenueCat subscriptions are supported' },
         { status: 400 }
       )
     }
 
-    // Cancel the Stripe subscription (but keep it active until period end)
-    try {
-      const subscription = await stripe.subscriptions.retrieve(profile.stripe_subscription_id)
-      
-      // Cancel the subscription at period end (don't cancel immediately)
-      const canceledSubscription = (await stripe.subscriptions.update(
-        profile.stripe_subscription_id,
-        {
-          // This cancels future renewals but keeps access until period end
-          cancel_at_period_end: true,
-        },
-      )) as unknown as Stripe.Subscription
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ subscription_status: 'canceled' })
+      .eq('user_id', userId)
 
-      // Get the period end date (when subscription will actually end)
-      const periodEndUnix = (canceledSubscription as any).current_period_end as number | undefined
-      const periodEndDate = periodEndUnix ? new Date(periodEndUnix * 1000) : new Date()
-      
-      // Schedule account deletion for just before the period ends (1 hour before to be safe)
-      const deletionDate = new Date(periodEndDate)
-      deletionDate.setHours(deletionDate.getHours() - 1)
-
-      // Update profile with scheduled deletion date
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ 
-          scheduled_deletion_at: deletionDate.toISOString(),
-          subscription_status: 'canceled'
-        })
-        .eq('user_id', userId)
-
-      if (updateError) {
-        console.error('[api/subscription/cancel] Error updating profile:', updateError)
-        return NextResponse.json(
-          { error: 'Failed to schedule account deletion' },
-          { status: 500 }
-        )
-      }
-
-      return NextResponse.json({ 
-        success: true,
-        message: 'Subscription canceled. Your account will remain active until the end of your paid period.',
-        period_end: periodEndDate.toISOString(),
-        scheduled_deletion_at: deletionDate.toISOString()
-      })
-    } catch (stripeError: any) {
-      console.error('[api/subscription/cancel] Stripe error:', stripeError)
+    if (updateError) {
+      console.error('[api/subscription/cancel] Error updating profile:', updateError)
       return NextResponse.json(
-        { error: stripeError.message || 'Failed to cancel subscription' },
+        { error: 'Failed to update subscription status' },
         { status: 500 }
       )
     }
+
+    return NextResponse.json({ 
+      success: true,
+      platform: profile.subscription_platform === 'revenuecat_ios' ? 'iOS' : 'Android',
+      message: profile.subscription_platform === 'revenuecat_ios'
+        ? 'To cancel your subscription, open iOS Settings → Apple ID → Subscriptions → ShiftCoach → Cancel Subscription. Access continues until your billing period ends.'
+        : 'To cancel your subscription, open Google Play Store → Subscriptions → ShiftCoach → Cancel Subscription. Access continues until your billing period ends.',
+    })
   } catch (error: any) {
     console.error('[api/subscription/cancel] Unexpected error:', error)
     return NextResponse.json(

@@ -12,9 +12,7 @@ export const dynamic = 'force-dynamic'
  * Users must cancel through the App Store/Play Store
  * This endpoint updates our database to reflect the cancellation
  * 
- * For actual cancellation, users should:
- * - iOS: Settings → Apple ID → Subscriptions
- * - Android: Google Play → Subscriptions
+ * For actual cancellation, users should use App Store/Play Store subscriptions.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -58,12 +56,10 @@ export async function POST(req: NextRequest) {
       })
       .eq('user_id', userId)
 
-    const platform = profile.subscription_platform === 'revenuecat_ios' ? 'iOS' : 'Android'
-    
     return NextResponse.json({
       success: true,
-      message: `To cancel your subscription, please go to ${platform} Settings → Subscriptions and cancel there. Your access will continue until the end of your current billing period.`,
-      platform,
+      message: `To cancel your subscription, please go to ${profile.subscription_platform === 'revenuecat_ios' ? 'iOS Settings' : 'Google Play Store'} → Subscriptions → ShiftCoach → Cancel Subscription. Your access will continue until the end of your billing period.`,
+      platform: profile.subscription_platform === 'revenuecat_ios' ? 'iOS' : 'Android',
     })
   } catch (error: any) {
     console.error('[api/revenuecat/cancel] Unexpected error:', error)

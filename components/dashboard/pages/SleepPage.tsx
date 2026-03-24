@@ -208,7 +208,7 @@ function LatestShiftBreakdownCard() {
   return (
     <MiniCard>
       <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
-        Latest shift
+        Sleep stage estimate
       </h2>
       <div className="mt-3 space-y-2.5">
         {stages.map((stage) => (
@@ -236,12 +236,12 @@ function LatestShiftTimeCard() {
   return (
     <MiniCard>
       <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
-        Latest shift
+        Timing preview
       </h2>
       <p className="mt-2 text-[13px] text-slate-700">
-        April 21
+        Example shift
         <br />
-        10:00 pm – 6:00 am
+        Use your rota + logs for live timing
       </p>
     </MiniCard>
   );
@@ -304,13 +304,11 @@ function ShiftCoachCard() {
         </div>
 
         <p className="text-[13px] leading-snug text-slate-100/92">
-          You had more deep sleep than usual—keep the same schedule tonight and
-          avoid pushing your bedtime past{" "}
-          <span className="font-semibold">11:00 pm</span>.
+          Coaching guidance is estimate-based and becomes more precise as sleep and wearable logs become complete.
         </p>
 
         <button className="mt-1 text-xs font-medium text-slate-100 underline underline-offset-4 decoration-slate-400/70">
-          View analysis
+          View sleep analysis
         </button>
       </div>
     </section>
