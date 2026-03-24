@@ -12,10 +12,14 @@ export const dynamic = 'force-dynamic'
 const RotaApplySchema = z.object({
   patternId: z.string().min(1),
   startDate: z.string().min(1),
-  startCycleIndex: z.number().int().min(0).optional(),
+  startCycleIndex: z.preprocess((value) => {
+    if (value === null || value === undefined || value === '') return 0
+    const num = typeof value === 'number' ? value : Number(value)
+    return Number.isFinite(num) ? num : 0
+  }, z.number().int().min(0)).optional(),
   shiftTimes: z.record(z.string(), z.object({ start: z.string().optional(), end: z.string().optional() })).optional(),
   commute: z.unknown().optional(),
-  endDate: z.string().optional(),
+  endDate: z.string().nullable().optional(),
 })
 
 export async function POST(req: NextRequest) {
