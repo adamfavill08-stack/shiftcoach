@@ -16,6 +16,10 @@ function SignInContent() {
   const [busy, setBusy] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
+  const emailInputId = 'sign-in-email'
+  const passwordInputId = 'sign-in-password'
+  const signInErrorId = 'sign-in-error'
+  const signInStatusId = 'sign-in-status'
 
   // Check for error messages from callback redirect
   useEffect(() => {
@@ -141,11 +145,18 @@ function SignInContent() {
             </div>
 
             {/* Form */}
-            <form onSubmit={submit} className="mt-6 space-y-4">
+            <form onSubmit={submit} className="mt-6 space-y-4" aria-busy={busy}>
+              <p id={signInStatusId} className="sr-only" aria-live="polite" role="status">
+                {busy ? t('auth.signIn.busy') : ''}
+              </p>
               <div>
+                <label htmlFor={emailInputId} className="sr-only">
+                  {t('auth.signIn.email')}
+                </label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                   <input
+                    id={emailInputId}
                     className="w-full h-12 rounded-xl pl-11 pr-4 bg-white border border-slate-200 placeholder:text-slate-400 text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 focus-visible:border-emerald-400 transition-all text-sm"
                     placeholder={t('auth.signIn.email')}
                     type="email"
@@ -156,9 +167,13 @@ function SignInContent() {
                 </div>
               </div>
               <div>
+                <label htmlFor={passwordInputId} className="sr-only">
+                  {t('auth.signIn.password')}
+                </label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                   <input
+                    id={passwordInputId}
                     className="w-full h-12 rounded-xl pl-11 pr-4 bg-white border border-slate-200 placeholder:text-slate-400 text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 focus-visible:border-emerald-400 transition-all text-sm"
                     placeholder={t('auth.signIn.password')}
                     type="password"
@@ -169,12 +184,13 @@ function SignInContent() {
                 </div>
               </div>
               {err && (
-                <div className="p-3 rounded-xl bg-red-50 border border-red-200">
+                <div id={signInErrorId} className="p-3 rounded-xl bg-red-50 border border-red-200" role="alert" aria-live="assertive">
                   <p className="text-red-600 text-sm font-medium">{err}</p>
                 </div>
               )}
               <button
                 disabled={busy}
+                aria-describedby={err ? signInErrorId : undefined}
                 className="w-full h-12 rounded-full text-sm font-semibold text-white bg-slate-900 shadow-[0_10px_26px_-14px_rgba(15,23,42,0.35)] hover:opacity-95 active:scale-[0.99] transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {busy ? t('auth.signIn.busy') : t('auth.signIn.submit')}

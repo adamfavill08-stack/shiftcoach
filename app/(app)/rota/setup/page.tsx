@@ -40,6 +40,7 @@ export default function RotaSetup() {
     }
     endDate: string | null
   } | null>(null)
+  const todayPositionSelectId = 'today-pattern-position'
   
   // Commuting configuration
   const [commuteToWork, setCommuteToWork] = useState<{ minutes: string; method: string }>({
@@ -905,6 +906,12 @@ export default function RotaSetup() {
     <>
     <div className="min-h-screen bg-gradient-to-b from-white via-sky-50/40 to-white">
       <div className="mx-auto max-w-md px-4 py-6">
+          <div className="sr-only" aria-live="polite" role="status">
+            {saving ? 'Saving shift pattern changes' : ''}
+          </div>
+          <div className="sr-only" aria-live="assertive" role="alert">
+            {savedNotApplied && applyErrorMessage ? applyErrorMessage : ''}
+          </div>
           {/* Header with Clear Button – top */}
           <div className="mb-6 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -1623,7 +1630,7 @@ export default function RotaSetup() {
                             <div className="space-y-4 pt-1">
                               {patternCycleOptions.length > 0 && (
                                 <div className="rounded-xl bg-transparent p-0">
-                                  <label className="mb-2 block text-sm font-semibold text-slate-900">
+                                  <label htmlFor={todayPositionSelectId} className="mb-2 block text-sm font-semibold text-slate-900">
                                     Where are you in your pattern today?
                                   </label>
                                   <p className="mb-3 text-xs text-slate-500">
@@ -1631,6 +1638,7 @@ export default function RotaSetup() {
                                   </p>
                                   <div className="relative">
                                     <select
+                                      id={todayPositionSelectId}
                                       value={selectedTodayPosition || ''}
                                       onChange={(e) => setSelectedTodayPosition(parseInt(e.target.value))}
                                       className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 py-3 pr-10 text-sm font-semibold text-slate-900 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
@@ -1669,7 +1677,7 @@ export default function RotaSetup() {
                               </div>
 
                               {savedNotApplied && (
-                                <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                                <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3" role="alert" aria-live="assertive">
                                   <p className="text-xs font-semibold text-amber-900">
                                     Pattern saved, but not yet applied to calendar.
                                   </p>
@@ -1680,7 +1688,7 @@ export default function RotaSetup() {
                                     type="button"
                                     onClick={handleRetryApply}
                                     disabled={saving}
-                                    className="mt-2 rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                    className="mt-2 min-h-11 rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
                                   >
                                     {saving ? 'Retrying…' : 'Retry apply'}
                                   </button>

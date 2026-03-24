@@ -482,6 +482,20 @@ Example:
 ### 12.3 Accessibility behaviour
 - Inputs, actions, and key controls should remain keyboard-operable.
 - Status changes (sync/save/errors) should be clearly visible.
+- Form controls must have programmatically associated labels (`label` + `for`/`id`, or equivalent ARIA mapping).
+- Icon-only buttons and tappable icons must have accessible names (`aria-label` or visible text label).
+- Color must not be the sole indicator of status; include text/icon/shape cues for success/warning/error states.
+- Loading/sync/error state changes should be announced to assistive tech where feasible (`aria-live` regions, status roles).
+- Focus states must remain visible and perceivable in both light/dark contexts.
+- Mobile touch targets should meet minimum tappable area (target ~44x44 CSS px minimum for primary interactive elements).
+
+### 12.4 Accessibility verification requirements
+- Keyboard-only path can complete core flows (sign-in, onboarding progression, rota save).
+- Screen-reader sanity pass confirms:
+  - form field labels are announced correctly
+  - actionable controls have clear names
+  - async status/error feedback is announced
+- Contrast checks verify text and state badges meet WCAG-friendly contrast expectations for primary surfaces.
 
 ---
 
@@ -533,6 +547,9 @@ Example:
 - [ ] Deletion request lifecycle is enforced with verification, status transitions, and completion evidence.
 - [ ] Post-deletion account cannot ingest new wearable sync data.
 - [ ] Domain-level deletion coverage (profiles, logs, wearable samples, summaries, assets, subscription metadata handling) is validated.
+- [ ] Core forms expose programmatically associated labels and accessible control names.
+- [ ] Status states are not color-only and include assistive-tech announcements where applicable.
+- [ ] Mobile primary actions meet minimum touch target sizing.
 
 ---
 
