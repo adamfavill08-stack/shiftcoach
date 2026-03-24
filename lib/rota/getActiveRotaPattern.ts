@@ -1,6 +1,6 @@
 'use client'
 
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createClientComponentClient } from '@/lib/supabase'
 
 export type RotaPatternConfig = {
   shiftLength: '8h' | '12h' | '16h'

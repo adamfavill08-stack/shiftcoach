@@ -1,4 +1,4 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createBrowserClient } from '@supabase/ssr'
 
 // Get environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -29,11 +29,8 @@ Current working directory: ${process.cwd()}
   throw new Error(errorMsg)
 }
 
-// Create the Supabase client
-const supabaseClient = createClientComponentClient({
-  supabaseUrl: supabaseUrl,
-  supabaseKey: supabaseKey,
-})
+// Create singleton browser client.
+const supabaseClient = createBrowserClient(supabaseUrl, supabaseKey)
 
 // Wrap auth.getUser to catch AuthSessionMissingError silently
 const originalGetUser = supabaseClient.auth.getUser.bind(supabaseClient.auth)
@@ -54,4 +51,9 @@ supabaseClient.auth.getUser = async function(...args: any[]) {
 }
 
 export const supabase = supabaseClient
+
+// Compatibility helper used by existing client components.
+export function createClientComponentClient() {
+  return supabaseClient
+}
 
