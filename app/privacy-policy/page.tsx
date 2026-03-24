@@ -36,7 +36,7 @@ export default function PrivacyPolicyPage() {
                 <li>Profile information (name, age, height, weight, goals, activity level)</li>
                 <li>Shift schedule and work patterns</li>
                 <li>Sleep logs and patterns</li>
-                <li>Activity and step data (including from Google Fit if connected)</li>
+                <li>Activity and step data (from Health Connect on Android or Apple Health on iOS, if connected)</li>
                 <li>Mood and focus ratings</li>
                 <li>Nutrition preferences and goals</li>
                 <li>Payment information (processed securely through Stripe)</li>
@@ -44,7 +44,7 @@ export default function PrivacyPolicyPage() {
               </ul>
               <p className="mt-4">
                 <strong>Health Data:</strong> With your explicit permission, we may collect health data
-                from connected services such as Google Fit or Apple Health, including steps, sleep data,
+                from connected services such as Health Connect or Apple Health, including steps, sleep data,
                 and activity metrics.
               </p>
             </section>
@@ -71,7 +71,7 @@ export default function PrivacyPolicyPage() {
               <ul className="list-disc pl-6 space-y-2">
                 <li><strong>Supabase:</strong> Database and authentication services. Your data is stored securely on Supabase&apos;s servers.</li>
                 <li><strong>Stripe:</strong> Payment processing. Payment information is handled directly by Stripe and never stored on our servers.</li>
-                <li><strong>Google Fit:</strong> Health data integration (optional). We only access data you explicitly authorize.</li>
+                <li><strong>Health Connect / Apple Health:</strong> Optional health data integration. We only access data you explicitly authorize.</li>
                 <li><strong>OpenAI:</strong> AI coaching features. Your messages and context may be processed by OpenAI to provide personalized coaching.</li>
                 <li><strong>Resend:</strong> Email delivery service for notifications and account-related emails.</li>
               </ul>
@@ -122,6 +122,13 @@ export default function PrivacyPolicyPage() {
                 <li>Delete your account and data</li>
                 <li>Correct inaccurate information</li>
               </ul>
+              <p className="mt-3">
+                Account deletion is available both in-app and on the web:
+                <br />
+                <a href="/account/delete" className="text-blue-600 hover:underline">In-app signed-in deletion</a>
+                {' '}|{' '}
+                <a href="/account/delete-request" className="text-blue-600 hover:underline">Web deletion request page</a>
+              </p>
             </section>
 
             <section>

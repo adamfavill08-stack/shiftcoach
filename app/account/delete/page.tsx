@@ -178,6 +178,16 @@ export default function DeleteAccountPage() {
           You can also delete your account from the app settings.
           <br />
           <a
+            href="/account/delete-request"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-slate-700 dark:hover:text-slate-300 mr-2"
+          >
+            Web deletion request
+          </a>
+          •
+          {' '}
+          <a
             href="/privacy-policy"
             target="_blank"
             rel="noopener noreferrer"

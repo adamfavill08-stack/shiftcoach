@@ -18,8 +18,14 @@ export async function POST(req: NextRequest) {
   const { data: me, error: meErr } = await supaAnon.auth.getUser()
   if (meErr || !me.user) return new Response(JSON.stringify({ ok:false, error:'Invalid token' }), { status: 401 })
 
-  // 3) Delete auth user with service role
+  // 3) Delete user-scoped app data first (public schema tables with user_id)
   const admin = createClient(url, service)
+  const { error: dataDeleteErr } = await admin.rpc('delete_user_account_data', { p_user_id: me.user.id })
+  if (dataDeleteErr) {
+    return new Response(JSON.stringify({ ok:false, error: `Failed to delete user data: ${dataDeleteErr.message}` }), { status: 500 })
+  }
+
+  // 4) Delete auth user with service role
   const { error: delErr } = await admin.auth.admin.deleteUser(me.user.id)
   if (delErr) return new Response(JSON.stringify({ ok:false, error: delErr.message }), { status: 500 })
 
