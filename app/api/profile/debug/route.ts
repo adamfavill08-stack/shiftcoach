@@ -9,6 +9,10 @@ export const dynamic = 'force-dynamic'
  * Debug endpoint to check what's actually in the database
  */
 export async function GET(req: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'not_found' }, { status: 404 })
+  }
+
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
     const supabase = isDevFallback ? supabaseServer : authSupabase

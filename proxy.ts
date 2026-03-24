@@ -1,7 +1,22 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const PROD_BLOCKED_PATHS = new Set([
+  '/test',
+  '/wearables-debug',
+  '/api/test-openai',
+  '/api/profile/debug',
+  '/api/wearables/debug',
+])
+
 export async function proxy(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    const path = request.nextUrl.pathname.replace(/\/+$/, '') || '/'
+    if (PROD_BLOCKED_PATHS.has(path)) {
+      return new NextResponse('Not Found', { status: 404 })
+    }
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
