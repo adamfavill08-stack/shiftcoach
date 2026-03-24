@@ -108,7 +108,7 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
 
     'auth.tagline': 'Dedicated to shift worker health and wellbeing.',
     'auth.personalized': 'Personalized for your shifts',
-    'auth.signIn.title': 'Welcome back',
+    'auth.signIn.title': 'Welcome',
     'auth.signIn.subtitle': 'Sign in to continue your plan.',
     'auth.signIn.email': 'Email',
     'auth.signIn.password': 'Password',
