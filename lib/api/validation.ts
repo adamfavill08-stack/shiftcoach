@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ZodType } from 'zod'
 import { apiBadRequest } from '@/lib/api/response'
 
+type ValidationDetail = {
+  field: string
+  issue: string
+  message: string
+}
+
 export async function parseJsonBody<T>(
   req: NextRequest,
   schema: ZodType<T>
@@ -16,9 +22,14 @@ export async function parseJsonBody<T>(
 
   const parsed = schema.safeParse(raw)
   if (!parsed.success) {
+    const details: ValidationDetail[] = parsed.error.issues.map((issue) => ({
+      field: issue.path.join('.') || '$',
+      issue: issue.code,
+      message: issue.message,
+    }))
     return {
       ok: false,
-      response: apiBadRequest('invalid_payload', 'Request payload failed validation', parsed.error.flatten()),
+      response: apiBadRequest('validation_error', 'Request payload failed validation', details),
     }
   }
 

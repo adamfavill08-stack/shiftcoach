@@ -84,15 +84,18 @@ export async function POST(req: NextRequest) {
         .map((s) => ({
           user_id: userId,
           source: 'health_connect',
-          start_at: s.start,
-          end_at: s.end,
+          start_at: new Date(s.start).toISOString(),
+          end_at: new Date(s.end).toISOString(),
           stage: s.stage ?? 'asleep',
           quality: s.quality ?? null,
           meta: s.meta ?? {},
         }))
+        .filter((r) => !Number.isNaN(new Date(r.start_at).getTime()) && !Number.isNaN(new Date(r.end_at).getTime()))
 
       if (rows.length > 0) {
-        await supabase.from('sleep_records').insert(rows)
+        await supabase
+          .from('sleep_records')
+          .upsert(rows, { onConflict: 'user_id,source,start_at,end_at' })
       }
     }
 

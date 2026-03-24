@@ -63,6 +63,51 @@ Core principle: **all user-visible outputs are personalized to authenticated use
 - User can request deletion through account endpoints.
 - Related account data is queued/processed per compliance flow.
 
+### 3.5 Account deletion lifecycle (required)
+Account deletion must follow an explicit, auditable lifecycle.
+
+#### 3.5.1 Immediate actions (request accepted)
+On successful deletion request creation:
+- account is marked `deletion_requested`
+- future wearable sync ingestion is disabled for that account
+- write operations for coaching/personalization features are blocked or no-op
+- user receives confirmation state and expected completion window
+
+#### 3.5.2 Queued actions (background processing)
+Deletion worker/process must remove or anonymize account-linked data by table/domain:
+- **Profiles/account identity:** delete profile row or hard-anonymize direct identifiers where hard delete is not possible
+- **Rota/shift data:** delete user patterns, generated shifts, and related scheduling metadata
+- **Sleep/log data:** delete sleep logs/sessions, mood/water/caffeine/activity logs
+- **Wearable samples/sync artifacts:** delete ingested wearable samples and provider-linked sync payload records
+- **Derived summaries/analytics caches:** delete per-user computed summary rows/materializations
+- **Uploaded assets/files:** delete user-owned storage assets (avatars/attachments/exports) and storage references
+- **Subscription metadata:** retain only minimal financial/compliance records required by law/platform policy; remove app-level personalization linkage
+
+#### 3.5.3 Retention windows
+- **In-app personal health data:** target hard deletion within **30 days** of verified request.
+- **Operational logs:** retain only security/audit minimum required by policy, with user identifiers minimized or hashed where possible.
+- **Billing/compliance records:** retain only legally required fields for statutory period; must be logically separated from active user profile data.
+
+#### 3.5.4 Post-deletion behaviour
+- deleted account cannot resume sync or receive new health data ingestion
+- auth sessions for deleted account are revoked/invalidated
+- re-signup requires new account lifecycle (no automatic restoration of deleted health history)
+
+#### 3.5.5 Public deletion request abuse controls
+Public/request-based deletion endpoints must include abuse-resistant verification:
+- verified ownership proof (signed token/email-link challenge or equivalent)
+- rate limiting and replay protection
+- request idempotency keys to prevent duplicate destructive jobs
+- explicit status tracking (`requested`, `verified`, `processing`, `completed`, `rejected`)
+- no destructive execution before verification is complete
+
+#### 3.5.6 Deletion evidence and auditability
+For each deletion request, system must record:
+- request timestamp and verification method
+- processing start/completion timestamps
+- domain-level deletion outcomes (profile/logs/wearables/files/subscription metadata)
+- failure reasons and retry history (if any)
+
 ---
 
 ## 4. Onboarding Behaviour
@@ -217,8 +262,41 @@ Transitions:
 
 ### 9.2 Sync behaviour
 - Manual or scheduled sync endpoints ingest health data.
-- Sync writes are idempotent/safe for repeated runs where possible.
+- Sync writes must be idempotent for repeated runs (no duplicate record creation on replay).
 - UI reports sync progress and latest successful sync time.
+
+### 9.2.1 Idempotency and deduplication contract (required)
+For sleep/activity/heart-rate (and similar sample-based streams):
+- ingestion keys must include provider/source identity + sample identity or deterministic time-window identity
+- repeated sync of the same upstream payload must not create duplicates
+- dedupe must be deterministic across:
+  - same sample replayed in later sync windows
+  - overlapping sync windows
+  - provider retry/retransmit behaviour
+
+Minimum uniqueness strategy per sample:
+- provider (`apple_health` / `health_connect`)
+- external sample ID when available
+- metric type (sleep/activity/heart_rate/etc.)
+- start/end timestamps (normalized)
+- user/account scope
+
+### 9.2.2 Deterministic upsert/update rules
+When incoming sample matches existing identity key:
+- apply deterministic merge policy (not append)
+- newer provider revision/version wins when revision metadata exists
+- if no revision metadata exists, prefer latest ingestion timestamp with stable tie-breaker
+- updates must be idempotent under repeated processing of same batch
+
+### 9.2.3 Windowing and replay safety
+- sync jobs may overlap time windows; overlap must not inflate totals or duplicate samples
+- backfills and historical re-sync must preserve one canonical sample per identity key
+- aggregate recalculations must derive from deduped canonical samples only
+
+### 9.2.4 Failure/retry behaviour for sync jobs
+- failed sync batches can be retried safely without manual cleanup
+- partial-batch success must not corrupt idempotency guarantees
+- retry logic must not alter final canonical dataset compared to single successful run
 
 ### 9.3 Error behaviour
 - Provider auth or token issues show clear, actionable status.
@@ -238,6 +316,49 @@ Transitions:
 
 ### 10.3 Access behaviour
 - Premium/plan-based features should gate by current entitlement state.
+
+### 10.4 Entitlement source-of-truth and conflict policy (required)
+- **Primary truth:** server-validated entitlement state (RevenueCat-backed status resolved via backend).
+- **Secondary fallback:** last-known-good local/cache entitlement with TTL.
+- If cache and server disagree, **server state wins** once reachable.
+- Cache must be marked with timestamp and confidence (`fresh`, `stale`, `unverified`).
+
+### 10.5 RevenueCat/API unavailability behaviour
+When RevenueCat (or entitlement verification path) is temporarily unavailable:
+- app must not silently hard-fail the subscription UI
+- use last-known-good entitlement for a short fallback window (e.g., up to 24h) with `degraded verification` status
+- show clear user-facing state:  
+  - "We can’t confirm subscription right now. Your access is temporarily preserved while we retry."
+- schedule background retries with backoff
+- if verification remains unavailable past fallback window, move to restricted/limited state with explicit explanation and retry action
+
+### 10.6 Grace period and billing issue behaviour
+- If provider reports billing grace period / account hold:
+  - premium access remains enabled during active grace window
+  - app shows billing-warning banner with manage-subscription CTA
+- If grace window expires without recovery:
+  - entitlement transitions to inactive
+  - premium gating applies immediately after confirmed expiration
+
+### 10.7 Downgrade and cancellation timing
+- **User-initiated cancellation:** premium access remains until end of paid period unless provider marks immediate termination.
+- **Plan downgrade:** new lower tier takes effect at renewal boundary unless provider explicitly reports immediate tier change.
+- **Immediate revocation events** (refund/revoke/fraud/admin revoke): apply immediately on confirmed webhook/server state.
+- UI must show effective date ("Active until <date>" or "Downgrade effective on renewal").
+
+### 10.8 Unconfirmed status UX contract
+When status cannot be confidently confirmed:
+- display explicit verification state badge (`verified`, `retrying`, `stale`, `unverified`)
+- avoid misleading "active" hard labels when state is unverified
+- provide user action:
+  - retry check
+  - open manage subscription
+  - contact support if persistent
+
+### 10.9 Webhook and reconciliation behaviour
+- Webhooks update server-side subscription status as soon as events arrive.
+- Client-side status checks reconcile with backend snapshot on app foreground and key paywall actions.
+- Reconciliation conflicts are logged and resolved to latest provider-confirmed server state.
 
 ---
 
@@ -260,6 +381,89 @@ Transitions:
 - No client-provided `user_id` trust.
 - Server resolves authenticated user and applies row-level filters.
 - Sensitive routes are not publicly exposed in production.
+
+### 11.5 Standard response envelope (required)
+All JSON API responses must use a consistent top-level envelope.
+
+#### Success envelope
+```json
+{
+  "success": true,
+  "data": {},
+  "meta": {
+    "requestId": "string",
+    "timestamp": "ISO-8601 string"
+  }
+}
+```
+
+Rules:
+- `success` is always present and boolean.
+- `data` is always present on success (object/array/scalar as route contract defines).
+- `meta.requestId` should be included where request tracing is available.
+- `meta.timestamp` must be UTC ISO-8601 string.
+
+#### Error envelope
+```json
+{
+  "success": false,
+  "error": {
+    "code": "machine_readable_code",
+    "message": "human readable summary",
+    "details": []
+  },
+  "meta": {
+    "requestId": "string",
+    "timestamp": "ISO-8601 string"
+  }
+}
+```
+
+Rules:
+- `error.code` is stable and machine-parseable (snake_case).
+- `error.message` is safe for user-facing display fallback.
+- `error.details` is optional but, if present, must be an array with deterministic shape.
+
+### 11.6 Validation error detail contract
+For request validation failures (`400`):
+- include field-level details where possible:
+  - `field` (JSON path)
+  - `issue` (machine-readable validator reason)
+  - `message` (human-readable text)
+- multiple violations should be returned together where available.
+
+Example:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "validation_error",
+    "message": "Request validation failed",
+    "details": [
+      { "field": "startDate", "issue": "invalid_format", "message": "Expected ISO date" },
+      { "field": "startCycleIndex", "issue": "min", "message": "Must be >= 0" }
+    ]
+  }
+}
+```
+
+### 11.7 Data typing and serialization invariants
+- Timestamps are always UTC ISO-8601 strings in API responses.
+- Date-only fields use `YYYY-MM-DD` ISO date string.
+- Internal API numeric payloads are metric-normalized unless a route explicitly documents alternate units.
+- Optional known fields should return explicit `null` when empty (avoid unpredictable omit vs null behavior).
+- Booleans and numbers are never serialized as strings.
+
+### 11.8 Field naming conventions
+- JSON field names use `camelCase` consistently.
+- Stable contract fields (`success`, `data`, `error`, `meta`, `code`, `message`, `details`) must not vary by route.
+- New fields are additive and backward-compatible; removals/renames require versioning or migration notice.
+
+### 11.9 Compatibility and mobile safety rules
+- Do not silently change response shapes on existing endpoints.
+- Unknown extra fields must be non-breaking for clients.
+- Client-critical enums should be documented and only expanded in backward-compatible ways.
+- Contract-breaking changes require coordinated mobile/web release planning.
 
 ---
 
@@ -317,7 +521,18 @@ Transitions:
 - [ ] Dashboard loads with valid placeholders on missing data.
 - [ ] Protected APIs return `401` when session is absent.
 - [ ] Sync errors are surfaced without app-wide breakage.
+- [ ] Repeated health sync replays do not create duplicate sleep/activity/heart-rate records.
+- [ ] Overlapping sync windows preserve deterministic canonical samples and stable aggregates.
+- [ ] API success/error envelopes conform to the standard response contract.
+- [ ] Validation errors include field-level details for core endpoints where applicable.
+- [ ] Timestamp/date/nullability/unit serialization invariants are verified for core endpoints.
 - [ ] Subscription status reflects current entitlement state.
+- [ ] Subscription fallback policy is enforced when verification providers are unavailable.
+- [ ] Cache/server entitlement conflicts resolve to server truth with explicit user-visible state.
+- [ ] Grace-period and downgrade timing rules match provider-reported lifecycle.
+- [ ] Deletion request lifecycle is enforced with verification, status transitions, and completion evidence.
+- [ ] Post-deletion account cannot ingest new wearable sync data.
+- [ ] Domain-level deletion coverage (profiles, logs, wearable samples, summaries, assets, subscription metadata handling) is validated.
 
 ---
 

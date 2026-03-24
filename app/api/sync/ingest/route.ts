@@ -54,23 +54,25 @@ export async function POST(req: NextRequest) {
       last_synced_at: new Date().toISOString()
     }, { onConflict: 'user_id,platform' })
 
-    // Insert sleep rows (dedupe by hash)
+    // Upsert sleep rows with deterministic dedupe identity.
     if (sleep.length) {
       const rows = sleep.map(s => ({
         user_id,
         source: platform.includes('ios')
           ? 'apple_health'
           : (platform.includes('health_connect') ? 'health_connect' : 'google_fit'),
-        start_at: s.start,
-        end_at: s.end,
+        start_at: new Date(s.start).toISOString(),
+        end_at: new Date(s.end).toISOString(),
         stage: s.stage ?? 'asleep',
         quality: s.quality ?? null,
         meta: s.meta ?? {}
       }))
+      .filter((r) => !Number.isNaN(new Date(r.start_at).getTime()) && !Number.isNaN(new Date(r.end_at).getTime()))
 
-      const { error } = await supabaseServer.from('sleep_records').insert(rows)
+      const { error } = await supabaseServer
+        .from('sleep_records')
+        .upsert(rows, { onConflict: 'user_id,source,start_at,end_at' })
       if (error) {
-        // ignore duplicates gracefully if you add unique index later
         console.error('[ingest] insert error', error)
       }
     }
