@@ -27,6 +27,19 @@ export default function RotaSetup() {
   const [selectedPattern, setSelectedPattern] = useState<string | null>(null)
   const [showTimeConfig, setShowTimeConfig] = useState(false)
   const [showCommuteConfig, setShowCommuteConfig] = useState(false)
+  const [savedNotApplied, setSavedNotApplied] = useState(false)
+  const [applyErrorMessage, setApplyErrorMessage] = useState<string | null>(null)
+  const [lastApplyPayload, setLastApplyPayload] = useState<{
+    patternId: string
+    startDate: string
+    startCycleIndex: number
+    shiftTimes: Record<string, { start: string; end: string }>
+    commute: {
+      toWork: { minutes: number; method: string }
+      fromWork: { minutes: number; method: string }
+    }
+    endDate: string | null
+  } | null>(null)
   
   // Commuting configuration
   const [commuteToWork, setCommuteToWork] = useState<{ minutes: string; method: string }>({
@@ -533,6 +546,7 @@ export default function RotaSetup() {
     }
 
     setSaving(true)
+    setApplyErrorMessage(null)
 
     try {
       const patternSlots = getPatternSlots(selectedPattern)
@@ -567,33 +581,42 @@ export default function RotaSetup() {
         throw new Error(error.detail || 'Failed to save pattern')
       }
 
+      const applyPayload = {
+        patternId: selectedPattern,
+        startDate: startDate,
+        startCycleIndex: selectedTodayPosition - 1,
+        shiftTimes,
+        commute: {
+          toWork: {
+            minutes: parseInt(commuteToWork.minutes) || 0,
+            method: commuteToWork.method,
+          },
+          fromWork: {
+            minutes: parseInt(commuteFromWork.minutes) || 0,
+            method: commuteFromWork.method,
+          },
+        },
+        endDate: noEndDate ? null : endDate,
+      }
+      setLastApplyPayload(applyPayload)
+
       // Apply pattern to calendar (save shifts to shifts table)
       const applyResponse = await fetch('/api/rota/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patternId: selectedPattern,
-          startDate: startDate,
-          startCycleIndex: selectedTodayPosition - 1,
-          shiftTimes,
-          commute: {
-            toWork: {
-              minutes: parseInt(commuteToWork.minutes) || 0,
-              method: commuteToWork.method,
-            },
-            fromWork: {
-              minutes: parseInt(commuteFromWork.minutes) || 0,
-              method: commuteFromWork.method,
-            },
-          },
-          endDate: noEndDate ? null : endDate,
-        }),
+        body: JSON.stringify(applyPayload),
       })
 
       if (!applyResponse.ok) {
         const error = await applyResponse.json()
-        throw new Error(error.detail || 'Failed to apply pattern to calendar')
+        setSavedNotApplied(true)
+        setApplyErrorMessage(error.detail || 'Pattern saved, but failed to apply to calendar')
+        alert(`Pattern saved, but failed to apply to calendar: ${error.detail || 'Unknown error'}`)
+        return
       }
+
+      setSavedNotApplied(false)
+      setApplyErrorMessage(null)
 
       // Dispatch event to refresh calendar
       if (typeof window !== 'undefined') {
@@ -606,6 +629,46 @@ export default function RotaSetup() {
     } catch (err: any) {
       console.error('[RotaSetup] Save error:', err)
       alert(`Failed to save pattern: ${err.message || 'Unknown error'}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleRetryApply = async () => {
+    if (!lastApplyPayload) {
+      alert('No saved apply request found. Please save pattern again.')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const applyResponse = await fetch('/api/rota/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(lastApplyPayload),
+      })
+
+      if (!applyResponse.ok) {
+        const error = await applyResponse.json()
+        const detail = error.detail || 'Failed to apply pattern to calendar'
+        setApplyErrorMessage(detail)
+        alert(`Still unable to apply pattern: ${detail}`)
+        return
+      }
+
+      setSavedNotApplied(false)
+      setApplyErrorMessage(null)
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('rota-saved'))
+      }
+
+      router.push('/rota')
+      router.refresh()
+    } catch (err: any) {
+      const detail = err?.message || 'Unknown error'
+      setApplyErrorMessage(detail)
+      alert(`Still unable to apply pattern: ${detail}`)
     } finally {
       setSaving(false)
     }
@@ -1604,6 +1667,25 @@ export default function RotaSetup() {
                                   {saving ? 'Saving…' : 'Save pattern'}
                                 </button>
                               </div>
+
+                              {savedNotApplied && (
+                                <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                                  <p className="text-xs font-semibold text-amber-900">
+                                    Pattern saved, but not yet applied to calendar.
+                                  </p>
+                                  <p className="mt-1 text-xs text-amber-800">
+                                    {applyErrorMessage || 'Please retry applying your pattern.'}
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={handleRetryApply}
+                                    disabled={saving}
+                                    className="mt-2 rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    {saving ? 'Retrying…' : 'Retry apply'}
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
