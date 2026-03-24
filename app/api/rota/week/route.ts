@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 
 export async function GET(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
+  if (!userId) return buildUnauthorizedResponse()
 
   const today = new Date()
   const start = new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000)

@@ -1,8 +1,10 @@
 import { NextRequest } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 
 export async function POST(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
+  if (!userId) return buildUnauthorizedResponse()
+
   const { mood, focus } = await req.json().catch(() => ({} as Record<string, unknown>))
   if (!mood || !focus) {
     return new Response(JSON.stringify({ ok: false, error: 'mood & focus required' }), { status: 400 })

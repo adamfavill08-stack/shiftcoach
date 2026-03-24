@@ -1402,8 +1402,8 @@ export default function AdjustedCaloriesPage() {
   // Calculate biological night window (default 23:00-07:00, or from circadian if available)
   const biologicalNight = React.useMemo(() => {
     // Default biological night for day workers
-    let start = 23;
-    let end = 7;
+    const start = 23;
+    const end = 7;
     
     // If we have circadian data with sleep midpoint, calculate from that
     // Typical biological night is ~8 hours centered around sleep midpoint

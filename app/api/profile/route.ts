@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 
 // Cache for 5 minutes - profile data changes infrequently
@@ -12,13 +12,10 @@ export const revalidate = 300
 export async function GET(req: NextRequest) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
-    
+    if (!userId) return buildUnauthorizedResponse()
+
     // Use service role client (bypasses RLS) when in dev fallback mode
     const supabase = isDevFallback ? supabaseServer : authSupabase
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
 
     // Fetch profile
     const { data, error } = await supabase
@@ -82,9 +79,7 @@ export async function POST(req: NextRequest) {
     // This is needed because RLS policies check auth.uid(), which is null without a real session
     const dbClient = isDevFallback ? supabaseServer : supabase
     
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!userId) return buildUnauthorizedResponse()
 
     let body: any
     try {
@@ -254,7 +249,7 @@ export async function POST(req: NextRequest) {
 
     // Use upsert to create or update
     // Handle missing columns gracefully - try with all fields first, then remove missing ones
-    let profileDataToSave = { ...profileData }
+    const profileDataToSave = { ...profileData }
     
     console.log('[api/profile] ========== ATTEMPTING TO SAVE ==========')
     console.log('[api/profile] Data being sent to database:', JSON.stringify(profileDataToSave, null, 2))

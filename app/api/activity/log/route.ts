@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 
 export type ShiftActivityLevel = 'very_light' | 'light' | 'moderate' | 'busy' | 'intense'
 
@@ -7,13 +7,8 @@ export async function POST(req: NextRequest) {
   try {
     const { supabase, userId } = await getServerSupabaseAndUserId()
     
-    if (!userId) {
-      console.error('[/api/activity/log] No user ID available')
-      return NextResponse.json(
-        { error: 'Authentication required', details: 'User ID not found' },
-        { status: 401 }
-      )
-    }
+    if (!userId) return buildUnauthorizedResponse()
+
 
     if (!supabase) {
       console.error('[/api/activity/log] No Supabase client available')
@@ -176,7 +171,7 @@ WHERE shift_activity_level IS NOT NULL;
       const updateData: any = { shift_activity_level }
       
       // Try to update with ts, fallback to created_at
-      let updateQuery = await supabase
+      const updateQuery = await supabase
         .from('activity_logs')
         .update(updateData)
         .eq('id', existingLog.id)

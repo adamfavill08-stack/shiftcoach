@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { calculateCircadianPhase, type ShiftType } from '@/lib/circadian/calcCircadianPhase'
 import { getSleepDeficitForCircadian } from '@/lib/circadian/sleep'
@@ -36,6 +36,8 @@ export async function GET(req: NextRequest) {
         { status: 500 }
       )
     }
+
+    if (!userId) return buildUnauthorizedResponse()
     
     // Use service role client (bypasses RLS) when in dev fallback mode
     // This is needed because RLS policies check auth.uid(), which is null without a real session
@@ -61,10 +63,6 @@ export async function GET(req: NextRequest) {
         },
         { status: 500 }
       )
-    }
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const today = new Date()
@@ -165,7 +163,7 @@ export async function GET(req: NextRequest) {
 
     // Fetch ALL sleep logs (both main sleep and naps) - try new schema first
     let sleepLogs: any[] = []
-    let sleepError: any = null
+    const sleepError: any = null
 
     // Try new schema (type, start_at, end_at)
     console.log('[api/circadian/calculate] Trying new schema (start_at, end_at)...')

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 
 /**
  * GET /api/weekly-goals/latest
@@ -9,6 +9,7 @@ import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 export async function GET(req: NextRequest) {
   try {
     const { supabase, userId } = await getServerSupabaseAndUserId()
+    if (!userId) return buildUnauthorizedResponse()
 
     const { data, error } = await supabase
       .from('weekly_goals')

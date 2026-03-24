@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,9 +14,8 @@ export async function GET(req: NextRequest) {
   try {
     const { supabase, userId } = await getServerSupabaseAndUserId()
     
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!userId) return buildUnauthorizedResponse()
+
 
     const revenuecatApiKey = process.env.REVENUECAT_API_KEY
     if (!revenuecatApiKey) {

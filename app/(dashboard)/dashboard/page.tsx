@@ -18,6 +18,7 @@ const GOOGLE_FIT_ERROR_MESSAGES: Record<string, string> = {
   token_exchange_failed: 'Token exchange failed. Check client secret and that the redirect URI matches.',
   no_access_token: 'Google did not return an access token.',
   missing_code: 'Google did not return an authorization code.',
+  google_fit_deprecated: 'Google Fit onboarding is disabled. Use Health Connect on Android or Apple Health on iPhone.',
   unexpected: 'An unexpected error occurred. Check Vercel function logs.',
 }
 

@@ -27,7 +27,7 @@ export default function HeartHealthPage() {
       try {
         const [profileRes, hrRes] = await Promise.all([
           fetch("/api/profile"),
-          fetch("/api/google-fit/heart-rate"),
+          fetch("/api/wearables/heart-rate"),
         ]);
 
         if (!cancelled && profileRes.ok) {
@@ -281,7 +281,7 @@ export default function HeartHealthPage() {
 
           <div className="mt-1 flex items-end justify-between gap-2 pt-1">
             {Array.from({ length: 7 }).map((_, idx) => {
-              let toneClass =
+              const toneClass =
                 weeklyTrendTone === "good"
                   ? "bg-emerald-400"
                   : weeklyTrendTone === "medium"

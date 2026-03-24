@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 
 export async function POST(req: NextRequest) {
   try {
     const { supabase, userId } = await getServerSupabaseAndUserId()
     
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!userId) return buildUnauthorizedResponse()
+
 
     const formData = await req.formData()
     const file = formData.get('file') as File | null
@@ -90,9 +89,8 @@ export async function DELETE(req: NextRequest) {
   try {
     const { supabase, userId } = await getServerSupabaseAndUserId()
     
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!userId) return buildUnauthorizedResponse()
+
 
     // Get current avatar URL from profile
     const { data: profile } = await supabase

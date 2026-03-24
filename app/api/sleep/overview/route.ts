@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { SHIFT_CALI_COACH_SYSTEM_PROMPT } from '@/lib/coach/systemPrompt'
 import { getCoachingState } from '@/lib/coach/getCoachingState'
@@ -24,10 +24,8 @@ export async function GET(req: NextRequest) {
 
     console.log('[api/sleep/overview] User ID:', userId, 'isDevFallback:', isDevFallback)
 
-    if (!userId) {
-      console.error('[api/sleep/overview] No userId, returning 401')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!userId) return buildUnauthorizedResponse()
+
 
     // Fetch sleep summary data directly from database
     let sleepSummary: any = null

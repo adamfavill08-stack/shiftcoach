@@ -69,7 +69,7 @@ function FieldDate({ label, v, set }:{ label:string; v:string; set:(s:string)=>v
 
 function enumerate(fromISO: string, toISO: string) {
   const out:string[] = []
-  let d = new Date(fromISO)
+  const d = new Date(fromISO)
   const end = new Date(toISO)
   while (d <= end) { out.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+1) }
   return out

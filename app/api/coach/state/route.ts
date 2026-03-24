@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { getCoachingState } from '@/lib/coach/getCoachingState'
 import { getUserMetrics } from '@/lib/data/getUserMetrics'
 
@@ -11,6 +11,7 @@ import { getUserMetrics } from '@/lib/data/getUserMetrics'
 export async function GET(req: NextRequest) {
   try {
     const { supabase, userId } = await getServerSupabaseAndUserId()
+    if (!userId) return buildUnauthorizedResponse()
 
     // Fetch user metrics
     let metrics

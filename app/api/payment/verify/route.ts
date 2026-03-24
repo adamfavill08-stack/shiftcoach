@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import Stripe from 'stripe'
 
 let stripe: Stripe | null = null
@@ -38,10 +38,8 @@ export async function POST(req: NextRequest) {
     console.log('[api/payment/verify] Starting verification...')
     const { supabase, userId } = await getServerSupabaseAndUserId()
     
-    if (!userId) {
-      console.error('[api/payment/verify] No userId found')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!userId) return buildUnauthorizedResponse()
+
 
     console.log('[api/payment/verify] UserId:', userId)
 

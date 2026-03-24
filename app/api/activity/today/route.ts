@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import {
   getActivityLevelDetails,
   getEstimatedCaloriesBurned,
@@ -19,6 +19,7 @@ export const revalidate = 60
 
 export async function GET(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
+  if (!userId) return buildUnauthorizedResponse()
 
   const today = new Date().toISOString().slice(0, 10)
   const now = new Date()

@@ -76,7 +76,7 @@ export async function computeToday(profile: Profile) : Promise<EngineOutput> {
   const rhythm = clamp(100 - (debtPenalty + mismatchPenalty + caffeinePenalty), 0, 100)
 
   // --- Recovery score (simple proxy: sleep & caffeine)
-  let recovery = clamp(70 + (avgSleepH - sleepGoalH) * 6 - (caffeine_mg > 250 ? 10 : 0), 20, 95)
+  const recovery = clamp(70 + (avgSleepH - sleepGoalH) * 6 - (caffeine_mg > 250 ? 10 : 0), 20, 95)
 
   // --- Adjusted calories
   const wt = profile.weight_kg ?? 85

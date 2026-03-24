@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import * as SupabaseServer from '@/lib/supabase-server'
 import { calculateShiftLag } from '@/lib/shiftlag/calculateShiftLag'
 import { logSupabaseError } from '@/lib/supabase/error-handler'
@@ -17,9 +17,8 @@ export async function GET(req: NextRequest) {
     
     const supabase = isDevFallback ? SupabaseServer.supabaseServer : authSupabase
     
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!userId) return buildUnauthorizedResponse()
+
 
     const today = new Date().toISOString().slice(0, 10)
     const sevenDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000)

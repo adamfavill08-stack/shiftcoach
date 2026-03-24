@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { calculateAdjustedCalories } from '@/lib/nutrition/calculateAdjustedCalories'
 import { getTodayMealSchedule } from '@/lib/nutrition/getTodayMealSchedule'
 import { isoLocalDate } from '@/lib/shifts'
@@ -7,6 +7,7 @@ import { isoLocalDate } from '@/lib/shifts'
 export async function GET(req: NextRequest) {
   try {
     const { supabase, userId } = await getServerSupabaseAndUserId()
+    if (!userId) return buildUnauthorizedResponse()
 
     // Get adjusted calories and meal plan
     const adjusted = await calculateAdjustedCalories(supabase, userId)

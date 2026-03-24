@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 
 export async function POST(req: NextRequest) {
@@ -10,10 +10,8 @@ export async function POST(req: NextRequest) {
     // This ensures inserts work even if RLS policies are misconfigured
     const supabase = supabaseServer
     
-    if (!userId) {
-      console.error("[api/sleep/log] No userId")
-      return NextResponse.json({ error: "unauthorized", details: "No user ID found" }, { status: 401 })
-    }
+    if (!userId) return buildUnauthorizedResponse()
+
 
     const body = await req.json()
     console.log("[api/sleep/log] Received body:", body)

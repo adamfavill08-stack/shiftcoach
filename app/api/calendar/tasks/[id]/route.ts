@@ -1,4 +1,4 @@
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { NextRequest, NextResponse } from 'next/server'
 import { Event, TYPE_TASK, FLAG_TASK_COMPLETED } from '@/lib/models/calendar/Event'
@@ -10,11 +10,10 @@ export async function PUT(
 ) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    if (!userId) return buildUnauthorizedResponse()
+
     const supabase = isDevFallback ? supabaseServer : authSupabase
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+
 
     const { id } = await context.params
     const body = await request.json()
@@ -96,11 +95,10 @@ export async function DELETE(
 ) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    if (!userId) return buildUnauthorizedResponse()
+
     const supabase = isDevFallback ? supabaseServer : authSupabase
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+
 
     const { id } = await context.params
 

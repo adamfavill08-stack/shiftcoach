@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 import * as SupabaseServer from '@/lib/supabase-server'
 import { buildShiftRhythmInputs } from '@/app/api/shift-rhythm/route'
 import { calculateShiftRhythm } from '@/lib/shift-rhythm/engine'
@@ -38,9 +37,9 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Use service-role Supabase so we can iterate users safely
-    const { supabase: authSupabase, isDevFallback } = await getServerSupabaseAndUserId()
-    const supabase = isDevFallback ? SupabaseServer.supabaseServer : authSupabase
+    // Use service-role Supabase so we can iterate users safely.
+    // This endpoint is cron/secret protected, not session-user scoped.
+    const supabase = SupabaseServer.supabaseServer
 
     const today = new Date().toISOString().slice(0, 10)
 

@@ -127,7 +127,7 @@ export async function getSocialJetlagMetrics(
     console.log('[getSocialJetlagMetrics] Date-based query failed, trying timestamp queries')
     
     // Try new schema with start_at
-    let newSchemaResult = await supabase
+    const newSchemaResult = await supabase
       .from('sleep_logs')
       .select('id, start_at, end_at, type, start_ts, end_ts, naps, date')
       .eq('user_id', userId)

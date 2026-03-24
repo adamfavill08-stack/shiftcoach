@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:wsl": "next dev --webpack",
     "dev:android": "next dev -H 0.0.0.0 -p 3000",
+    "dev:android:wsl": "next dev --webpack -H 0.0.0.0 -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
@@ -35,9 +37,13 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "critters": "^0.0.23",
     "eslint": "^9",
     "eslint-config-next": "16.0.10",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "optionalDependencies": {
+    "lightningcss-win32-x64-msvc": "1.30.2"
   }
 }

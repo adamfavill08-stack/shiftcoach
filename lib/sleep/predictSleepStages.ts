@@ -38,7 +38,7 @@ export function predictSleepStages(input: SleepStageInput): SleepStageBreakdown 
 
   // Base percentages for healthy adult sleep (7-8 hours)
   // These are typical distributions based on sleep research
-  let basePercentages = {
+  const basePercentages = {
     awake: 0.05,   // 5% awake (micro-awakenings)
     rem: 0.22,     // 22% REM
     light: 0.55,   // 55% Light (N1 + N2)

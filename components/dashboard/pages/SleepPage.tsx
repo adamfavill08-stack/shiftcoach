@@ -329,7 +329,7 @@ function SleepMetricsRow() {
   const [consistencyScore, setConsistencyScore] = useState<number | null>(null)
   const [consistencyError, setConsistencyError] = useState<string | null>(null)
 
-  // Heart rate from Google Fit
+  // Heart rate from provider-agnostic wearable endpoint
   useEffect(() => {
     let cancelled = false
 
@@ -338,12 +338,12 @@ function SleepMetricsRow() {
         setHrLoading(true)
         setHrError(null)
 
-        const res = await fetch('/api/google-fit/heart-rate', { next: { revalidate: 60 } })
+        const res = await fetch('/api/wearables/heart-rate', { next: { revalidate: 60 } })
         const json = await res.json().catch(() => ({}))
 
         if (!res.ok) {
-          if (res.status === 404 && json?.error === 'no_google_fit_connection') {
-            if (!cancelled) setHrError('Connect Google Fit to see your heart rate here')
+          if (res.status === 404 && json?.error === 'no_wearable_connection') {
+            if (!cancelled) setHrError('Connect a wearable (Health Connect / Apple Health) to see heart rate here')
             return
           }
           if (!cancelled) setHrError('Could not fetch heart rate data')
@@ -493,13 +493,13 @@ function SleepMetricsRow() {
                 {hrAvg ?? '--'}
               </p>
               <p className="mt-1 text-[10px] text-slate-500">
-                We look at your last 24 hours from Google Fit.
+                We look at your last 24 hours from your connected wearable provider.
               </p>
             </div>
           </div>
         )}
         <p className="mt-3 text-[10px] text-slate-400">
-          Source: Google Fit
+          Source: Connected wearable
         </p>
       </MiniCard>
     </div>

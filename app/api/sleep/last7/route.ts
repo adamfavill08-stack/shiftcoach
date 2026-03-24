@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 
 export async function GET() {
@@ -9,7 +9,7 @@ export async function GET() {
     // Use service role client (bypasses RLS) when in dev fallback mode
     const supabase = isDevFallback ? supabaseServer : authSupabase
     
-    if (!userId) return NextResponse.json({ days: [] })
+    if (!userId) return buildUnauthorizedResponse()
 
     const start = new Date(Date.now() - 7 * 86400000).toISOString()
     const { data, error } = await supabase

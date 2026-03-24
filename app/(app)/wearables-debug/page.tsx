@@ -24,7 +24,7 @@ export default function WearablesDebugPage() {
         fetch("/api/wearables/debug").catch(() => null),
         fetch("/api/activity/today").catch(() => null),
         fetch("/api/sleep/overview").catch(() => null),
-        fetch("/api/google-fit/heart-rate").catch(() => null),
+        fetch("/api/wearables/heart-rate").catch(() => null),
       ]);
 
       const raw = rawRes ? await rawRes.json().catch(() => null) : null;
@@ -35,7 +35,7 @@ export default function WearablesDebugPage() {
       if (!rawRes?.ok) errors.raw = `wearables/debug ${rawRes?.status ?? "network_error"}`;
       if (!activityRes?.ok) errors.activity = `activity/today ${activityRes?.status ?? "network_error"}`;
       if (!sleepRes?.ok) errors.sleepOverview = `sleep/overview ${sleepRes?.status ?? "network_error"}`;
-      if (!hrRes?.ok) errors.heartRate = `google-fit/heart-rate ${hrRes?.status ?? "network_error"}`;
+      if (!hrRes?.ok) errors.heartRate = `wearables/heart-rate ${hrRes?.status ?? "network_error"}`;
 
       setData({
         raw,
@@ -86,7 +86,7 @@ export default function WearablesDebugPage() {
           </section>
 
           <section className="rounded-lg border p-3">
-            <p className="font-semibold mb-2">Card API Output: /api/google-fit/heart-rate</p>
+            <p className="font-semibold mb-2">Card API Output: /api/wearables/heart-rate</p>
             <pre className="text-xs overflow-auto">{JSON.stringify(data?.heartRate, null, 2)}</pre>
           </section>
         </>

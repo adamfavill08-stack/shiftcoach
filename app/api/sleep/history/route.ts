@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { logSupabaseError } from '@/lib/supabase/error-handler'
 
 export async function GET(req: NextRequest) {
   const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
-  
+  if (!userId) return buildUnauthorizedResponse()
+
   // Use service role client (bypasses RLS) when in dev fallback mode
   const supabase = isDevFallback ? supabaseServer : authSupabase
 
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch shifts for those dates
-    let shiftsByDate = new Map<string, string>()
+    const shiftsByDate = new Map<string, string>()
     if (dates.size > 0) {
       const dateArray = Array.from(dates)
       const { data: shiftsData } = await supabase

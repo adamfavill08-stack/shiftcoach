@@ -1,4 +1,4 @@
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { NextRequest, NextResponse } from 'next/server'
 import { Event, TYPE_TASK, REMINDER_NOTIFICATION, REMINDER_EMAIL, FLAG_ALL_DAY } from '@/lib/models/calendar/Event'
@@ -8,11 +8,10 @@ import { format } from 'date-fns'
 export async function GET(request: NextRequest) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    if (!userId) return buildUnauthorizedResponse()
+
     const supabase = isDevFallback ? supabaseServer : authSupabase
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+
 
     const searchParams = request.nextUrl.searchParams
     const fromTS = searchParams.get('fromTS')

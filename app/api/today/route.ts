@@ -1,8 +1,10 @@
 import { NextRequest } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 
 export async function GET(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
+  if (!userId) return buildUnauthorizedResponse()
+
   const now = new Date()
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0))
   const end   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0))

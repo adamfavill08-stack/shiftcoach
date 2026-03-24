@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 
 export const dynamic = 'force-dynamic'
@@ -40,9 +40,8 @@ export async function GET(req: NextRequest) {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
     const supabase = isDevFallback ? supabaseServer : authSupabase
 
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!userId) return buildUnauthorizedResponse()
+
 
     // Fetch last 7 days of main sleep sessions (not naps)
     const sevenDaysAgo = new Date()

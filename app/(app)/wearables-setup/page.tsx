@@ -15,6 +15,7 @@ export default function WearablesSetupPage() {
     connected: boolean;
     verified?: boolean;
     stepsToday?: number;
+    provider?: string;
   } | null>(null);
 
   const fetchStatus = useCallback(async () => {
@@ -30,6 +31,7 @@ export default function WearablesSetupPage() {
         connected: !!data.connected,
         verified: data.verified === true,
         stepsToday: typeof data.stepsToday === "number" ? data.stepsToday : undefined,
+        provider: typeof data.provider === "string" ? data.provider : undefined,
       });
     } catch {
       setStatus({ connected: false });
@@ -234,6 +236,7 @@ export default function WearablesSetupPage() {
               <li>Join the ShiftCoach closed test using the same Google account on phone and watch.</li>
               <li>Install ShiftCoach on your phone from Play Store, then install ShiftCoach on your Wear OS watch from Play Store.</li>
               <li>Open ShiftCoach on both phone and watch once, and keep Bluetooth enabled.</li>
+              <li>On Android, enable Health Connect and allow Samsung Health / watch app data sharing.</li>
               <li>
                 In ShiftCoach mobile, check the watch status pill. It should show{" "}
                 <span className="font-semibold">“Watch app connected”</span>.
@@ -369,17 +372,25 @@ export default function WearablesSetupPage() {
           <div className="flex flex-shrink-0 items-center gap-2">
             {status?.connected === false ? (
               <a
-                href="/api/google-fit/auth"
-                className="inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                style={{ borderRadius: 8 }}
+                href="#"
+                onClick={(e) => e.preventDefault()}
+                className="inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium text-white bg-slate-600"
+                style={{ borderRadius: 8, opacity: 0.9, cursor: "default" }}
+                aria-disabled="true"
+                title="Use Health Connect on Android or Apple Health on iPhone. Google Fit onboarding is legacy-only."
               >
-                {t("detail.wearablesSetup.connectGoogleFit")}
+                Use Health Connect / Apple Health
               </a>
             ) : (
               <SyncWearableButton />
             )}
           </div>
         </section>
+        {status?.provider === "google_fit" && (
+          <p className="text-center text-xs text-amber-700 dark:text-amber-400">
+            Connected via legacy Google Fit. Android should migrate to Health Connect.
+          </p>
+        )}
         {status?.connected && status.verified && (
           <p className="text-center text-xs text-emerald-700 dark:text-emerald-400">
             {t("detail.wearablesSetup.verifiedConfirmation")}

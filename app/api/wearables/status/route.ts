@@ -1,49 +1,44 @@
 import { NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 
 /**
  * GET /api/wearables/status
  *
- * Returns whether the current user has Google Fit connected (tokens stored).
- * When connected, verifies by calling Google Fit for today's steps and returns
- * stepsToday so the UI can show concrete proof the wearable is working.
- *
- * Query params (optional): startTimeMillis, endTimeMillis — "today" in the user's
- * local timezone so the step count matches the Google Fit app. If omitted, uses
- * server "today" (UTC).
+ * Returns wearable connectivity across active providers.
+ * Google Fit is deprecated and no longer treated as an active provider.
  */
 export async function GET(req: Request) {
   try {
     const { userId } = await getServerSupabaseAndUserId()
+    if (!userId) return buildUnauthorizedResponse()
+
     const { supabaseServer } = await import('@/lib/supabase-server')
     const supabase = supabaseServer
 
-    const { data: tokenRow, error } = await supabase
-      .from('google_fit_tokens')
-      .select('user_id, access_token')
+    const { data: sources } = await supabase
+      .from('device_sources')
+      .select('platform,last_synced_at')
       .eq('user_id', userId)
-      .maybeSingle()
 
-    if (error) {
-      console.error('[wearables/status] Error loading tokens:', error)
-      return NextResponse.json({ connected: false, error: 'token_error' })
-    }
+    const sourceRows = Array.isArray(sources) ? sources : []
+    const sourcePlatforms = sourceRows.map((r: any) => String(r.platform || ''))
+    const hasHealthConnect = sourcePlatforms.some((p) => p === 'android_health_connect' || p === 'health_connect')
+    const hasAppleHealth = sourcePlatforms.some((p) => p === 'ios_healthkit' || p === 'apple_health')
 
-    if (!tokenRow) {
-      return NextResponse.json({ connected: false })
-    }
+    const latestSourceSyncAt = sourceRows
+      .map((r: any) => (typeof r.last_synced_at === 'string' ? new Date(r.last_synced_at).getTime() : 0))
+      .reduce((a: number, b: number) => Math.max(a, b), 0)
 
-    const accessToken = tokenRow.access_token as string
-    if (!accessToken) {
-      return NextResponse.json({ connected: true, verified: false })
-    }
+    const hasRecentNativeSync =
+      latestSourceSyncAt > 0 &&
+      (Date.now() - latestSourceSyncAt) < 1000 * 60 * 60 * 24 * 7
 
-    // Use client's "today" (local timezone) if provided, so steps match Google Fit app
     const url = new URL(req.url)
     const clientStart = url.searchParams.get('startTimeMillis')
     const clientEnd = url.searchParams.get('endTimeMillis')
     let startTimeMillis: number
     let endTimeMillis: number
+
     if (clientStart != null && clientEnd != null) {
       const s = Number(clientStart)
       const e = Number(clientEnd)
@@ -63,51 +58,49 @@ export async function GET(req: Request) {
       startTimeMillis = startOfDay.getTime()
     }
 
-    const fitResponse = await fetch(
-      'https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          aggregateBy: [{ dataTypeName: 'com.google.step_count.delta' }],
-          bucketByTime: { durationMillis: Math.max(1, endTimeMillis - startTimeMillis) },
-          startTimeMillis,
-          endTimeMillis,
-        }),
-      }
-    )
+    const startIso = new Date(startTimeMillis).toISOString()
+    const endIso = new Date(endTimeMillis).toISOString()
 
-    const fitJson = await fitResponse.json()
-
-    if (!fitResponse.ok) {
-      console.error('[wearables/status] Google Fit verify error:', fitJson)
-      return NextResponse.json({ connected: true, verified: false })
-    }
+    const activityRows = await supabase
+      .from('activity_logs')
+      .select('steps,source,created_at')
+      .eq('user_id', userId)
+      .gte('created_at', startIso)
+      .lt('created_at', endIso)
+      .order('created_at', { ascending: false })
+      .limit(200)
 
     let totalSteps = 0
-    const buckets = fitJson.bucket || []
-    for (const bucket of buckets) {
-      for (const ds of bucket.dataset || []) {
-        for (const pt of ds.point || []) {
-          const v = pt.value?.[0]
-          const n =
-            (typeof v?.intVal === 'number' ? v.intVal : 0) ||
-            (typeof v?.fpVal === 'number' ? Math.round(v.fpVal) : 0)
-          totalSteps += n
+    if (!activityRows.error && activityRows.data) {
+      for (const row of activityRows.data as any[]) {
+        if (typeof row?.steps === 'number') {
+          totalSteps += row.steps
         }
       }
     }
 
+    const connected = hasHealthConnect || hasAppleHealth || totalSteps > 0
+
     return NextResponse.json({
-      connected: true,
-      verified: true,
+      connected,
+      verified: connected && (hasRecentNativeSync || totalSteps > 0),
+      provider: hasHealthConnect
+        ? 'health_connect'
+        : hasAppleHealth
+          ? 'apple_health'
+          : connected
+            ? 'wearable'
+            : null,
       stepsToday: totalSteps,
+      providers: {
+        healthConnectConnected: hasHealthConnect,
+        appleHealthConnected: hasAppleHealth,
+        googleFitConnected: false,
+      },
     })
   } catch (err) {
     console.error('[wearables/status] Unexpected error:', err)
     return NextResponse.json({ connected: false, error: 'unexpected' })
   }
 }
+

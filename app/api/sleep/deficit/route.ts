@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { calculateSleepDeficit } from '@/lib/sleep/calculateSleepDeficit'
 
@@ -16,9 +16,8 @@ export async function GET(req: NextRequest) {
     
     const supabase = isDevFallback ? supabaseServer : authSupabase
     
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!userId) return buildUnauthorizedResponse()
+
 
     const requiredDailyHours = 7.5; // Default requirement
 

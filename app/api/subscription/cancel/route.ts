@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import Stripe from 'stripe'
 
@@ -39,9 +39,8 @@ export async function POST(req: NextRequest) {
 
     const { supabase, userId } = await getServerSupabaseAndUserId()
     
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!userId) return buildUnauthorizedResponse()
+
 
     // Get user's profile with subscription info (Stripe or RevenueCat)
     const { data: profile, error: profileError } = await supabase

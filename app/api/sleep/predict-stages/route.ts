@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { predictSleepStages, type SleepStageInput } from '@/lib/sleep/predictSleepStages'
 
@@ -15,9 +15,8 @@ export async function POST(req: NextRequest) {
     
     const supabase = isDevFallback ? supabaseServer : authSupabase
     
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!userId) return buildUnauthorizedResponse()
+
 
     const body = await req.json()
     const { startAt, endAt, quality, shiftType, sleepDebtHours } = body as {

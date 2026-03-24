@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 
 export async function DELETE(req: NextRequest) {
@@ -9,10 +9,8 @@ export async function DELETE(req: NextRequest) {
     // Always use service role client for deletes to bypass RLS
     const supabase = supabaseServer
     
-    if (!userId) {
-      console.error("[api/sleep/log/delete-by-date] No userId")
-      return NextResponse.json({ error: "unauthorized", details: "No user ID found" }, { status: 401 })
-    }
+    if (!userId) return buildUnauthorizedResponse()
+
 
     const { searchParams } = new URL(req.url)
     const dateStr = searchParams.get('date')

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { DEFAULT_TARGET_MIN } from '@/lib/sleep/constants'
 
@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     // Use service role client (bypasses RLS) when in dev fallback mode
     const supabase = isDevFallback ? supabaseServer : authSupabase
     
-    if (!userId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+    if (!userId) return buildUnauthorizedResponse()
 
     const { searchParams } = new URL(req.url)
     const monthParam = searchParams.get('month')

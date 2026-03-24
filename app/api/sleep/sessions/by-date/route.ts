@@ -12,11 +12,13 @@ export async function GET(req: NextRequest) {
   try {
     // Lazy import to avoid module initialization errors
     let getServerSupabaseAndUserId: any
+    let buildUnauthorizedResponse: any
     let supabaseServer: any
     
     try {
       const serverModule = await import('@/lib/supabase/server')
       getServerSupabaseAndUserId = serverModule.getServerSupabaseAndUserId
+      buildUnauthorizedResponse = serverModule.buildUnauthorizedResponse
     } catch (importErr: any) {
       console.error('[api/sleep/sessions/by-date] Failed to import server module:', importErr)
       return NextResponse.json({
@@ -53,13 +55,8 @@ export async function GET(req: NextRequest) {
       }, { status: 500 })
     }
     
-    if (!userId) {
-      console.error('[api/sleep/sessions/by-date] No userId found')
-      return NextResponse.json({ 
-        error: 'Unauthorized', 
-        details: 'No user ID found' 
-      }, { status: 401 })
-    }
+    if (!userId) return buildUnauthorizedResponse()
+
     
     // Always use service role client to bypass RLS (consistent with other sleep routes)
     if (!supabaseServer) {

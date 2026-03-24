@@ -42,10 +42,9 @@ export default function SyncWearableButton() {
       })
       const data = await res.json().catch(() => ({}))
 
-      // Check if user needs to connect Google Fit first
-      if (data.error === 'no_google_fit_connection') {
-        // Redirect to Google Fit OAuth
-        window.location.href = '/api/google-fit/auth'
+      // No provider connected yet -> send user to wearable setup
+      if (data.error === 'no_wearable_connection') {
+        window.location.href = '/wearables-setup'
         return
       }
 

@@ -47,8 +47,8 @@ export async function getWeeklyMetrics(
 
   // 2) Body Clock & Recovery: compute daily for last 7 days
   // Since these are computed on-the-fly, we'll compute them for each day
-  let bodyClockScores: number[] = []
-  let recoveryScores: number[] = []
+  const bodyClockScores: number[] = []
+  const recoveryScores: number[] = []
 
   try {
     // Get profile for engine computation

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 
 // Cache for 60 seconds - shifts don't change frequently
@@ -8,7 +8,8 @@ export const revalidate = 60
 export async function POST(req: NextRequest) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
-    
+    if (!userId) return buildUnauthorizedResponse()
+
     // Use service role client (bypasses RLS) when in dev fallback mode
     // This is needed because RLS policies check auth.uid(), which is null without a real session
     const supabase = isDevFallback ? supabaseServer : authSupabase
@@ -77,7 +78,8 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
-    
+    if (!userId) return buildUnauthorizedResponse()
+
     // Use service role client (bypasses RLS) when in dev fallback mode
     const supabase = isDevFallback ? supabaseServer : authSupabase
 

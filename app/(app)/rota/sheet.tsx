@@ -55,7 +55,7 @@ export function ShiftSheet({ dateISO, initial, onClose }: Props) {
           start: toTS(dateISO, seg2Start),
           end:   (() => {
             const e = toTS(dateISO, seg2End); 
-            let ed = new Date(e)
+            const ed = new Date(e)
             if (new Date(e) <= new Date(toTS(dateISO, seg2Start))) ed.setDate(ed.getDate()+1)
             return ed.toISOString()
           })()

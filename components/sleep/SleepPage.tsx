@@ -597,7 +597,7 @@ export default function SleepPage() {
 
 
   const fetchTarget = useCallback(async () => {
-    let cancelled = false
+    const cancelled = false
     try {
       setLoadingTarget(true)
       const res = await fetch('/api/sleep/tonight-target', { cache: 'no-store' })

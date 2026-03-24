@@ -1,7 +1,8 @@
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 
 export async function GET() {
-  const { supabase } = await getServerSupabaseAndUserId()
+  const { supabase, userId } = await getServerSupabaseAndUserId()
+  if (!userId) return buildUnauthorizedResponse()
 
   const end = new Date(); end.setUTCHours(0,0,0,0);  // today 00:00 UTC
   const start = new Date(end); start.setUTCDate(end.getUTCDate() - 6)

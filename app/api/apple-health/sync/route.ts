@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 
 /**
  * POST /api/apple-health/sync
@@ -25,9 +25,8 @@ import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 export async function POST(req: NextRequest) {
   try {
     const { userId } = await getServerSupabaseAndUserId()
-    if (!userId) {
-      return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-    }
+    if (!userId) return buildUnauthorizedResponse()
+
 
     const body = await req.json().catch(() => null)
     const steps = typeof body?.steps === 'number' ? Math.max(0, Math.round(body.steps)) : null

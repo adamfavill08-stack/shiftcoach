@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { supabaseServer } from '@/lib/supabase-server'
 import { getWeeklyMetrics } from '@/lib/data/getWeeklyMetrics'
 import { generateWeeklySummary } from '@/lib/coach/generateWeeklySummary'
 import { getBehaviorSummary } from '@/lib/data/getBehaviorSummary'
@@ -10,14 +10,11 @@ import { generateWeeklyGoals } from '@/lib/coach/generateWeeklyGoals'
  * 
  * This endpoint should be called by a cron job (Supabase cron, Vercel cron, etc.)
  * 
- * For production, use SUPABASE_SERVICE_ROLE_KEY to create a service-role client
- * instead of relying on auth cookies.
+ * This is a system endpoint and uses service-role Supabase with secret-header protection.
  */
 export async function POST(req: NextRequest) {
   try {
-    // TODO: In production, use service-role Supabase client with SUPABASE_SERVICE_ROLE_KEY
-    // For now, using route handler client (will work if called with proper auth)
-    const { supabase } = await getServerSupabaseAndUserId()
+    const supabase = supabaseServer
 
     // Optional: Check for a secret header to protect this endpoint
     const secret = req.headers.get('x-weekly-summary-secret')

@@ -31,12 +31,19 @@ Run this after changing web assets, Capacitor config, or plugins.
 
 ## 4. Wear ↔ phone ↔ WebView
 
-- Phone sends a Wear **Message** on path `/shiftcoach/ping`.
+- Phone sends a Wear **Message** on path `/shiftcoach/ping` (`MainActivity` on resume).
+- Watch **must** declare `WearPingListenerService` with `com.google.android.gms.wearable.BIND_LISTENER` in **`wear/src/main/AndroidManifest.xml`** (otherwise pings never reach the watch).
 - Watch replies on `/shiftcoach/ack`. `PhoneWearListenerService` stores the ack timestamp and broadcasts to `MainActivity`.
 - While the activity is in the foreground, `MainActivity` fires a Capacitor **`wearDataReceived`** event with JSON: `path`, `ts`, `raw`, `kind`.
 - On resume, the phone still emits **`shiftcoach-watch-ack`** with `{ connected, ts }` derived from prefs (for any listeners still using it).
 
 If the WebView was in the background when a message arrived, open the app again; prefs + `onResume` keep connection state consistent.
+
+### Wear app → Next.js APIs (dashboard tiles)
+
+- **Debug** builds use `BuildConfig.API_BASE_URL` = `http://10.0.2.2:3000` (watch emulator → host `npm run dev:android`).
+- **Release** builds default to `https://www.shiftcoach.app`. Override either: `-PSHIFTCOACH_API_BASE_URL=https://…` on the Gradle command line.
+- Requests are plain `GET` with **no session cookies**; local dev uses the server’s dev user fallback. Production behaviour depends on your deployed API auth (see `lib/supabase/server.ts`).
 
 ## 5. When to restart
 

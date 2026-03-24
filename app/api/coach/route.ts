@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { openai } from '@/lib/openaiClient'
 import { SHIFT_CALI_COACH_SYSTEM_PROMPT } from '@/lib/coach/systemPrompt'
 import { getCoachingState } from '@/lib/coach/getCoachingState'
@@ -17,6 +17,7 @@ function isRateLimitError(err: any) {
 export async function POST(req: NextRequest) {
   try {
     const { supabase, userId } = await getServerSupabaseAndUserId()
+    if (!userId) return buildUnauthorizedResponse()
 
     console.log('[/api/coach] User authenticated:', userId)
 

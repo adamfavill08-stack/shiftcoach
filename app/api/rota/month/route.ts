@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { buildMonthFromPattern } from '@/lib/data/buildRotaMonth'
 
@@ -9,7 +9,8 @@ export const revalidate = 0
 export async function GET(req: NextRequest) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
-    
+    if (!userId) return buildUnauthorizedResponse()
+
     // Use service role client (bypasses RLS) when in dev fallback mode
     const supabase = isDevFallback ? supabaseServer : authSupabase
 

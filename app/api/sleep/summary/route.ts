@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { estimateSleepStages } from '@/lib/sleep/estimateSleepStages'
 
@@ -13,11 +13,10 @@ function minutesBetween(a: string | Date, b: string | Date) {
 
 export async function GET(req: NextRequest) {
   const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
-  
+  if (!userId) return buildUnauthorizedResponse()
+
   // Use service role client (bypasses RLS) when in dev fallback mode
   const supabase = isDevFallback ? supabaseServer : authSupabase
-  
-  if (!userId) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 })
 
   // Last 36h window = "last night"
   const since = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString()

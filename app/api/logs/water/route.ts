@@ -1,8 +1,10 @@
 import { NextRequest } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 
 export async function POST(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
+  if (!userId) return buildUnauthorizedResponse()
+
   const { ml } = await req.json().catch(() => ({} as Record<string, unknown>))
   if (!ml) return new Response(JSON.stringify({ ok: false, error: 'ml required' }), { status: 400 })
 

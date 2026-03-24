@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { getPatternSlots } from '@/lib/rota/patternSlots'
 import { inferShiftPattern } from '@/lib/rota/inferShiftPattern'
@@ -9,7 +9,8 @@ export const dynamic = 'force-dynamic'
 export async function POST(req: NextRequest) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
-    
+    if (!userId) return buildUnauthorizedResponse()
+
     const supabase = isDevFallback ? supabaseServer : authSupabase
 
     const body = await req.json().catch(() => null)
@@ -142,7 +143,7 @@ export async function POST(req: NextRequest) {
           const startDateTime = new Date(currentDate)
           startDateTime.setHours(startHour, startMin, 0, 0)
           
-          let endDateTime = new Date(currentDate)
+          const endDateTime = new Date(currentDate)
           endDateTime.setHours(endHour, endMin, 0, 0)
           
           // Handle overnight shifts (end time is next day)

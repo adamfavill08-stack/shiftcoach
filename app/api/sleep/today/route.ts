@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 
 // Cache for 30 seconds - sleep data updates when logged
 export const revalidate = 30
@@ -18,6 +18,7 @@ type SleepTodayPayload = {
 export async function GET(req: NextRequest) {
   try {
     const { supabase, userId } = await getServerSupabaseAndUserId()
+    if (!userId) return buildUnauthorizedResponse()
 
     const now = new Date()
     const sinceIso = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()

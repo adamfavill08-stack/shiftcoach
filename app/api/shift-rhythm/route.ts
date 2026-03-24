@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import * as SupabaseServer from '@/lib/supabase-server'
 import { calculateShiftRhythm } from '@/lib/shift-rhythm/engine'
@@ -161,6 +161,7 @@ const DEFAULT_SLEEP_TARGET = 7.5
 
 export async function GET(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
+  if (!userId) return buildUnauthorizedResponse()
 
   try {
     const today = new Date().toISOString().slice(0, 10)
@@ -654,6 +655,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
+  if (!userId) return buildUnauthorizedResponse()
 
   try {
     const inputs = await buildShiftRhythmInputs(supabase, userId)

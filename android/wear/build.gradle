@@ -17,10 +17,6 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
-        // Override with: -PSHIFTCOACH_API_BASE_URL=https://yourdomain.com
-        // Default follows production web host used by Capacitor.
-        def apiBaseUrl = project.findProperty("SHIFTCOACH_API_BASE_URL") ?: "https://www.shiftcoach.app"
-        buildConfigField "String", "API_BASE_URL", "\"${apiBaseUrl}\""
     }
 
     composeOptions {
@@ -28,10 +24,18 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Watch emulator reaches host dev server (same as capacitor.config dev URL).
+            // Override any time: -PSHIFTCOACH_API_BASE_URL=https://ngrok-url.ngrok.io
+            def apiBaseUrl = project.findProperty("SHIFTCOACH_API_BASE_URL") ?: "http://10.0.2.2:3000"
+            buildConfigField "String", "API_BASE_URL", "\"${apiBaseUrl}\""
+        }
         release {
             minifyEnabled false
             shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            def apiBaseUrl = project.findProperty("SHIFTCOACH_API_BASE_URL") ?: "https://www.shiftcoach.app"
+            buildConfigField "String", "API_BASE_URL", "\"${apiBaseUrl}\""
         }
     }
 

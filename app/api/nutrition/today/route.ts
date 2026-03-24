@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { calculateAdjustedCalories } from '@/lib/nutrition/calculateAdjustedCalories'
 import { getHydrationAndCaffeineTargets } from '@/lib/nutrition/getHydrationAndCaffeineTargets'
 import { getTodayHydrationIntake } from '@/lib/nutrition/getTodayHydrationIntake'
 
 export async function GET(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
+  if (!userId) return buildUnauthorizedResponse()
 
   try {
     const [calorieResult, hydrationTargets, hydrationIntake] = await Promise.all([

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 
 export async function PUT(
@@ -7,6 +7,7 @@ export async function PUT(
   context: { params: Promise<{ id: string }> }
 ) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
+  if (!userId) return buildUnauthorizedResponse()
 
   try {
     const body = await req.json().catch(() => ({}))
@@ -95,15 +96,12 @@ export async function DELETE(
 ) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
-    
+    if (!userId) return buildUnauthorizedResponse()
+
     // Always use service role client for deletes to bypass RLS
     // This ensures deletes work even if RLS policies are misconfigured
     const supabase = supabaseServer
-    
-    if (!userId) {
-      console.error('[/api/sleep/log/:id DELETE] No userId')
-      return NextResponse.json({ error: 'unauthorized', details: 'No user ID found' }, { status: 401 })
-    }
+
 
     // Next 16: params is a Promise
     const { id } = await params

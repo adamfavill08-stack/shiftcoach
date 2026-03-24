@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { predictSleepStages, type SleepStageInput } from '@/lib/sleep/predictSleepStages'
 
@@ -24,9 +24,8 @@ export async function GET(req: NextRequest) {
     // Use service role client (bypasses RLS) when in dev fallback mode
     const supabase = isDevFallback ? supabaseServer : authSupabase
     
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!userId) return buildUnauthorizedResponse()
+
 
     // Get user profile for age calculation
     const { data: profile } = await supabase
@@ -146,7 +145,7 @@ export async function GET(req: NextRequest) {
     const shiftStartDate = getLocalDateString(sevenAgo)
     const shiftEndDate = getLocalDateString(new Date(sevenAgo.getFullYear(), sevenAgo.getMonth(), sevenAgo.getDate() + 6, 23, 59, 59))
     
-    let shiftsByDate: Record<string, { label: string; type: string | null }> = {}
+    const shiftsByDate: Record<string, { label: string; type: string | null }> = {}
     
     // Helper to map label to type
     const labelToType = (label: string | null): string => {

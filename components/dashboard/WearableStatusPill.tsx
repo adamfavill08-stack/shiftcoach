@@ -16,7 +16,7 @@ const ERROR_TO_KEY: Record<string, string> = {
 };
 
 /**
- * Pill under body clock: tap to connect (or sync if already connected).
+ * Pill under body clock: tap to open setup (or sync if already connected).
  * White by default, green when connected, red on error. Tapping runs sync or redirects to connect.
  */
 export function WearableStatusPill() {
@@ -77,8 +77,8 @@ export function WearableStatusPill() {
       });
       const data = await res.json().catch(() => ({}));
 
-      if (data.error === "no_google_fit_connection") {
-        window.location.href = "/api/google-fit/auth";
+      if (data.error === "no_wearable_connection") {
+        window.location.href = "/wearables-setup";
         return;
       }
 

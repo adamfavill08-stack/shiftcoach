@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
     const { supabase, userId } = await getServerSupabaseAndUserId()
+    if (!userId) return buildUnauthorizedResponse()
 
-    // Token connection status
-    const { data: tokenRow, error: tokenError } = await supabase
-      .from('google_fit_tokens')
-      .select('user_id, updated_at')
+    const sourceRows = await supabase
+      .from('device_sources')
+      .select('platform,last_synced_at')
       .eq('user_id', userId)
-      .maybeSingle()
 
     // Recent activity logs (try ts first, then created_at fallback)
     let activityRows: any[] = []
@@ -66,9 +65,10 @@ export async function GET() {
       {
         userId,
         wearableConnection: {
-          connected: !!tokenRow,
-          tokenUpdatedAt: tokenRow?.updated_at ?? null,
-          tokenError: tokenError?.message ?? null,
+          connected: (sourceRows.data?.length ?? 0) > 0,
+          providerSources: sourceRows.data ?? [],
+          tokenUpdatedAt: null,
+          tokenError: null,
         },
         rawData: {
           activityLogsRecent: activityRows,
@@ -89,3 +89,4 @@ export async function GET() {
     )
   }
 }
+

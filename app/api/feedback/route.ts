@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 
 /**
  * POST /api/feedback
@@ -9,9 +9,8 @@ export async function POST(req: NextRequest) {
   try {
     const { userId } = await getServerSupabaseAndUserId()
     
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!userId) return buildUnauthorizedResponse()
+
 
     const body = await req.json()
     const { subject, message, userEmail } = body

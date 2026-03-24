@@ -952,14 +952,12 @@ function HeartRecoveryCard() {
         setLoading(true);
         setError(null);
 
-        const res = await fetch("/api/google-fit/heart-rate");
+        const res = await fetch("/api/wearables/heart-rate");
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          if (data?.error === "no_google_fit_connection") {
+          if (data?.error === "no_wearable_connection") {
             setError("connect_wearable");
-          } else if (data?.error === "google_fit_api_error") {
-            setError("api_error");
           } else {
             setError("unknown");
           }

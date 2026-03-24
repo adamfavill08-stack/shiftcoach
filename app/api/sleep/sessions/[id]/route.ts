@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 
 export const dynamic = 'force-dynamic'
@@ -14,12 +14,11 @@ export async function PATCH(
 ) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    if (!userId) return buildUnauthorizedResponse()
+
     // Always use service role client to bypass RLS (consistent with other sleep routes)
     const supabase = supabaseServer
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+
 
     const { id } = await context.params
     const body = await req.json()
@@ -139,13 +138,11 @@ export async function DELETE(
 ) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    if (!userId) return buildUnauthorizedResponse()
+
     // Always use service role client to bypass RLS (consistent with other sleep routes)
     const supabase = supabaseServer
-    
-    if (!userId) {
-      console.log('[api/sleep/session] DELETE unauthorized - no userId')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+
 
     const { id } = await context.params
 

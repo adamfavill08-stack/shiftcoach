@@ -1,8 +1,9 @@
 import { computeToday } from '@/lib/engine'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 
 export async function GET() {
   const { supabase, userId } = await getServerSupabaseAndUserId()
+  if (!userId) return buildUnauthorizedResponse()
 
   const { data: profile, error } = await supabase
     .from('profiles')

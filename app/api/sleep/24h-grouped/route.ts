@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 
 export const dynamic = 'force-dynamic'
@@ -83,10 +83,8 @@ export async function GET(req: NextRequest) {
     
     console.log('[api/sleep/24h-grouped] Got userId:', userId, 'isDevFallback:', isDevFallback)
     
-    if (!userId) {
-      console.error('[api/sleep/24h-grouped] No userId')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!userId) return buildUnauthorizedResponse()
+
     
     const searchParams = req.nextUrl.searchParams
     const days = parseInt(searchParams.get('days') || '3') // Default: last 3 shifted days

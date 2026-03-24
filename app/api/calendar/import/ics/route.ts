@@ -1,4 +1,4 @@
-import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
+import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { NextRequest, NextResponse } from 'next/server'
 import { Event, TYPE_EVENT, TYPE_TASK, REMINDER_OFF, REMINDER_NOTIFICATION, FLAG_ALL_DAY } from '@/lib/models/calendar/Event'
@@ -8,11 +8,10 @@ import { REGULAR_EVENT_TYPE_ID } from '@/lib/models/calendar/EventType'
 export async function POST(request: NextRequest) {
   try {
     const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    if (!userId) return buildUnauthorizedResponse()
+
     const supabase = isDevFallback ? supabaseServer : authSupabase
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+
 
     const formData = await request.formData()
     const file = formData.get('file') as File
