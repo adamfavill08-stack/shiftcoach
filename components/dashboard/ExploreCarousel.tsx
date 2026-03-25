@@ -25,6 +25,7 @@ type ExploreCarouselProps = {
 export function ExploreCarousel({ items }: ExploreCarouselProps) {
   const scrollerRef = useRef<HTMLDivElement | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
+  const lastActiveRef = useRef(0)
 
   const safeItems = useMemo(() => items ?? [], [items])
 
@@ -32,75 +33,69 @@ export function ExploreCarousel({ items }: ExploreCarouselProps) {
     const scroller = scrollerRef.current
     if (!scroller) return
 
-    const cardEls = Array.from(
-      scroller.querySelectorAll<HTMLElement>('[data-explore-index]'),
-    )
+    let raf = 0
+
+    const cardEls = Array.from(scroller.querySelectorAll<HTMLElement>('[data-explore-index]'))
     if (cardEls.length === 0) return
 
-    const indexByEl = new Map<HTMLElement, number>()
-    for (const el of cardEls) {
-      const idxStr = el.getAttribute('data-explore-index')
-      const idx = idxStr ? Number(idxStr) : NaN
-      if (!Number.isNaN(idx)) indexByEl.set(el, idx)
-    }
+    // Precompute left offsets + widths so we don't hit layout during scroll.
+    let cardCenters: Array<{ idx: number; centerX: number }> = []
 
-    const latestRatio = new Map<number, number>()
-
-    const updateBest = () => {
-      const rootRect = scroller.getBoundingClientRect()
-      const rootCenterX = rootRect.left + rootRect.width / 2
-
-      let bestIdx = 0
-      let bestDist = Infinity
+    const recompute = () => {
+      const centers: Array<{ idx: number; centerX: number }> = []
 
       for (const el of cardEls) {
-        const idx = indexByEl.get(el)
-        if (idx == null) continue
+        const idxStr = el.getAttribute('data-explore-index')
+        const idx = idxStr ? Number(idxStr) : NaN
+        if (Number.isNaN(idx)) continue
 
-        const ratio = latestRatio.get(idx) ?? 0
-        // Avoid selecting cards that are barely/just barely in view.
-        if (ratio <= 0.15) continue
+        const left = el.offsetLeft ?? 0
+        const width = el.getBoundingClientRect().width
+        centers.push({ idx, centerX: left + width / 2 })
+      }
 
-        const r = el.getBoundingClientRect()
-        const centerX = r.left + r.width / 2
-        const dist = Math.abs(centerX - rootCenterX)
+      // Sort by idx for stable behaviour.
+      centers.sort((a, b) => a.idx - b.idx)
+      cardCenters = centers
+    }
 
+    const updateFromScroll = () => {
+      const scrollerWidth = scroller.clientWidth
+      const centerX = scroller.scrollLeft + scrollerWidth / 2
+
+      let bestIdx = lastActiveRef.current
+      let bestDist = Infinity
+
+      for (const c of cardCenters) {
+        const dist = Math.abs(c.centerX - centerX)
         if (dist < bestDist) {
           bestDist = dist
-          bestIdx = idx
+          bestIdx = c.idx
         }
       }
 
-      setActiveIndex((prev) => (prev === bestIdx ? prev : bestIdx))
+      if (bestIdx !== lastActiveRef.current) {
+        lastActiveRef.current = bestIdx
+        setActiveIndex(bestIdx)
+      }
     }
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const el = entry.target as HTMLElement
-          const idx = indexByEl.get(el)
-          if (idx == null) continue
+    const onScroll = () => {
+      if (raf) cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(updateFromScroll)
+    }
 
-          // IntersectionObserver provides intersectionRatio, which is stable across scroll.
-          latestRatio.set(idx, entry.isIntersecting ? entry.intersectionRatio : 0)
-        }
+    recompute()
+    updateFromScroll()
 
-        updateBest()
-      },
-      {
-        root: scroller,
-        threshold: [0.15, 0.35, 0.55, 0.75],
-      },
-    )
-
-    cardEls.forEach((el) => observer.observe(el))
-    // Initial best guess (in case intersection hasn't fired yet).
-    updateBest()
+    scroller.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', recompute)
 
     return () => {
-      observer.disconnect()
+      if (raf) cancelAnimationFrame(raf)
+      scroller.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', recompute)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [safeItems.length])
 
   if (safeItems.length === 0) return null
@@ -111,13 +106,14 @@ export function ExploreCarousel({ items }: ExploreCarouselProps) {
         ref={scrollerRef}
         className={[
           // Mobile snap scrolling
-          'flex gap-4 overflow-x-auto pb-2 -mx-2 px-2',
-          'snap-x snap-mandatory',
+          'flex gap-4 overflow-x-auto overflow-y-hidden pb-2 px-4',
+          'snap-x snap-proximity',
           // Hide scrollbar (Chrome/Safari/Firefox)
           '[scrollbar-width:none] [-ms-overflow-style:none]',
           '[-webkit-overflow-scrolling:touch]',
           '[&::-webkit-scrollbar]:hidden',
         ].join(' ')}
+        style={{ touchAction: 'pan-x' }}
       >
         {safeItems.map((item, idx) => (
           <Link
@@ -126,7 +122,7 @@ export function ExploreCarousel({ items }: ExploreCarouselProps) {
             className={[
               'snap-start shrink-0',
               // card width ~ "one primary card" on mobile
-              'w-[86vw] max-w-[340px]',
+              'w-[330px] max-w-[330px]',
             ].join(' ')}
             aria-label={item.title}
           >
