@@ -45,6 +45,9 @@ function DashboardContent() {
     total: totalScore,
     refetch: refetchShiftRhythm,
     hasData: hasShiftRhythmData,
+    sleepDeficit,
+    socialJetlag: shiftRhythmSocialJetlag,
+    bingeRisk: shiftRhythmBingeRisk,
   } = useShiftRhythm()
 
   const loadUser = useCallback(async () => {
@@ -97,6 +100,23 @@ function DashboardContent() {
     [circadian, socialJetlag, shiftLag, bingeRisk],
   )
 
+  // Keep the dashboard's social/binge state in sync with the consolidated
+  // /api/shift-rhythm response from useShiftRhythm().
+  // When offline we intentionally keep cached values instead.
+  useEffect(() => {
+    if (!isOnline) return
+
+    setSocialJetlag(shiftRhythmSocialJetlag ?? null)
+    setBingeRisk(shiftRhythmBingeRisk ?? null)
+
+    cacheDashboardState({
+      socialJetlag: shiftRhythmSocialJetlag ?? null,
+      bingeRisk: shiftRhythmBingeRisk ?? null,
+    })
+
+    setIsUsingCachedData(false)
+  }, [isOnline, shiftRhythmSocialJetlag, shiftRhythmBingeRisk, cacheDashboardState])
+
   const loadCachedDashboardState = useCallback(() => {
     if (typeof window === 'undefined') return false
     const raw = window.localStorage.getItem('dashboard:lastKnownState')
@@ -142,33 +162,6 @@ function DashboardContent() {
         console.error('[dashboard] circadian fetch error', err)
       }
       setCircadian(null)
-      if (!isOnline) {
-        loadCachedDashboardState()
-      }
-    }
-  }, [cacheDashboardState, isOnline, loadCachedDashboardState])
-
-  const fetchShiftRhythm = useCallback(async () => {
-    try {
-      const res = await fetch('/api/shift-rhythm', {
-        next: { revalidate: 30 },
-      })
-      if (!res.ok) {
-        console.error('[dashboard] shift-rhythm fetch failed', res.status)
-        setSocialJetlag(null)
-        setBingeRisk(null)
-        return
-      }
-      const json = await res.json()
-      setSocialJetlag(json.socialJetlag ?? null)
-      const bingeRiskValue = json.bingeRisk ?? null
-      setBingeRisk(bingeRiskValue)
-      cacheDashboardState({ socialJetlag: json.socialJetlag ?? null, bingeRisk: bingeRiskValue })
-      setIsUsingCachedData(false)
-    } catch (err: any) {
-      console.error('[dashboard] shift-rhythm fetch error', err)
-      setSocialJetlag(null)
-      setBingeRisk(null)
       if (!isOnline) {
         loadCachedDashboardState()
       }
@@ -231,10 +224,9 @@ function DashboardContent() {
       // Kick off data fetches in the background so first paint is faster
       void fetchSleep(uid)
       void fetchCircadian()
-      void fetchShiftRhythm()
       void fetchShiftLag()
     })()
-  }, [isOnline, loadCachedDashboardState, loadUser, fetchSleep, fetchCircadian, fetchShiftRhythm, fetchShiftLag])
+  }, [isOnline, loadCachedDashboardState, loadUser, fetchSleep, fetchCircadian, fetchShiftLag])
 
   // Load activity summary after the main dashboard data so first paint is faster
   useEffect(() => {
@@ -257,7 +249,6 @@ function DashboardContent() {
         // Refetch sleep, circadian, and shift rhythm data
         void fetchSleep(userId)
         void fetchCircadian()
-        void fetchShiftRhythm()
         void fetchShiftLag()
         void refetchShiftRhythm() // Refresh shift rhythm score
       }
@@ -277,7 +268,6 @@ function DashboardContent() {
         lastFocusRefetchRef.current = now
         void fetchSleep(userId)
         void fetchCircadian()
-        void fetchShiftRhythm()
         // Add delay for ShiftLag to ensure sleep data is saved to database
         setTimeout(() => {
           void fetchShiftLag()
@@ -298,7 +288,7 @@ function DashboardContent() {
         // Add delay to ensure shifts are saved to database
         setTimeout(() => {
           void fetchShiftLag()
-          void fetchShiftRhythm()
+          void refetchShiftRhythm(true)
         }, 800)
       }
     }
@@ -313,7 +303,7 @@ function DashboardContent() {
       window.removeEventListener('rota-saved', handleRotaUpdate)
       window.removeEventListener('rota-cleared', handleRotaUpdate)
     }
-  }, [userId, fetchSleep, fetchCircadian, fetchShiftRhythm, fetchShiftLag, refetchShiftRhythm])
+  }, [userId, fetchSleep, fetchCircadian, fetchShiftLag, refetchShiftRhythm])
 
   const pages = useMemo(
     () => [
@@ -328,11 +318,12 @@ function DashboardContent() {
             shiftLag={shiftLag}
             bingeRisk={bingeRisk}
             hasRhythmData={hasShiftRhythmData}
+            sleepDeficit={sleepDeficit}
           />
         ),
       },
     ],
-    [totalScore, circadian, socialJetlag, shiftLag, bingeRisk, hasShiftRhythmData, t]
+    [totalScore, circadian, socialJetlag, shiftLag, bingeRisk, hasShiftRhythmData, sleepDeficit, t]
   )
 
   if (loading) {

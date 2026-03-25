@@ -41,9 +41,20 @@ type ShiftRhythmCardProps = {
     drivers: string[];
     explanation: string;
   } | null;
+
+  // Comes from the dashboard-level /api/shift-rhythm call via `useShiftRhythm()`
+  sleepDeficit?: any;
 };
 
-function ShiftRhythmCard({ score, circadian, socialJetlag, shiftLag, bingeRisk, hasRhythmData }: ShiftRhythmCardProps) {
+function ShiftRhythmCard({
+  score,
+  circadian,
+  socialJetlag,
+  shiftLag,
+  bingeRisk,
+  hasRhythmData,
+  sleepDeficit,
+}: ShiftRhythmCardProps) {
   const { t } = useTranslation();
   const router = useRouter();
   // Use circadian phase if available, otherwise fall back to normalized score
@@ -53,40 +64,6 @@ function ShiftRhythmCard({ score, circadian, socialJetlag, shiftLag, bingeRisk, 
   const [focus, setFocus] = useState<number>(3);
   const [isLoadingMood, setIsLoadingMood] = useState(true);
   const [lastWearableSync, setLastWearableSync] = useState<number | null>(null);
-  
-  // Fetch sleep deficit for Next Best Actions card
-  const [sleepDeficit, setSleepDeficit] = useState<any>(null);
-  
-  useEffect(() => {
-    const fetchCardData = async () => {
-      try {
-        const res = await fetch('/api/shift-rhythm', { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          setSleepDeficit(json.sleepDeficit ?? null);
-        }
-      } catch (err) {
-        console.error('[ShiftRhythmCard] Failed to fetch sleep deficit:', err);
-      }
-    };
-    
-    fetchCardData();
-    
-    // Listen for refresh events
-    const handleRefresh = () => {
-      fetchCardData();
-    };
-    
-    window.addEventListener('sleep-refreshed', handleRefresh);
-    window.addEventListener('rota-saved', handleRefresh);
-    window.addEventListener('rota-cleared', handleRefresh);
-    
-    return () => {
-      window.removeEventListener('sleep-refreshed', handleRefresh);
-      window.removeEventListener('rota-saved', handleRefresh);
-      window.removeEventListener('rota-cleared', handleRefresh);
-    };
-  }, []);
 
   // Load last wearable sync time and listen for sync events
   useEffect(() => {

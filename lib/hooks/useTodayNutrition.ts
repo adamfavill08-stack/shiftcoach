@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useGoalChange } from './useGoalChange'
 
 type MealSlot = {
@@ -50,19 +50,23 @@ export function useTodayNutrition() {
   const [data, setData] = useState<TodayNutrition | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const refetch = async (forceFresh = false) => {
+  const refetch = useCallback(async (forceFresh = false) => {
     try {
       setLoading(true)
-      const res = await fetch('/api/nutrition/today', 
+
+      const res = await fetch(
+        '/api/nutrition/today',
         forceFresh
           ? { cache: 'no-store' } // used when something important just changed
           : { next: { revalidate: 30 } } // short-lived cache for normal loads
       )
+
       if (!res.ok) {
         console.error('[useTodayNutrition] failed:', res.status)
         setData(null)
         return
       }
+
       const json = await res.json()
       setData(json.nutrition ?? null)
     } catch (err) {
@@ -71,10 +75,12 @@ export function useTodayNutrition() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   // Initial load can safely use short-lived caching for speed
-  useEffect(() => { refetch(false) }, [])
+  useEffect(() => {
+    void refetch(false)
+  }, [refetch])
 
   // Listen for goal changes and refetch
   useGoalChange(() => {

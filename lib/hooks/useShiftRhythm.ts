@@ -12,6 +12,22 @@ type ShiftRhythmScore = {
   total_score: number
 }
 
+type SocialJetlag = {
+  currentMisalignmentHours: number
+  weeklyAverageMisalignmentHours?: number
+  category: "low" | "moderate" | "high"
+  explanation: string
+  baselineMidpointClock?: number
+  currentMidpointClock?: number
+} | null
+
+type BingeRisk = {
+  score: number
+  level: "low" | "medium" | "high"
+  drivers: string[]
+  explanation: string
+} | null
+
 /**
  * Hook to fetch shift rhythm score
  * GET /api/shift-rhythm automatically calculates if missing
@@ -20,7 +36,11 @@ type ShiftRhythmScore = {
  */
 export function useShiftRhythm(onScoreChange?: (change: number, newScore: number) => void) {
   const [score, setScore] = useState<ShiftRhythmScore | null>(null)
-  const [sleepDeficit, setSleepDeficit] = useState<number | null>(null)
+  // API returns an object (category + weeklyDeficit/etc) for sleep deficit.
+  // Keep it flexible to avoid tight coupling to response shape.
+  const [sleepDeficit, setSleepDeficit] = useState<any>(null)
+  const [socialJetlag, setSocialJetlag] = useState<any>(null)
+  const [bingeRisk, setBingeRisk] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [hasData, setHasData] = useState<boolean>(true)
@@ -48,6 +68,9 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
           console.warn('[useShiftRhythm] Server error:', errorData.error || res.status)
           setError('Unable to load score')
           setScore(null)
+          setSleepDeficit(null)
+          setSocialJetlag(null)
+          setBingeRisk(null)
           setLoading(false)
           return
         }
@@ -55,6 +78,9 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
         console.error('[useShiftRhythm] Failed to fetch:', res.status)
         setError('Failed to load score')
         setScore(null)
+        setSleepDeficit(null)
+        setSocialJetlag(null)
+        setBingeRisk(null)
         setLoading(false)
         return
       }
@@ -64,12 +90,16 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
       const yesterdayScore = data.yesterdayScore ?? null
       const deficitValue = data.sleepDeficit ?? null
       const hasRhythmData = data.hasRhythmData
+      const socialJetlagValue: SocialJetlag = data.socialJetlag ?? null
+      const bingeRiskValue: BingeRisk = data.bingeRisk ?? null
       
       setScore(newScore)
       setSleepDeficit(deficitValue)
       if (typeof hasRhythmData === 'boolean') {
         setHasData(hasRhythmData)
       }
+      setSocialJetlag(socialJetlagValue)
+      setBingeRisk(bingeRiskValue)
       
       // Check for significant score change (>1 point on 0-10 scale) compared to yesterday
       if (newScore && yesterdayScore !== null) {
@@ -89,6 +119,9 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
       console.error('[useShiftRhythm] Error:', err)
       setError('Network error')
       setScore(null)
+      setSleepDeficit(null)
+      setSocialJetlag(null)
+      setBingeRisk(null)
     } finally {
       setLoading(false)
       inFlightRef.current = false
@@ -108,6 +141,6 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
 
   const refetch = (force = false) => fetchScore(force)
 
-  return { score, total, loading, error, refetch, sleepDeficit, hasData }
+  return { score, total, loading, error, refetch, sleepDeficit, hasData, socialJetlag, bingeRisk }
 }
 
