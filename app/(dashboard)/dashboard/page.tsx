@@ -43,6 +43,7 @@ function DashboardContent() {
 
   const {
     total: totalScore,
+    loading: shiftRhythmLoading,
     refetch: refetchShiftRhythm,
     hasData: hasShiftRhythmData,
     sleepDeficit,
@@ -305,6 +306,9 @@ function DashboardContent() {
     }
   }, [userId, fetchSleep, fetchCircadian, fetchShiftLag, refetchShiftRhythm])
 
+  const resolvedSocialJetlag = isOnline ? (shiftRhythmSocialJetlag ?? null) : socialJetlag
+  const resolvedBingeRisk = isOnline ? (shiftRhythmBingeRisk ?? null) : bingeRisk
+
   const pages = useMemo(
     () => [
       {
@@ -314,16 +318,17 @@ function DashboardContent() {
           <ShiftRhythmCard
             score={totalScore != null ? totalScore * 10 : undefined}
             circadian={circadian}
-            socialJetlag={socialJetlag}
+            socialJetlag={resolvedSocialJetlag}
             shiftLag={shiftLag}
-            bingeRisk={bingeRisk}
+            bingeRisk={resolvedBingeRisk}
+            isBingeRiskLoading={isOnline ? shiftRhythmLoading : false}
             hasRhythmData={hasShiftRhythmData}
             sleepDeficit={sleepDeficit}
           />
         ),
       },
     ],
-    [totalScore, circadian, socialJetlag, shiftLag, bingeRisk, hasShiftRhythmData, sleepDeficit, t]
+    [totalScore, circadian, resolvedSocialJetlag, shiftLag, resolvedBingeRisk, isOnline, shiftRhythmLoading, hasShiftRhythmData, sleepDeficit, t]
   )
 
   if (loading) {

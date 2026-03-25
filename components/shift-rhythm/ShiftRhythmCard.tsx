@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { memo, useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -44,6 +44,10 @@ type ShiftRhythmCardProps = {
 
   // Comes from the dashboard-level /api/shift-rhythm call via `useShiftRhythm()`
   sleepDeficit?: any;
+
+  // Dashboard-level hook loading state so we can keep a stable placeholder
+  // until binge-risk data is actually ready.
+  isBingeRiskLoading?: boolean;
 };
 
 function ShiftRhythmCard({
@@ -54,6 +58,7 @@ function ShiftRhythmCard({
   bingeRisk,
   hasRhythmData,
   sleepDeficit,
+  isBingeRiskLoading = false,
 }: ShiftRhythmCardProps) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -64,6 +69,15 @@ function ShiftRhythmCard({
   const [focus, setFocus] = useState<number>(3);
   const [isLoadingMood, setIsLoadingMood] = useState(true);
   const [lastWearableSync, setLastWearableSync] = useState<number | null>(null);
+  const [showSecondaryCards, setShowSecondaryCards] = useState(false);
+
+  // Defer secondary cards by one frame so primary dashboard content paints first.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      setShowSecondaryCards(true);
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   // Load last wearable sync time and listen for sync events
   useEffect(() => {
@@ -238,13 +252,14 @@ function ShiftRhythmCard({
       <HomeMealTimesCard />
 
       {/* BINGE RISK CARD */}
-      {bingeRisk ? (
+      {!showSecondaryCards || isBingeRiskLoading ? (
+        <BingeRiskCardSkeleton />
+      ) : bingeRisk ? (
         <BingeRiskCard bingeRisk={bingeRisk} />
       ) : (
-        <div className="text-xs text-amber-600 p-3 bg-amber-50 rounded-lg border border-amber-200">
-          <p className="font-semibold mb-1">Binge Risk Card Not Available</p>
-          <p>Debug: bingeRisk is {String(bingeRisk)} (type: {typeof bingeRisk})</p>
-          <p className="mt-2 text-[10px]">Check browser console and server logs for details.</p>
+        <div className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+          <p className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">Binge risk</p>
+          <p className="mt-1 text-[11px] text-slate-600">Not enough data yet.</p>
         </div>
       )}
 
@@ -1182,7 +1197,7 @@ function ShiftWorkerGoalsCard() {
 
 /* -------------------- BINGE RISK CARD -------------------- */
 
-function BingeRiskCard({ bingeRisk }: { bingeRisk: { score: number; level: "low" | "medium" | "high"; drivers: string[]; explanation: string } }) {
+const BingeRiskCard = memo(function BingeRiskCard({ bingeRisk }: { bingeRisk: { score: number; level: "low" | "medium" | "high"; drivers: string[]; explanation: string } }) {
   const riskScore = bingeRisk.score;
   const riskLevel = bingeRisk.level;
   const drivers = bingeRisk.drivers;
@@ -1231,6 +1246,23 @@ function BingeRiskCard({ bingeRisk }: { bingeRisk: { score: number; level: "low"
         <ChevronRight className="h-4 w-4 text-slate-400" />
       </div>
     </Link>
+  );
+})
+
+function BingeRiskCardSkeleton() {
+  return (
+    <div className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] animate-pulse">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="h-11 w-11 rounded-full bg-slate-100 border border-slate-200" />
+          <div className="flex flex-col gap-1.5">
+            <div className="h-2.5 w-20 rounded bg-slate-200" />
+            <div className="h-2.5 w-40 rounded bg-slate-100" />
+          </div>
+        </div>
+        <div className="h-4 w-4 rounded bg-slate-100" />
+      </div>
+    </div>
   );
 }
 
