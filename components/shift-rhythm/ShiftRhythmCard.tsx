@@ -298,21 +298,21 @@ function ShiftRhythmCard({ score, circadian, socialJetlag, shiftLag, bingeRisk, 
         items={[
           {
             href: "/shift-worker-health",
-            imageSrc: "/tired%20shift%20worker.png",
+            imageSrc: "/images/explore/shift-worker-health.jpg",
             title: "Shift worker health explained",
             description:
               "How shifts, sleep debt and activity affect your energy, cravings and long-term health.",
           },
           {
             href: "/shift-worker-diet",
-            imageSrc: "/healthy%20diet%20bowl.png",
+            imageSrc: "/images/explore/diet.jpg",
             title: "Healthy diet explained",
             description:
               "Shift-worker diets, common health issues, and how the right food timing helps protect you.",
           },
           {
             href: "/shift-worker-goals",
-            imageSrc: "/goals%20clipboard%20image.png",
+            imageSrc: "/images/explore/goals.jpg",
             title: "Set my goals",
             description:
               "Create specific targets and time frames that fit your shifts, sleep and health challenges.",
