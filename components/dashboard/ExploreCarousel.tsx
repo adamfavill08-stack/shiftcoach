@@ -29,54 +29,78 @@ export function ExploreCarousel({ items }: ExploreCarouselProps) {
   const safeItems = useMemo(() => items ?? [], [items])
 
   useEffect(() => {
-    const el = scrollerRef.current
-    if (!el) return
+    const scroller = scrollerRef.current
+    if (!scroller) return
 
-    let raf = 0
+    const cardEls = Array.from(
+      scroller.querySelectorAll<HTMLElement>('[data-explore-index]'),
+    )
+    if (cardEls.length === 0) return
 
-    const updateActive = () => {
-      const scroller = scrollerRef.current
-      if (!scroller) return
+    const indexByEl = new Map<HTMLElement, number>()
+    for (const el of cardEls) {
+      const idxStr = el.getAttribute('data-explore-index')
+      const idx = idxStr ? Number(idxStr) : NaN
+      if (!Number.isNaN(idx)) indexByEl.set(el, idx)
+    }
 
-      const scrollerRect = scroller.getBoundingClientRect()
-      const scrollerCenterX = scrollerRect.left + scrollerRect.width / 2
+    const latestRatio = new Map<number, number>()
 
-      const children = Array.from(scroller.children) as HTMLElement[]
-      if (children.length === 0) return
+    const updateBest = () => {
+      const rootRect = scroller.getBoundingClientRect()
+      const rootCenterX = rootRect.left + rootRect.width / 2
 
       let bestIdx = 0
       let bestDist = Infinity
 
-      for (let i = 0; i < children.length; i++) {
-        const c = children[i]
-        const rect = c.getBoundingClientRect()
-        const childCenterX = rect.left + rect.width / 2
-        const dist = Math.abs(childCenterX - scrollerCenterX)
+      for (const el of cardEls) {
+        const idx = indexByEl.get(el)
+        if (idx == null) continue
+
+        const ratio = latestRatio.get(idx) ?? 0
+        // Avoid selecting cards that are barely/just barely in view.
+        if (ratio <= 0.15) continue
+
+        const r = el.getBoundingClientRect()
+        const centerX = r.left + r.width / 2
+        const dist = Math.abs(centerX - rootCenterX)
+
         if (dist < bestDist) {
           bestDist = dist
-          bestIdx = i
+          bestIdx = idx
         }
       }
 
       setActiveIndex((prev) => (prev === bestIdx ? prev : bestIdx))
     }
 
-    const onScroll = () => {
-      if (raf) cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(updateActive)
-    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const el = entry.target as HTMLElement
+          const idx = indexByEl.get(el)
+          if (idx == null) continue
 
-    // Initial + responsive recalculation
-    updateActive()
+          // IntersectionObserver provides intersectionRatio, which is stable across scroll.
+          latestRatio.set(idx, entry.isIntersecting ? entry.intersectionRatio : 0)
+        }
 
-    el.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onScroll)
+        updateBest()
+      },
+      {
+        root: scroller,
+        threshold: [0.15, 0.35, 0.55, 0.75],
+      },
+    )
+
+    cardEls.forEach((el) => observer.observe(el))
+    // Initial best guess (in case intersection hasn't fired yet).
+    updateBest()
 
     return () => {
-      if (raf) cancelAnimationFrame(raf)
-      el.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onScroll)
+      observer.disconnect()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [safeItems.length])
 
   if (safeItems.length === 0) return null
@@ -107,6 +131,7 @@ export function ExploreCarousel({ items }: ExploreCarouselProps) {
             aria-label={item.title}
           >
             <article
+              data-explore-index={idx}
               className={[
                 'relative overflow-hidden',
                 'rounded-[28px]',
@@ -122,6 +147,8 @@ export function ExploreCarousel({ items }: ExploreCarouselProps) {
                   fill
                   className="object-cover"
                   sizes="(max-width: 430px) 86vw, 340px"
+                  loading={idx === 0 ? 'eager' : 'lazy'}
+                  decoding="async"
                 />
               </div>
 
