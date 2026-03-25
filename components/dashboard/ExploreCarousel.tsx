@@ -63,9 +63,11 @@ export const ExploreCarousel = memo(function ExploreCarousel({ items }: ExploreC
       <div
         ref={scrollerRef}
         onScroll={handleScroll}
-        className="flex gap-4 overflow-x-auto overflow-y-hidden px-4 pb-2 snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        className="flex gap-4 overflow-x-auto overflow-y-hidden px-4 pb-2 snap-x snap-proximity [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         style={{
-          touchAction: 'pan-x',
+          // pan-x alone blocks vertical page scroll when the gesture starts on the carousel.
+          touchAction: 'pan-x pan-y',
+          overscrollBehaviorX: 'contain',
           WebkitOverflowScrolling: 'touch',
         }}
       >
@@ -83,10 +85,11 @@ export const ExploreCarousel = memo(function ExploreCarousel({ items }: ExploreC
                     src={item.imageSrc}
                     alt={item.title}
                     fill
-                    className="object-cover"
+                    className="object-cover select-none"
                     sizes="330px"
                     priority={idx === 0}
                     unoptimized
+                    draggable={false}
                   />
 
                   {/* Slight lift so text remains readable over busy images */}
