@@ -11,6 +11,7 @@ import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition";
 import { ShiftWeekStrip } from "@/components/dashboard/ShiftWeekStrip";
 import { useActivityToday } from "@/lib/hooks/useActivityToday";
 import { useTranslation } from "@/components/providers/language-provider";
+import { ExploreCarousel } from "@/components/dashboard/ExploreCarousel";
 
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import type { ShiftLagMetrics } from '@/lib/circadian/calculateShiftLag'
@@ -293,14 +294,31 @@ function ShiftRhythmCard({ score, circadian, socialJetlag, shiftLag, bingeRisk, 
         </h2>
       </div>
 
-      {/* SHIFT WORKER HEALTH EXPLAINED CARD */}
-      <ShiftWorkerHealthCard />
-
-      {/* DIET CARD */}
-      <ShiftWorkerDietCard />
-
-      {/* GOALS CARD */}
-      <ShiftWorkerGoalsCard />
+      <ExploreCarousel
+        items={[
+          {
+            href: "/shift-worker-health",
+            imageSrc: "/tired%20shift%20worker.png",
+            title: "Shift worker health explained",
+            description:
+              "How shifts, sleep debt and activity affect your energy, cravings and long-term health.",
+          },
+          {
+            href: "/shift-worker-diet",
+            imageSrc: "/healthy%20diet%20bowl.png",
+            title: "Healthy diet explained",
+            description:
+              "Shift-worker diets, common health issues, and how the right food timing helps protect you.",
+          },
+          {
+            href: "/shift-worker-goals",
+            imageSrc: "/goals%20clipboard%20image.png",
+            title: "Set my goals",
+            description:
+              "Create specific targets and time frames that fit your shifts, sleep and health challenges.",
+          },
+        ]}
+      />
 
       {/* ShiftCoach logo footer */}
       <div className="pt-6 pb-4 flex flex-col items-center gap-1">
