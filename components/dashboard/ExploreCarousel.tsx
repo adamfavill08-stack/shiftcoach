@@ -144,6 +144,8 @@ export function ExploreCarousel({ items }: ExploreCarouselProps) {
                   fill
                   className="object-cover"
                   sizes="(max-width: 430px) 86vw, 340px"
+                  priority={idx === 0}
+                  unoptimized
                   loading={idx === 0 ? 'eager' : 'lazy'}
                   decoding="async"
                 />
