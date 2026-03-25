@@ -63,10 +63,10 @@ export const ExploreCarousel = memo(function ExploreCarousel({ items }: ExploreC
       <div
         ref={scrollerRef}
         onScroll={handleScroll}
-        className="flex gap-4 overflow-x-auto overflow-y-hidden px-4 pb-2 snap-x snap-proximity [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        className="flex gap-4 overflow-x-auto overflow-y-hidden px-4 pb-2 snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         style={{
-          // pan-x alone blocks vertical page scroll when the gesture starts on the carousel.
-          touchAction: 'pan-x pan-y',
+          // Let the browser handle axis (scroll locking). Forcing pan-x blocked vertical page
+          // scroll; pan-x pan-y broke horizontal scroll on some mobile WebViews.
           overscrollBehaviorX: 'contain',
           WebkitOverflowScrolling: 'touch',
         }}
