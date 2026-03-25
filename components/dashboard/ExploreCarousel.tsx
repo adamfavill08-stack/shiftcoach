@@ -119,6 +119,7 @@ export function ExploreCarousel({ items }: ExploreCarouselProps) {
           <Link
             key={item.href}
             href={item.href}
+            prefetch={false}
             className={[
               'snap-start shrink-0',
               // card width ~ "one primary card" on mobile
