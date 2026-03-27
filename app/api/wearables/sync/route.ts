@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { z } from 'zod'
-import { parseJsonBody } from '@/lib/api/validation'
 import { apiServerError } from '@/lib/api/response'
 
 const WearablesSyncSchema = z.object({
@@ -20,9 +19,21 @@ export async function POST(req: NextRequest) {
     const { userId } = await getServerSupabaseAndUserId()
     if (!userId) return buildUnauthorizedResponse()
 
-    const parsed = await parseJsonBody(req, WearablesSyncSchema)
-    if (!parsed.ok) return parsed.response
-    const requestedProvider = parsed.data.provider ?? null
+    // Auto sync callers often send an empty body. Treat that as valid and
+    // infer provider from connected device_sources.
+    let requestedProvider: 'health_connect' | 'apple_health' | null = null
+    const bodyText = await req.text()
+    if (bodyText.trim().length > 0) {
+      const json = JSON.parse(bodyText)
+      const parsed = WearablesSyncSchema.safeParse(json)
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: 'invalid_request_payload', details: parsed.error.flatten() },
+          { status: 400 }
+        )
+      }
+      requestedProvider = parsed.data.provider ?? null
+    }
 
     const { supabaseServer } = await import('@/lib/supabase-server')
     const supabase = supabaseServer

@@ -24,10 +24,19 @@ export async function POST(req: NextRequest) {
     const prediction = await predictSleep(type)
     
     if (!prediction) {
-      return NextResponse.json(
-        { error: 'Could not generate prediction' },
-        { status: 404 }
-      )
+      // Return a safe fallback instead of 404 so quick-log UI
+      // remains usable even when prediction inputs are sparse.
+      const now = new Date()
+      const end = new Date(now)
+      const start = new Date(now)
+      start.setHours(now.getHours() - (type === 'nap' || type === 'pre_shift_nap' ? 1 : 7), 0, 0, 0)
+      return NextResponse.json({
+        suggestedStart: start.toISOString(),
+        suggestedEnd: end.toISOString(),
+        type,
+        confidence: 0.3,
+        reasoning: 'Using fallback window while we gather more sleep and shift data.',
+      }, { status: 200 })
     }
     
     return NextResponse.json({

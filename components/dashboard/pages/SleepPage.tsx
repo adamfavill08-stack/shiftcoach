@@ -6,6 +6,7 @@ import { LogSleepModal } from "@/components/sleep/LogSleepModal";
 import { Sleep7DayBars } from "@/components/sleep/Sleep7DayBars";
 import { useRouter } from "next/navigation";
 import { SleepDeficitCard } from "@/components/dashboard/SleepDeficitCard";
+import type { SleepLogInput } from "@/lib/sleep/types";
 
 function ShellCard({
   children,
@@ -673,24 +674,12 @@ export default function SleepPage() {
     }
   }, [])
 
-  const handleLogSleep = async (data: {
-    type: 'sleep' | 'nap'
-    start: string
-    end: string
-    quality: 'Excellent' | 'Good' | 'Fair' | 'Poor'
-    notes?: string
-  }) => {
+  const handleLogSleep = async (data: SleepLogInput) => {
     try {
       const res = await fetch('/api/sleep/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: data.type,
-          startAt: data.start,
-          endAt: data.end,
-          quality: data.quality,
-          notes: data.notes || null,
-        }),
+        body: JSON.stringify(data),
       })
 
       if (!res.ok) {
@@ -768,7 +757,7 @@ export default function SleepPage() {
         open={isLogModalOpen}
         onClose={() => setIsLogModalOpen(false)}
         onSubmit={handleLogSleep}
-        defaultType="sleep"
+        defaultType="main_sleep"
       />
     </div>
   );

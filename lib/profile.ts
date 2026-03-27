@@ -154,12 +154,16 @@ export async function getMyProfile(): Promise<Profile | null> {
       data = inserted as any
     }
 
-    // Ensure region/currency are set for legacy profiles.
-    if (!data.region || !data.currency) {
+    // Ensure region/currency are set for legacy profiles only when these
+    // columns actually exist in the current schema.
+    const profileKeys = data ? Object.keys(data) : []
+    const hasRegionColumn = profileKeys.includes('region')
+    const hasCurrencyColumn = profileKeys.includes('currency')
+    if ((hasRegionColumn && !data.region) || (hasCurrencyColumn && !data.currency)) {
       const inferred = inferRegionAndCurrencyFromEnv()
       const updates: Partial<Profile> = {}
-      if (!data.region) updates.region = inferred.region
-      if (!data.currency) updates.currency = inferred.currency
+      if (hasRegionColumn && !data.region) updates.region = inferred.region
+      if (hasCurrencyColumn && !data.currency) updates.currency = inferred.currency
 
       const { data: updated, error: updateError } = await supabase
         .from('profiles')

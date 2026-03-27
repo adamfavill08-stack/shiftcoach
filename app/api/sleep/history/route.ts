@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { logSupabaseError } from '@/lib/supabase/error-handler'
+import { getShiftedDayKey } from '@/lib/sleep/utils'
 
 export async function GET(req: NextRequest) {
   const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
@@ -11,40 +12,88 @@ export async function GET(req: NextRequest) {
   const supabase = isDevFallback ? supabaseServer : authSupabase
 
   try {
-    // Accept query params for date range, or default to last 30 days
+    // Accept query params for date range, or default to last 30 shifted days (inclusive of today)
     const searchParams = req.nextUrl.searchParams
     const fromParam = searchParams.get('from')
     const toParam = searchParams.get('to')
+    const daysParam = Number.parseInt(searchParams.get('days') || '', 10)
+
+    const isValidDateOnly = (value: string) =>
+      /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+      !Number.isNaN(new Date(`${value}T00:00:00`).getTime())
     
     let fromIsoDate: string
-    let toIsoDate: string | undefined
+    let toIsoDate: string
     
-    if (fromParam && toParam) {
+    if (fromParam || toParam) {
+      if (!fromParam || !toParam) {
+        return NextResponse.json(
+          { error: 'Both from and to must be provided together in YYYY-MM-DD format' },
+          { status: 400 }
+        )
+      }
+
+      if (!isValidDateOnly(fromParam) || !isValidDateOnly(toParam)) {
+        return NextResponse.json(
+          { error: 'Invalid from/to date format. Use YYYY-MM-DD' },
+          { status: 400 }
+        )
+      }
+
+      if (fromParam > toParam) {
+        return NextResponse.json(
+          { error: 'from must be on or before to' },
+          { status: 400 }
+        )
+      }
+
       fromIsoDate = fromParam
       toIsoDate = toParam
     } else {
-      // Default to last 30 days
+      // Default to last 30 days, inclusive of today (today + previous 29).
+      const days = Number.isFinite(daysParam) && daysParam > 0 ? daysParam : 30
       const now = new Date()
       const from = new Date()
-      from.setDate(now.getDate() - 30)
+      from.setHours(0, 0, 0, 0)
+      from.setDate(now.getDate() - (days - 1))
       fromIsoDate = from.toISOString().slice(0, 10)
-      toIsoDate = undefined
+      const to = new Date(now)
+      to.setHours(0, 0, 0, 0)
+      toIsoDate = to.toISOString().slice(0, 10)
     }
+
+    // Build requested shifted-day keys (final clipping window).
+    const requestedDayKeys = new Set<string>()
+    {
+      const start = new Date(`${fromIsoDate}T12:00:00`)
+      const end = new Date(`${toIsoDate}T12:00:00`)
+      const cursor = new Date(start)
+      while (cursor <= end) {
+        requestedDayKeys.add(getShiftedDayKey(cursor))
+        cursor.setDate(cursor.getDate() + 1)
+      }
+    }
+
+    // Boundary-safe raw fetch window:
+    // include one extra day on both sides and overlap-match by [start_at, end_at].
+    const rawStart = new Date(`${fromIsoDate}T00:00:00.000Z`)
+    rawStart.setDate(rawStart.getDate() - 1)
+    const rawEnd = new Date(`${toIsoDate}T23:59:59.999Z`)
+    rawEnd.setDate(rawEnd.getDate() + 1)
 
     let query = supabase
       .from('sleep_logs')
-      .select('id, date, start_ts, end_ts, sleep_hours, quality, naps, type')
+      .select('id, start_at, end_at, quality, type, source, notes')
       .eq('user_id', userId)
-      .gte('date', fromIsoDate)
+      .is('deleted_at', null)
+      .gte('end_at', rawStart.toISOString())
+      .lte('start_at', rawEnd.toISOString())
     
-    if (toIsoDate) {
-      query = query.lte('date', toIsoDate)
-    }
-    
-    // Order by start_ts (actual column name in database)
+    // 500 is sufficient for 30 days of user-visible sessions;
+    // revisit if wearable imports create many fragmented session rows.
     const { data: sleepData, error } = await query
-      .order('start_ts', { ascending: false })
-      .limit(50)
+      .order('start_at', { ascending: false })
+      .limit(500)
 
     if (error) {
       logSupabaseError('api/sleep/history', error)
@@ -55,8 +104,7 @@ export async function GET(req: NextRequest) {
     const dates = new Set<string>()
     if (sleepData) {
       for (const log of sleepData) {
-        const startTime = log.start_ts
-        const date = log.date || (startTime ? new Date(startTime).toISOString().slice(0, 10) : null)
+        const date = log.start_at ? getShiftedDayKey(log.start_at) : null
         if (date) dates.add(date)
       }
     }
@@ -78,21 +126,18 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Add shift label to each sleep log entry
-    // Normalize field names: add start_at/end_at aliases for compatibility
-    const itemsWithShifts = (sleepData || []).map((log: any) => {
-      const startTime = log.start_ts
-      const endTime = log.end_ts
-      const date = log.date || (startTime ? new Date(startTime).toISOString().slice(0, 10) : null)
-      const shiftLabel = date ? (shiftsByDate.get(date) || 'OFF') : 'OFF'
-      return {
-        ...log,
-        // Add aliases for compatibility (database has start_ts/end_ts, but some code expects start_at/end_at)
-        start_at: log.start_ts,
-        end_at: log.end_ts,
-        shift_label: shiftLabel,
-      }
-    })
+    const itemsWithShifts = (sleepData || [])
+      .filter((log: any) => log.start_at && log.end_at)
+      .map((log: any) => {
+        const date = getShiftedDayKey(log.start_at)
+        const shiftLabel = shiftsByDate.get(date) || 'OFF'
+        return {
+          ...log,
+          date,
+          shift_label: shiftLabel,
+        }
+      })
+      .filter((log: any) => requestedDayKeys.has(log.date))
 
     console.log('[/api/sleep/history] rows:', itemsWithShifts.length)
 

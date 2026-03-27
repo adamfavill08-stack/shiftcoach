@@ -84,6 +84,7 @@ export async function GET(req: Request) {
     return NextResponse.json({
       connected,
       verified: connected && (hasRecentNativeSync || totalSteps > 0),
+      lastSyncAt: latestSourceSyncAt > 0 ? new Date(latestSourceSyncAt).toISOString() : null,
       provider: hasHealthConnect
         ? 'health_connect'
         : hasAppleHealth

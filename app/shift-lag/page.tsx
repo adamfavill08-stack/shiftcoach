@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import type { ShiftLagMetrics } from "@/lib/circadian/calculateShiftLag";
+import type { ShiftLagMetrics } from "@/lib/shiftlag/calculateShiftLag";
 import { useTranslation } from "@/components/providers/language-provider";
 
 export default function ShiftLagInfoPage() {
@@ -18,7 +18,7 @@ export default function ShiftLagInfoPage() {
         setLoading(true);
         setError(null);
 
-        const res = await fetch("/api/shift-rhythm", { cache: "no-store" });
+        const res = await fetch("/api/shiftlag", { cache: "no-store" });
         if (!res.ok) {
           throw new Error(`Failed to fetch: ${res.status}`);
         }
@@ -29,8 +29,8 @@ export default function ShiftLagInfoPage() {
           return;
         }
 
-        if (json.shiftLag) {
-          setData(json.shiftLag as ShiftLagMetrics);
+        if (typeof json.score === "number" && json.level) {
+          setData(json as ShiftLagMetrics);
         } else {
           setError("Shift Lag data not available");
         }
@@ -42,11 +42,24 @@ export default function ShiftLagInfoPage() {
       }
     };
 
-    fetchData();
+    const handleRefresh = () => {
+      void fetchData();
+    };
+
+    void fetchData();
+    window.addEventListener("sleep-refreshed", handleRefresh);
+    window.addEventListener("rota-saved", handleRefresh);
+    window.addEventListener("rota-cleared", handleRefresh);
+
+    return () => {
+      window.removeEventListener("sleep-refreshed", handleRefresh);
+      window.removeEventListener("rota-saved", handleRefresh);
+      window.removeEventListener("rota-cleared", handleRefresh);
+    };
   }, []);
 
   const score = data?.score ?? 0;
-  const level = data?.category ?? "nodata";
+  const level = data?.level ?? "nodata";
 
   const getColors = () => {
     switch (level) {
@@ -83,7 +96,7 @@ export default function ShiftLagInfoPage() {
 
   const { ringFrom, ringTo, label, textClass } = getColors();
 
-  const radius = 70;
+  const radius = 88;
   const circumference = 2 * Math.PI * radius;
   const clampedScore = Math.max(0, Math.min(100, score));
   const progress = (clampedScore / 100) * circumference;
@@ -157,8 +170,8 @@ export default function ShiftLagInfoPage() {
 
         {/* Hero score ring */}
         <section className="rounded-3xl bg-white px-5 py-6 flex flex-col items-center gap-5">
-          <div className="relative h-40 w-40">
-            <svg viewBox="0 0 180 180" className="h-full w-full">
+          <div className="relative h-52 w-52">
+            <svg viewBox="0 0 220 220" className="h-full w-full">
               <defs>
                 <linearGradient id="shiftlag-ring" x1="0%" y1="0%" x2="100%" y2="0%">
                   <stop offset="0%" stopColor={ringFrom} />
@@ -166,28 +179,28 @@ export default function ShiftLagInfoPage() {
                 </linearGradient>
               </defs>
               <circle
-                cx="90"
-                cy="90"
+                cx="110"
+                cy="110"
                 r={radius}
                 className="stroke-slate-100"
-                strokeWidth="14"
+                strokeWidth="16"
                 fill="none"
               />
               <circle
-                cx="90"
-                cy="90"
+                cx="110"
+                cy="110"
                 r={radius}
                 stroke="url(#shiftlag-ring)"
-                strokeWidth="14"
+                strokeWidth="16"
                 fill="none"
                 strokeLinecap="round"
                 strokeDasharray={circumference}
                 strokeDashoffset={circumference - progress}
-                transform="rotate(-90 90 90)"
+                transform="rotate(-90 110 110)"
               />
             </svg>
 
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
               <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">
                 Shift Lag
               </p>
@@ -197,11 +210,11 @@ export default function ShiftLagInfoPage() {
                 <span className="text-xs text-slate-500">No data</span>
               ) : (
                 <>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-semibold text-slate-900">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-4xl font-semibold leading-none text-slate-900">
                       {clampedScore}
                     </span>
-                    <span className="text-xs text-slate-500">/100</span>
+                    <span className="text-sm text-slate-500">/100</span>
                   </div>
                   <span className={`text-xs font-semibold ${textClass}`}>
                     {label}

@@ -39,8 +39,13 @@ interface ShiftDay {
 }
 
 interface BiologicalNight {
-  startHour: number // 0-23
-  endHour: number // 0-23 (may wrap around)
+  startMinutes: number // 0-1439
+  endMinutes: number // 0-1439 (may wrap around)
+}
+
+export interface SleepPatternContext {
+  hasMainSleep?: boolean
+  hasNaps?: boolean
 }
 
 /**
@@ -86,10 +91,11 @@ function calculateSleepDebtScore(
   sleepDays: SleepDay[],
   typicalSleepNeed: number
 ): { score: number; debtHours: number } {
-  // Calculate daily debt for last 7 days
+  // Calculate daily debt for the most recent 7 days only
+  const recentSleepDays = sleepDays.slice(-7)
   let weeklyDebt = 0
 
-  for (const day of sleepDays) {
+  for (const day of recentSleepDays) {
     const debt = Math.max(0, typicalSleepNeed - day.totalHours)
     weeklyDebt += debt
   }
@@ -122,33 +128,33 @@ function calculateShiftNightOverlap(
   shiftEnd: Date,
   bioNight: BiologicalNight
 ): number {
-  const startHour = shiftStart.getHours() + shiftStart.getMinutes() / 60
-  const endHour = shiftEnd.getHours() + shiftEnd.getMinutes() / 60
+  const shiftStartMinutes = shiftStart.getHours() * 60 + shiftStart.getMinutes()
+  const shiftEndMinutesRaw = shiftEnd.getHours() * 60 + shiftEnd.getMinutes()
 
-  // Handle overnight shifts (end is next day)
-  let actualEndHour = endHour
-  if (endHour < startHour) {
-    actualEndHour += 24
+  // Normalize shift to continuous interval [start, end) where end >= start
+  const shiftEndMinutes =
+    shiftEndMinutesRaw <= shiftStartMinutes
+      ? shiftEndMinutesRaw + 24 * 60
+      : shiftEndMinutesRaw
+
+  // Build biological-night interval in same 0..48h space.
+  const nightStart = bioNight.startMinutes
+  const nightEnd =
+    bioNight.endMinutes <= bioNight.startMinutes
+      ? bioNight.endMinutes + 24 * 60
+      : bioNight.endMinutes
+
+  const overlap = (aStart: number, aEnd: number, bStart: number, bEnd: number) => {
+    const start = Math.max(aStart, bStart)
+    const end = Math.min(aEnd, bEnd)
+    return Math.max(0, end - start)
   }
 
-  // Biological night window (e.g., 23:00 - 07:00 = 23 to 31)
-  const nightStart = bioNight.startHour
-  const nightEnd = bioNight.endHour < bioNight.startHour
-    ? bioNight.endHour + 24
-    : bioNight.endHour
+  // Compare against two copies of biological night to handle midnight wrapping robustly.
+  const overlapA = overlap(shiftStartMinutes, shiftEndMinutes, nightStart, nightEnd)
+  const overlapB = overlap(shiftStartMinutes, shiftEndMinutes, nightStart + 24 * 60, nightEnd + 24 * 60)
 
-  // Calculate overlap
-  const shiftStartIn24 = startHour < nightStart ? startHour + 24 : startHour
-  const shiftEndIn24 = actualEndHour < nightStart ? actualEndHour + 24 : actualEndHour
-
-  const overlapStart = Math.max(shiftStartIn24, nightStart)
-  const overlapEnd = Math.min(shiftEndIn24, nightEnd)
-
-  if (overlapStart >= overlapEnd) {
-    return 0
-  }
-
-  return overlapEnd - overlapStart
+  return Math.max(overlapA, overlapB) / 60
 }
 
 /**
@@ -187,16 +193,16 @@ function calculateMisalignmentScore(
   // Map to 0-40 points
   let score = 0
   if (avgOverlap <= 2) {
-    score = 5
+    score = 0
   } else if (avgOverlap <= 4) {
-    // Linear: 2h -> 5, 4h -> 15
-    score = 5 + ((avgOverlap - 2) / 2) * 10
+    // Linear: 2h -> 0, 4h -> 10
+    score = ((avgOverlap - 2) / 2) * 10
   } else if (avgOverlap <= 6) {
-    // Linear: 4h -> 15, 6h -> 25
-    score = 15 + ((avgOverlap - 4) / 2) * 10
+    // Linear: 4h -> 10, 6h -> 20
+    score = 10 + ((avgOverlap - 4) / 2) * 10
   } else if (avgOverlap <= 8) {
-    // Linear: 6h -> 25, 8h -> 35
-    score = 25 + ((avgOverlap - 6) / 2) * 10
+    // Linear: 6h -> 20, 8h -> 30
+    score = 20 + ((avgOverlap - 6) / 2) * 10
   } else {
     score = 40
   }
@@ -264,11 +270,14 @@ function calculateInstabilityScore(
     return { score: 0, variabilityHours: 0 }
   }
 
-  // Calculate standard deviation
-  const mean = startMinutes.reduce((sum, m) => sum + m, 0) / startMinutes.length
-  const variance = startMinutes.reduce((sum, m) => sum + Math.pow(m - mean, 2), 0) / startMinutes.length
-  const stdDev = Math.sqrt(variance)
-  const stdDevHours = stdDev / 60
+  // Circular standard deviation for time-of-day data (handles midnight wrap).
+  const angles = startMinutes.map((m) => (m / 1440) * 2 * Math.PI)
+  const sinMean = angles.reduce((sum, a) => sum + Math.sin(a), 0) / angles.length
+  const cosMean = angles.reduce((sum, a) => sum + Math.cos(a), 0) / angles.length
+  const R = Math.sqrt(sinMean * sinMean + cosMean * cosMean)
+  const safeR = Math.max(R, 1e-9)
+  const circularStdRadians = Math.sqrt(-2 * Math.log(safeR))
+  const stdDevHours = (circularStdRadians / (2 * Math.PI)) * 24
 
   // Map to 0-20 points
   let score = 0
@@ -300,22 +309,20 @@ function getBiologicalNight(
   circadianMidpoint?: number // minutes from midnight (0-1440)
 ): BiologicalNight {
   if (circadianMidpoint !== undefined) {
-    // Use circadian midpoint to estimate biological night
-    // Typical biological night is ~8 hours centered around midpoint
-    // For midpoint at 03:00, night is roughly 23:00 - 07:00
-    const midpointHour = circadianMidpoint / 60
-    const nightStart = (midpointHour - 4 + 24) % 24 // 4 hours before midpoint
-    const nightEnd = (midpointHour + 4) % 24 // 4 hours after midpoint
+    // Use estimated circadian midpoint to define an 8h biological-night window.
+    // Keep minute-level precision to avoid score jumps from coarse hour rounding.
+    const nightStart = (circadianMidpoint - 240 + 1440) % 1440 // 4h before midpoint
+    const nightEnd = (circadianMidpoint + 240) % 1440 // 4h after midpoint
     return {
-      startHour: Math.round(nightStart),
-      endHour: Math.round(nightEnd),
+      startMinutes: Math.round(nightStart),
+      endMinutes: Math.round(nightEnd),
     }
   }
 
   // Default: 23:00 - 07:00 (typical for day workers)
   return {
-    startHour: 23,
-    endHour: 7,
+    startMinutes: 23 * 60,
+    endMinutes: 7 * 60,
   }
 }
 
@@ -325,17 +332,50 @@ function getBiologicalNight(
 function generateExplanation(
   level: ShiftLagLevel,
   score: number,
+  sleepDebtScore: number,
+  misalignmentScore: number,
+  instabilityScore: number,
   debtHours: number,
   avgOverlap: number,
-  variability: number
+  variability: number,
+  sleepPatternContext?: SleepPatternContext
 ): string {
-  if (level === 'low') {
-    return 'Your body clock is coping well with your current schedule.'
-  } else if (level === 'moderate') {
-    return 'You\'re carrying some shift lag from your recent shifts.'
-  } else {
-    return 'Your body clock is out of sync due to recent night shifts and sleep debt.'
+  if (sleepPatternContext?.hasNaps && sleepPatternContext?.hasMainSleep === false) {
+    return 'Your sleep is mostly fragmented into naps without a main sleep block, which can increase shift lag.'
   }
+
+  const dominant =
+    sleepDebtScore >= misalignmentScore && sleepDebtScore >= instabilityScore
+      ? 'debt'
+      : misalignmentScore >= sleepDebtScore && misalignmentScore >= instabilityScore
+      ? 'misalignment'
+      : 'instability'
+
+  if (level === 'low') {
+    if (dominant === 'debt' && debtHours > 0.5) {
+      return 'Your rhythm is mostly stable, but a small sleep debt is still present.'
+    }
+    if (dominant === 'instability' && variability >= 2) {
+      return 'Your rhythm is mostly stable, with only mild shift-timing variability.'
+    }
+    return 'Your body clock is coping well with your current schedule.'
+  }
+
+  if (dominant === 'debt') {
+    return level === 'high'
+      ? 'You are carrying significant sleep debt, which is strongly driving your shift lag.'
+      : 'Sleep debt is currently the main driver of your shift lag.'
+  }
+
+  if (dominant === 'misalignment') {
+    return level === 'high'
+      ? 'Your recent shifts overlap heavily with your biological night, creating strong circadian misalignment.'
+      : 'Recent shifts are overlapping your biological night and increasing circadian strain.'
+  }
+
+  return level === 'high'
+    ? 'Your shift pattern has been highly variable, making it harder for your body clock to adapt.'
+    : 'Shift timing variability is the main factor increasing your shift lag right now.'
 }
 
 /**
@@ -365,7 +405,8 @@ function generateDrivers(
 export function calculateShiftLag(
   sleepDays: SleepDay[],
   shiftDays: ShiftDay[],
-  circadianMidpoint?: number
+  circadianMidpoint?: number,
+  sleepPatternContext?: SleepPatternContext
 ): ShiftLagMetrics {
   // Need at least some data
   if (sleepDays.length === 0 && shiftDays.length === 0) {
@@ -422,9 +463,18 @@ export function calculateShiftLag(
   } else {
     level = 'high'
   }
-
   // Generate explanation and drivers
-  const explanation = generateExplanation(level, totalScore, debtHours, avgOverlapHours, variabilityHours)
+  const explanation = generateExplanation(
+    level,
+    totalScore,
+    sleepDebtScore,
+    misalignmentScore,
+    instabilityScore,
+    debtHours,
+    avgOverlapHours,
+    variabilityHours,
+    sleepPatternContext
+  )
   const drivers = generateDrivers(debtHours, avgOverlapHours, variabilityHours)
 
   return {

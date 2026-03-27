@@ -2,21 +2,24 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Clock, Calendar, ChevronLeft } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { QuickSleepLogButtons } from './QuickSleepLogButtons'
 import { SleepTimelineBar } from './SleepTimelineBar'
-import { SleepSessionList } from './SleepSessionList'
 import { LogSleepModal } from './LogSleepModal'
 import { SleepEditModal } from './SleepEditModal'
 import { DeleteSleepConfirmModal } from './DeleteSleepConfirmModal'
-import type { SleepType } from '@/lib/sleep/predictSleep'
+import { ShiftSleepOverviewCard } from './ShiftSleepOverviewCard'
+import { getShiftAwareInsight } from '@/lib/sleep/coaching'
+import type { SleepType as PredictedSleepType } from '@/lib/sleep/predictSleep'
+import type { SleepLogInput, SleepType } from '@/lib/sleep/types'
 
 interface SleepSession {
   id: string
   start_at: string
   end_at: string
-  type: 'sleep' | 'nap'
+  type: SleepType
+  source?: string | null
   durationHours: number
   quality?: string | number | null
   notes?: string | null
@@ -34,6 +37,18 @@ interface SleepHistoryDay {
   date: string
   totalMinutes: number
   shiftLabel: string
+}
+
+function extractApiErrorMessage(errorData: any, fallback: string): string {
+  if (!errorData) return fallback
+  if (typeof errorData.error === 'string' && errorData.error.trim()) return errorData.error
+  if (typeof errorData.message === 'string' && errorData.message.trim()) return errorData.message
+  if (errorData.error && typeof errorData.error === 'object') {
+    if (typeof errorData.error.message === 'string' && errorData.error.message.trim()) {
+      return errorData.error.message
+    }
+  }
+  return fallback
 }
 
 function SleepMetricsCard({
@@ -77,7 +92,7 @@ function SleepMetricsCard({
           </p>
           <div className="h-1.5 w-full rounded-full bg-slate-100 mb-1" />
           <p className="text-[11px] text-slate-500 leading-snug">
-            Not enough data
+            Log 2-3 shifted days to unlock stronger weekly guidance
           </p>
         </div>
 
@@ -125,38 +140,6 @@ function SleepStageGrid() {
   )
 }
 
-function SimpleSleepGauge({ totalMinutes, targetMinutes }: { totalMinutes: number; targetMinutes: number }) {
-  const hours = totalMinutes ? Math.floor(totalMinutes / 60) : 0
-  const minutes = totalMinutes ? totalMinutes % 60 : 0
-  const percent = totalMinutes && targetMinutes > 0 ? Math.round((totalMinutes / targetMinutes) * 100) : 0
-  const angle = (percent / 100) * 360
-  const goalHours = targetMinutes > 0 ? (targetMinutes / 60).toFixed(1) : '0'
-
-  return (
-    <div
-      className="relative flex h-[176px] w-[176px] items-center justify-center rounded-full"
-      style={{
-        background: `conic-gradient(#22c55e ${angle}deg, #e5e7eb 0deg)`,
-      }}
-    >
-      {/* Outer inner disc (slightly larger to thin the ring) */}
-      <div className="h-[156px] w-[156px] rounded-full bg-white border border-slate-100" />
-      {/* Inner goal ring */}
-      <div className="absolute h-[132px] w-[132px] rounded-full border border-dashed border-slate-200" />
-      {/* Center content */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-1">
-        <span className="text-[28px] font-semibold leading-none text-slate-900">
-          {hours}
-          <span className="align-top text-[16px] font-normal ml-[2px]">h</span>{' '}
-          {minutes}
-        </span>
-        <span className="text-[11px] text-slate-500">{percent}% of goal</span>
-        <span className="text-[11px] text-slate-400">Goal {goalHours}h</span>
-      </div>
-    </div>
-  )
-}
-
 function SleepDebtCard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -187,13 +170,9 @@ function SleepDebtCard() {
       }
     }
 
-    fetchDeficit()
-
-    const handleRefresh = () => fetchDeficit()
-    window.addEventListener('sleep-refreshed', handleRefresh)
+    void fetchDeficit()
     return () => {
       cancelled = true
-      window.removeEventListener('sleep-refreshed', handleRefresh)
     }
   }, [])
 
@@ -267,24 +246,18 @@ function SleepDebtCard() {
   )
 }
 
-/**
- * Get shifted day label (07:00 → 07:00)
- */
-function getShiftedDayLabel(shiftedDayStart: string): string {
-  const start = new Date(shiftedDayStart)
-  const end = new Date(start)
-  end.setDate(end.getDate() + 1)
-  
-  const formatTime = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  const formatDate = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-  
-  const isToday = start.toDateString() === new Date().toDateString()
-  
-  if (isToday) {
-    return `Today's Sleep (${formatTime(start)} → ${formatTime(end)})`
+function getShiftAdjustedTargetMinutes(baseTargetMinutes: number, shiftLabel: string) {
+  if (baseTargetMinutes <= 0) return 0
+  switch (shiftLabel) {
+    case 'NIGHT':
+      return Math.round(baseTargetMinutes * 1.1)
+    case 'EARLY':
+      return Math.round(baseTargetMinutes * 1.05)
+    case 'OFF':
+      return Math.round(baseTargetMinutes * 0.95)
+    default:
+      return baseTargetMinutes
   }
-  
-  return `${formatDate(start)} (${formatTime(start)} → ${formatTime(end)})`
 }
 
 export function ShiftWorkerSleepPage() {
@@ -293,7 +266,7 @@ export function ShiftWorkerSleepPage() {
   const [loading, setLoading] = useState(true)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [isLogModalOpen, setIsLogModalOpen] = useState(false)
-  const [logModalType, setLogModalType] = useState<SleepType>('main')
+  const [logModalType, setLogModalType] = useState<SleepType>('main_sleep')
   const [logModalStart, setLogModalStart] = useState<Date | null>(null)
   const [logModalEnd, setLogModalEnd] = useState<Date | null>(null)
   const [editingSession, setEditingSession] = useState<SleepSession | null>(null)
@@ -302,14 +275,19 @@ export function ShiftWorkerSleepPage() {
 
   // Last 30 days history for guidance
   const [historyDays, setHistoryDays] = useState<SleepHistoryDay[]>([])
+  const [shiftByDate, setShiftByDate] = useState<Map<string, string>>(new Map())
   const [historyLoading, setHistoryLoading] = useState(true)
   const [selectedHistoryDate, setSelectedHistoryDate] = useState<string | null>(null)
   const [sleepGoalHours, setSleepGoalHours] = useState<number | null>(null)
+  const [hasWearableConnection, setHasWearableConnection] = useState(false)
+  const [lastWearableSyncAt, setLastWearableSyncAt] = useState<number | null>(null)
+  const [isWearableSyncing, setIsWearableSyncing] = useState(false)
+  const [heroActionError, setHeroActionError] = useState<string | null>(null)
 
   // Fetch shifted day sleep data
-  const fetchShiftedDays = useCallback(async () => {
+  const fetchShiftedDays = useCallback(async (isInitial = false) => {
     try {
-      setLoading(true)
+      if (isInitial) setLoading(true)
       const res = await fetch('/api/sleep/24h-grouped?days=3', { cache: 'no-store' })
       
       if (!res.ok) {
@@ -321,7 +299,7 @@ export function ShiftWorkerSleepPage() {
       const data = await res.json()
       setShiftedDays(data.days || [])
       
-      // Auto-select today if available
+      // Auto-select current shifted day if no day is selected yet.
       if (data.currentShiftedDay && !selectedDay) {
         setSelectedDay(data.currentShiftedDay)
       }
@@ -329,28 +307,27 @@ export function ShiftWorkerSleepPage() {
       console.error('[ShiftWorkerSleepPage] Error:', err)
       setShiftedDays([])
     } finally {
-      setLoading(false)
+      if (isInitial) setLoading(false)
     }
   }, [selectedDay])
 
   useEffect(() => {
-    fetchShiftedDays()
-    
-    // Listen for sleep refresh events
-    let refreshTimeout: NodeJS.Timeout | null = null
-    const handleRefresh = () => {
-      if (refreshTimeout) clearTimeout(refreshTimeout)
-      refreshTimeout = setTimeout(() => {
-        fetchShiftedDays()
-      }, 300)
-    }
-    window.addEventListener('sleep-refreshed', handleRefresh)
-    
-    return () => {
-      if (refreshTimeout) clearTimeout(refreshTimeout)
-      window.removeEventListener('sleep-refreshed', handleRefresh)
-    }
+    void fetchShiftedDays(true)
   }, [fetchShiftedDays])
+
+  // Keep selected day valid against the latest API payload.
+  // If current selection is missing (e.g. timezone/day-key mismatch), fall back safely.
+  useEffect(() => {
+    if (!shiftedDays.length) return
+    if (!selectedDay) {
+      setSelectedDay(shiftedDays[0].date)
+      return
+    }
+    const exists = shiftedDays.some((d) => d.date === selectedDay)
+    if (!exists) {
+      setSelectedDay(shiftedDays[0].date)
+    }
+  }, [shiftedDays, selectedDay])
 
   // Fetch profile-based sleep goal (takes into account age, sex, etc. set in profile)
   useEffect(() => {
@@ -372,129 +349,186 @@ export function ShiftWorkerSleepPage() {
   }, [])
 
   // Fetch last 30 days history for guidance card
-  useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        setHistoryLoading(true)
-        const res = await fetch('/api/sleep/history', { cache: 'no-store' })
-        if (!res.ok) {
-          console.error('[ShiftWorkerSleepPage] history error:', res.status)
-          setHistoryDays([])
-          return
-        }
-        const json = await res.json()
-        const items: any[] = json.items || []
-
-        const byDate: Record<string, { totalMinutes: number; shiftLabel: string }> = {}
-
-        for (const item of items) {
-          const date: string | null =
-            item.date ||
-            (item.start_ts ? new Date(item.start_ts).toISOString().slice(0, 10) : null)
-          if (!date) continue
-
-          const start = item.start_ts || item.start_at
-          const end = item.end_ts || item.end_at
-          let minutes = 0
-          if (item.sleep_hours != null) {
-            minutes = Math.round(Number(item.sleep_hours) * 60)
-          } else if (start && end) {
-            minutes = Math.max(
-              0,
-              Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000),
-            )
-          }
-
-          if (!byDate[date]) {
-            byDate[date] = {
-              totalMinutes: 0,
-              shiftLabel: item.shift_label || 'OFF',
-            }
-          }
-          byDate[date].totalMinutes += minutes
-          if (byDate[date].shiftLabel === 'OFF' && item.shift_label) {
-            byDate[date].shiftLabel = item.shift_label
-          }
-        }
-
-        const entries: SleepHistoryDay[] = Object.entries(byDate)
-          .map(([date, v]) => ({
-            date,
-            totalMinutes: v.totalMinutes,
-            shiftLabel: v.shiftLabel,
-          }))
-          .sort((a, b) => (a.date < b.date ? 1 : -1))
-
-        setHistoryDays(entries)
-        if (!selectedHistoryDate && entries.length > 0) {
-          setSelectedHistoryDate(entries[0].date)
-        }
-      } catch (err) {
-        console.error('[ShiftWorkerSleepPage] history fetch error:', err)
+  const fetchSleepHistory = useCallback(async () => {
+    try {
+      setHistoryLoading(true)
+      const res = await fetch('/api/sleep/history', { cache: 'no-store' })
+      if (!res.ok) {
+        console.error('[ShiftWorkerSleepPage] history error:', res.status)
         setHistoryDays([])
-      } finally {
-        setHistoryLoading(false)
+        return
       }
-    }
+      const json = await res.json()
+      const items: any[] = json.items || []
 
-    fetchHistory()
-  }, [selectedHistoryDate])
+      const byDate: Record<string, { totalMinutes: number; shiftLabel: string }> = {}
+
+      for (const item of items) {
+        const date: string | null = item.date || null
+        if (!date) continue
+
+        const start = item.start_at
+        const end = item.end_at
+        let minutes = 0
+        if (start && end) {
+          minutes = Math.max(
+            0,
+            Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000),
+          )
+        }
+
+        if (!byDate[date]) {
+          byDate[date] = {
+            totalMinutes: 0,
+            shiftLabel: item.shift_label || 'OFF',
+          }
+        }
+        byDate[date].totalMinutes += minutes
+        if (byDate[date].shiftLabel === 'OFF' && item.shift_label) {
+          byDate[date].shiftLabel = item.shift_label
+        }
+      }
+
+      const entries: SleepHistoryDay[] = Object.entries(byDate)
+        .map(([date, v]) => ({
+          date,
+          totalMinutes: v.totalMinutes,
+          shiftLabel: v.shiftLabel,
+        }))
+        .sort((a, b) => (a.date < b.date ? 1 : -1))
+
+      setHistoryDays(entries)
+      setSelectedHistoryDate((prev) => prev ?? entries[0]?.date ?? null)
+    } catch (err) {
+      console.error('[ShiftWorkerSleepPage] history fetch error:', err)
+      setHistoryDays([])
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void fetchSleepHistory()
+  }, [fetchSleepHistory])
+
+  const fetchShifts = useCallback(async () => {
+    try {
+      const res = await fetch('/api/shifts?days=30', { cache: 'no-store' })
+      if (!res.ok) return
+
+      const json = await res.json()
+      const rows: any[] = json?.shifts ?? json?.items ?? []
+      const map = new Map<string, string>()
+      for (const row of rows) {
+        if (row?.date) {
+          map.set(row.date, row.label || row.shift_label || 'OFF')
+        }
+      }
+      setShiftByDate(map)
+    } catch (err) {
+      console.error('[ShiftWorkerSleepPage] shift fetch error:', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    void fetchShifts()
+  }, [fetchShifts])
+
+  const fetchWearableStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/wearables/status', { cache: 'no-store' })
+      if (!res.ok) return
+      const json = await res.json()
+      setHasWearableConnection(Boolean(json?.connected))
+      const lastSync =
+        json?.lastSyncAt ??
+        json?.last_synced_at ??
+        json?.lastSuccessfulSyncAt ??
+        null
+      setLastWearableSyncAt(lastSync ? new Date(lastSync).getTime() : null)
+    } catch (err) {
+      console.error('[ShiftWorkerSleepPage] wearable status error:', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    void fetchWearableStatus()
+  }, [fetchWearableStatus])
 
   // Handle quick log button click
-  const handleQuickLog = async (type: SleepType, start: Date, end: Date) => {
-    setLogModalType(type)
+  const mapPredictedToCanonicalType = (type: PredictedSleepType): SleepType => {
+    if (type === 'post_shift') return 'post_shift_sleep'
+    if (type === 'recovery') return 'recovery_sleep'
+    if (type === 'nap' || type === 'pre_shift_nap') return 'nap'
+    return 'main_sleep'
+  }
+
+  const handleQuickLog = (type: PredictedSleepType, start: Date, end: Date) => {
+    setLogModalType(mapPredictedToCanonicalType(type))
     setLogModalStart(start)
     setLogModalEnd(end)
     setIsLogModalOpen(true)
   }
 
+  const refreshSleepPageData = useCallback(async () => {
+    try {
+      await Promise.all([fetchShiftedDays(false), fetchSleepHistory(), fetchShifts()])
+      void fetch('/api/shift-rhythm?force=true').catch(() => {})
+      void fetch('/api/sleep/tonight-target').catch(() => {})
+      router.refresh()
+    } catch (err) {
+      console.error('[ShiftWorkerSleepPage] refresh error:', err)
+    }
+  }, [fetchShiftedDays, fetchSleepHistory, fetchShifts, router])
+
+  const handleSyncWearable = useCallback(async () => {
+    try {
+      setHeroActionError(null)
+      setIsWearableSyncing(true)
+      const now = Date.now()
+      const startOfDay = new Date()
+      startOfDay.setHours(0, 0, 0, 0)
+      const startTimeMillis = startOfDay.getTime()
+      const res = await fetch('/api/wearables/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startTimeMillis, endTimeMillis: now }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (json?.error === 'no_wearable_connection') {
+        setHeroActionError('No wearable is connected yet. Connect a provider in Wearables setup.')
+        return
+      }
+      if (!res.ok) {
+        throw new Error(extractApiErrorMessage(json, 'Failed to sync wearables'))
+      }
+      await Promise.all([fetchWearableStatus(), refreshSleepPageData()])
+    } catch (err) {
+      setHeroActionError(err instanceof Error ? err.message : 'Failed to sync wearables')
+    } finally {
+      setIsWearableSyncing(false)
+    }
+  }, [fetchWearableStatus, refreshSleepPageData])
+
   // Handle log sleep submit
-  const handleLogSleep = async (data: {
-    type: 'sleep' | 'nap'
-    start: string
-    end: string
-    quality: 'Excellent' | 'Good' | 'Fair' | 'Poor'
-    notes?: string
-  }) => {
+  const handleLogSleep = async (data: SleepLogInput) => {
     try {
       const res = await fetch('/api/sleep/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: data.type,
-          startAt: data.start,
-          endAt: data.end,
-          quality: data.quality,
-          notes: data.notes || null,
-        }),
+        body: JSON.stringify(data),
       })
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: 'Failed to save sleep' }))
-        throw new Error(errorData.error || 'Failed to save sleep')
+        throw new Error(extractApiErrorMessage(errorData, 'Failed to save sleep'))
       }
 
-      // Trigger all recalculations
-      window.dispatchEvent(new CustomEvent('sleep-refreshed'))
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem('sleepRefresh', Date.now().toString())
-      }
-      
-      // Trigger circadian, sleep deficit, shift rhythm, tonight's target recalculations
-      fetch('/api/shift-rhythm?force=true').catch(() => {})
-      fetch('/api/sleep/deficit').catch(() => {})
-      fetch('/api/sleep/tonight-target').catch(() => {})
-      
-      router.refresh()
-      
       setIsLogModalOpen(false)
       setLogModalStart(null)
       setLogModalEnd(null)
-      
-      // Refresh after a moment
-      setTimeout(() => {
-        fetchShiftedDays()
-      }, 500)
+
+      await refreshSleepPageData()
     } catch (error) {
       console.error('[ShiftWorkerSleepPage] Error logging sleep:', error)
       throw error
@@ -517,30 +551,14 @@ export function ShiftWorkerSleepPage() {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
-        alert(errorData.error || 'Failed to delete session')
+        alert(extractApiErrorMessage(errorData, 'Failed to delete session'))
         setIsDeleting(false)
         setDeletingSessionId(null)
         return
       }
 
       setDeletingSessionId(null)
-      
-      // Trigger all recalculations
-      window.dispatchEvent(new CustomEvent('sleep-refreshed'))
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem('sleepRefresh', Date.now().toString())
-      }
-      
-      // Trigger circadian, sleep deficit, shift rhythm, tonight's target recalculations
-      fetch('/api/shift-rhythm?force=true').catch(() => {})
-      fetch('/api/sleep/deficit').catch(() => {})
-      fetch('/api/sleep/tonight-target').catch(() => {})
-      
-      router.refresh()
-      
-      setTimeout(() => {
-        fetchShiftedDays()
-      }, 500)
+      await refreshSleepPageData()
     } catch (err) {
       console.error('[ShiftWorkerSleepPage] Delete error:', err)
       alert('Failed to delete session')
@@ -555,10 +573,121 @@ export function ShiftWorkerSleepPage() {
   }
 
   // Get selected day data
-  const selectedDayData = selectedDay 
-    ? shiftedDays.find(d => d.date === selectedDay)
+  const selectedDayData = selectedDay
+    ? (shiftedDays.find((d) => d.date === selectedDay) ?? shiftedDays[0])
     : shiftedDays[0] // Default to most recent
+  const shiftForDay = selectedDayData?.date ? shiftByDate.get(selectedDayData.date) || 'OFF' : 'OFF'
 
+  const sessions = selectedDayData?.sessions ?? []
+  const baseTargetMinutes = sleepGoalHours ? Math.round(sleepGoalHours * 60) : 0
+  const adjustedTargetMinutes = getShiftAdjustedTargetMinutes(baseTargetMinutes, shiftForDay)
+
+  let totalMinutes = 0
+  let primaryMinutes = 0
+  let napMinutes = 0
+
+  const typeMinutes: Partial<Record<SleepType, number>> = {}
+  const sources = new Set<string>()
+  let latestWearableSyncAt: number | null = null
+  let primarySleepStartHour: number | null = null
+  let longestPrimaryMinutes = 0
+
+  for (const s of sessions) {
+    const minutes = Math.max(0, Math.round(s.durationHours * 60))
+    totalMinutes += minutes
+
+    if (s.type === 'nap') {
+      napMinutes += minutes
+    } else {
+      primaryMinutes += minutes
+      if (minutes > longestPrimaryMinutes) {
+        longestPrimaryMinutes = minutes
+        const startHour = new Date(s.start_at).getHours()
+        primarySleepStartHour = Number.isNaN(startHour) ? null : startHour
+      }
+    }
+
+    typeMinutes[s.type] = (typeMinutes[s.type] ?? 0) + minutes
+
+    if (s.source) {
+      sources.add(s.source)
+    }
+
+    if (s.source && s.source !== 'manual') {
+      const endTime = new Date(s.end_at).getTime()
+      if (Number.isFinite(endTime) && (!latestWearableSyncAt || endTime > latestWearableSyncAt)) {
+        latestWearableSyncAt = endTime
+      }
+    }
+  }
+
+  const circadianAlignment: 'good' | 'ok' | 'poor' | null = (() => {
+    if (!sessions.length) return null
+    const primarySessions = sessions.filter((s) => s.type !== 'nap')
+    if (!primarySessions.length) return null
+
+    const longest = [...primarySessions].sort((a, b) => b.durationHours - a.durationHours)[0]
+    const startHour = new Date(longest.start_at).getHours()
+    if (Number.isNaN(startHour)) return null
+
+    if (shiftForDay === 'NIGHT') {
+      if (startHour >= 6 && startHour <= 12) return 'good'
+      if (startHour >= 4 && startHour <= 14) return 'ok'
+      return 'poor'
+    }
+
+    if (shiftForDay === 'EARLY') {
+      if (startHour >= 19 && startHour <= 22) return 'good'
+      if (startHour >= 18 && startHour <= 23) return 'ok'
+      return 'poor'
+    }
+
+    if (shiftForDay === 'LATE') {
+      if (startHour >= 22 || startHour <= 1) return 'good'
+      if (startHour >= 21 || startHour <= 2) return 'ok'
+      return 'poor'
+    }
+
+    if (shiftForDay === 'OFF') {
+      if (startHour >= 21 || startHour <= 1) return 'good'
+      if (startHour >= 20 || startHour <= 2) return 'ok'
+      return 'poor'
+    }
+
+    if (startHour >= 20 || startHour <= 1) return 'good'
+    if (startHour >= 18 || startHour <= 3) return 'ok'
+    return 'poor'
+  })()
+
+  let dominantType: SleepType | null = null
+  let maxMinutes = 0
+  for (const [type, minutes] of Object.entries(typeMinutes)) {
+    if ((minutes ?? 0) > maxMinutes) {
+      maxMinutes = minutes ?? 0
+      dominantType = type as SleepType
+    }
+  }
+
+  let sourceSummary: 'none' | 'manual' | 'wearable' | 'mixed' = 'none'
+  if (sources.size === 1) {
+    const onlySource = Array.from(sources)[0]
+    sourceSummary = onlySource === 'manual' ? 'manual' : 'wearable'
+  } else if (sources.size > 1) {
+    sourceSummary = 'mixed'
+  }
+
+  const sleepDebtMinutes = adjustedTargetMinutes > 0 ? Math.max(0, adjustedTargetMinutes - totalMinutes) : null
+  const smartInsight = getShiftAwareInsight({
+    shiftLabel: shiftForDay,
+    totalMinutes,
+    targetMinutes: adjustedTargetMinutes,
+    primaryMinutes,
+    napMinutes,
+    dominantType,
+    sourceSummary,
+    sleepDebtMinutes,
+    circadianAlignment,
+  })
   // Calculate shifted day end
   const shiftedDayEnd = selectedDayData 
     ? new Date(new Date(selectedDayData.shiftedDayStart).getTime() + 24 * 60 * 60 * 1000).toISOString()
@@ -616,9 +745,6 @@ export function ShiftWorkerSleepPage() {
     }
   }
 
-  const todayTotalMinutes = selectedDayData?.totalMinutes ?? 0
-  const targetMinutes = Math.round((sleepGoalHours ?? 7.5) * 60)
-
   return (
     <div className="w-full max-w-md mx-auto px-4 py-6 space-y-6">
       {/* Page header with back arrow */}
@@ -635,25 +761,39 @@ export function ShiftWorkerSleepPage() {
         </h1>
       </div>
 
-      {/* Header: match Body Clock style */}
-      <section className="rounded-xl bg-white px-5 py-6 text-center">
-        <div className="flex flex-col items-center gap-4">
-          <SimpleSleepGauge totalMinutes={todayTotalMinutes} targetMinutes={targetMinutes} />
-          <div className="space-y-1 max-w-xs">
-            <h2 className="text-base font-semibold tracking-tight text-slate-900">
-              {todayTotalMinutes ? "Today's sleep" : "Log your sleep"}
-            </h2>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              {todayTotalMinutes
-                ? `${(todayTotalMinutes / 60).toFixed(1)} hours logged across main sleep and naps.`
-                : "No sleep logged yet. Log main sleep or naps to keep your body clock on track."}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Sleep stages snapshot */}
-      <SleepStageGrid />
+      <ShiftSleepOverviewCard
+        totalMinutes={totalMinutes}
+        targetMinutes={adjustedTargetMinutes}
+        primaryMinutes={primaryMinutes}
+        napMinutes={napMinutes}
+        sourceSummary={sourceSummary}
+        dominantType={dominantType}
+        shiftLabel={shiftForDay}
+        hasWearableConnection={hasWearableConnection}
+        lastSyncAt={lastWearableSyncAt ?? latestWearableSyncAt}
+        isWearableSyncing={isWearableSyncing}
+        sleepDebtMinutes={sleepDebtMinutes}
+        circadianAlignment={circadianAlignment}
+        smartInsight={smartInsight}
+        actionError={heroActionError}
+        onLogSleep={() => {
+          setHeroActionError(null)
+          if (shiftForDay === 'NIGHT' && totalMinutes <= 0) {
+            setLogModalType('post_shift_sleep')
+          } else if (sleepDebtMinutes != null && sleepDebtMinutes >= 120) {
+            setLogModalType('recovery_sleep')
+          } else if (totalMinutes > 0) {
+            setLogModalType('nap')
+          } else {
+            setLogModalType('main_sleep')
+          }
+          setLogModalStart(null)
+          setLogModalEnd(null)
+          setIsLogModalOpen(true)
+        }}
+        onSyncWearable={handleSyncWearable}
+        editLogsHref="/sleep/history"
+      />
 
       {/* Sleep metrics card */}
       <SleepMetricsCard
@@ -666,39 +806,74 @@ export function ShiftWorkerSleepPage() {
         <SleepDebtCard />
       </section>
 
+      {/* Quick Sleep Log Buttons */}
+      <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+        <h2 className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400 mb-1.5">
+          Quick log for shift workers
+        </h2>
+        <p className="text-[11px] text-slate-500 mb-3">
+          Quick log based on your shift pattern.
+        </p>
+        <QuickSleepLogButtons onLogSleep={handleQuickLog} />
+      </section>
+
+      {/* Sleep Timeline Bar */}
+      {selectedDayData && selectedDayData.sessions.length > 0 && (
+        <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+          <h2 className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400 mb-3">
+            24‑hour sleep timeline
+          </h2>
+          <SleepTimelineBar
+            sessions={selectedDayData.sessions}
+            shiftedDayStart={selectedDayData.shiftedDayStart}
+            shiftedDayEnd={shiftedDayEnd}
+            shiftLabel={shiftForDay}
+            onSessionClick={(session) => setEditingSession(session)}
+          />
+        </section>
+      )}
+
       {/* 30-day sleep guide */}
       <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>
-            <h2 className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
-              Last 30 days guide
+            <h2 className="text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+              Last 30 days
             </h2>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
               Pick a day to see if your sleep was enough for that shift, based on your profile.
             </p>
           </div>
-          {historyDays.length > 0 && (
-            <select
-              className="text-xs rounded-full border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/80 px-3 py-1 text-slate-700 dark:text-slate-100"
-              value={selectedHistory?.date ?? historyDays[0].date}
-              onChange={(e) => setSelectedHistoryDate(e.target.value)}
+          <div className="flex items-center gap-2">
+            {historyDays.length > 0 && (
+              <select
+                className="text-xs rounded-full border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/80 px-3 py-1 text-slate-700 dark:text-slate-100"
+                value={selectedHistory?.date ?? historyDays[0].date}
+                onChange={(e) => setSelectedHistoryDate(e.target.value)}
+              >
+                {historyDays.map((d) => {
+                  const dateObj = new Date(d.date + 'T12:00:00')
+                  const label = dateObj.toLocaleDateString('en-GB', {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                  })
+                  const shift = d.shiftLabel && d.shiftLabel !== 'OFF' ? ` · ${d.shiftLabel}` : ''
+                  return (
+                    <option key={d.date} value={d.date}>
+                      {label}{shift}
+                    </option>
+                  )
+                })}
+              </select>
+            )}
+            <Link
+              href="/sleep/history"
+              className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-700 shadow-sm hover:bg-slate-50"
             >
-              {historyDays.map((d) => {
-                const dateObj = new Date(d.date + 'T12:00:00')
-                const label = dateObj.toLocaleDateString('en-GB', {
-                  weekday: 'short',
-                  day: 'numeric',
-                  month: 'short',
-                })
-                const shift = d.shiftLabel && d.shiftLabel !== 'OFF' ? ` · ${d.shiftLabel}` : ''
-                return (
-                  <option key={d.date} value={d.date}>
-                    {label}{shift}
-                  </option>
-                )
-              })}
-            </select>
-          )}
+              Edit logs
+            </Link>
+          </div>
         </div>
 
         {historyLoading && !selectedHistory ? (
@@ -754,54 +929,17 @@ export function ShiftWorkerSleepPage() {
         )}
       </section>
 
-      {/* Quick Sleep Log Buttons */}
-      <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-        <h2 className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400 mb-3">
-          Quick log for shift workers
-        </h2>
-        <QuickSleepLogButtons onLogSleep={handleQuickLog} />
-      </section>
-
-      {/* Sleep Timeline Bar */}
-      {selectedDayData && selectedDayData.sessions.length > 0 && (
-        <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-          <h2 className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400 mb-3">
-            24‑hour sleep timeline
+      {/* Sleep stages snapshot (de-emphasized) */}
+      <section className="rounded-xl bg-white/80 border border-slate-200/80 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
+        <div className="mb-3">
+          <h2 className="text-xs font-semibold tracking-[0.14em] uppercase text-slate-500">
+            Sleep stages
           </h2>
-          <SleepTimelineBar
-            sessions={selectedDayData.sessions}
-            shiftedDayStart={selectedDayData.shiftedDayStart}
-            shiftedDayEnd={shiftedDayEnd}
-            onSessionClick={(session) => setEditingSession(session)}
-          />
-        </section>
-      )}
-
-      {/* Sleep Sessions List */}
-      <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-        <h2 className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400 mb-3">
-          Logged sleep
-        </h2>
-        {loading ? (
-          <div className="py-10 text-center">
-            <p className="text-sm text-slate-500 dark:text-slate-400">Loading sessions...</p>
-          </div>
-        ) : selectedDayData && selectedDayData.sessions.length > 0 ? (
-          <SleepSessionList
-            sessions={selectedDayData.sessions}
-            onEdit={(session) => setEditingSession(session)}
-            onDelete={handleDeleteClick}
-          />
-        ) : (
-          <div className="py-10 text-center">
-            <p className="text-sm text-slate-500 dark:text-slate-300 mb-2">
-              No sleep sessions logged for this shifted day.
-            </p>
-            <p className="text-xs text-slate-400 dark:text-slate-500">
-              Use the quick log buttons above after each shift to keep your Body Clock accurate.
-            </p>
-          </div>
-        )}
+          <p className="text-[11px] text-slate-500 mt-1">
+            From wearable data or estimated from your latest sleep.
+          </p>
+        </div>
+        <SleepStageGrid />
       </section>
 
       {/* Log Sleep Modal */}
@@ -813,7 +951,7 @@ export function ShiftWorkerSleepPage() {
           setLogModalEnd(null)
         }}
         onSubmit={handleLogSleep}
-        defaultType={logModalType === 'nap' || logModalType === 'pre_shift_nap' ? 'nap' : 'sleep'}
+        defaultType={logModalType}
         defaultStart={logModalStart}
         defaultEnd={logModalEnd}
       />
@@ -824,33 +962,17 @@ export function ShiftWorkerSleepPage() {
           open={true}
           session={{
             id: editingSession.id,
-            session_type: editingSession.type === 'nap' ? 'nap' : 'main',
-            start_time: editingSession.start_at,
-            end_time: editingSession.end_at,
+            type: editingSession.type,
+            startAt: editingSession.start_at,
+            endAt: editingSession.end_at,
             durationHours: editingSession.durationHours,
             quality: editingSession.quality,
-            source: 'manual',
+            source: editingSession.source ?? 'manual',
           }}
           onClose={() => setEditingSession(null)}
-          onSuccess={() => {
+          onSuccess={async () => {
             setEditingSession(null)
-            
-            // Trigger all recalculations
-            window.dispatchEvent(new CustomEvent('sleep-refreshed'))
-            if (typeof window !== 'undefined') {
-              window.localStorage.setItem('sleepRefresh', Date.now().toString())
-            }
-            
-            // Trigger circadian, sleep deficit, shift rhythm, tonight's target recalculations
-            fetch('/api/shift-rhythm?force=true').catch(() => {})
-            fetch('/api/sleep/deficit').catch(() => {})
-            fetch('/api/sleep/tonight-target').catch(() => {})
-            
-            router.refresh()
-            
-            setTimeout(() => {
-              fetchShiftedDays()
-            }, 500)
+            await refreshSleepPageData()
           }}
         />
       )}

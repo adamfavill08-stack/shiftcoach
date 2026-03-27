@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
-import { supabaseServer } from '@/lib/supabase-server'
 import { z } from 'zod'
 import { parseJsonBody } from '@/lib/api/validation'
 import { apiBadRequest, apiServerError } from '@/lib/api/response'
+import type { SleepType } from '@/lib/sleep/types'
+import { minutesBetween } from '@/lib/sleep/utils'
 
 export const dynamic = 'force-dynamic'
 
 const SleepSessionPatchSchema = z.object({
-  start_time: z.string(),
-  end_time: z.string(),
-  session_type: z.enum(['sleep', 'nap']).optional(),
-  quality: z.union([z.string(), z.number()]).nullable().optional(),
+  startAt: z.string().optional(),
+  endAt: z.string().optional(),
+  type: z.enum(['main_sleep', 'post_shift_sleep', 'recovery_sleep', 'nap']).optional(),
+  quality: z.number().int().min(1).max(5).nullable().optional(),
+  start_time: z.string().optional(),
+  end_time: z.string().optional(),
+  session_type: z.enum(['sleep', 'main', 'nap']).optional(),
+  source: z
+    .enum(['manual', 'apple_health', 'health_connect', 'fitbit', 'oura', 'garmin'])
+    .optional(),
 })
 
 /**
@@ -23,93 +30,73 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    const { supabase, userId } = await getServerSupabaseAndUserId()
     if (!userId) return buildUnauthorizedResponse()
-
-    // Always use service role client to bypass RLS (consistent with other sleep routes)
-    const supabase = supabaseServer
-
 
     const { id } = await context.params
     const parsed = await parseJsonBody(req, SleepSessionPatchSchema)
     if (!parsed.ok) return parsed.response
-    const { start_time, end_time, session_type, quality } = parsed.data
+    const input = parsed.data
+    const startAt = input.startAt ?? input.start_time
+    const endAt = input.endAt ?? input.end_time
 
     console.log('[api/sleep/sessions/:id PATCH] Received update request:', {
       id,
-      start_time,
-      end_time,
-      session_type,
-      quality,
+      startAt,
+      endAt,
+      type: input.type,
+      session_type: input.session_type,
+      quality: input.quality,
+      source: input.source,
     })
 
-    if (!start_time || !end_time) {
+    if (!startAt || !endAt) {
       return NextResponse.json(
-        { error: 'start_time and end_time are required' },
+        { error: 'startAt and endAt are required' },
         { status: 400 }
       )
     }
 
-    const startDate = new Date(start_time)
-    const endDate = new Date(end_time)
+    const startDate = new Date(startAt)
+    const endDate = new Date(endAt)
 
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
       return apiBadRequest('invalid_date_format', 'Invalid date format')
     }
 
     if (endDate.getTime() <= startDate.getTime()) {
-      return apiBadRequest('invalid_time_range', 'end_time must be after start_time')
+      return apiBadRequest('invalid_time_range', 'endAt must be after startAt')
     }
 
-    // Map session_type to type field
-    const type = session_type === 'nap' ? 'nap' : 'sleep'
-
-    // Convert quality text to int for old schema compatibility (if needed)
-    const qualityMap: Record<string, number> = {
-      'Excellent': 5,
-      'Good': 4,
-      'Fair': 3,
-      'Poor': 1,
+    const durationMinutes = minutesBetween(startDate, endDate)
+    if (durationMinutes < 10) {
+      return apiBadRequest('invalid_duration', 'Sleep session must be at least 10 minutes')
     }
-    const qualityInt = quality && typeof quality === 'string' ? (qualityMap[quality] || null) : (typeof quality === 'number' ? quality : null)
-    const qualityText = quality && typeof quality === 'string' ? quality : null
+    if (durationMinutes > 24 * 60) {
+      return apiBadRequest('invalid_duration', 'Sleep session cannot be longer than 24 hours')
+    }
 
-    console.log('[api/sleep/sessions/:id PATCH] Quality conversion:', {
-      original: quality,
-      text: qualityText,
-      int: qualityInt,
-    })
+    const mappedLegacyType: SleepType =
+      input.session_type === 'nap' ? 'nap' : 'main_sleep'
+    const canonicalType: SleepType = input.type ?? mappedLegacyType
 
-    // Try new schema first
-    let updateResult = await supabase
+    const updatePayload: Record<string, unknown> = {
+      type: canonicalType,
+      start_at: startDate.toISOString(),
+      end_at: endDate.toISOString(),
+      quality: input.quality ?? null,
+      updated_at: new Date().toISOString(),
+    }
+    if (input.source) updatePayload.source = input.source
+
+    const updateResult = await supabase
       .from('sleep_logs')
-      .update({
-        type,
-        start_at: startDate.toISOString(),
-        end_at: endDate.toISOString(),
-        quality: qualityText || qualityInt || null,
-      })
+      .update(updatePayload)
       .eq('id', id)
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .select()
       .maybeSingle()
-
-    if (updateResult.error) {
-      console.log('[api/sleep/sessions/:id PATCH] New schema failed, trying old schema:', updateResult.error.message)
-      // Try old schema
-      updateResult = await supabase
-        .from('sleep_logs')
-        .update({
-          start_ts: startDate.toISOString(),
-          end_ts: endDate.toISOString(),
-          naps: session_type === 'nap' ? 1 : 0,
-          quality: qualityInt || null,
-        })
-        .eq('id', id)
-        .eq('user_id', userId)
-        .select()
-        .maybeSingle()
-    }
 
     if (updateResult.error) {
       console.error('[api/sleep/sessions/:id PATCH] error:', updateResult.error)
@@ -136,12 +123,8 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    const { supabase, userId } = await getServerSupabaseAndUserId()
     if (!userId) return buildUnauthorizedResponse()
-
-    // Always use service role client to bypass RLS (consistent with other sleep routes)
-    const supabase = supabaseServer
-
 
     const { id } = await context.params
 
@@ -152,12 +135,13 @@ export async function DELETE(
 
     console.log('[api/sleep/session] DELETE id=', id, 'userId=', userId)
 
-    // Try to delete from sleep_logs
+    // Soft-delete session from sleep_logs
     const { data: deletedData, error } = await supabase
       .from('sleep_logs')
-      .delete()
+      .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', id)
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .select()
 
     if (error) {

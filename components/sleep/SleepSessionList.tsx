@@ -2,12 +2,14 @@
 
 import { Pencil, Trash2, Clock } from 'lucide-react'
 import { classifySleep, getClassificationColor } from '@/lib/sleep/classifySleep'
+import type { SleepType } from '@/lib/sleep/types'
+import { getSleepTypeLabel } from '@/lib/sleep/utils'
 
 interface SleepSession {
   id: string
   start_at: string
   end_at: string
-  type: 'sleep' | 'nap'
+  type: SleepType
   durationHours: number
   quality?: string | number | null
 }
@@ -81,7 +83,7 @@ export function SleepSessionList({
                 <div className="flex items-center gap-2">
                   <div className={`h-2.5 w-2.5 rounded-full ${colorClass}`} />
                   <span className="text-[13px] font-semibold text-slate-900">
-                    {classification.displayLabel}
+                    {getSleepTypeLabel(session.type)}
                   </span>
                 </div>
                 

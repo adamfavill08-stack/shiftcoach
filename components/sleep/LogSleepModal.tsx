@@ -1,38 +1,39 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Calendar, Clock, X, ChevronDown } from 'lucide-react'
+import type { SleepLogInput, SleepType } from '@/lib/sleep/types'
+import { qualityLabelToNumber } from '@/lib/sleep/utils'
+
+type DisplayQuality = 'Excellent' | 'Good' | 'Fair' | 'Poor'
 
 export function LogSleepModal({
   open,
   onClose,
   onSubmit,
-  defaultType = 'sleep',
+  defaultType = 'main_sleep',
   defaultStart,
   defaultEnd,
 }: {
   open: boolean
   onClose: () => void
-  onSubmit: (data: any) => Promise<void>
-  defaultType?: 'sleep' | 'nap'
+  onSubmit: (data: SleepLogInput) => Promise<void>
+  defaultType?: SleepType
   defaultStart?: Date | null
   defaultEnd?: Date | null
 }) {
-  // Normalize defaultType to always be a string (prevents dependency array size changes)
-  const normalizedType = defaultType || 'sleep'
-
   const [form, setForm] = useState({
-    type: normalizedType as 'sleep' | 'nap',
+    type: defaultType,
     startDate: '',
     startTime: '',
     endDate: '',
     endTime: '',
-    quality: 'Good' as 'Excellent' | 'Good' | 'Fair' | 'Poor',
+    quality: 'Good' as DisplayQuality,
     notes: '',
   })
+
   const [saving, setSaving] = useState(false)
 
-  // Helper functions for date/time formatting
   const formatDateForInput = (d: Date) => {
     const pad = (n: number) => String(n).padStart(2, '0')
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
@@ -43,57 +44,33 @@ export function LogSleepModal({
     return `${pad(d.getHours())}:${pad(d.getMinutes())}`
   }
 
-  const formatDisplayDate = (dateStr: string) => {
-    if (!dateStr) return ''
-    const d = new Date(dateStr)
-    return d.toLocaleDateString('en-GB', { 
-      day: 'numeric', 
-      month: 'short', 
-      year: 'numeric' 
-    })
-  }
-
-  const formatDisplayTime = (timeStr: string) => {
-    if (!timeStr) return ''
-    const [hours, minutes] = timeStr.split(':')
-    const hour = parseInt(hours)
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const displayHour = hour % 12 || 12
-    return `${displayHour}:${minutes} ${ampm}`
-  }
-
-  // Set default times when modal opens and ensure type matches defaultType
   useEffect(() => {
-    if (open) {
-      let startDate: Date
-      let endDate: Date
-      
-      // Use provided defaults if available
-      if (defaultStart && defaultEnd) {
-        startDate = defaultStart
-        endDate = defaultEnd
-      } else {
-        // Fallback to default logic
-        const now = new Date()
-        const yesterday = new Date(now)
-        yesterday.setDate(yesterday.getDate() - 1)
-        yesterday.setHours(22, 0, 0, 0) // 10 PM yesterday
-        startDate = yesterday
-        endDate = now
-      }
-      
-      // Reset form when modal opens, ensuring type is locked to defaultType
-      setForm({
-        type: normalizedType as 'sleep' | 'nap',
-        startDate: formatDateForInput(startDate),
-        startTime: formatTimeForInput(startDate),
-        endDate: formatDateForInput(endDate),
-        endTime: formatTimeForInput(endDate),
-        quality: 'Good',
-        notes: '',
-      })
+    if (!open) return
+
+    let startDate: Date
+    let endDate: Date
+
+    if (defaultStart && defaultEnd) {
+      startDate = defaultStart
+      endDate = defaultEnd
+    } else {
+      const now = new Date()
+      const start = new Date(now)
+      start.setHours(now.getHours() - 8, 0, 0, 0)
+      startDate = start
+      endDate = now
     }
-  }, [open, normalizedType, defaultStart, defaultEnd])
+
+    setForm({
+      type: defaultType,
+      startDate: formatDateForInput(startDate),
+      startTime: formatTimeForInput(startDate),
+      endDate: formatDateForInput(endDate),
+      endTime: formatTimeForInput(endDate),
+      quality: 'Good',
+      notes: '',
+    })
+  }, [open, defaultType, defaultStart, defaultEnd])
 
   if (!open) return null
 
@@ -118,9 +95,7 @@ export function LogSleepModal({
 
         {/* Header */}
         <div className="relative z-10 flex items-center justify-between px-7 pt-6 pb-4 border-b border-slate-100/80">
-          <h2 className="text-[19px] font-bold tracking-tight text-slate-900">
-            Log sleep/nap
-          </h2>
+          <h2 className="text-[19px] font-bold tracking-tight text-slate-900">Log sleep</h2>
           <button
             onClick={onClose}
             className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50/80 hover:bg-slate-100/80 border border-slate-200/60 text-slate-600 hover:text-slate-900 transition-all hover:scale-105 active:scale-95"
@@ -156,11 +131,6 @@ export function LogSleepModal({
                 <Clock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none group-hover:text-slate-600 transition-colors" strokeWidth={2} />
               </div>
             </div>
-            {form.startDate && form.startTime && (
-              <p className="text-[12px] text-slate-500 px-1 font-medium">
-                {formatDisplayDate(form.startDate)} at {formatDisplayTime(form.startTime)}
-              </p>
-            )}
           </div>
 
           {/* End Date & Time */}
@@ -188,11 +158,6 @@ export function LogSleepModal({
                 <Clock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none group-hover:text-slate-600 transition-colors" strokeWidth={2} />
               </div>
             </div>
-            {form.endDate && form.endTime && (
-              <p className="text-[12px] text-slate-500 px-1 font-medium">
-                {formatDisplayDate(form.endDate)} at {formatDisplayTime(form.endTime)}
-              </p>
-            )}
           </div>
 
           {/* Type & Quality */}
@@ -204,10 +169,12 @@ export function LogSleepModal({
               <div className="relative group">
                 <select
                   value={form.type}
-                  onChange={(e) => setForm({ ...form, type: e.target.value as 'sleep' | 'nap' })}
+                  onChange={(e) => setForm({ ...form, type: e.target.value as SleepType })}
                   className="w-full h-12 rounded-xl border border-slate-200/80 bg-white/90 backdrop-blur-sm px-4 pr-10 text-[13px] font-semibold text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.08)] focus:outline-none focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400/60 transition-all hover:shadow-[0_2px_6px_rgba(15,23,42,0.12)] appearance-none cursor-pointer"
                 >
-                  <option value="sleep">Sleep</option>
+                  <option value="main_sleep">Main Sleep</option>
+                  <option value="post_shift_sleep">Post-Shift Sleep</option>
+                  <option value="recovery_sleep">Recovery Sleep</option>
                   <option value="nap">Nap</option>
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none group-hover:text-slate-600 transition-colors" strokeWidth={2.5} />
@@ -263,32 +230,36 @@ export function LogSleepModal({
               onClick={async () => {
                 setSaving(true)
                 try {
-                  // Combine date and time into ISO strings
-                  // Create Date objects in local timezone, then convert to ISO
-                  const startDate = new Date(`${form.startDate}T${form.startTime}`)
-                  const endDate = new Date(`${form.endDate}T${form.endTime}`)
+                  const startAt = new Date(`${form.startDate}T${form.startTime}`)
+                  const endAt = new Date(`${form.endDate}T${form.endTime}`)
                   
-                  // Validate dates
-                  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                  if (isNaN(startAt.getTime()) || isNaN(endAt.getTime())) {
                     throw new Error('Invalid date or time')
                   }
-                  
-                  // Ensure end is after start
-                  if (endDate <= startDate) {
+
+                  if (endAt <= startAt) {
                     throw new Error('End time must be after start time')
                   }
-                  
+
+                  const durationMinutes = Math.round((endAt.getTime() - startAt.getTime()) / 60000)
+                  if (durationMinutes < 10) {
+                    throw new Error('Sleep session must be at least 10 minutes')
+                  }
+                  if (durationMinutes > 24 * 60) {
+                    throw new Error('Sleep session cannot be longer than 24 hours')
+                  }
+
                   await onSubmit({
                     type: form.type,
-                    start: startDate.toISOString(),
-                    end: endDate.toISOString(),
-                    quality: form.quality,
-                    notes: form.notes,
+                    startAt: startAt.toISOString(),
+                    endAt: endAt.toISOString(),
+                    quality: qualityLabelToNumber(form.quality),
+                    notes: form.notes.trim() || undefined,
+                    source: 'manual',
                   })
                   onClose()
                 } catch (error) {
-                  console.error('[LogSleepModal] submit error:', error)
-                  alert(error instanceof Error ? error.message : 'Failed to save sleep. Please check your dates and times.')
+                  alert(error instanceof Error ? error.message : 'Failed to save sleep')
                 } finally {
                   setSaving(false)
                 }

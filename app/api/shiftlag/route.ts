@@ -23,6 +23,9 @@ export async function GET(req: NextRequest) {
     const today = new Date().toISOString().slice(0, 10)
     const sevenDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000)
     const fourteenDaysAgo = new Date(Date.now() - 13 * 24 * 60 * 60 * 1000)
+    // Fetch one extra day to avoid clipping overnight sessions at boundaries.
+    const sleepFetchStart = new Date(sevenDaysAgo)
+    sleepFetchStart.setDate(sleepFetchStart.getDate() - 1)
 
     // Fetch last 7 days of sleep logs
     let sleepLogs: any[] = []
@@ -33,7 +36,7 @@ export async function GET(req: NextRequest) {
       .from('sleep_logs')
       .select('start_at, end_at, start_ts, end_ts, type, date')
       .eq('user_id', userId)
-      .gte('start_at', sevenDaysAgo.toISOString())
+      .gte('start_at', sleepFetchStart.toISOString())
       .order('start_at', { ascending: true })
       .limit(100)
 
@@ -55,7 +58,7 @@ export async function GET(req: NextRequest) {
         .from('sleep_logs')
         .select('start_ts, end_ts, date, naps')
         .eq('user_id', userId)
-        .gte('start_ts', sevenDaysAgo.toISOString())
+        .gte('start_ts', sleepFetchStart.toISOString())
         .order('start_ts', { ascending: true })
         .limit(100)
 
@@ -126,6 +129,22 @@ export async function GET(req: NextRequest) {
       const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
       return hours > 0
     })
+    const hasMainSleep = sleepLogs.some(log => {
+      const startTime = log.start_at || log.start_ts
+      const endTime = log.end_at || log.end_ts
+      if (!startTime || !endTime) return false
+      const hours = (new Date(endTime).getTime() - new Date(startTime).getTime()) / (1000 * 60 * 60)
+      if (hours <= 0) return false
+      return log.type === 'sleep' || (log.naps === 0 || !log.naps)
+    })
+    const hasNaps = sleepLogs.some(log => {
+      const startTime = log.start_at || log.start_ts
+      const endTime = log.end_at || log.end_ts
+      if (!startTime || !endTime) return false
+      const hours = (new Date(endTime).getTime() - new Date(startTime).getTime()) / (1000 * 60 * 60)
+      if (hours <= 0) return false
+      return !(log.type === 'sleep' || (log.naps === 0 || !log.naps))
+    })
 
     // Fetch last 14 days of shifts (same table as calendar uses)
     let shiftDays: any[] = []
@@ -144,6 +163,31 @@ export async function GET(req: NextRequest) {
       console.log('[api/shiftlag] Fetched shifts:', shiftDays.length, 'shifts from calendar')
     }
 
+    // Fallback midpoint derived from recent sleep sessions when circadian logs are missing.
+    // Uses rolling median of sleep midpoints for main-sleep blocks across recent days.
+    const estimateRollingSleepMidpoint = (logs: any[]): number | undefined => {
+      const midpoints: number[] = []
+      for (const log of logs) {
+        const startTime = log.start_at || log.start_ts
+        const endTime = log.end_at || log.end_ts
+        if (!startTime || !endTime) continue
+        const isMainSleep = log.type === 'sleep' || (log.naps === 0 || !log.naps)
+        if (!isMainSleep) continue
+        const start = new Date(startTime)
+        const end = new Date(endTime)
+        const durationMs = end.getTime() - start.getTime()
+        if (durationMs <= 0) continue
+        const midpoint = new Date(start.getTime() + durationMs / 2)
+        midpoints.push(midpoint.getHours() * 60 + midpoint.getMinutes())
+      }
+      if (midpoints.length === 0) return undefined
+      midpoints.sort((a, b) => a - b)
+      const mid = Math.floor(midpoints.length / 2)
+      return midpoints.length % 2 === 0
+        ? Math.round((midpoints[mid - 1] + midpoints[mid]) / 2)
+        : midpoints[mid]
+    }
+
     // Get circadian midpoint from latest circadian_logs entry (if available)
     let circadianMidpoint: number | undefined
     const circadianResult = await supabase
@@ -156,6 +200,8 @@ export async function GET(req: NextRequest) {
 
     if (!circadianResult.error && circadianResult.data?.sleep_midpoint_minutes) {
       circadianMidpoint = circadianResult.data.sleep_midpoint_minutes
+    } else {
+      circadianMidpoint = estimateRollingSleepMidpoint(sleepLogs)
     }
 
     // If there is no actual sleep recorded at all, short‑circuit to a
@@ -187,7 +233,10 @@ export async function GET(req: NextRequest) {
       })
       
       try {
-        metrics = calculateShiftLag(sleepDays, shiftDays, circadianMidpoint)
+        metrics = calculateShiftLag(sleepDays, shiftDays, circadianMidpoint, {
+          hasMainSleep,
+          hasNaps,
+        })
         
         console.log('[api/shiftlag] Calculated metrics:', {
           score: metrics.score,

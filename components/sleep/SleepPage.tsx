@@ -8,6 +8,7 @@ import { SleepEditModal } from "@/components/sleep/SleepEditModal";
 import type { SleepType } from '@/lib/sleep/predictSleep';
 import { DeleteSleepConfirmModal } from "@/components/sleep/DeleteSleepConfirmModal";
 import { useRouter } from "next/navigation";
+import type { SleepLogInput } from '@/lib/sleep/types';
 
 // Lazy-load heavier visual components so the initial Sleep page bundle stays small
 const CombinedSleepMetricsCard = dynamic(
@@ -642,24 +643,12 @@ export default function SleepPage() {
     }
   }, [fetchSleepData, fetchTarget, debouncedRefresh])
 
-  const handleLogSleep = async (data: {
-    type: 'sleep' | 'nap'
-    start: string
-    end: string
-    quality: 'Excellent' | 'Good' | 'Fair' | 'Poor'
-    notes?: string
-  }) => {
+  const handleLogSleep = async (data: SleepLogInput) => {
     try {
       const res = await fetch('/api/sleep/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: data.type,
-          startAt: data.start,
-          endAt: data.end,
-          quality: data.quality,
-          notes: data.notes || null,
-        }),
+        body: JSON.stringify(data),
       })
 
       if (!res.ok) {
@@ -885,7 +874,7 @@ export default function SleepPage() {
           setLogModalEnd(null)
         }}
         onSubmit={handleLogSleep}
-        defaultType={logModalType === 'nap' || logModalType === 'pre_shift_nap' ? 'nap' : 'sleep'}
+        defaultType={logModalType === 'post_shift' ? 'post_shift_sleep' : logModalType === 'recovery' ? 'recovery_sleep' : logModalType === 'nap' || logModalType === 'pre_shift_nap' ? 'nap' : 'main_sleep'}
         defaultStart={logModalStart}
         defaultEnd={logModalEnd}
       />

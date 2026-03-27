@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { Calendar, Clock, X, ChevronDown, Trash2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import type { SleepType } from '@/lib/sleep/types'
+import { qualityLabelToNumber } from '@/lib/sleep/utils'
 
 type SleepSession = {
   id: string
-  session_type: 'main' | 'nap'
-  start_time: string
-  end_time: string
+  type: SleepType
+  startAt: string
+  endAt: string
   durationHours?: number
   quality?: string | number | null
   source?: string
@@ -18,17 +19,16 @@ type SleepEditModalProps = {
   open: boolean
   onClose: () => void
   session: SleepSession | null
-  onSuccess?: () => void
+  onSuccess?: () => void | Promise<void>
 }
 
 export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditModalProps) {
-  const router = useRouter()
   const [form, setForm] = useState({
     startDate: '',
     startTime: '',
     endDate: '',
     endTime: '',
-    type: 'main' as 'main' | 'nap',
+    type: 'main_sleep' as SleepType,
     quality: 'Good' as 'Excellent' | 'Good' | 'Fair' | 'Poor',
   })
   const [saving, setSaving] = useState(false)
@@ -87,15 +87,15 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
   // Initialize form when modal opens or session changes
   useEffect(() => {
     if (open && session) {
-      const start = new Date(session.start_time)
-      const end = new Date(session.end_time)
+      const start = new Date(session.startAt)
+      const end = new Date(session.endAt)
       
       setForm({
         startDate: formatDateForInput(start),
         startTime: formatTimeForInput(start),
         endDate: formatDateForInput(end),
         endTime: formatTimeForInput(end),
-        type: session.session_type,
+        type: session.type,
         quality: normalizeQuality(session.quality),
       })
       setError(null)
@@ -131,10 +131,10 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
 
       // Update session via PATCH
       const payload = {
-        start_time: startDate.toISOString(),
-        end_time: endDate.toISOString(),
-        session_type: form.type,
-        quality: form.quality,
+        startAt: startDate.toISOString(),
+        endAt: endDate.toISOString(),
+        type: form.type,
+        quality: qualityLabelToNumber(form.quality),
       }
       
       console.log('[SleepEditModal] Updating session:', session.id, 'with payload:', payload)
@@ -158,24 +158,11 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
       const responseData = await res.json().catch(() => null)
       console.log('[SleepEditModal] Update successful:', responseData)
 
-      // Trigger updates
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem('sleepRefresh', Date.now().toString())
-        window.dispatchEvent(new CustomEvent('sleep-refreshed'))
-      }
-
-      // Trigger circadian recalculation
-      fetch('/api/shift-rhythm?force=true').catch(() => {})
-
-      // Refresh page to update sleep summary
-      router.refresh()
-
       // Call success callback if provided
-      if (onSuccess) {
-        onSuccess()
-      }
-
       onClose()
+      if (onSuccess) {
+        await onSuccess()
+      }
     } catch (err) {
       console.error('[SleepEditModal] Save error:', err)
       setError(err instanceof Error ? err.message : 'Failed to save sleep')
@@ -203,24 +190,11 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
         throw new Error(errorData.error || 'Failed to delete sleep')
       }
 
-      // Trigger updates
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem('sleepRefresh', Date.now().toString())
-        window.dispatchEvent(new CustomEvent('sleep-refreshed'))
-      }
-
-      // Trigger circadian recalculation
-      fetch('/api/shift-rhythm?force=true').catch(() => {})
-
-      // Refresh page to update sleep summary
-      router.refresh()
-
       // Call success callback if provided
-      if (onSuccess) {
-        onSuccess()
-      }
-
       onClose()
+      if (onSuccess) {
+        await onSuccess()
+      }
     } catch (err) {
       console.error('[SleepEditModal] Delete error:', err)
       setError(err instanceof Error ? err.message : 'Failed to delete sleep')
@@ -338,10 +312,12 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
             <div className="relative group">
               <select
                 value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value as 'main' | 'nap' })}
+                onChange={(e) => setForm({ ...form, type: e.target.value as SleepType })}
                 className="w-full h-12 rounded-xl border border-slate-200/80 bg-white/90 backdrop-blur-sm px-4 pr-10 text-[13px] font-semibold text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.08)] focus:outline-none focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400/60 transition-all hover:shadow-[0_2px_6px_rgba(15,23,42,0.12)] appearance-none cursor-pointer"
               >
-                <option value="main">Main Sleep</option>
+                <option value="main_sleep">Main Sleep</option>
+                <option value="post_shift_sleep">Post-Shift Sleep</option>
+                <option value="recovery_sleep">Recovery Sleep</option>
                 <option value="nap">Nap</option>
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none group-hover:text-slate-600 transition-colors" strokeWidth={2.5} />

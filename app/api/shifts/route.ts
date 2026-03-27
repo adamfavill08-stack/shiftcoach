@@ -79,33 +79,83 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams
     const from = searchParams.get('from')
     const to = searchParams.get('to')
+    const daysParam = Number.parseInt(searchParams.get('days') || '', 10)
 
-    if (!from || !to) {
-      return NextResponse.json(
-        { error: 'Missing required query params: from, to' },
-        { status: 400 }
-      )
+    const isValidDateOnly = (value: string) =>
+      /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+      !Number.isNaN(new Date(`${value}T00:00:00`).getTime())
+
+    const normalizeShiftLabel = (value: string | null | undefined) => {
+      const v = (value || '').trim().toUpperCase()
+      if (['DAY', 'NIGHT', 'EARLY', 'LATE', 'OFF'].includes(v)) return v
+      if (v.includes('NIGHT')) return 'NIGHT'
+      if (v.includes('DAY')) return 'DAY'
+      if (v.includes('EARLY')) return 'EARLY'
+      if (v.includes('LATE')) return 'LATE'
+      return 'OFF'
+    }
+
+    let fromIsoDate: string
+    let toIsoDate: string
+
+    if (from || to) {
+      if (!from || !to) {
+        return NextResponse.json(
+          { error: 'Both from and to must be provided together in YYYY-MM-DD format' },
+          { status: 400 }
+        )
+      }
+      if (!isValidDateOnly(from) || !isValidDateOnly(to)) {
+        return NextResponse.json(
+          { error: 'Invalid from/to date format. Use YYYY-MM-DD' },
+          { status: 400 }
+        )
+      }
+      if (from > to) {
+        return NextResponse.json(
+          { error: 'from must be on or before to' },
+          { status: 400 }
+        )
+      }
+      fromIsoDate = from
+      toIsoDate = to
+    } else {
+      const days = Number.isFinite(daysParam) && daysParam > 0 ? daysParam : 30
+      const now = new Date()
+      const fromDate = new Date(now)
+      fromDate.setHours(0, 0, 0, 0)
+      fromDate.setDate(fromDate.getDate() - (days - 1))
+      const toDate = new Date(now)
+      toDate.setHours(0, 0, 0, 0)
+      fromIsoDate = fromDate.toISOString().slice(0, 10)
+      toIsoDate = toDate.toISOString().slice(0, 10)
     }
 
     const { data, error } = await supabase
       .from('shifts')
-      .select('*')
+      .select('date,label')
       .eq('user_id', userId)
-      .gte('date', from)
-      .lt('date', to)
+      .gte('date', fromIsoDate)
+      .lte('date', toIsoDate)
       .order('date', { ascending: true })
 
     if (error) {
       const { logSupabaseError } = await import('@/lib/supabase/error-handler')
       logSupabaseError('api/shifts', error, { level: 'warn' })
-      return NextResponse.json({ shifts: [] }, { status: 200 })
+      return NextResponse.json({ items: [], shifts: [] }, { status: 200 })
     }
 
-    return NextResponse.json({ shifts: data ?? [] }, { status: 200 })
+    const items = (data ?? []).map((row: any) => ({
+      date: row.date,
+      shift_label: normalizeShiftLabel(row.label),
+    }))
+
+    // Keep "shifts" alias for backward compatibility while "items" is canonical.
+    return NextResponse.json({ items, shifts: items }, { status: 200 })
   } catch (err: any) {
     console.error('[api/shifts] fatal error', err)
     return NextResponse.json(
-      { shifts: [], error: err?.message ?? 'Unknown error' },
+      { items: [], shifts: [], error: err?.message ?? 'Unknown error' },
       { status: 200 }
     )
   }
