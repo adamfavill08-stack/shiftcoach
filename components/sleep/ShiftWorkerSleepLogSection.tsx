@@ -3,13 +3,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { SleepTimelineBar } from './SleepTimelineBar'
 import { SleepSessionList } from './SleepSessionList'
-import type { SleepType } from '@/lib/sleep/predictSleep'
+import type { SleepType as PredictedSleepType } from '@/lib/sleep/predictSleep'
+import type { SleepType } from '@/lib/sleep/types'
 
 interface SleepSession {
   id: string
   start_at: string
   end_at: string
-  type: 'sleep' | 'nap'
+  type: SleepType
   durationHours: number
   quality?: string | number | null
 }
@@ -23,7 +24,7 @@ interface ShiftedDay {
 }
 
 type ShiftWorkerSleepLogSectionProps = {
-  onLogSleep: (type: SleepType, start: Date, end: Date) => void
+  onLogSleep: (type: PredictedSleepType, start: Date, end: Date) => void
   onEditSession: (session: SleepSession) => void
   onDeleteSession: (sessionId: string) => void
 }

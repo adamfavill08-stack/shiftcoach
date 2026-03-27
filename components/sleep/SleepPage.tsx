@@ -902,7 +902,15 @@ export default function SleepPage() {
       {editingSession && (
         <SleepEditModal
           open={true}
-          session={editingSession}
+          session={{
+            id: editingSession.id,
+            type: editingSession.session_type === 'nap' ? 'nap' : 'main_sleep',
+            startAt: editingSession.start_time,
+            endAt: editingSession.end_time,
+            durationHours: editingSession.durationHours,
+            quality: editingSession.quality,
+            source: editingSession.source,
+          }}
           onClose={() => {
             setEditingSession(null)
           }}
