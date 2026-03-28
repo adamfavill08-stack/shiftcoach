@@ -4,7 +4,9 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Bundle;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.WindowCompat;
 import com.getcapacitor.BridgeActivity;
 import com.google.android.gms.tasks.Tasks;
 import com.google.android.gms.wearable.MessageClient;
@@ -19,6 +21,13 @@ public class MainActivity extends BridgeActivity {
     private static final String PREFS = "shiftcoach_wear";
     private static final String KEY_LAST_ACK_TS = "watch_last_ack_ts";
     private static final long WATCH_CONNECTED_WINDOW_MS = 2 * 60 * 1000;
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        // Keep content below status bar until Capacitor StatusBar runs (avoids transparent overlay defaults).
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+    }
 
     private final BroadcastReceiver wearDataBridgeReceiver =
             new BroadcastReceiver() {

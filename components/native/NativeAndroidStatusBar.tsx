@@ -12,8 +12,7 @@ const DATA_ATTR = 'data-cap-android-statusbar'
  * Configure the system status bar on Capacitor Android only.
  * No-ops on web and iOS.
  *
- * Capacitor naming (easy to invert): Style.Light = dark icons/text on a light bar;
- * Style.Dark = light icons on a dark bar. We want the former for a light UI.
+ * Capacitor: Style.Light => dark status-bar icons (light bar). Style.Dark => light icons.
  */
 export function NativeAndroidStatusBar() {
   useEffect(() => {
@@ -28,8 +27,27 @@ export function NativeAndroidStatusBar() {
         try {
           await StatusBar.show()
           await StatusBar.setOverlaysWebView({ overlay: false })
-          await StatusBar.setStyle({ style: Style.Light })
           await StatusBar.setBackgroundColor({ color: STATUS_BAR_BACKGROUND })
+          await StatusBar.setStyle({ style: Style.Light })
+
+          const info = await StatusBar.getInfo()
+          console.log('[NativeAndroidStatusBar] STATUS BAR INFO', info)
+
+          // Second pass: WebView / edge-to-edge can reset flags after first paint
+          requestAnimationFrame(() => {
+            if (cancelled) return
+            void (async () => {
+              try {
+                await StatusBar.setOverlaysWebView({ overlay: false })
+                await StatusBar.setBackgroundColor({ color: STATUS_BAR_BACKGROUND })
+                await StatusBar.setStyle({ style: Style.Light })
+                const again = await StatusBar.getInfo()
+                console.log('[NativeAndroidStatusBar] STATUS BAR INFO (after rAF)', again)
+              } catch (e) {
+                console.warn('[NativeAndroidStatusBar] rAF reapply failed', e)
+              }
+            })()
+          })
         } catch (e) {
           console.warn('[NativeAndroidStatusBar] configuration failed', e)
         }

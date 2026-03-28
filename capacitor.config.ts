@@ -14,6 +14,14 @@ const config: CapacitorConfig = {
   appId: 'com.shiftcoach.app',
   appName: 'shiftcoach',
   webDir: 'public',
+  /** Native defaults before JS runs — avoids transparent overlay + black bar from plugin init */
+  plugins: {
+    StatusBar: {
+      overlaysWebView: false,
+      style: 'LIGHT',
+      backgroundColor: '#ffffff',
+    },
+  },
   server: {
     // In dev, point WebView at the local Next dev server.
     // In production, use the hosted HTTPS site.
