@@ -137,9 +137,7 @@ function DashboardContent() {
 
   const fetchCircadian = useCallback(async () => {
     try {
-      const res = await fetch('/api/circadian/calculate', {
-        next: { revalidate: 30 },
-      })
+      const res = await fetch('/api/circadian/calculate', { cache: 'no-store' })
       if (!res.ok) {
         const json = await res.json().catch(() => ({}))
         if (res.status === 503 || json.type === 'network_error') {
@@ -155,25 +153,23 @@ function DashboardContent() {
       setCircadian(json.circadian ?? null)
       cacheDashboardState({ circadian: json.circadian ?? null })
       setIsUsingCachedData(false)
-    } catch (err: any) {
-      // Network errors are expected when DB is unreachable
-      if (err?.message?.includes('fetch') || err?.message?.includes('network')) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      const isNetwork = msg.includes('Failed to fetch') || msg.includes('fetch') || msg.includes('network')
+      if (isNetwork) {
         console.warn('[dashboard] circadian fetch - network error (database may be unreachable)')
-      } else {
-        console.error('[dashboard] circadian fetch error', err)
+        const hadCache = loadCachedDashboardState()
+        if (!hadCache) setCircadian(null)
+        return
       }
+      console.error('[dashboard] circadian fetch error', err)
       setCircadian(null)
-      if (!isOnline) {
-        loadCachedDashboardState()
-      }
     }
-  }, [cacheDashboardState, isOnline, loadCachedDashboardState])
+  }, [cacheDashboardState, loadCachedDashboardState])
 
   const fetchShiftLag = useCallback(async () => {
     try {
-      const res = await fetch('/api/shiftlag', {
-        next: { revalidate: 30 },
-      })
+      const res = await fetch('/api/shiftlag', { cache: 'no-store' })
       if (!res.ok) {
         console.error('[dashboard] shiftlag fetch failed', res.status)
         setShiftLag(null)
@@ -188,14 +184,28 @@ function DashboardContent() {
       setShiftLag(json)
       cacheDashboardState({ shiftLag: json })
       setIsUsingCachedData(false)
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      const isNetwork = msg.includes('Failed to fetch') || msg.includes('fetch') || msg.includes('network')
+      if (isNetwork) {
+        console.warn('[dashboard] shiftlag fetch - network error (using cache if available)')
+        const hadCache = loadCachedDashboardState()
+        if (!hadCache) setShiftLag(null)
+        return
+      }
       console.error('[dashboard] shiftlag fetch error', err)
       setShiftLag(null)
-      if (!isOnline) {
-        loadCachedDashboardState()
-      }
     }
-  }, [cacheDashboardState, isOnline, loadCachedDashboardState])
+  }, [cacheDashboardState, loadCachedDashboardState])
+
+  // These callbacks change when dashboard slice state updates (via cacheDashboardState deps).
+  // The bootstrap effect must not list them as deps or we loop: fetch → setState → new callback → effect → fetch…
+  const fetchCircadianRef = useRef(fetchCircadian)
+  const fetchShiftLagRef = useRef(fetchShiftLag)
+  const refetchShiftRhythmRef = useRef(refetchShiftRhythm)
+  fetchCircadianRef.current = fetchCircadian
+  fetchShiftLagRef.current = fetchShiftLag
+  refetchShiftRhythmRef.current = refetchShiftRhythm
 
   // Show Google Fit callback result and clear URL
   useEffect(() => {
@@ -224,10 +234,13 @@ function DashboardContent() {
       setLoading(false)
       // Kick off data fetches in the background so first paint is faster
       void fetchSleep(uid)
-      void fetchCircadian()
-      void fetchShiftLag()
+      // Avoid "Failed to fetch" noise when offline — cache was loaded above
+      if (isOnline) {
+        void fetchCircadianRef.current()
+        void fetchShiftLagRef.current()
+      }
     })()
-  }, [isOnline, loadCachedDashboardState, loadUser, fetchSleep, fetchCircadian, fetchShiftLag])
+  }, [isOnline, loadCachedDashboardState, loadUser, fetchSleep])
 
   // Load activity summary after the main dashboard data so first paint is faster
   useEffect(() => {
@@ -238,6 +251,7 @@ function DashboardContent() {
   // Refetch sleep and circadian data when window gains focus and there's a refresh flag
   useEffect(() => {
     const handleFocus = () => {
+      if (!isOnline) return
       const sleepRefresh = typeof window !== 'undefined' ? localStorage.getItem('sleepRefresh') : null
       if (sleepRefresh && userId) {
         const now = Date.now()
@@ -249,9 +263,9 @@ function DashboardContent() {
         }
         // Refetch sleep, circadian, and shift rhythm data
         void fetchSleep(userId)
-        void fetchCircadian()
-        void fetchShiftLag()
-        void refetchShiftRhythm() // Refresh shift rhythm score
+        void fetchCircadianRef.current()
+        void fetchShiftLagRef.current()
+        void refetchShiftRhythmRef.current() // Refresh shift rhythm score
       }
     }
 
@@ -263,35 +277,33 @@ function DashboardContent() {
     
     // Listen for custom sleep refresh event (for same-window updates)
     const handleSleepRefresh = () => {
-      if (userId) {
-        const now = Date.now()
-        if (now - lastFocusRefetchRef.current < 30000) return
-        lastFocusRefetchRef.current = now
-        void fetchSleep(userId)
-        void fetchCircadian()
-        // Add delay for ShiftLag to ensure sleep data is saved to database
-        setTimeout(() => {
-          void fetchShiftLag()
-        }, 800)
-        // Force recalculation of shift rhythm score since sleep data changed
-        setTimeout(() => {
-          void refetchShiftRhythm(true) // Force recalculation
-        }, 1000)
-      }
+      if (!isOnline || !userId) return
+      const now = Date.now()
+      if (now - lastFocusRefetchRef.current < 30000) return
+      lastFocusRefetchRef.current = now
+      void fetchSleep(userId)
+      void fetchCircadianRef.current()
+      // Add delay for ShiftLag to ensure sleep data is saved to database
+      setTimeout(() => {
+        void fetchShiftLagRef.current()
+      }, 800)
+      // Force recalculation of shift rhythm score since sleep data changed
+      setTimeout(() => {
+        void refetchShiftRhythmRef.current(true) // Force recalculation
+      }, 1000)
     }
     
     // Listen for rota events (shifts saved/cleared) to refresh ShiftLag
     const handleRotaUpdate = () => {
-      if (userId) {
-        const now = Date.now()
-        if (now - lastFocusRefetchRef.current < 30000) return
-        lastFocusRefetchRef.current = now
-        // Add delay to ensure shifts are saved to database
-        setTimeout(() => {
-          void fetchShiftLag()
-          void refetchShiftRhythm(true)
-        }, 800)
-      }
+      if (!isOnline || !userId) return
+      const now = Date.now()
+      if (now - lastFocusRefetchRef.current < 30000) return
+      lastFocusRefetchRef.current = now
+      // Add delay to ensure shifts are saved to database
+      setTimeout(() => {
+        void fetchShiftLagRef.current()
+        void refetchShiftRhythmRef.current(true)
+      }, 800)
     }
     
     window.addEventListener('sleep-refreshed', handleSleepRefresh)
@@ -304,7 +316,7 @@ function DashboardContent() {
       window.removeEventListener('rota-saved', handleRotaUpdate)
       window.removeEventListener('rota-cleared', handleRotaUpdate)
     }
-  }, [userId, fetchSleep, fetchCircadian, fetchShiftLag, refetchShiftRhythm])
+  }, [userId, isOnline, fetchSleep])
 
   const resolvedSocialJetlag = isOnline ? (shiftRhythmSocialJetlag ?? null) : socialJetlag
   const resolvedBingeRisk = isOnline ? (shiftRhythmBingeRisk ?? null) : bingeRisk

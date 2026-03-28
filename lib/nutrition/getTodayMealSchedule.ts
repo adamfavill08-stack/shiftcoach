@@ -17,13 +17,16 @@ export type MealSlot = {
   hint: string
 }
 
+/** Which branch of the meal planner actually ran (may differ from requested shift when times are missing). */
+export type MealScheduleTemplate = 'off' | 'day' | 'night' | 'late'
+
 export function getTodayMealSchedule(opts: {
   adjustedCalories: number
   shiftType: 'day' | 'night' | 'late' | 'off'
   shiftStart?: Date
   shiftEnd?: Date
   wakeTime: Date
-}): MealSlot[] {
+}): { slots: MealSlot[]; templateUsed: MealScheduleTemplate } {
   const total = Math.max(1200, Math.round(opts.adjustedCalories || 0))
   const toKcal = (pct: number) => Math.round(total * pct)
   const addH = (d: Date, h: number) => new Date(d.getTime() + h * 60 * 60 * 1000)
@@ -34,8 +37,10 @@ export function getTodayMealSchedule(opts: {
   const wake = opts.wakeTime
   const start = opts.shiftStart
   const end = opts.shiftEnd
+  let templateUsed: MealScheduleTemplate = 'off'
 
   if (opts.shiftType === 'off') {
+    templateUsed = 'off'
     const s1 = addH(wake, 0.5)
     const s2 = addH(wake, 5.5)
     const s3 = addH(wake, 8)
@@ -47,6 +52,7 @@ export function getTodayMealSchedule(opts: {
       { id: 'dinner', label: 'Dinner', time: s4, windowLabel: window(s4, 1), caloriesTarget: toKcal(0.25), hint: 'Lighter evening' },
     )
   } else if (opts.shiftType === 'day' && start && end) {
+    templateUsed = 'day'
     const pre = addH(wake, 0.5)
     const mid = new Date((start.getTime() + end.getTime()) / 2)
     const post = addH(end, 1)
@@ -58,6 +64,7 @@ export function getTodayMealSchedule(opts: {
       { id: 'dinner', label: 'Light evening meal', time: eve, windowLabel: window(eve, 1), caloriesTarget: toKcal(0.20), hint: 'Lighter evening' },
     )
   } else if (opts.shiftType === 'night' && start && end) {
+    templateUsed = 'night'
     const pre = addH(start, -2.5)
     const early = addH(start, 2)
     const bodyNight = new Date(pre)
@@ -72,6 +79,7 @@ export function getTodayMealSchedule(opts: {
       { id: 'daySnack', label: 'Day snack (optional)', time: daySnack, windowLabel: window(daySnack, 0.5), caloriesTarget: toKcal(0.10), hint: 'Only if needed' },
     )
   } else if (opts.shiftType === 'late' && start && end) {
+    templateUsed = 'late'
     const pre = addH(wake, 0.5)
     const mid = new Date((start.getTime() + end.getTime()) / 2)
     const lateSnack = addH(end, -1)
@@ -83,7 +91,7 @@ export function getTodayMealSchedule(opts: {
       { id: 'dinner', label: 'Post‑shift light meal', time: post, windowLabel: window(post, 0.75), caloriesTarget: toKcal(0.25), hint: 'Wind down' },
     )
   } else {
-    // fallback similar to off day
+    templateUsed = 'off'
     const s1 = addH(wake, 0.5)
     const s2 = addH(wake, 5.5)
     const s3 = addH(wake, 8)
@@ -96,9 +104,6 @@ export function getTodayMealSchedule(opts: {
     )
   }
 
-  // Sort chronologically
   slots.sort((a, b) => a.time.getTime() - b.time.getTime())
-  return slots
+  return { slots, templateUsed }
 }
-
-

@@ -76,11 +76,13 @@ export async function GET(req: NextRequest) {
     }
 
     const standardShift = toShiftType(todayShift?.label, todayShift?.start_ts)
-    const activityShift = toActivityShiftType(standardShift)
-    const shiftTypeForMeals = activityShift === 'late' ? 'day' : activityShift
+    let shiftTypeForMeals: 'day' | 'night' | 'late' | 'off' = toActivityShiftType(standardShift)
+    if (standardShift === 'evening') {
+      shiftTypeForMeals = 'late'
+    }
     const wakeTime = new Date()
 
-    const mealSchedule = getTodayMealSchedule({
+    const { slots: mealSlots } = getTodayMealSchedule({
       adjustedCalories: calorieResult.adjustedCalories,
       shiftType: shiftTypeForMeals,
       shiftStart: todayShift?.start_ts ? new Date(todayShift.start_ts) : undefined,
@@ -88,7 +90,7 @@ export async function GET(req: NextRequest) {
       wakeTime,
     })
 
-    const plan = mealSchedule.map((meal) => ({
+    const plan = mealSlots.map((meal) => ({
       time: meal.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       icon: '🍽️',
       label: meal.label,

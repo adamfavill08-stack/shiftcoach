@@ -9,14 +9,34 @@ type MealSlot = {
 }
 
 type TodayNutrition = {
+  palBaseCalories?: number
+  goalAdjustmentKcal?: number
   baseCalories: number
   adjustedCalories: number
   rhythmScore: number | null
   sleepHoursLast24h: number | null
-  shiftType: 'day' | 'night' | 'off' | 'other'
+  sleepPrimaryHours?: number | null
+  sleepNapHours?: number | null
+  shiftType: 'day' | 'night' | 'off' | 'early' | 'late' | 'other'
   rhythmFactor: number
   sleepFactor: number
   shiftFactor: number
+  shiftActivityFactor?: number
+  dailyActivityFactor?: number
+  activityLevel?: string | null
+  stepsToday?: number | null
+  activeMinutesToday?: number | null
+  modifierProductRaw?: number
+  modifierProductApplied?: number
+  guardRailApplied?: boolean
+  calorieModifiersCapped?: boolean
+  modifierGuardDeltaKcal?: number
+  modifierChain?: Array<{
+    id: string
+    factor: number
+    deltaKcal: number
+    runningKcal: number
+  }>
   sex: 'male' | 'female' | 'other'
   meals: MealSlot[]
   macros: {
@@ -44,6 +64,10 @@ type TodayNutrition = {
     consumedMacrosSource?: string
     hydrationSource?: string
   }
+  /** Shift day key (07:00 boundary); aligns shift + sleep with rota `date`. */
+  shiftedDayKey?: string | null
+  goal?: 'lose' | 'maintain' | 'gain'
+  macroPreset?: 'balanced' | 'high_protein' | 'custom'
 }
 
 export function useTodayNutrition() {

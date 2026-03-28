@@ -321,3 +321,8 @@ h4, .h4 {
 .toggle-switch input:checked + div {
   transform: translateX(1rem);
 }
+
+/* Capacitor Android: NativeAndroidStatusBar sets this attribute only on native Android */
+html[data-cap-android-statusbar] .app-main-shell {
+  padding-top: max(env(safe-area-inset-top, 0px), 6px);
+}

@@ -1,8 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { calculateAdjustedCalories } from '@/lib/nutrition/calculateAdjustedCalories'
-import { getTodayMealSchedule } from '@/lib/nutrition/getTodayMealSchedule'
+import { getTodayMealSchedule, type MealSlot } from '@/lib/nutrition/getTodayMealSchedule'
+import {
+  resolveDefaultWakeNoSleep,
+  resolveDiurnalWakeAnchor,
+} from '@/lib/nutrition/resolveDiurnalWakeAnchor'
 import { isoLocalDate } from '@/lib/shifts'
+import type { StandardShiftType } from '@/lib/shifts/toShiftType'
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+function mealTimingCardSubtitle(
+  templateUsed: 'off' | 'day' | 'night' | 'late',
+  requestedShift: 'off' | 'day' | 'night' | 'late',
+  usedEstimatedShiftTimes: boolean,
+): string {
+  if (templateUsed === 'off' && requestedShift !== 'off') {
+    const est = usedEstimatedShiftTimes ? ' Typical shift hours estimated where needed.' : ''
+    return `Add start and end times to your rota for a tailored plan — using a simple daytime pattern today.${est}`
+  }
+  const base: Record<'off' | 'day' | 'night' | 'late', string> = {
+    off: 'Keep meals steady on your day off.',
+    day: 'Keep meals in rhythm with your day shift.',
+    late: 'Keep meals in rhythm with your late shift.',
+    night: 'Keep meals in rhythm with your night shift.',
+  }
+  const s = base[templateUsed]
+  return usedEstimatedShiftTimes ? `${s} Shift times estimated from a typical pattern.` : s
+}
+
+/**
+ * Next wall-clock occurrence for daily meal slots (rolls to tomorrow when today's time has passed).
+ */
+function pickNextMealOccurrence(mealSchedule: MealSlot[], now: Date): { slot: MealSlot; at: Date } | null {
+  if (!mealSchedule.length) return null
+  let best: { slot: MealSlot; at: Date } | null = null
+  for (const m of mealSchedule) {
+    let atMs = m.time.getTime()
+    if (atMs <= now.getTime()) {
+      atMs += DAY_MS
+    }
+    const at = new Date(atMs)
+    if (!best || at.getTime() < best.at.getTime()) {
+      best = { slot: m, at }
+    }
+  }
+  return best
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,8 +68,12 @@ export async function GET(req: NextRequest) {
 
     // Determine shift type using shared utility
     const { toShiftType, toActivityShiftType } = await import('@/lib/shifts/toShiftType')
-    const standardType = toShiftType(todayShift?.label, todayShift?.start_ts)
-    const shiftType = toActivityShiftType(standardType)
+    const standardType: StandardShiftType = toShiftType(todayShift?.label, todayShift?.start_ts)
+    /** Meal-planning shift kind: evening (from rota) maps to late template for this route only. */
+    let shiftType: 'day' | 'night' | 'late' | 'off' = toActivityShiftType(standardType)
+    if (standardType === 'evening') {
+      shiftType = 'late'
+    }
 
     // Get wake time from latest sleep or estimate
     let latestSleepResult = await supabase
@@ -50,24 +99,52 @@ export async function GET(req: NextRequest) {
     }
     const latestSleep = latestSleepResult.data
 
-    const wakeTime = latestSleep?.end_ts ? new Date(latestSleep.end_ts) : new Date()
-    // If no sleep logged, estimate wake time based on shift
-    if (!latestSleep) {
-      if (shiftType === 'night') {
-        wakeTime.setHours(8, 30, 0, 0) // Typical post-night-shift wake
-      } else {
-        wakeTime.setHours(7, 0, 0, 0) // Typical morning wake
-      }
+    const now = new Date()
+    const hasExactShiftTimes = Boolean(todayShift?.start_ts && todayShift?.end_ts)
+    let shiftStart: Date | undefined = todayShift?.start_ts ? new Date(todayShift.start_ts) : undefined
+    let shiftEnd: Date | undefined = todayShift?.end_ts ? new Date(todayShift.end_ts) : undefined
+    let usedEstimatedShiftTimes = false
+
+    if (!hasExactShiftTimes && shiftType === 'night') {
+      usedEstimatedShiftTimes = true
+      const base = new Date(now)
+      shiftStart = new Date(base)
+      shiftStart.setHours(22, 0, 0, 0)
+      shiftEnd = new Date(base)
+      shiftEnd.setDate(shiftEnd.getDate() + 1)
+      shiftEnd.setHours(7, 0, 0, 0)
+    } else if (!hasExactShiftTimes && shiftType === 'late') {
+      usedEstimatedShiftTimes = true
+      const base = new Date(now)
+      shiftStart = new Date(base)
+      shiftStart.setHours(15, 0, 0, 0)
+      shiftEnd = new Date(base)
+      shiftEnd.setHours(23, 0, 0, 0)
     }
 
-    // Get meal schedule
-    const mealSchedule = getTodayMealSchedule({
+    const rawWakeEnd = latestSleep?.end_ts ? new Date(latestSleep.end_ts as string) : null
+    const usesNightBoundsForMeals =
+      shiftType === 'night' && shiftStart != null && shiftEnd != null && !Number.isNaN(shiftStart.getTime()) && !Number.isNaN(shiftEnd.getTime())
+
+    let wakeTime: Date
+    if (usesNightBoundsForMeals) {
+      wakeTime = resolveDefaultWakeNoSleep(now, 'night')
+    } else if (rawWakeEnd && !Number.isNaN(rawWakeEnd.getTime())) {
+      wakeTime = resolveDiurnalWakeAnchor(rawWakeEnd, now)
+    } else {
+      wakeTime = resolveDefaultWakeNoSleep(now, shiftType)
+    }
+
+    const { slots: mealSchedule, templateUsed: scheduleTypeUsed } = getTodayMealSchedule({
       adjustedCalories: adjusted.adjustedCalories,
       shiftType,
-      shiftStart: todayShift?.start_ts ? new Date(todayShift.start_ts) : undefined,
-      shiftEnd: todayShift?.end_ts ? new Date(todayShift.end_ts) : undefined,
+      shiftStart,
+      shiftEnd,
       wakeTime,
     })
+
+    const usedFallbackTemplate = usedEstimatedShiftTimes || scheduleTypeUsed !== shiftType
+    const cardSubtitle = mealTimingCardSubtitle(scheduleTypeUsed, shiftType, usedEstimatedShiftTimes)
 
     // Get sleep hours last 24h
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
@@ -120,10 +197,9 @@ export async function GET(req: NextRequest) {
       ? `${shiftLabel} shift${shiftStartTime && shiftEndTime ? ` · ${shiftStartTime}–${shiftEndTime}` : ''}`
       : 'Day Off'
 
-    // Find next meal
-    const now = new Date()
-    const upcomingMeals = mealSchedule.filter(m => m.time > now).sort((a, b) => a.time.getTime() - b.time.getTime())
-    const nextMeal = upcomingMeals[0] || mealSchedule[0]
+    const nextPick = pickNextMealOccurrence(mealSchedule, now)
+    const nextMealSlot = nextPick?.slot ?? null
+    const nextMealAt = nextPick?.at ?? null
 
     // Build recommended windows
     const recommendedWindows = mealSchedule.map((meal, index) => ({
@@ -156,10 +232,10 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    // Determine status
+    // Determine status (minutes until next occurrence, including rolled-forward slots)
     let status: 'onTrack' | 'slightlyLate' | 'veryLate' = 'onTrack'
-    if (nextMeal) {
-      const minutesUntilNext = (nextMeal.time.getTime() - now.getTime()) / (1000 * 60)
+    if (nextMealAt) {
+      const minutesUntilNext = (nextMealAt.getTime() - now.getTime()) / (1000 * 60)
       if (minutesUntilNext < -60) status = 'veryLate'
       else if (minutesUntilNext < -15) status = 'slightlyLate'
     }
@@ -185,17 +261,21 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    // Find next meal with macros
-    const nextMealWithMacros = mealsWithMacros.find(m => {
-      const mealTime = mealSchedule.find(ms => ms.id === m.id)?.time
-      return mealTime && mealTime > now
-    }) || mealsWithMacros[0]
+    const nextMealWithMacros =
+      nextMealSlot != null
+        ? mealsWithMacros.find((m) => m.id === nextMealSlot.id) ?? mealsWithMacros[0]
+        : mealsWithMacros[0]
+
+    const nextMealTimeStr = nextMealAt
+      ? nextMealAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : '—'
 
     // Build response
     const response = {
-      nextMealLabel: nextMeal?.label || 'Next meal',
-      nextMealTime: nextMeal?.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '—',
-      nextMealType: nextMeal?.hint || 'Balanced meal',
+      nextMealLabel: nextMealSlot?.label || 'Next meal',
+      nextMealTime: nextMealTimeStr,
+      nextMealAt: nextMealAt ? nextMealAt.toISOString() : null,
+      nextMealType: nextMealSlot?.hint || 'Balanced meal',
       nextMealMacros: nextMealWithMacros?.macros || {
         protein: Math.round(totalMacros.protein_g / mealSchedule.length),
         carbs: Math.round(totalMacros.carbs_g / mealSchedule.length),
@@ -203,6 +283,11 @@ export async function GET(req: NextRequest) {
       },
       shiftLabel: shiftLabelFormatted,
       shiftType,
+      scheduleTypeUsed,
+      hasExactShiftTimes,
+      usedFallbackTemplate,
+      usedEstimatedShiftTimes,
+      cardSubtitle,
       totalCalories: adjusted.adjustedCalories,
       totalMacros,
       meals: mealsWithMacros,

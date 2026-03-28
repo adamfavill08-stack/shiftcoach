@@ -1,8 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Info, X, Sparkles, Wheat, Dumbbell, Droplet, Sun, UtensilsCrossed, Apple, Clock, Timer, Zap, Sunrise, RefreshCw, Moon, Droplets, Check } from "lucide-react";
+import { Info, X, Sparkles, Droplet, Sun, UtensilsCrossed, Apple, Clock, Timer, Zap, Sunrise, RefreshCw, Moon, Droplets, Check } from "lucide-react";
 import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition";
+import { useTranslation } from "@/components/providers/language-provider";
+import { buildCalorieBreakdownRows } from "@/lib/nutrition/buildCalorieBreakdownRows";
+import { MacroTargetsCard } from "@/components/nutrition/MacroTargetsCard";
+import { getMacroTimingTip } from "@/lib/nutrition/getMacroReason";
 
 /* ---------------------------------------------------
    Inline monoline icons – bigger and clearly semantic
@@ -72,55 +76,6 @@ const IconCandy = ({ className }: { className?: string }) => (
     <rect x="7" y="9" width="10" height="6" rx="3" />
     <path d="M7 12c-1.5 0-2.8-.5-3.7-1.4L3 13l2 1" />
     <path d="M17 12c1.5 0 2.8.5 3.7 1.4L21 11l-2-1" />
-  </svg>
-);
-
-/** Wheat / grain – carbs */
-const IconWheat = () => (
-  <svg
-    viewBox="0 0 24 24"
-    className={iconClass}
-    fill="none"
-    stroke="currentColor"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M12 3v18" />
-    <path d="M9.5 6.5c-1.3.9-3 .7-4-.3 1.3-.9 3-.7 4 .3Z" />
-    <path d="M9.5 10c-1.3.9-3 .7-4-.3 1.3-.9 3-.7 4 .3Z" />
-    <path d="M14.5 8c1.3.9 3 .7 4-.3-1.3-.9-3-.7-4 .3Z" />
-    <path d="M14.5 11.5c1.3.9 3 .7 4-.3-1.3-.9-3-.7-4 .3Z" />
-  </svg>
-);
-
-/** Dumbbell – protein */
-const IconDumbbell = () => (
-  <svg
-    viewBox="0 0 24 24"
-    className={iconClass}
-    fill="none"
-    stroke="currentColor"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect x="3" y="9" width="3" height="6" rx="0.8" />
-    <rect x="18" y="9" width="3" height="6" rx="0.8" />
-    <rect x="6" y="10" width="12" height="4" rx="0.8" />
-  </svg>
-);
-
-/** Avocado / droplet – fat */
-const IconAvocado = () => (
-  <svg
-    viewBox="0 0 24 24"
-    className={iconClass}
-    fill="none"
-    stroke="currentColor"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M12 3c3 3.8 6 7.2 6 11a6 6 0 0 1-12 0C6 10.2 9 6.8 12 3Z" />
-    <circle cx="12" cy="14" r="2.8" />
   </svg>
 );
 
@@ -199,294 +154,6 @@ const IconDroplet = () => (
     <path d="M12 3c3 3.8 6 7.2 6 11a6 6 0 0 1-12 0C6 10.2 9 6.8 12 3Z" />
   </svg>
 );
-
-/* ---------------------------------------------------
-   Types + data
-   --------------------------------------------------- */
-
-type MacroTarget = {
-  label: string;
-  grams: number;
-  Icon: React.FC;
-  barClass: string;
-};
-
-type MealTime = {
-  label: string;
-  time: string;
-  Icon: React.FC;
-};
-
-const macroTargets: MacroTarget[] = [
-  { label: "Carbs",   grams: 280, Icon: () => <Wheat className="h-5 w-5 text-slate-400" />,    barClass: "bg-sky-300" },
-  { label: "Protein", grams: 160, Icon: () => <Dumbbell className="h-5 w-5 text-slate-400" />, barClass: "bg-emerald-300" },
-  { label: "Fat",     grams: 50,  Icon: () => <Droplet className="h-5 w-5 text-slate-400" />,  barClass: "bg-amber-300" },
-];
-
-const mealTimes: MealTime[] = [
-  { label: "Breakfast", time: "11:30 am", Icon: IconBreakfast },
-  { label: "Lunch",     time: "1:00 pm",  Icon: IconLunchEmoji },
-  { label: "Snack",     time: "4:00 pm",  Icon: IconSnackEmoji },
-  { label: "Cut-off",   time: "9:00 pm",  Icon: IconCutoffClock },
-];
-
-/* ---------------------------------------------------
-   Enhanced Macro Targets Card Component
-   --------------------------------------------------- */
-
-type MealBreakdown = {
-  label: string
-  protein_g: number
-  carbs_g: number
-  fat_g: number
-  calories: number
-  timestamp: string
-}
-
-function EnhancedMacroTargetsCard({ 
-  macroTargetsData, 
-  consumedMacros,
-  shiftType,
-  mealTimesData
-}: { 
-  macroTargetsData: MacroTarget[]
-  consumedMacros?: { protein_g: number; carbs_g: number; fat_g: number }
-  shiftType?: 'day' | 'night' | 'off' | 'other'
-  mealTimesData: MealTime[]
-}) {
-  const [mealsBreakdown, setMealsBreakdown] = useState<MealBreakdown[]>([])
-  const [showBreakdown, setShowBreakdown] = useState(false)
-  const [optimisticMacros, setOptimisticMacros] = useState<{ protein_g: number; carbs_g: number; fat_g: number } | null>(null)
-
-  // Fetch meal breakdown
-  useEffect(() => {
-    const fetchBreakdown = async () => {
-      try {
-        // Meal logging removed - no breakdown available
-        const res = { ok: true, json: async () => ({ meals: [] }) } as Response
-        if (res.ok) {
-          const json = await res.json()
-          setMealsBreakdown(json.meals || [])
-        }
-      } catch (err) {
-        console.error('[EnhancedMacroTargetsCard] Failed to fetch breakdown:', err)
-      }
-    }
-    fetchBreakdown()
-
-    // Meal logging removed - no event listeners needed
-  }, [consumedMacros])
-
-  // Use optimistic macros if available
-  const displayMacros = optimisticMacros || consumedMacros || { protein_g: 0, carbs_g: 0, fat_g: 0 }
-
-  // Get smart suggestions
-  const getSuggestion = (label: string, consumed: number, target: number, remaining: number): string | null => {
-    const percentage = target > 0 ? (consumed / target) * 100 : 0
-    
-    if (percentage >= 100) {
-      return null // Target met
-    } else if (percentage >= 80) {
-      return `Almost there! Add ${Math.round(remaining)}g ${label.toLowerCase()} to hit your target.`
-    } else if (percentage >= 50) {
-      return `You're ${Math.round(percentage)}% there. Focus on ${label.toLowerCase()} in your next meal.`
-    } else if (percentage > 0) {
-      return `Add ${Math.round(remaining)}g ${label.toLowerCase()} to reach your target.`
-    } else {
-      return `Recommended ${label.toLowerCase()} intake: ${Math.round(target)}g today`
-    }
-  }
-
-  // Get color based on progress
-  const getProgressColor = (percentage: number): string => {
-    if (percentage >= 100) return 'bg-emerald-500' // Green - target met
-    if (percentage >= 80) return 'bg-emerald-400' // Light green - close
-    if (percentage >= 50) return 'bg-amber-400' // Amber - halfway
-    if (percentage > 0) return 'bg-amber-300' // Light amber - started
-    return 'bg-slate-200' // Gray - not started
-  }
-
-  // Get bar class with color coding
-  const getBarClass = (label: string, percentage: number): string => {
-    const baseClass = label === 'Carbs' ? 'bg-sky-300' :
-                     label === 'Protein' ? 'bg-emerald-300' :
-                     'bg-amber-300'
-    const colorClass = getProgressColor(percentage)
-    return percentage >= 100 ? colorClass : baseClass
-  }
-
-  return (
-    <section
-      className={[
-        "relative overflow-hidden rounded-3xl",
-        "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
-        "border border-slate-200/50 dark:border-slate-700/40",
-        "text-slate-900 dark:text-slate-100",
-        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
-        "dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
-        "p-6",
-      ].join(" ")}
-    >
-      {/* Highlight overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
-      
-      {/* Subtle colored glow hints - dark mode only */}
-      <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
-      
-      {/* Inner ring for premium feel */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
-      
-      <div className="relative z-10 space-y-6">
-        {/* Macro targets */}
-        <div>
-          <div className="flex items-center justify-between">
-            <h3 className="text-[17px] font-semibold tracking-tight">
-              Macro targets
-            </h3>
-            <button
-              onClick={() => setShowBreakdown(!showBreakdown)}
-              className="text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
-            >
-              {showBreakdown ? 'Hide' : 'Show'} breakdown
-            </button>
-          </div>
-
-          {/* Grouped list container */}
-          <div className="mt-4 rounded-2xl border border-slate-200/50 dark:border-slate-700/40 bg-white/60 dark:bg-slate-800/50 p-2">
-            {macroTargetsData.map(({ label, grams, Icon, barClass }, index) => {
-              // Get consumed amount for this macro
-              const consumed = label === 'Carbs' ? displayMacros.carbs_g :
-                              label === 'Protein' ? displayMacros.protein_g :
-                              displayMacros.fat_g
-              const progress = grams > 0 ? Math.min(consumed / grams, 1.2) : 0
-              const percentage = grams > 0 ? (consumed / grams) * 100 : 0
-              const remaining = Math.max(0, grams - consumed)
-              const suggestion = getSuggestion(label, consumed, grams, remaining)
-              
-              return (
-                <React.Fragment key={label}>
-                  <div className="group flex items-center justify-between gap-4 rounded-2xl px-4 py-4 bg-slate-50/35 dark:bg-slate-800/30 hover:bg-white/70 dark:hover:bg-slate-800/50 transition-colors">
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                      {/* Icon badge */}
-                      <div className="h-10 w-10 rounded-2xl bg-white/70 dark:bg-slate-800/50 backdrop-blur border border-slate-200/60 dark:border-slate-700/40 grid place-items-center flex-shrink-0">
-                        <Icon />
-                      </div>
-                      
-                      {/* Label and subtext */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{label}</p>
-                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                          Recommended today: <span className="font-medium text-slate-700 dark:text-slate-300 tabular-nums">{grams}g</span>
-                        </p>
-                        {/* Progress meter */}
-                        <div className="mt-3 h-2 rounded-full bg-slate-200/60 dark:bg-slate-700/50 overflow-hidden">
-                          <div 
-                            className="h-full rounded-full bg-slate-400/60 dark:bg-slate-500/60 transition-all duration-300"
-                            style={{ width: `${Math.min(percentage, 100)}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Value anchor */}
-                    <div className="flex-shrink-0 text-right">
-                      <p className="text-base font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
-                        {grams}<span className="text-sm font-semibold text-slate-500 dark:text-slate-400"> g</span>
-                      </p>
-                    </div>
-                  </div>
-                  {index < macroTargetsData.length - 1 && (
-                    <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 dark:via-slate-700/50 to-transparent my-2" />
-                  )}
-                </React.Fragment>
-              )
-            })}
-          </div>
-
-          {/* Meal breakdown */}
-          {showBreakdown && mealsBreakdown.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-slate-200/50 dark:border-slate-700/50">
-              <h3 className="text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100 mb-3">
-                Breakdown by meal
-              </h3>
-              <div className="space-y-2">
-                {mealsBreakdown.map((meal, idx) => (
-                  <div key={idx} className="text-sm text-slate-600 dark:text-slate-300">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-slate-700 dark:text-slate-300">{meal.label}</span>
-                      <span className="text-slate-500 dark:text-slate-400 tabular-nums">{meal.calories} kcal</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                      <span className="tabular-nums">P: {Math.round(meal.protein_g)}g</span>
-                      <span className="tabular-nums">C: {Math.round(meal.carbs_g)}g</span>
-                      <span className="tabular-nums">F: {Math.round(meal.fat_g)}g</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Divider */}
-        <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 dark:via-slate-700/50 to-transparent" />
-
-        {/* Meal times */}
-        <div>
-          <div>
-            <h3 className="text-[17px] font-semibold tracking-tight">
-              Meal times
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {shiftType === 'night' ? "Tonight's shift" :
-               shiftType === 'day' ? "Today's shift" :
-               shiftType === 'off' ? "For your Day Off" :
-               "Your schedule"}
-            </p>
-          </div>
-
-          {/* Grouped list container */}
-          <div className="mt-4 rounded-2xl border border-slate-200/50 dark:border-slate-700/40 bg-white/60 dark:bg-slate-800/50 p-2">
-            {mealTimesData.map(({ label, time, Icon }, index) => (
-              <React.Fragment key={label}>
-                <div className="group flex items-center justify-between gap-4 rounded-2xl px-4 py-4 bg-slate-50/35 dark:bg-slate-800/30 hover:bg-white/70 dark:hover:bg-slate-800/50 transition-colors">
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
-                    {/* Icon badge */}
-                    <div className="h-10 w-10 rounded-2xl bg-white/70 dark:bg-slate-800/50 backdrop-blur border border-slate-200/60 dark:border-slate-700/40 grid place-items-center flex-shrink-0">
-                      <Icon />
-                    </div>
-                    <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{label}</p>
-                  </div>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 tabular-nums flex-shrink-0">
-                    {time}
-                  </p>
-                </div>
-                {index < mealTimesData.length - 1 && (
-                  <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 dark:via-slate-700/50 to-transparent my-2" />
-                )}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
-
-        {/* AI tip footer */}
-        <div className="mt-5 rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 dark:from-slate-800/50 to-white dark:to-slate-900/50 border border-slate-200/50 dark:border-slate-700/40">
-          <p className="text-xs font-semibold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-            Today's timing tip
-          </p>
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-            {shiftType === 'night' 
-              ? "Keep your biggest meal within 2–3 hours of waking to stabilise energy on night shifts."
-              : shiftType === 'day'
-              ? "Keep your biggest meal within 2–3 hours of waking to stabilise energy on shift days."
-              : "Keep your biggest meal within 2–3 hours of waking to stabilise energy throughout the day."}
-          </p>
-        </div>
-      </div>
-    </section>
-  )
-}
 
 /* ---------------------------------------------------
    Small reusable components
@@ -581,7 +248,7 @@ type EnergyPoint = {
  * Handles edge cases: missing shift data, no sleep data, off days
  */
 function calculateEnergyLevels(
-  shiftType?: 'day' | 'night' | 'off' | 'other',
+  shiftType?: 'day' | 'night' | 'off' | 'early' | 'late' | 'other',
   shiftStart?: string | null,
   shiftEnd?: string | null,
   sleepData?: { start: string; end: string; durationHours: number | null } | null,
@@ -591,8 +258,9 @@ function calculateEnergyLevels(
   const points: EnergyPoint[] = [];
   const bioNight = biologicalNight || { start: 23, end: 7 };
   
-  // Edge case: If no shift type, default to 'day' worker pattern
-  const effectiveShiftType = shiftType || 'day';
+  // Early/late use the same circadian curve as day for this chart
+  const effectiveShiftType =
+    shiftType === 'early' || shiftType === 'late' ? 'day' : shiftType || 'day';
   
   // Get shift hours if available
   let shiftStartHour: number | null = null;
@@ -872,7 +540,7 @@ function EnergyCurveCard({
   sleepHours,
   adjustedCalories,
 }: {
-  shiftType?: 'day' | 'night' | 'off' | 'other';
+  shiftType?: 'day' | 'night' | 'off' | 'early' | 'late' | 'other';
   shiftStart?: string | null;
   shiftEnd?: string | null;
   sleepData?: { start: string; end: string; durationHours: number | null } | null;
@@ -929,7 +597,7 @@ function EnergyCurveCard({
       } else {
         tips.push("On night shift: eat largest meal before work, keep meals light after midnight.");
       }
-    } else if (shiftType === 'day') {
+    } else if (shiftType === 'day' || shiftType === 'early' || shiftType === 'late') {
       if (sleepHours != null && sleepHours < 6) {
         tips.push(`With only ${sleepHours.toFixed(1)}h sleep, start with a protein-rich breakfast to boost energy.`);
       } else {
@@ -1126,7 +794,7 @@ function ShiftCoachCard({
   sleepDebt,
 }: { 
   sleepHours: number | null;
-  shiftType: 'day' | 'night' | 'off' | 'other';
+  shiftType: 'day' | 'night' | 'off' | 'early' | 'late' | 'other';
   adjustedCalories: number;
   energyPoints?: EnergyPoint[];
   currentHour?: number;
@@ -1165,7 +833,7 @@ function ShiftCoachCard({
       } else {
         tips.push("On night shift: eat largest meal before work, keep meals light after midnight.");
       }
-    } else if (shiftType === 'day') {
+    } else if (shiftType === 'day' || shiftType === 'early' || shiftType === 'late') {
       if (sleepHours != null && sleepHours < 6) {
         tips.push(`With only ${sleepHours.toFixed(1)}h sleep, start with a protein-rich breakfast to boost energy.`);
       } else {
@@ -1233,6 +901,7 @@ function ShiftCoachCard({
    --------------------------------------------------- */
 
 export default function AdjustedCaloriesPage() {
+  const { t } = useTranslation();
   const { data, loading } = useTodayNutrition();
   const [showInfo, setShowInfo] = useState(false);
   const [circadian, setCircadian] = useState<any>(null);
@@ -1332,58 +1001,9 @@ export default function AdjustedCaloriesPage() {
     fetchSleepData();
   }, []);
 
-  // Calculate deltas from factors
-  const calculateDeltas = () => {
-    if (!data) return [];
-    
-    const deltas: Array<{ label: string; value: string; color: string }> = [];
-    const base = data.baseCalories;
-    
-    // Rhythm factor adjustment
-    if (data.rhythmFactor !== 1) {
-      const rhythmDelta = Math.round(base * (data.rhythmFactor - 1));
-      if (rhythmDelta !== 0) {
-        deltas.push({
-          label: data.rhythmScore != null ? `rhythm score ${Math.round(data.rhythmScore)}` : 'rhythm adjustment',
-          value: rhythmDelta >= 0 ? `+${rhythmDelta}` : `${rhythmDelta}`,
-          color: rhythmDelta >= 0 ? 'text-emerald-600' : 'text-amber-600'
-        });
-      }
-    }
-    
-    // Sleep factor adjustment
-    if (data.sleepFactor !== 1 && data.sleepHoursLast24h != null) {
-      const sleepDelta = Math.round(base * (data.sleepFactor - 1));
-      if (sleepDelta !== 0) {
-        deltas.push({
-          label: `${data.sleepHoursLast24h.toFixed(1)}h sleep`,
-          value: sleepDelta >= 0 ? `+${sleepDelta}` : `${sleepDelta}`,
-          color: sleepDelta >= 0 ? 'text-emerald-600' : 'text-amber-600'
-        });
-      }
-    }
-    
-    // Shift factor adjustment
-    if (data.shiftFactor !== 1) {
-      const shiftDelta = Math.round(base * (data.shiftFactor - 1));
-      if (shiftDelta !== 0) {
-        const shiftLabel = data.shiftType === 'night' ? 'night shift' : 
-                          data.shiftType === 'day' ? 'day shift' : 
-                          data.shiftType === 'off' ? 'Day Off' : 'shift';
-        deltas.push({
-          label: shiftLabel,
-          value: shiftDelta >= 0 ? `+${shiftDelta}` : `${shiftDelta}`,
-          color: shiftDelta >= 0 ? 'text-emerald-600' : 'text-amber-600'
-        });
-      }
-    }
-    
-    return deltas;
-  };
-
   const adjustedCalories = data?.adjustedCalories ?? 0;
   const baseCalories = data?.baseCalories ?? 0;
-  const deltas = calculateDeltas();
+  const breakdownRows = data ? buildCalorieBreakdownRows(data, t) : [];
   const deltaPct = baseCalories > 0 ? Math.round(((adjustedCalories - baseCalories) / baseCalories) * 100) : 0;
   
   // Calculate standard calculator calories (Mifflin-St Jeor without adjustments)
@@ -1420,23 +1040,26 @@ export default function AdjustedCaloriesPage() {
   // Calculate progress for the ring (capped at 120% for display)
   const progress = adjustedCalories > 0 ? Math.min(consumedCalories / adjustedCalories, 1.2) : 0;
   
-  // Get macro targets from data
-  const macroTargetsData = data?.macros ? [
-    { label: "Carbs", grams: Math.round(data.macros.carbs_g), Icon: IconWheat, barClass: "bg-sky-300" },
-    { label: "Protein", grams: Math.round(data.macros.protein_g), Icon: IconDumbbell, barClass: "bg-emerald-300" },
-    { label: "Fat", grams: Math.round(data.macros.fat_g), Icon: IconAvocado, barClass: "bg-amber-300" },
-  ] : macroTargets;
-  
-  // Get meal times from data
-  const mealTimesData = data?.meals ? data.meals.map(meal => ({
-    label: meal.label,
-    time: meal.suggestedTime,
-    Icon: meal.id.includes('breakfast') || meal.id.includes('post-shift') ? IconBreakfast :
-          meal.id.includes('lunch') || meal.id.includes('main') ? IconLunchEmoji :
-          meal.id.includes('snack') ? IconSnackEmoji :
-          meal.id.includes('dinner') ? IconDinnerEmoji :
-          meal.id.includes('cutoff') ? IconCutoffClock : IconSnackEmoji
-  })) : mealTimes;
+  const mealTimesForMacroCard = data?.meals?.length
+    ? data.meals.map((meal) => ({
+        label: meal.label,
+        time: meal.suggestedTime,
+        Icon:
+          meal.id.includes('breakfast') || meal.id.includes('post-shift')
+            ? IconBreakfast
+            : meal.id.includes('lunch') || meal.id.includes('main')
+              ? IconLunchEmoji
+              : meal.id.includes('snack')
+                ? IconSnackEmoji
+                : meal.id.includes('dinner')
+                  ? IconDinnerEmoji
+                  : meal.id.includes('cutoff')
+                    ? IconCutoffClock
+                    : IconSnackEmoji,
+      }))
+    : undefined;
+
+  const macroTimingTip = getMacroTimingTip(data?.shiftType ?? null);
 
   // Calculate energy points for both cards
   const [currentTime, setCurrentTime] = React.useState(new Date());
@@ -1516,11 +1139,16 @@ export default function AdjustedCaloriesPage() {
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <h1 className="text-[17px] font-semibold tracking-tight">
-                Adjusted calories
+                {t('dashboard.calories.cardTitle')}
               </h1>
               <p className="mt-1.5 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                Your estimated adjusted target today based on your shift, sleep and goal.
+                {t('dashboard.calories.pageSubtitle')}
               </p>
+              {data?.shiftedDayKey ? (
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  {t('dashboard.calories.shiftedDayLabel')}: {data.shiftedDayKey}
+                </p>
+              ) : null}
             </div>
             <button
               onClick={() => setShowInfo(!showInfo)}
@@ -1548,29 +1176,28 @@ export default function AdjustedCaloriesPage() {
             )}
           </div>
 
-          {/* Factor breakdown */}
-          {deltas.length > 0 && (
+          {/* Factor breakdown — matches API modifier chain (incl. shift workload & steps) */}
+          {breakdownRows.length > 0 && (
             <div className="pt-4 border-t border-slate-200/50 dark:border-slate-700/50 space-y-3">
               <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Adjustments
+                {t('dashboard.calories.detailModifierBreakdown')}
               </p>
+              {data?.guardRailApplied ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  {t('dashboard.calories.guardRailHint')}
+                </p>
+              ) : null}
               <div className="space-y-2">
-                {deltas.map((d) => (
-                  <div key={d.label} className="flex items-center justify-between text-sm">
-                    <span className="text-slate-600 dark:text-slate-300 capitalize">{d.label}</span>
-                    <span className={`font-semibold tabular-nums ${d.color}`}>
+                {breakdownRows.map((d) => (
+                  <div key={d.key} className="flex items-center justify-between text-sm gap-2">
+                    <span className="text-slate-600 dark:text-slate-300">{d.label}</span>
+                    <span className={`font-semibold tabular-nums flex-shrink-0 ${d.color}`}>
                       {d.value} kcal
                     </span>
                   </div>
                 ))}
-                <div className="pt-2 mt-2 border-t border-slate-200/40 dark:border-slate-700/30 flex items-center justify-between text-sm">
-                  <span className="text-slate-700 dark:text-slate-300 font-medium">Base calories</span>
-                  <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">
-                    {baseCalories.toLocaleString()} kcal
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-700 dark:text-slate-300 font-medium">Total adjustment</span>
+                <div className="flex items-center justify-between text-sm pt-2 mt-2 border-t border-slate-200/40 dark:border-slate-700/30">
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">Vs base target</span>
                   <span className={`font-semibold tabular-nums ${deltaPct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
                     {deltaPct >= 0 ? '+' : ''}{deltaPct}%
                   </span>
@@ -1743,11 +1370,18 @@ export default function AdjustedCaloriesPage() {
         </section>
 
       {/* CARD 3 — Macro targets + Meal times */}
-      <EnhancedMacroTargetsCard 
-        macroTargetsData={macroTargetsData}
-        consumedMacros={data?.consumedMacros}
-        shiftType={data?.shiftType}
-        mealTimesData={mealTimesData}
+      <MacroTargetsCard
+        macros={data.macros ?? null}
+        adjustedCalories={data.adjustedCalories}
+        goal={data.goal ?? null}
+        macroPreset={data.macroPreset ?? null}
+        shiftType={data.shiftType}
+        rhythmScore={data.rhythmScore ?? null}
+        sleepHoursLast24h={data.sleepHoursLast24h ?? null}
+        consumedMacros={data.consumedMacros}
+        mealTimesData={mealTimesForMacroCard}
+        timingTip={macroTimingTip}
+        variant="elevated"
       />
 
       {/* NEW CARD — Quick Shift-Specific Rules */}

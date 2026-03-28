@@ -173,7 +173,10 @@ export function calculateBingeRisk(inputs: BingeRiskInputs): BingeRiskResult {
   }
 
   // 3. MEAL TIMING FACTORS (0-20 points)
-  const lastMeal = meals[0] // Most recent meal
+  // Only apply meal-related penalties when meal logging data exists.
+  // This keeps the score credible in apps where meals are not currently logged.
+  const hasMealLogs = meals.length > 0
+  const lastMeal = hasMealLogs ? meals[0] : null
   if (lastMeal) {
     const lastMealTime = new Date(lastMeal.logged_at)
     const hoursSinceLastMeal = (now.getTime() - lastMealTime.getTime()) / (1000 * 60 * 60)
@@ -188,14 +191,8 @@ export function calculateBingeRisk(inputs: BingeRiskInputs): BingeRiskResult {
       totalScore += 10
       drivers.push(`Extended fasting (${Math.round(hoursSinceLastMeal)}h)`)
     }
-  } else {
-    // No meals logged - assume long fast
-    totalScore += 15
-    drivers.push('No meals logged today')
-  }
 
-  // Eating during biological night (12am-6am)
-  if (lastMeal) {
+    // Eating during biological night (12am-6am)
     const lastMealHour = new Date(lastMeal.logged_at).getHours()
     if (lastMealHour >= 0 && lastMealHour < 6) {
       totalScore += 8

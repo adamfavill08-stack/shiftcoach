@@ -412,56 +412,71 @@ function HomeAdjustedCaloriesCard() {
 
   const adjustedCalories = data.adjustedCalories ?? 0;
   const baseCalories = data.baseCalories ?? 0;
-  const rhythmScore = data.rhythmScore ?? null;
-  const sleepHours = data.sleepHoursLast24h ?? null;
-  const shiftType = data.shiftType ?? null;
 
-  const deltas: Array<{ label: string; value: string; color: string }> = [];
-  const base = baseCalories;
-
-  if (data.rhythmFactor !== 1 && base > 0) {
-    const rhythmDelta = Math.round(base * (data.rhythmFactor - 1));
-    if (rhythmDelta !== 0) {
-      deltas.push({
-        label: rhythmScore != null ? `${t("dashboard.rhythm")} score ${Math.round(rhythmScore)}` : t("dashboard.rhythm"),
-        value: `${rhythmDelta >= 0 ? "+" : ""}${rhythmDelta} kcal`,
-        color: rhythmDelta >= 0 ? "text-emerald-600" : "text-amber-600",
-      });
-    }
+  let chain = data.modifierChain ?? [];
+  if (chain.length === 0 && baseCalories > 0) {
+    let running = baseCalories;
+    const factors: Array<[string, number]> = [
+      ["rhythm", data.rhythmFactor],
+      ["sleep", data.sleepFactor],
+      ["shift", data.shiftFactor],
+      ["shift_activity", data.shiftActivityFactor ?? 1],
+      ["daily_activity", data.dailyActivityFactor ?? 1],
+    ];
+    chain = factors.map(([id, f]) => {
+      const prev = running;
+      running = prev * f;
+      return {
+        id,
+        factor: f,
+        deltaKcal: Math.round(running - prev),
+        runningKcal: Math.round(running),
+      };
+    });
   }
 
-  if (data.sleepFactor !== 1 && sleepHours != null && base > 0) {
-    const sleepDelta = Math.round(base * (data.sleepFactor - 1));
-    if (sleepDelta !== 0) {
-      deltas.push({
-        label: `${sleepHours.toFixed(1)}h sleep`,
-        value: `${sleepDelta >= 0 ? "+" : ""}${sleepDelta} kcal`,
-        color: sleepDelta >= 0 ? "text-emerald-600" : "text-amber-600",
-      });
-    }
-  }
-
-  if (data.shiftFactor !== 1 && base > 0) {
-    const shiftDelta = Math.round(base * (data.shiftFactor - 1));
-    if (shiftDelta !== 0) {
-      const shiftLabel =
-        shiftType === "night"
-          ? t("dashboard.shiftLabel.night")
-          : shiftType === "day"
-          ? t("dashboard.shiftLabel.day")
-          : shiftType === "off"
-          ? t("dashboard.shiftLabel.dayOff")
-          : t("dashboard.shiftLabel.shift");
-      deltas.push({
-        label: shiftLabel,
-        value: `${shiftDelta >= 0 ? "+" : ""}${shiftDelta} kcal`,
-        color: shiftDelta >= 0 ? "text-emerald-600" : "text-amber-600",
-      });
-    }
-  }
+  /** Honest dashboard grouping: activity = shift load + steps/min; recovery = everything else (incl. guard remainder). */
+  const totalDelta = adjustedCalories - baseCalories;
+  const activityDelta = chain
+    .filter((m) => m.id === "shift_activity" || m.id === "daily_activity")
+    .reduce((s, m) => s + m.deltaKcal, 0);
+  const recoveryDelta = totalDelta - activityDelta;
 
   const deltaPct =
     baseCalories > 0 ? Math.round(((adjustedCalories - baseCalories) / baseCalories) * 100) : 0;
+
+  const fmtSignedKcal = (n: number) =>
+    `${n >= 0 ? "+" : ""}${n.toLocaleString("en-US")} kcal`;
+
+  const colorSigned = (n: number) =>
+    n === 0 ? "text-slate-500" : n >= 0 ? "text-emerald-600" : "text-amber-600";
+
+  const snapshotRows: Array<{ key: string; label: string; value: string; valueClass: string }> = [
+    {
+      key: "snap-base",
+      label: t("dashboard.calories.snapshotBase"),
+      value: `${baseCalories.toLocaleString("en-US")} kcal`,
+      valueClass: "text-slate-900 font-semibold",
+    },
+    {
+      key: "snap-recovery",
+      label: t("dashboard.calories.snapshotRecovery"),
+      value: fmtSignedKcal(recoveryDelta),
+      valueClass: `font-semibold ${colorSigned(recoveryDelta)}`,
+    },
+    {
+      key: "snap-activity",
+      label: t("dashboard.calories.snapshotActivity"),
+      value: fmtSignedKcal(activityDelta),
+      valueClass: `font-semibold ${colorSigned(activityDelta)}`,
+    },
+    {
+      key: "snap-pct",
+      label: t("dashboard.calories.snapshotTotalAdjustment"),
+      value: `${deltaPct >= 0 ? "+" : ""}${deltaPct}%`,
+      valueClass: `font-semibold ${deltaPct === 0 ? "text-slate-500" : deltaPct >= 0 ? "text-emerald-700" : "text-amber-700"}`,
+    },
+  ];
 
   return (
     <Link
@@ -473,11 +488,9 @@ function HomeAdjustedCaloriesCard() {
           <div className="flex items-center justify-between gap-2">
             <div className="flex flex-col">
               <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
-                Adjusted calories
+                {t("dashboard.calories.cardTitle")}
               </span>
-              <span className="text-[11px] text-slate-600">
-                Shift‑tuned target for today.
-              </span>
+              <span className="text-[11px] text-slate-600">{t("dashboard.calories.cardSubtitle")}</span>
             </div>
             <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />
           </div>
@@ -491,33 +504,14 @@ function HomeAdjustedCaloriesCard() {
             </div>
           </div>
 
-          {deltas.length > 0 && (
-            <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 space-y-1.5">
-              {deltas.slice(0, 2).map((d) => (
-                <div key={d.label} className="flex items-center justify-between text-[11px]">
-                  <span className="text-slate-700">{d.label}</span>
-                  <span className={`font-semibold tabular-nums ${d.color}`}>{d.value}</span>
-                </div>
-              ))}
-              <div className="flex items-center justify-between text-[11px] pt-1">
-                <span className="text-slate-700">Base</span>
-                <span className="font-semibold tabular-nums text-slate-900">
-                  {baseCalories.toLocaleString()} kcal
-                </span>
+          <div className="pt-2 border-t border-slate-200/60 space-y-1">
+            {snapshotRows.map((r) => (
+              <div key={r.key} className="flex items-center justify-between text-[11px] gap-2">
+                <span className="text-slate-600">{r.label}</span>
+                <span className={`tabular-nums flex-shrink-0 ${r.valueClass}`}>{r.value}</span>
               </div>
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-slate-700">Total adjustment</span>
-                <span
-                  className={`font-semibold tabular-nums ${
-                    deltaPct >= 0 ? "text-emerald-700" : "text-amber-700"
-                  }`}
-                >
-                  {deltaPct >= 0 ? "+" : ""}
-                  {deltaPct}%
-                </span>
-              </div>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
       </div>
     </Link>
@@ -533,12 +527,20 @@ function HomeMealTimesCard() {
     try {
       setLoading(true);
       const res = await fetch("/api/meal-timing/today", { cache: "no-store" });
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
+      if (!res.ok) {
+        setData(null);
+        console.error("[HomeMealTimesCard] meal-timing response:", res.status);
+        return;
       }
+      const json = await res.json();
+      if (json.error) {
+        setData(null);
+        return;
+      }
+      setData(json);
     } catch (err) {
       console.error("[HomeMealTimesCard] Failed to fetch meal timing:", err);
+      setData(null);
     } finally {
       setLoading(false);
     }
@@ -561,6 +563,16 @@ function HomeMealTimesCard() {
     };
   }, []);
 
+  useEffect(() => {
+    const onVisible = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        fetchMealTiming();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
   // Load notification preference (default ON)
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -570,51 +582,19 @@ function HomeMealTimesCard() {
     }
   }, []);
 
-  const parseMealTimeToMinutes = (timeStr: string): number => {
-    let cleanTime = timeStr.trim().toUpperCase();
-    const isPM = cleanTime.includes("PM");
-    const isAM = cleanTime.includes("AM");
-    cleanTime = cleanTime.replace(/\s*(AM|PM)/i, "");
-
-    const [hoursStr, minutesStr] = cleanTime.split(":");
-    let hours = parseInt(hoursStr, 10);
-    const minutes = parseInt(minutesStr || "0", 10);
-
-    if (isPM && hours !== 12) hours += 12;
-    if (isAM && hours === 12) hours = 0;
-
-    return hours * 60 + minutes;
-  };
-
-  // Schedule a local browser notification for the next meal window
+  // Schedule browser notification from server next-meal instant (matches card copy)
   useEffect(() => {
     if (typeof window === "undefined" || typeof Notification === "undefined") return;
     if (!notificationsEnabled) return;
-    if (!data || !data.meals || data.meals.length === 0) return;
+    if (!data?.nextMealAt || !data.nextMealLabel) return;
 
-    const now = new Date();
-    const todayKey = now.toISOString().slice(0, 10);
-    const nowMinutesTotal = now.getHours() * 60 + now.getMinutes();
-
-    const sortedMeals = [...data.meals].sort(
-      (a, b) => parseMealTimeToMinutes(a.time) - parseMealTimeToMinutes(b.time)
-    );
-
-    let upcoming = sortedMeals.find((meal) => parseMealTimeToMinutes(meal.time) > nowMinutesTotal);
-    if (!upcoming) {
-      upcoming = sortedMeals[0];
-    }
-    if (!upcoming) return;
-
-    const targetMinutes = parseMealTimeToMinutes(upcoming.time);
-    const msUntil = (targetMinutes - nowMinutesTotal) * 60 * 1000;
+    const msUntil = new Date(data.nextMealAt).getTime() - Date.now();
     if (msUntil <= 0 || msUntil > 6 * 60 * 60 * 1000) {
-      // Skip if in the past or too far in the future
       return;
     }
 
     const storageKey = "nextMealNotification";
-    const signature = `${todayKey}|${upcoming.label}|${upcoming.time}`;
+    const signature = `${data.nextMealAt}|${data.nextMealLabel}`;
     const lastSignature = window.localStorage.getItem(storageKey);
     if (lastSignature === signature) return;
 
@@ -633,7 +613,7 @@ function HomeMealTimesCard() {
       timeoutId = window.setTimeout(() => {
         try {
           new Notification("Next meal window", {
-            body: `Next: ${upcoming.label} at ${upcoming.time}`,
+            body: `Next: ${data.nextMealLabel} at ${data.nextMealTime}`,
           });
           window.localStorage.setItem(storageKey, signature);
         } catch {
@@ -649,31 +629,7 @@ function HomeMealTimesCard() {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [data, notificationsEnabled]);
-
-  if (loading || !data || !data.meals || data.meals.length === 0) {
-    return null;
-  }
-
-  const now = new Date();
-  const nowMinutesTotal = now.getHours() * 60 + now.getMinutes();
-  const sortedMeals = [...data.meals].sort(
-    (a, b) => parseMealTimeToMinutes(a.time) - parseMealTimeToMinutes(b.time)
-  );
-
-  let nextMeal = sortedMeals.find((meal) => parseMealTimeToMinutes(meal.time) > nowMinutesTotal);
-  if (!nextMeal) {
-    nextMeal = sortedMeals[0];
-  }
-
-  const shiftLabel =
-    data.shiftType === "night"
-      ? "Night shift"
-      : data.shiftType === "day"
-      ? "Day shift"
-      : data.shiftType === "late"
-      ? "Late shift"
-      : "Day off";
+  }, [data?.nextMealAt, data?.nextMealLabel, data?.nextMealTime, notificationsEnabled]);
 
   const handleToggleNotifications = () => {
     const next = !notificationsEnabled;
@@ -682,6 +638,22 @@ function HomeMealTimesCard() {
       window.localStorage.setItem("mealNotificationsEnabled", next ? "on" : "off");
     }
   };
+
+  if (loading) {
+    return (
+      <div className="block rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] animate-pulse">
+        <div className="h-3 w-40 rounded bg-slate-200 mb-3" />
+        <div className="h-3 w-full max-w-[280px] rounded bg-slate-100" />
+        <div className="mt-4 h-4 w-full rounded bg-slate-100" />
+      </div>
+    );
+  }
+
+  if (!data || !data.meals || data.meals.length === 0) {
+    return null;
+  }
+
+  const shiftBadgeLabel = data.shiftLabel?.trim() || "Schedule";
 
   return (
     <div className="block rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
@@ -694,8 +666,9 @@ function HomeMealTimesCard() {
                 <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
                   Next meal window
                 </span>
-                <span className="text-[11px] text-slate-600">
-                  Keep meals in rhythm with your shifts.
+                <span className="text-[11px] text-slate-600 leading-snug">
+                  {data.cardSubtitle?.trim() ||
+                    "Keep meals in rhythm with your shifts."}
                 </span>
               </div>
             </div>
@@ -724,13 +697,13 @@ function HomeMealTimesCard() {
               <span>
                 Next:{" "}
                 <span className="font-semibold text-slate-900">
-                  {nextMeal.label}
+                  {data.nextMealLabel}
                 </span>{" "}
-                at {nextMeal.time}
+                at {data.nextMealTime}
               </span>
               <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 bg-slate-100 text-[10px] text-slate-700">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                {shiftLabel}
+                {shiftBadgeLabel}
               </span>
             </div>
           </div>
@@ -1201,7 +1174,9 @@ const BingeRiskCard = memo(function BingeRiskCard({ bingeRisk }: { bingeRisk: { 
   const riskScore = bingeRisk.score;
   const riskLevel = bingeRisk.level;
   const drivers = bingeRisk.drivers;
-  const explanation = bingeRisk.explanation;
+  const topDriver = (drivers || [])
+    .map((d) => d.trim())
+    .find((d) => d.length > 0 && d.toLowerCase() !== 'no meals logged today') || '';
 
   const riskColors = {
     low: {
@@ -1221,6 +1196,11 @@ const BingeRiskCard = memo(function BingeRiskCard({ bingeRisk }: { bingeRisk: { 
   const colors = riskColors[riskLevel];
   const levelLabel =
     riskLevel === "low" ? "Low" : riskLevel === "medium" ? "Medium" : "High";
+  const compactDriverLabel = topDriver
+    ? topDriver.length > 42
+      ? `${topDriver.slice(0, 39)}...`
+      : topDriver
+    : null;
 
   return (
     <Link
@@ -1241,6 +1221,11 @@ const BingeRiskCard = memo(function BingeRiskCard({ bingeRisk }: { bingeRisk: { 
             <span className="text-[11px] text-slate-600">
               {levelLabel} risk. Tap to see what&apos;s driving it.
             </span>
+            {compactDriverLabel && (
+              <span className={`mt-1 inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${colors.driver}`}>
+                {compactDriverLabel}
+              </span>
+            )}
           </div>
         </div>
         <ChevronRight className="h-4 w-4 text-slate-400" />
@@ -2253,10 +2238,19 @@ function WhyYouHaveThisScoreCard({
 type DetailedMealTimingData = {
   nextMealLabel: string;
   nextMealTime: string;
+  /** ISO timestamp for the next meal window (used for notifications & consistency with server). */
+  nextMealAt?: string | null;
   nextMealType: string;
   nextMealMacros: { protein: number; carbs: number; fats: number };
   shiftLabel: string;
-  shiftType: 'day' | 'night' | 'late' | 'off';
+  shiftType: "day" | "night" | "late" | "off";
+  /** Template actually used to build slots (`off` if day/night/late lacked required times). */
+  scheduleTypeUsed?: "off" | "day" | "night" | "late";
+  hasExactShiftTimes?: boolean;
+  usedFallbackTemplate?: boolean;
+  usedEstimatedShiftTimes?: boolean;
+  /** Subtitle for the home “Next meal window” card. */
+  cardSubtitle?: string | null;
   totalCalories: number;
   totalMacros: { protein_g: number; carbs_g: number; fat_g: number };
   meals: Array<{
