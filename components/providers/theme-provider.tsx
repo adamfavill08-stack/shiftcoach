@@ -7,13 +7,14 @@ type ThemeProviderProps = {
   children: ReactNode
 }
 
-// Light-only wrapper: force-remove any persisted Tailwind "dark" class
-// so the app always renders in light mode, regardless of previous settings.
+/**
+ * Light-only shell: strip any stale `dark` class from older sessions.
+ * Tailwind dark variant is disabled in `tailwind.config.ts` (`darkMode: false`).
+ */
 export function ThemeProvider({ children }: ThemeProviderProps) {
   useEffect(() => {
     if (typeof document === 'undefined') return
-    const root = document.documentElement
-    root.classList.remove('dark')
+    document.documentElement.classList.remove('dark')
   }, [])
 
   return <>{children}</>

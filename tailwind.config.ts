@@ -1,7 +1,8 @@
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
-  darkMode: 'class',
+  // Light-only app; re-enable when implementing dark mode properly
+  darkMode: false,
   content: [
     './app/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',

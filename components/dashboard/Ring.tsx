@@ -7,7 +7,7 @@ export function Ring({ size=88, thickness=10, value, label='Shift Rhythm™' }: 
 
   return (
     <div className="flex items-center gap-3">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="[&_circle:first-child]:stroke-slate-200 [&_circle:first-child]:dark:stroke-slate-800 [&_text]:fill-slate-900 [&_text]:dark:fill-slate-100">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="[&_circle:first-child]:stroke-slate-200 [&_text]:fill-slate-900">
         <circle cx={size/2} cy={size/2} r={r} stroke="#eef2f7" strokeWidth={thickness} fill="none" />
         <circle cx={size/2} cy={size/2} r={r}
           stroke="url(#grad)" strokeWidth={thickness} fill="none"

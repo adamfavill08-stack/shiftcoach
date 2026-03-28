@@ -1,9 +1,7 @@
 @import "tailwindcss";
 
 /* ============================================
-   SHIFTCALI THEME TOKENS
-   
-   Supports Light and Dark themes
+   SHIFTCALI THEME TOKENS (light only)
    ============================================ */
 
 :root {
@@ -28,27 +26,6 @@
   --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.08);
   --ring-bg: #e2e8f0;       /* rings track */
 }
-
-.dark {
-  /* Force dark-mode variables to match light theme so the app stays light even if a "dark" class is present. */
-  --bg: #f5f7fb;
-  --bg-soft: #f9fbff;
-  --card: rgba(255, 255, 255, 0.92);
-  --card-subtle: rgba(255, 255, 255, 0.8);
-  --border-subtle: rgba(255, 255, 255, 0.7);
-
-  --text-main: #0f172a;
-  --text-soft: #475569;
-  --text-muted: #94a3b8;
-
-  --accent-blue: #0ea5e9;
-  --accent-indigo: #4f46e5;
-  --accent-violet: #8b5cf6;
-
-  --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.08);
-  --ring-bg: #e2e8f0;
-}
-
 
 /* ============================================
    SMOOTH THEME TRANSITIONS
