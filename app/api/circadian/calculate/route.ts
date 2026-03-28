@@ -3,6 +3,7 @@ import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/sup
 import { supabaseServer } from '@/lib/supabase-server'
 import { calculateCircadianPhase, type ShiftType } from '@/lib/circadian/calcCircadianPhase'
 import { getSleepDeficitForCircadian } from '@/lib/circadian/sleep'
+import { circadianOk, circadianUnavailable } from '@/lib/circadian/circadianCalculateApi'
 
 // Cache for 60 seconds - circadian phase updates daily
 export const revalidate = 60
@@ -29,9 +30,9 @@ export async function GET(req: NextRequest) {
         stack: authError?.stack,
       })
       return NextResponse.json(
-        { 
-          error: 'Authentication error',
-          details: authError?.message || 'Failed to initialize database connection'
+        {
+          ...circadianUnavailable('error', 'Authentication error'),
+          details: authError?.message || 'Failed to initialize database connection',
         },
         { status: 500 }
       )
@@ -57,9 +58,9 @@ export async function GET(req: NextRequest) {
         stack: clientError?.stack,
       })
       return NextResponse.json(
-        { 
-          error: 'Database client error',
-          details: clientError?.message || 'Failed to initialize database client'
+        {
+          ...circadianUnavailable('error', 'Database client error'),
+          details: clientError?.message || 'Failed to initialize database client',
         },
         { status: 500 }
       )
@@ -93,11 +94,15 @@ export async function GET(req: NextRequest) {
         
         if (isNetworkError) {
           console.error('[api/circadian/calculate] Network error on precomputed query - database unreachable')
-          return NextResponse.json({ 
-            error: 'Database temporarily unavailable',
-            details: 'Unable to connect to database. Please check your internet connection and try again.',
-            type: 'network_error'
-          }, { status: 503 })
+          return NextResponse.json(
+            {
+              ...circadianUnavailable('error', 'Database temporarily unavailable'),
+              details:
+                'Unable to connect to database. Please check your internet connection and try again.',
+              type: 'network_error',
+            },
+            { status: 503 },
+          )
         }
         
         console.warn('[api/circadian/calculate] Precomputed query error (non-fatal):', precomputed.error.message)
@@ -113,11 +118,15 @@ export async function GET(req: NextRequest) {
       
       if (isNetworkError) {
         console.error('[api/circadian/calculate] Network error on precomputed query - database unreachable')
-        return NextResponse.json({ 
-          error: 'Database temporarily unavailable',
-          details: 'Unable to connect to database. Please check your internet connection and try again.',
-          type: 'network_error'
-        }, { status: 503 })
+        return NextResponse.json(
+          {
+            ...circadianUnavailable('error', 'Database temporarily unavailable'),
+            details:
+              'Unable to connect to database. Please check your internet connection and try again.',
+            type: 'network_error',
+          },
+          { status: 503 },
+        )
       }
       
       console.error('[api/circadian/calculate] Precomputed query exception:', {
@@ -151,7 +160,7 @@ export async function GET(req: NextRequest) {
           },
         }
 
-        return NextResponse.json({ circadian }, { status: 200 })
+        return NextResponse.json(circadianOk(circadian, 'cached_today'), { status: 200 })
       }
     }
 
@@ -247,19 +256,26 @@ export async function GET(req: NextRequest) {
         
         if (isNetworkError) {
           console.error('[api/circadian/calculate] Network error - database unreachable')
-          return NextResponse.json({ 
-            error: 'Database temporarily unavailable',
-            details: 'Unable to connect to database. Please check your internet connection and try again.',
-            type: 'network_error'
-          }, { status: 503 })
+          return NextResponse.json(
+            {
+              ...circadianUnavailable('error', 'Database temporarily unavailable'),
+              details:
+                'Unable to connect to database. Please check your internet connection and try again.',
+              type: 'network_error',
+            },
+            { status: 503 },
+          )
         }
         
         const { logSupabaseError } = await import('@/lib/supabase/error-handler')
         logSupabaseError('api/circadian/calculate', oldSchemaResult.error, { level: 'warn' })
-        return NextResponse.json({ 
-          error: 'Failed to fetch sleep data',
-          details: oldSchemaResult.error.message 
-        }, { status: 500 })
+        return NextResponse.json(
+          {
+            ...circadianUnavailable('error', 'Failed to fetch sleep data'),
+            details: oldSchemaResult.error.message,
+          },
+          { status: 500 },
+        )
       } else {
         console.log('[api/circadian/calculate] Old schema result:', oldSchemaResult.data?.length || 0, 'records')
       }
@@ -279,17 +295,24 @@ export async function GET(req: NextRequest) {
       
       if (isNetworkError) {
         console.error('[api/circadian/calculate] Network error - database unreachable')
-        return NextResponse.json({ 
-          error: 'Database temporarily unavailable',
-          details: 'Unable to connect to database. Please check your internet connection and try again.',
-          type: 'network_error'
-        }, { status: 503 })
+        return NextResponse.json(
+          {
+            ...circadianUnavailable('error', 'Database temporarily unavailable'),
+            details:
+              'Unable to connect to database. Please check your internet connection and try again.',
+            type: 'network_error',
+          },
+          { status: 503 },
+        )
       }
       
-      return NextResponse.json({ 
-        error: 'Failed to fetch sleep data',
-        details: oldSchemaException?.message || String(oldSchemaException)
-      }, { status: 500 })
+      return NextResponse.json(
+        {
+          ...circadianUnavailable('error', 'Failed to fetch sleep data'),
+          details: oldSchemaException?.message || String(oldSchemaException),
+        },
+        { status: 500 },
+      )
     }
 
       if (oldSchemaResult.data && oldSchemaResult.data.length > 0) {
@@ -307,10 +330,7 @@ export async function GET(req: NextRequest) {
 
     if (!sleepLogs || sleepLogs.length === 0) {
       return NextResponse.json(
-        {
-          error: 'No sleep data available',
-          circadian: null,
-        },
+        circadianUnavailable('insufficient_data', 'No sleep data available'),
         { status: 200 },
       )
     }
@@ -320,19 +340,19 @@ export async function GET(req: NextRequest) {
     const napLogs = sleepLogs.filter(log => log.isNap)
 
     if (mainSleepLogs.length === 0) {
-      return NextResponse.json({ 
-        error: 'No main sleep data available',
-        circadian: null 
-      }, { status: 200 })
+      return NextResponse.json(
+        circadianUnavailable('no_main_sleep', 'No main sleep data available'),
+        { status: 200 },
+      )
     }
 
     // Get latest main sleep for timing calculations
     const latestSleep = mainSleepLogs[0]
     if (!latestSleep.start_ts || !latestSleep.end_ts) {
-      return NextResponse.json({ 
-        error: 'Latest sleep missing start/end times',
-        circadian: null 
-      }, { status: 200 })
+      return NextResponse.json(
+        circadianUnavailable('invalid_sleep_timestamps', 'Latest sleep missing start/end times'),
+        { status: 200 },
+      )
     }
 
     const sleepStart = new Date(latestSleep.start_ts)
@@ -366,10 +386,10 @@ export async function GET(req: NextRequest) {
     }
 
     if (bedtimes.length === 0) {
-      return NextResponse.json({ 
-        error: 'Insufficient sleep data',
-        circadian: null 
-      }, { status: 200 })
+      return NextResponse.json(
+        circadianUnavailable('insufficient_data', 'Insufficient sleep data'),
+        { status: 200 },
+      )
     }
 
     // Calculate averages for main sleep timing
@@ -390,6 +410,7 @@ export async function GET(req: NextRequest) {
     // This ensures consistency with /api/sleep/deficit
     let sleepDeficit = null
     let sleepDebtHours = 0
+    let sleepDebtAssumedZero = false
     try {
       sleepDeficit = await getSleepDeficitForCircadian(dbClient, userId, 7.5)
       sleepDebtHours = sleepDeficit ? Math.max(0, sleepDeficit.weeklyDeficit) : 0
@@ -401,8 +422,8 @@ export async function GET(req: NextRequest) {
       })
     } catch (deficitError: any) {
       console.warn('[api/circadian/calculate] Failed to calculate sleep deficit:', deficitError?.message || deficitError)
-      // Continue with default value
       sleepDebtHours = 0
+      sleepDebtAssumedZero = true
     }
 
     // Get latest shift to determine shift type
@@ -506,7 +527,10 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    return NextResponse.json({ circadian }, { status: 200 })
+    return NextResponse.json(
+      circadianOk(circadian, 'recalculated', sleepDebtAssumedZero || undefined),
+      { status: 200 },
+    )
   } catch (err: any) {
     console.error('[api/circadian/calculate] FATAL ERROR:', err)
     console.error('[api/circadian/calculate] Error stack:', err?.stack)
@@ -514,20 +538,20 @@ export async function GET(req: NextRequest) {
     // Ensure we always return a valid JSON response
     try {
       return NextResponse.json(
-        { 
-          error: 'Internal server error', 
+        {
+          ...circadianUnavailable('error', 'Internal server error'),
           details: err?.message || String(err),
-          type: 'unexpected_error'
+          type: 'unexpected_error',
         },
-        { status: 500 }
+        { status: 500 },
       )
     } catch (responseError: any) {
       // If even creating the response fails, return a minimal error
       console.error('[api/circadian/calculate] Failed to create error response:', responseError)
       return new NextResponse(
-        JSON.stringify({ 
-          error: 'Internal server error',
-          type: 'response_serialization_error'
+        JSON.stringify({
+          ...circadianUnavailable('error', 'Internal server error'),
+          type: 'response_serialization_error',
         }),
         { 
           status: 500,

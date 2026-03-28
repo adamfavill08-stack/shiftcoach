@@ -1,6 +1,9 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
-// Development config - points to localhost
+/**
+ * Optional alternate config (e.g. `npx cap copy -c capacitor.config.dev.ts`).
+ * Prefer `capacitor.config.ts` + CAPACITOR_LIVE_RELOAD=1 so prod syncs do not pick up dev URLs.
+ */
 const config: CapacitorConfig = {
   appId: 'com.shiftcoach.app',
   appName: 'shiftcoach',

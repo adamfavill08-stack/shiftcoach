@@ -1,6 +1,13 @@
 'use client'
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 
 type SupportedLanguage = 'en' | 'es' | 'de'
 type LanguagePreference = 'device' | SupportedLanguage
@@ -37,13 +44,13 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     setLanguage(pref === 'device' ? resolveDeviceLanguage() : pref)
   }, [])
 
-  const setPreference = (pref: LanguagePreference) => {
+  const setPreference = useCallback((pref: LanguagePreference) => {
     setPreferenceState(pref)
     if (typeof window !== 'undefined') {
       window.localStorage.setItem('shiftcoach:language', pref)
     }
     setLanguage(pref === 'device' ? resolveDeviceLanguage() : pref)
-  }
+  }, [])
 
   const value = useMemo(
     () => ({
@@ -51,7 +58,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       language,
       setPreference,
     }),
-    [preference, language],
+    [preference, language, setPreference],
   )
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>
@@ -1053,8 +1060,10 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
 
 export function useTranslation() {
   const { language } = useLanguage()
-  return {
-    t: (key: string) => messages[language]?.[key] ?? messages.en[key] ?? key,
-  }
+  const t = useCallback(
+    (key: string) => messages[language]?.[key] ?? messages.en[key] ?? key,
+    [language],
+  )
+  return useMemo(() => ({ t }), [t])
 }
 

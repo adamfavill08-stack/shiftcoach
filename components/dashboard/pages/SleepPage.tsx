@@ -341,22 +341,82 @@ function SleepMetricsRow() {
         const json = await res.json().catch(() => ({}))
 
         if (!res.ok) {
-          if (res.status === 404 && json?.error === 'no_wearable_connection') {
-            if (!cancelled) setHrError('Connect a wearable (Health Connect / Apple Health) to see heart rate here')
-            return
-          }
           if (!cancelled) setHrError('Could not fetch heart rate data')
           return
         }
 
-        if (json?.message === 'no_heart_rate_data') {
-          if (!cancelled) setHrError('No heart rate data from the last 24 hours yet')
+        const status = json?.status as string | undefined
+        const heart = json?.heart
+
+        if (status === 'error') {
+          if (!cancelled) {
+            setHrError(typeof json?.reason === 'string' ? json.reason : 'Could not read heart rate')
+            setHrResting(null)
+            setHrAvg(null)
+          }
+          return
+        }
+
+        if (status === 'no_device') {
+          if (!cancelled) {
+            setHrError('Connect a wearable (Health Connect / Apple Health) to see heart rate here')
+            setHrResting(null)
+            setHrAvg(null)
+          }
+          return
+        }
+
+        if (status === 'no_recent_data') {
+          if (!cancelled) {
+            setHrError(
+              typeof json?.reason === 'string'
+                ? json.reason
+                : 'No heart-rate samples in this recovery window yet',
+            )
+            setHrResting(null)
+            setHrAvg(null)
+          }
+          return
+        }
+
+        if (status === 'insufficient_data') {
+          if (!cancelled) {
+            setHrResting(typeof heart?.resting_bpm === 'number' ? heart.resting_bpm : null)
+            setHrAvg(typeof heart?.avg_bpm === 'number' ? heart.avg_bpm : null)
+            setHrError(
+              typeof json?.reason === 'string'
+                ? json.reason
+                : 'More heart-rate readings needed across this window',
+            )
+          }
+          return
+        }
+
+        if (status === 'ok') {
+          if (!cancelled) {
+            const r =
+              typeof heart?.resting_bpm === 'number'
+                ? heart.resting_bpm
+                : typeof json.resting_bpm === 'number'
+                  ? json.resting_bpm
+                  : null
+            const a =
+              typeof heart?.avg_bpm === 'number'
+                ? heart.avg_bpm
+                : typeof json.avg_bpm === 'number'
+                  ? json.avg_bpm
+                  : null
+            setHrResting(r)
+            setHrAvg(a)
+            setHrError(null)
+          }
           return
         }
 
         if (!cancelled) {
-          setHrResting(typeof json.resting_bpm === 'number' ? json.resting_bpm : null)
-          setHrAvg(typeof json.avg_bpm === 'number' ? json.avg_bpm : null)
+          setHrError('Could not read heart rate response')
+          setHrResting(null)
+          setHrAvg(null)
         }
       } catch (err) {
         console.error('[SleepMetricsRow] Failed to fetch heart rate:', err)

@@ -8,9 +8,14 @@
     "dev:wsl": "next dev --webpack",
     "dev:android": "next dev -H 0.0.0.0 -p 3000",
     "dev:android:wsl": "next dev --webpack -H 0.0.0.0 -p 3000",
+    "cap:sync": "npx cap sync",
+    "cap:sync:live": "cross-env CAPACITOR_LIVE_RELOAD=1 npx cap sync",
+    "cap:open:android": "npx cap open android",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.4",
@@ -35,6 +40,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -43,7 +49,8 @@
     "eslint": "^9",
     "eslint-config-next": "^16.1.7",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   },
   "optionalDependencies": {
     "lightningcss-win32-x64-msvc": "1.30.2"

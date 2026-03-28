@@ -16,7 +16,7 @@ export type ActivityToday = {
   standHits?: number
   floors?: number | null
   energyScore?: number | null
-  shiftType?: 'day' | 'night' | 'late' | 'off' | null
+  shiftType?: 'day' | 'night' | 'late' | 'off' | 'other' | null
   recoverySignal?: 'GREEN' | 'AMBER' | 'RED'
   timeline?: Array<{ hour: number; level: 0 | 1 | 2 | 3 }>
   nextCoachMessage?: string
@@ -49,6 +49,9 @@ export type ActivityToday = {
   // Movement consistency
   movementConsistency?: number
   movementConsistencyData?: MovementConsistencyResult
+
+  /** Rota calendar day (YYYY-MM-DD) aligned with /api/activity/today window; use when saving shift demand. */
+  date?: string
 }
 
 const fallback: ActivityToday = {
@@ -83,6 +86,8 @@ export function useActivityToday() {
           setData({ 
             ...fallback, 
             ...json.activity,
+            shiftType: json.activity?.shiftType ?? fallback.shiftType,
+            date: typeof json.activity?.date === 'string' ? json.activity.date : undefined,
             // Map new fields from API response
             shiftActivityLevel: json.activity?.shiftActivityLevel ?? null,
             activityLabel: json.activity?.activityLabel ?? null,
@@ -103,7 +108,8 @@ export function useActivityToday() {
             recoveryDescription: json.activity?.recoveryDescription ?? 'Recovery data not available.',
             activityScore: json.activity?.activityScore ?? 0,
             activityLevel: json.activity?.activityLevel ?? 'Low',
-            activityScoreDescription: json.activity?.activityScoreDescription ?? 'Activity data not available.',
+            activityScoreDescription:
+              json.activity?.activityScoreDescription ?? 'Activity data not available.',
             // Movement consistency
             movementConsistency: json.activity?.movementConsistency ?? 0,
             movementConsistencyData: json.activity?.movementConsistencyData ?? undefined,

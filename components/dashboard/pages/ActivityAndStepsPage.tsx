@@ -207,10 +207,14 @@ export default function ActivityAndStepsPage() {
   const recoveryDescription = data.recoveryDescription ?? 'Recovery data not available.'
   const activityScore = data.activityScore ?? 0
   const activityLevel = data.activityLevel ?? 'Low'
-  const activityDescription = data.activityDescription ?? 'Activity data not available.'
+  /** Narrative for the activity score gauge (from calculateActivityScore), not shift-demand option copy. */
+  const activityScoreDescription =
+    data.activityScoreDescription ?? 'Activity data not available.'
 
   const hasRecoveryData = data.recoveryScore != null && recoveryDescription !== 'Recovery data not available.'
-  const hasActivityData = data.activityScore != null && activityDescription !== 'Activity data not available.'
+  const hasMovementForScore =
+    (data.steps ?? 0) > 0 || (data.activeMinutes ?? 0) > 0 || (intensityBreakdown.totalActiveMinutes ?? 0) > 0
+  const hasActivityData = hasMovementForScore
 
   // Human-friendly source label for activity data
   const activitySourceLabel = useMemo(() => {
@@ -239,10 +243,13 @@ export default function ActivityAndStepsPage() {
 
   // Generate activity recommendation with real data
   const activityRecommendation = useMemo(() => {
+    const st = data.shiftType
+    const shiftTypeForCoach: 'day' | 'night' | 'off' | 'other' =
+      st === 'night' ? 'night' : st === 'day' ? 'day' : st === 'off' ? 'off' : 'other'
     return generateActivityRecommendation({
       recoveryScore,
       activityScore,
-      shiftType: data.shiftType === 'night' ? 'night' : data.shiftType === 'day' ? 'day' : data.shiftType === 'off' ? 'off' : 'other',
+      shiftType: shiftTypeForCoach,
       shiftActivityLevel: data.shiftActivityLevel ?? null,
       lastSleepHours,
       sleepDebtHours,
@@ -453,7 +460,9 @@ export default function ActivityAndStepsPage() {
                 Best next step
               </p>
               <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--text-soft)' }}>
-                A short walk in the next hour can boost alertness without affecting sleep later.
+                {data.shiftActivityLevel && data.recoverySuggestion
+                  ? data.recoverySuggestion
+                  : 'A short walk in the next hour can boost alertness without affecting sleep later.'}
               </p>
             </div>
           </div>
@@ -463,6 +472,7 @@ export default function ActivityAndStepsPage() {
         <section className={premiumSectionClass} style={premiumSectionStyle}>
           <ActivityLevelSelector
             currentLevel={data.shiftActivityLevel ?? null}
+            activityLogDate={data.date ?? null}
             weightKg={profile?.weight_kg ?? 75}
             onSelect={(level) => {
               window.dispatchEvent(new CustomEvent('activity-level-updated', { detail: { level } }))
@@ -694,7 +704,7 @@ export default function ActivityAndStepsPage() {
                 </h3>
                 <p className="text-[11px] leading-snug" style={{ color: 'var(--text-soft)' }}>
                   {hasActivityData
-                    ? activityDescription
+                    ? activityScoreDescription
                     : 'Log steps or connect a wearable to see how your daily movement compares to your target.'}
                 </p>
               </div>

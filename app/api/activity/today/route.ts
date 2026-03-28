@@ -504,6 +504,8 @@ export async function GET(req: NextRequest) {
       lastSyncedAt: null, // Column doesn't exist in database
       source: activityResponse.data?.source ?? 'Manual entry',
       goal: profileResponse.data?.daily_steps_goal ?? 10000,
+      /** Current rota context for client (recommendations, copy). Must match shift used for window + scores. */
+      shiftType,
       // Use shift date if we have it, so night-shift UI stays consistent.
       date: currentShift?.date ?? today,
       // New activity level fields
@@ -544,6 +546,7 @@ export async function GET(req: NextRequest) {
           lastSyncedAt: null,
           source: 'Not connected',
           goal: 10000,
+          shiftType: 'other' as const,
           date: today,
           shiftActivityLevel: null,
           activityLabel: null,

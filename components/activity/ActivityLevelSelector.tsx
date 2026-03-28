@@ -7,13 +7,18 @@ import { ACTIVITY_LEVELS, type ShiftActivityLevel, getRecoverySuggestion, getEst
 type ActivityLevelSelectorProps = {
   currentLevel?: ShiftActivityLevel | null
   weightKg?: number
+  /** Same rota day as GET /api/activity/today `date` (YYYY-MM-DD); keeps night-shift logs on the correct calendar row. */
+  activityLogDate?: string | null
   onSelect?: (level: ShiftActivityLevel) => void
   className?: string
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+
 export function ActivityLevelSelector({ 
   currentLevel, 
   weightKg = 75,
+  activityLogDate,
   onSelect,
   className = '' 
 }: ActivityLevelSelectorProps) {
@@ -29,32 +34,22 @@ export function ActivityLevelSelector({
     setSaving(true)
 
     try {
-      console.log('[ActivityLevelSelector] Sending request:', { level })
-      
+      const payload: { shift_activity_level: ShiftActivityLevel; date?: string } = {
+        shift_activity_level: level,
+      }
+      if (activityLogDate && ISO_DATE.test(activityLogDate)) {
+        payload.date = activityLogDate
+      }
+
       const res = await fetch('/api/activity/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shift_activity_level: level }),
-      })
-
-      console.log('[ActivityLevelSelector] Fetch completed:', {
-        ok: res.ok,
-        status: res.status,
-        statusText: res.statusText,
-        contentType: res.headers.get('content-type'),
+        body: JSON.stringify(payload),
       })
 
       const responseText = await res.text().catch((err) => {
         console.error('[ActivityLevelSelector] Failed to read response:', err)
         return ''
-      })
-      
-      console.log('[ActivityLevelSelector] Response body:', {
-        length: responseText?.length || 0,
-        isEmpty: !responseText || responseText.trim() === '',
-        isJson: responseText?.trim().startsWith('{') || responseText?.trim().startsWith('['),
-        preview: responseText?.substring(0, 500) || '(empty)',
-        fullText: responseText,
       })
 
       if (!res.ok) {
@@ -72,8 +67,6 @@ export function ActivityLevelSelector({
         } else {
           try {
             const parsed = JSON.parse(responseText)
-            console.log('[ActivityLevelSelector] Parsed error response:', parsed)
-            
             // Always merge parsed data, but ensure we have at least status info
             if (Object.keys(parsed).length === 0) {
               error.error = 'Empty error response from server (returned {})'

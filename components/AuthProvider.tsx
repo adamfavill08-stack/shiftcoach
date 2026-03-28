@@ -1,6 +1,13 @@
 'use client'
 
-import { ReactNode, createContext, useContext, useEffect, useState } from 'react'
+import {
+  ReactNode,
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 
 import { supabase } from '@/lib/supabase'
 
@@ -53,6 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { mounted = false; sub.subscription.unsubscribe() }
   }, [])
 
-  return <Ctx.Provider value={{ user, loading }}>{children}</Ctx.Provider>
+  const value = useMemo(() => ({ user, loading }), [user, loading])
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 

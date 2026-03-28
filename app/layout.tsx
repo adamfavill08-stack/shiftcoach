@@ -48,26 +48,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             --safe-area-inset-right: env(safe-area-inset-right, 0px);
           }
         ` }} />
-        {/* Provide a minimal Capacitor shim so native wrappers that call
-            Capacitor.triggerEvent (e.g. appLoaded) don't crash when the web
-            app is served remotely without the full Capacitor JS bundle. */}
+        {/* Ensure window.Capacitor.triggerEvent exists before native code runs
+            Bridge.triggerJSEvent (e.g. MainActivity wear bridge). Merge onto
+            partial Capacitor if the native bridge injected the object first. */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              (function() {
-                try {
-                  if (typeof window !== 'undefined' && typeof (window as any).Capacitor === 'undefined') {
-                    (window as any).Capacitor = {
-                      triggerEvent: function () {
-                        // no-op shim for native bridge signals
-                      },
-                    };
-                  }
-                } catch (e) {
-                  // If anything goes wrong here, fail silently to avoid
-                  // blocking the app from rendering.
-                }
-              })();
+(function() {
+  try {
+    if (typeof window === 'undefined') return;
+    var c = window.Capacitor;
+    if (!c) {
+      window.Capacitor = { triggerEvent: function () {} };
+    } else if (typeof c.triggerEvent !== 'function') {
+      c.triggerEvent = function () {};
+    }
+  } catch (e) {}
+})();
             `,
           }}
         />
@@ -75,49 +72,48 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              (function() {
-                const originalError = console.error;
-                const originalWarn = console.warn;
-                
-                const shouldSuppress = function(arg) {
-                  if (!arg) return false;
-                  const errorName = arg.name || '';
-                  const errorMessage = arg.toString() || arg.message || '';
-                  const errorType = arg.constructor?.name || '';
-                  
-                  return errorName === 'AuthSessionMissingError' || 
-                         errorMessage.includes('AuthSessionMissingError') ||
-                         errorMessage.includes('Auth session missing') ||
-                         errorType === 'AuthSessionMissingError';
-                };
-                
-                console.error = function(...args) {
-                  if (args.some(shouldSuppress)) return;
-                  originalError.apply(console, args);
-                };
-                
-                console.warn = function(...args) {
-                  if (args.some(shouldSuppress)) return;
-                  originalWarn.apply(console, args);
-                };
-                
-                window.addEventListener('error', function(event) {
-                  if (event.error?.name === 'AuthSessionMissingError' ||
-                      event.message?.includes('Auth session missing')) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    return false;
-                  }
-                }, true);
-                
-                window.addEventListener('unhandledrejection', function(event) {
-                  if (event.reason?.name === 'AuthSessionMissingError' ||
-                      event.reason?.message?.includes('Auth session missing')) {
-                    event.preventDefault();
-                    return false;
-                  }
-                });
-              })();
+(function() {
+  var originalError = console.error;
+  var originalWarn = console.warn;
+  function shouldSuppress(arg) {
+    if (!arg) return false;
+    var errorName = arg.name || '';
+    var errorMessage = (arg.toString && arg.toString()) || arg.message || '';
+    var errorType = (arg.constructor && arg.constructor.name) || '';
+    return errorName === 'AuthSessionMissingError' ||
+      errorMessage.indexOf('AuthSessionMissingError') !== -1 ||
+      errorMessage.indexOf('Auth session missing') !== -1 ||
+      errorType === 'AuthSessionMissingError';
+  }
+  console.error = function () {
+    var args = Array.prototype.slice.call(arguments);
+    if (args.some(shouldSuppress)) return;
+    originalError.apply(console, args);
+  };
+  console.warn = function () {
+    var args = Array.prototype.slice.call(arguments);
+    if (args.some(shouldSuppress)) return;
+    originalWarn.apply(console, args);
+  };
+  window.addEventListener('error', function (event) {
+    var err = event.error;
+    var msg = event.message || '';
+    if ((err && err.name === 'AuthSessionMissingError') ||
+        msg.indexOf('Auth session missing') !== -1) {
+      event.preventDefault();
+      event.stopPropagation();
+      return false;
+    }
+  }, true);
+  window.addEventListener('unhandledrejection', function (event) {
+    var r = event.reason;
+    if ((r && r.name === 'AuthSessionMissingError') ||
+        (r && r.message && r.message.indexOf('Auth session missing') !== -1)) {
+      event.preventDefault();
+      return false;
+    }
+  });
+})();
             `,
           }}
         />

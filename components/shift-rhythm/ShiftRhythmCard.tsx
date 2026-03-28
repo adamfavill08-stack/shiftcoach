@@ -15,6 +15,7 @@ import { ExploreCarousel } from "@/components/dashboard/ExploreCarousel";
 
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import type { ShiftLagMetrics } from '@/lib/circadian/calculateShiftLag'
+import type { HeartRateApiStatus } from '@/lib/wearables/heartRateApi'
 
 type ShiftRhythmCardProps = {
   // Dashboard passes score as 0–1000 (totalScore * 10) or undefined
@@ -923,9 +924,11 @@ function HomeActivityCard() {
 
 function HeartRecoveryCard() {
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [hrStatus, setHrStatus] = useState<HeartRateApiStatus | null>(null);
+  const [hrReason, setHrReason] = useState<string | null>(null);
   const [restingBpm, setRestingBpm] = useState<number | null>(null);
   const [avgBpm, setAvgBpm] = useState<number | null>(null);
+  const [recoveryDelta, setRecoveryDelta] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -933,34 +936,77 @@ function HeartRecoveryCard() {
     async function load() {
       try {
         setLoading(true);
-        setError(null);
+        setHrStatus(null);
+        setHrReason(null);
 
         const res = await fetch("/api/wearables/heart-rate");
         const data = await res.json().catch(() => ({}));
+        const status = data?.status as HeartRateApiStatus | undefined;
 
-        if (!res.ok) {
-          if (data?.error === "no_wearable_connection") {
-            setError("connect_wearable");
-          } else {
-            setError("unknown");
-          }
-          return;
-        }
-
-        if (data?.message === "no_heart_rate_data") {
+        if (!cancelled && (!res.ok || !status)) {
+          setHrStatus("error");
+          setHrReason(
+            typeof data?.reason === "string"
+              ? data.reason
+              : typeof data?.error === "string"
+                ? data.error
+                : "Could not load heart rate."
+          );
           setRestingBpm(null);
           setAvgBpm(null);
+          setRecoveryDelta(null);
           return;
         }
 
         if (!cancelled) {
-          setRestingBpm(
-            typeof data?.resting_bpm === "number" ? data.resting_bpm : null
-          );
-          setAvgBpm(typeof data?.avg_bpm === "number" ? data.avg_bpm : null);
+          if (status === "error") {
+            setHrStatus("error");
+            setHrReason(
+              typeof data?.reason === "string"
+                ? data.reason
+                : typeof data?.error === "string"
+                  ? data.error
+                  : "Could not load heart rate."
+            );
+            setRestingBpm(null);
+            setAvgBpm(null);
+            setRecoveryDelta(null);
+            return;
+          }
+
+          setHrStatus(status);
+          setHrReason(typeof data?.reason === "string" ? data.reason : null);
+
+          const h = data?.heart;
+          if (status === "no_device" || status === "no_recent_data") {
+            setRestingBpm(null);
+            setAvgBpm(null);
+            setRecoveryDelta(null);
+            return;
+          }
+
+          if (h) {
+            const r = typeof h.resting_bpm === "number" ? h.resting_bpm : null;
+            const a = typeof h.avg_bpm === "number" ? h.avg_bpm : null;
+            const d =
+              typeof h.recovery_delta_bpm === "number" ? h.recovery_delta_bpm : null;
+            setRestingBpm(r);
+            setAvgBpm(a);
+            setRecoveryDelta(d);
+          } else {
+            setRestingBpm(null);
+            setAvgBpm(null);
+            setRecoveryDelta(null);
+          }
         }
       } catch {
-        if (!cancelled) setError("unknown");
+        if (!cancelled) {
+          setHrStatus("error");
+          setHrReason("Could not load heart rate.");
+          setRestingBpm(null);
+          setAvgBpm(null);
+          setRecoveryDelta(null);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -972,22 +1018,44 @@ function HeartRecoveryCard() {
     };
   }, []);
 
+  /** Same bar as /heart-health: ok + resting + avg + API delta */
+  const authoritative =
+    hrStatus === "ok" &&
+    recoveryDelta != null &&
+    restingBpm != null &&
+    avgBpm != null;
+
   let recoveryLabel = "Not enough data yet";
   let recoveryTone = "text-slate-500";
 
-  if (restingBpm != null && avgBpm != null) {
-    const diff = avgBpm - restingBpm;
-    if (diff <= 15) {
-      recoveryLabel = "Recovery looks good";
-      recoveryTone = "text-emerald-600";
-    } else if (diff <= 25) {
+  if (authoritative) {
+    const diff = recoveryDelta!;
+    if (diff > 25) {
+      recoveryLabel = "Recovery over-worked";
+      recoveryTone = "text-rose-600";
+    } else if (diff > 15) {
       recoveryLabel = "Recovery slightly stressed";
       recoveryTone = "text-amber-600";
     } else {
-      recoveryLabel = "Recovery over-worked";
-      recoveryTone = "text-rose-600";
+      recoveryLabel = "Recovery looks good";
+      recoveryTone = "text-emerald-600";
     }
+  } else if (hrStatus === "insufficient_data" && restingBpm != null && avgBpm != null) {
+    recoveryLabel = "Need more readings for a score";
+    recoveryTone = "text-slate-500";
   }
+
+  const subline = loading
+    ? "Checking your recovery window…"
+    : hrStatus === "no_device"
+      ? "Connect your wearable to see recovery between shifts."
+      : hrStatus === "no_recent_data"
+        ? hrReason ?? "No heart-rate samples in this window yet."
+        : hrStatus === "insufficient_data"
+          ? hrReason ?? "More samples needed across the window."
+          : hrStatus === "error"
+            ? hrReason ?? "We had trouble reading heart rate."
+            : recoveryLabel;
 
   return (
     <Link
@@ -997,33 +1065,27 @@ function HeartRecoveryCard() {
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 space-y-1.5">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0">
               <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
                 Heart recovery
               </span>
-              <span className={`text-[11px] ${recoveryTone}`}>
-                {loading
-                  ? "Checking your last 24h…"
-                  : error === "connect_wearable"
-                  ? "Connect your wearable to see recovery."
-                  : error
-                  ? "We had trouble reading heart rate."
-                  : recoveryLabel}
+              <span className={`text-[11px] leading-snug ${recoveryTone}`}>
+                {subline}
               </span>
             </div>
             <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />
           </div>
 
-          <div className="mt-2 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-500">Resting (last 24h)</p>
-              <p className="text-base font-semibold text-slate-900">
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs text-slate-500">Resting (estimate)</p>
+              <p className="text-base font-semibold text-slate-900 tabular-nums">
                 {loading || restingBpm == null ? "—" : `${restingBpm} bpm`}
               </p>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-slate-500">Average (last 24h)</p>
-              <p className="text-base font-semibold text-slate-900">
+            <div className="text-right min-w-0">
+              <p className="text-xs text-slate-500">Average (window)</p>
+              <p className="text-base font-semibold text-slate-900 tabular-nums">
                 {loading || avgBpm == null ? "—" : `${avgBpm} bpm`}
               </p>
             </div>

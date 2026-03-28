@@ -531,7 +531,6 @@ function EnergyCurveCard({
   shiftStart,
   shiftEnd,
   sleepData,
-  circadian,
   meals,
   sleepDebt,
   biologicalNight,
@@ -539,12 +538,12 @@ function EnergyCurveCard({
   currentHour,
   sleepHours,
   adjustedCalories,
+  authoritativeCircadian = false,
 }: {
   shiftType?: 'day' | 'night' | 'off' | 'early' | 'late' | 'other';
   shiftStart?: string | null;
   shiftEnd?: string | null;
   sleepData?: { start: string; end: string; durationHours: number | null } | null;
-  circadian?: any;
   meals?: Array<{ suggestedTime: string; label: string }>;
   sleepDebt?: number;
   biologicalNight?: { start: number; end: number } | null;
@@ -552,6 +551,8 @@ function EnergyCurveCard({
   currentHour: number;
   sleepHours?: number | null;
   adjustedCalories?: number;
+  /** When false, copy avoids implying the curve used the circadian API payload */
+  authoritativeCircadian?: boolean;
 }) {
   // Generate SVG path
   const svgPath = React.useMemo(() => {
@@ -657,7 +658,9 @@ function EnergyCurveCard({
 
       {/* Description */}
       <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300 max-w-prose">
-        Predicted energy through the day from your shift pattern, sleep, and circadian rhythm.
+        {authoritativeCircadian
+          ? 'Predicted energy through the day from your shift pattern, sleep, and circadian rhythm.'
+          : 'Predicted energy from your shift pattern and logged sleep. Full circadian timing is shown when rhythm data is available.'}
         <span className="text-slate-400 dark:text-slate-500"> The dot is "now".</span>
       </p>
 
@@ -905,6 +908,8 @@ export default function AdjustedCaloriesPage() {
   const { data, loading } = useTodayNutrition();
   const [showInfo, setShowInfo] = useState(false);
   const [circadian, setCircadian] = useState<any>(null);
+  const [circadianAuthoritative, setCircadianAuthoritative] = useState(false);
+  const [circadianUnavailableHint, setCircadianUnavailableHint] = useState<string | null>(null);
   const [weeklyShifts, setWeeklyShifts] = useState<any[]>([]);
   const [loadingCircadian, setLoadingCircadian] = useState(true);
   const [loadingShifts, setLoadingShifts] = useState(true);
@@ -919,7 +924,29 @@ export default function AdjustedCaloriesPage() {
         const res = await fetch('/api/circadian/calculate', { next: { revalidate: 30 } });
         if (res.ok) {
           const json = await res.json();
-          setCircadian(json.circadian);
+          if (json.status === 'ok' && json.circadian) {
+            setCircadian(json.circadian);
+            setCircadianAuthoritative(true);
+            setCircadianUnavailableHint(null);
+          } else if (json.status === undefined) {
+            setCircadian(json.circadian ?? null);
+            setCircadianAuthoritative(!!json.circadian);
+            setCircadianUnavailableHint(null);
+          } else {
+            setCircadian(null);
+            setCircadianAuthoritative(false);
+            setCircadianUnavailableHint(
+              typeof json.reason === 'string'
+                ? json.reason
+                : typeof json.error === 'string'
+                  ? json.error
+                  : 'Circadian insight unavailable yet',
+            );
+          }
+        } else {
+          setCircadian(null);
+          setCircadianAuthoritative(false);
+          setCircadianUnavailableHint(null);
         }
       } catch (err) {
         console.error('[AdjustedCaloriesPage] circadian fetch error:', err);
@@ -1679,13 +1706,17 @@ export default function AdjustedCaloriesPage() {
         {/* Inner ring for premium feel */}
         <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
         
-        <div className="relative z-10">
+        <div className="relative z-10 space-y-3">
+          {!loadingCircadian && !circadianAuthoritative && circadianUnavailableHint ? (
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              {circadianUnavailableHint}
+            </p>
+          ) : null}
           <EnergyCurveCard
             shiftType={data?.shiftType}
             shiftStart={todayShift?.start_ts}
             shiftEnd={todayShift?.end_ts}
             sleepData={sleepData}
-            circadian={circadian}
             meals={data?.meals}
             sleepDebt={data?.sleepHoursLast24h ? Math.max(0, 7.5 - data.sleepHoursLast24h) : undefined}
             biologicalNight={biologicalNight}
@@ -1693,6 +1724,7 @@ export default function AdjustedCaloriesPage() {
             currentHour={currentHour}
             sleepHours={data?.sleepHoursLast24h}
             adjustedCalories={adjustedCalories}
+            authoritativeCircadian={circadianAuthoritative}
           />
         </div>
       </section>

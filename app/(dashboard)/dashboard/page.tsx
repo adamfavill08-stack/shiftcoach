@@ -150,8 +150,14 @@ function DashboardContent() {
         return
       }
       const json = await res.json()
-      setCircadian(json.circadian ?? null)
-      cacheDashboardState({ circadian: json.circadian ?? null })
+      const nextCircadian =
+        json.status === 'ok' && json.circadian
+          ? json.circadian
+          : json.status === undefined
+            ? (json.circadian ?? null)
+            : null
+      setCircadian(nextCircadian)
+      cacheDashboardState({ circadian: nextCircadian })
       setIsUsingCachedData(false)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)

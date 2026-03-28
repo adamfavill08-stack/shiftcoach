@@ -4,11 +4,19 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const CHROME_MOBILE_UA =
   'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36';
 
-const explicitServerUrl = process.env.CAPACITOR_SERVER_URL
-const isDev = process.env.NODE_ENV !== 'production'
+/** Override both dev and prod targets, e.g. staging URL */
+const explicitServerUrl = process.env.CAPACITOR_SERVER_URL;
 
-const serverUrl =
-  explicitServerUrl || (isDev ? 'http://10.0.2.2:3000' : 'https://www.shiftcoach.app')
+/**
+ * Live reload / emulator dev server only. Do not infer from NODE_ENV: `npx cap sync` is often run
+ * with NODE_ENV unset, which previously baked http://10.0.2.2:3000 into android assets by mistake.
+ */
+const liveReload = process.env.CAPACITOR_LIVE_RELOAD === '1';
+
+const hostedUrl = 'https://www.shiftcoach.app';
+const emulatorDevUrl = 'http://10.0.2.2:3000';
+
+const serverUrl = explicitServerUrl ?? (liveReload ? emulatorDevUrl : hostedUrl);
 
 const config: CapacitorConfig = {
   appId: 'com.shiftcoach.app',
@@ -23,8 +31,7 @@ const config: CapacitorConfig = {
     },
   },
   server: {
-    // In dev, point WebView at the local Next dev server.
-    // In production, use the hosted HTTPS site.
+    // Default: hosted site. Emulator live reload: CAPACITOR_LIVE_RELOAD=1 before cap sync, or CAPACITOR_SERVER_URL.
     url: serverUrl,
     cleartext: serverUrl.startsWith('http://'),
   },

@@ -35,8 +35,7 @@ const nextConfig: NextConfig = {
       'framer-motion',
       'recharts',
     ],
-    // Mobile-specific optimizations
-    optimizeCss: true, // Optimize CSS for mobile
+    // optimizeCss can cause Turbopack dev to rebuild repeatedly on some setups
   },
   
   // Turbopack configuration (Next.js 16 uses Turbopack by default)
