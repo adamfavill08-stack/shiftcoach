@@ -183,7 +183,7 @@ export default function ShiftLagInfoPage() {
                 cy="110"
                 r={radius}
                 className="stroke-slate-100"
-                strokeWidth="16"
+                strokeWidth="8"
                 fill="none"
               />
               <circle
@@ -191,7 +191,7 @@ export default function ShiftLagInfoPage() {
                 cy="110"
                 r={radius}
                 stroke="url(#shiftlag-ring)"
-                strokeWidth="16"
+                strokeWidth="8"
                 fill="none"
                 strokeLinecap="round"
                 strokeDasharray={circumference}

@@ -9,7 +9,6 @@ import { ErrorSuppressor } from '@/components/ErrorSuppressor'
 import { ThemeProvider } from '@/components/providers/theme-provider'
 import { LanguageProvider } from '@/components/providers/language-provider'
 import { BottomNavWrapper } from '@/components/layout/BottomNavWrapper'
-import { FloatingCoachBubble } from '@/components/layout/FloatingCoachBubble'
 import { AutoHealthSync } from '@/components/wearables/AutoHealthSync'
 import { NativeAndroidBackButton } from '@/components/native/NativeAndroidBackButton'
 import { NativeAndroidStatusBar } from '@/components/native/NativeAndroidStatusBar'
@@ -134,7 +133,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     {children}
                     <QuickAddSheet />
                     <ToastContainer />
-                    <FloatingCoachBubble />
                     <BottomNavWrapper />
                   </main>
                 </QuickAddProvider>

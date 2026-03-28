@@ -1,19 +1,13 @@
 'use client'
 
 import React from 'react'
-import { Clock, Dumbbell, Droplet, Sparkles, Wheat } from 'lucide-react'
+import { Dumbbell, Droplet, Sparkles, Wheat } from 'lucide-react'
 import { getMacroReason } from '@/lib/nutrition/getMacroReason'
 
 export type MacroTargetsMealSlot = {
   label: string
   time: string
   Icon?: React.ComponentType<{ className?: string }>
-}
-
-/** Structured next-meal line for the highlight pill (preferred over plain `mealTimesPreface`). */
-export type NextMealHighlight = {
-  label: string
-  time: string
 }
 
 export type MacroTargetsCardProps = {
@@ -28,10 +22,9 @@ export type MacroTargetsCardProps = {
   mealTimesData?: MacroTargetsMealSlot[]
   /** Optional shift-specific line below meal list (e.g. from parent). */
   timingTip?: string | null
-  /** @deprecated Prefer `nextMealHighlight` for the premium pill. */
   mealTimesPreface?: string | null
-  /** Next meal — renders as a tinted pill with stronger emphasis. */
-  nextMealHighlight?: NextMealHighlight | null
+  /** Matches `/api/meal-timing/today` `nextMealLabel` to highlight a row in the meal list. */
+  highlightNextMealLabel?: string | null
   loading?: boolean
   /** 'compact' = mobile / route styling; 'elevated' = glass card for desktop detail */
   variant?: 'compact' | 'elevated'
@@ -92,7 +85,7 @@ export function MacroTargetsCard({
   mealTimesData,
   timingTip,
   mealTimesPreface,
-  nextMealHighlight,
+  highlightNextMealLabel,
   loading,
   variant = 'compact',
   className = '',
@@ -166,7 +159,7 @@ export function MacroTargetsCard({
   if (variant === 'compact') {
     const ctx = scheduleContext(shiftType)
     const mealRows = mealTimesData ?? []
-    const nextLabelNorm = nextMealHighlight?.label.trim().toLowerCase()
+    const nextLabelNorm = highlightNextMealLabel?.trim().toLowerCase()
 
     return (
       <section className={`${outer} ${className}`.trim()}>
@@ -217,21 +210,7 @@ export function MacroTargetsCard({
                   ) : null}
                 </header>
 
-                {nextMealHighlight ? (
-                  <div className="flex items-center gap-2.5 rounded-full border border-sky-100/90 bg-gradient-to-r from-sky-50/95 to-indigo-50/40 px-3.5 py-2.5 shadow-[0_1px_2px_rgba(14,165,233,0.08)]">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/90 shadow-sm ring-1 ring-sky-100/80">
-                      <Clock className="h-4 w-4 text-sky-600" strokeWidth={2} />
-                    </div>
-                    <div className="min-w-0 flex-1 text-[12px] leading-snug">
-                      <span className="font-medium text-slate-500">Next </span>
-                      <span className="font-semibold text-slate-900">{nextMealHighlight.label}</span>
-                      <span className="font-medium text-slate-500"> · </span>
-                      <span className="font-semibold tabular-nums text-slate-800">{nextMealHighlight.time}</span>
-                    </div>
-                  </div>
-                ) : mealTimesPreface ? (
-                  <p className="text-[12px] text-slate-600">{mealTimesPreface}</p>
-                ) : null}
+                {mealTimesPreface ? <p className="text-[12px] text-slate-600">{mealTimesPreface}</p> : null}
 
                 <div className="overflow-hidden rounded-[20px] border border-slate-200/60 bg-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
                   {mealRows.map(({ label, time, Icon }, index) => {
@@ -241,7 +220,7 @@ export function MacroTargetsCard({
                         key={`${label}-${index}`}
                         className={[
                           'flex items-center justify-between gap-3 border-b border-slate-200/35 px-4 py-3.5 last:border-b-0',
-                          isNext ? 'bg-sky-50/35' : '',
+                          isNext ? 'bg-slate-50/70' : '',
                         ].join(' ')}
                       >
                         <div className="flex min-w-0 items-center gap-3">
@@ -356,33 +335,21 @@ export function MacroTargetsCard({
               {shiftType != null ? (
                 <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{scheduleContext(shiftType)}</p>
               ) : null}
-              {nextMealHighlight ? (
-                <div className="mt-3 inline-flex w-full max-w-full items-center gap-2.5 rounded-full border border-sky-100/80 bg-gradient-to-r from-sky-50/90 to-indigo-50/35 px-3.5 py-2.5 dark:border-sky-900/40 dark:from-sky-950/40 dark:to-indigo-950/25">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/90 shadow-sm ring-1 ring-sky-100/80 dark:bg-slate-800 dark:ring-slate-600/50">
-                    <Clock className="h-4 w-4 text-sky-600 dark:text-sky-400" strokeWidth={2} />
-                  </div>
-                  <div className="min-w-0 flex-1 text-[12px] leading-snug text-slate-800 dark:text-slate-200">
-                    <span className="font-medium text-slate-500 dark:text-slate-400">Next </span>
-                    <span className="font-semibold">{nextMealHighlight.label}</span>
-                    <span className="font-medium text-slate-500 dark:text-slate-400"> · </span>
-                    <span className="font-semibold tabular-nums">{nextMealHighlight.time}</span>
-                  </div>
-                </div>
-              ) : mealTimesPreface ? (
+              {mealTimesPreface ? (
                 <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{mealTimesPreface}</p>
               ) : null}
             </div>
             <div className="overflow-hidden rounded-[20px] border border-slate-200/60 bg-white/80 dark:border-slate-700/40 dark:bg-slate-800/50">
               {mealTimesData.map(({ label, time, Icon }, index) => {
                 const isNext =
-                  nextMealHighlight != null &&
-                  label.trim().toLowerCase() === nextMealHighlight.label.trim().toLowerCase()
+                  highlightNextMealLabel != null &&
+                  label.trim().toLowerCase() === highlightNextMealLabel.trim().toLowerCase()
                 return (
                   <div
                     key={`${label}-${index}`}
                     className={[
                       'flex items-center justify-between gap-3 border-b border-slate-200/40 px-4 py-3.5 last:border-b-0 dark:border-slate-700/35',
-                      isNext ? 'bg-sky-50/40 dark:bg-sky-950/20' : '',
+                      isNext ? 'bg-slate-50/50 dark:bg-slate-800/35' : '',
                     ].join(' ')}
                   >
                     <div className="flex items-center gap-3">

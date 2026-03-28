@@ -168,27 +168,9 @@ export function MoodFocus({
                       <p key={idx} className="text-sm leading-relaxed" style={{ color: 'var(--text-main)' }}>{line}</p>
                     ))}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      try {
-                        localStorage.setItem(
-                          'coach-context',
-                          JSON.stringify({
-                            reason: activeInfo === 'mood' ? 'low_mood' : 'low_focus',
-                            score,
-                          })
-                        )
-                      } catch {}
-                      setActiveInfo(null)
-                      // Trigger coach chat to open
-                      window.dispatchEvent(new CustomEvent('open-coach-chat'))
-                    }}
-                    className="mt-3 inline-flex items-center justify-center rounded-full bg-gradient-to-r from-sky-500 to-violet-500 px-4 py-2 text-sm font-medium text-white hover:brightness-110 active:scale-95 transition"
-                  >
-                    Talk to AI Coach
-                  </button>
-                  <p className="mt-2 text-[10px]" style={{ color: 'var(--text-muted)' }}>Shift Coach is here to support you, but this isn't a crisis service. If you feel at risk, please contact local emergency or mental health services.</p>
+                  <p className="mt-3 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                    Shift Coach is a coaching tool, not a crisis service. If you feel at risk, please contact local emergency or mental health services.
+                  </p>
                 </>
               )
             })()}

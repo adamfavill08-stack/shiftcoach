@@ -192,7 +192,7 @@ h4, .h4 {
    UTILITY CLASSES
    ============================================ */
 
-.safe-top    { padding-top: env(safe-area-inset-top); }
+.safe-top    { padding-top: env(safe-area-inset-top, 0px); }
 
 /* Premium animations */
 @keyframes pulse-slow {
@@ -299,7 +299,12 @@ h4, .h4 {
   transform: translateX(1rem);
 }
 
-/* Capacitor Android: NativeAndroidStatusBar sets this attribute only on native Android */
+/* Main scroll area: keep content below status bar / notch (viewport-fit=cover) */
+.app-main-shell {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Capacitor Android: NativeAndroidStatusBar sets this; min inset when env() is 0 but WebView is edge-to-edge */
 html[data-cap-android-statusbar] .app-main-shell {
-  padding-top: max(env(safe-area-inset-top, 0px), 6px);
+  padding-top: max(env(safe-area-inset-top, 0px), 12px);
 }

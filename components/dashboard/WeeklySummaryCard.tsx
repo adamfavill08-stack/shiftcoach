@@ -1,13 +1,9 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useWeeklySummary } from '@/lib/hooks/useWeeklySummary'
-import { useCoachState } from '@/lib/hooks/useCoachState'
 
 export function WeeklySummaryCard() {
   const { summary, loading } = useWeeklySummary()
-  const router = useRouter()
-  const { openCoach } = useCoachState()
 
   if (loading) {
     return null // Don't show anything while loading
@@ -28,30 +24,14 @@ export function WeeklySummaryCard() {
     day: 'numeric',
   })
 
-  const handleClick = () => {
-    // Set context to open coach with summary discussion
-    try {
-      localStorage.setItem(
-        'coach-context',
-        JSON.stringify({
-          reason: 'weekly_summary',
-          weekStart: summary.week_start,
-        })
-      )
-    } catch {}
-    // Open the coach chat
-    openCoach()
-  }
-
   return (
     <section
-      className="rounded-3xl border px-5 py-4 backdrop-blur-2xl cursor-pointer transition-transform duration-150 hover:scale-[1.01] active:scale-[0.99]"
+      className="rounded-3xl border px-5 py-4 backdrop-blur-2xl"
       style={{
         backgroundColor: 'var(--card)',
         borderColor: 'var(--border-subtle)',
         boxShadow: 'var(--shadow-soft)',
       }}
-      onClick={handleClick}
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
@@ -84,7 +64,7 @@ export function WeeklySummaryCard() {
         className="mt-2 text-[11px]"
         style={{ color: 'var(--text-muted)' }}
       >
-        Tap to chat with your coach about this week.
+        Generated from your recent sleep, shifts, and recovery.
       </p>
     </section>
   )

@@ -1,14 +1,10 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import Image from 'next/image'
-import { useRouter } from 'next/navigation'
-import { Bell, Calendar, MoreHorizontal, MessageCircle } from 'lucide-react'
+import { Bell } from 'lucide-react'
 
-import { CoachChatModal } from '@/components/modals/CoachChatModal'
 import { NotificationModal } from '@/components/notifications/NotificationModal'
 import { useNotifications } from '@/lib/hooks/useNotifications'
-import SyncWearableButton from '@/components/wearables/SyncWearableButton'
 
 type Shift = {
   date: string
@@ -27,10 +23,7 @@ type RotaEvent = {
 }
 
 export default function DashboardHeader() {
-  const router = useRouter()
-  const [isCoachChatOpen, setIsCoachChatOpen] = useState(false)
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false)
-  const [coachEnabled, setCoachEnabled] = useState<boolean | null>(null)
   const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications()
   
   const [shifts, setShifts] = useState<Shift[]>([])
@@ -140,21 +133,6 @@ export default function DashboardHeader() {
     }
 
     fetchData()
-
-    const loadCoachSetting = async () => {
-      try {
-        const res = await fetch('/api/profile', { next: { revalidate: 300 } }).then(r => (r.ok ? r.json() : null))
-        if (res && res.profile) {
-          const tone = res.profile.ai_coach_tone as string | null | undefined
-          setCoachEnabled(tone !== null)
-        } else {
-          setCoachEnabled(true)
-        }
-      } catch {
-        setCoachEnabled(true)
-      }
-    }
-    void loadCoachSetting()
 
     // Listen for rota updates to refresh
     const handleRotaUpdate = () => {
@@ -271,23 +249,32 @@ export default function DashboardHeader() {
     return todayShift.label.charAt(0).toUpperCase() + todayShift.label.slice(1).toLowerCase()
   }, [shifts])
 
-  // Icon button base styles - standardized
-  const iconBtn = "h-9 w-9 rounded-full grid place-items-center hover:bg-slate-100/70 dark:hover:bg-slate-800/50 active:scale-[0.98] transition group"
-
   return (
     <>
-      <header 
-        className="w-full bg-transparent px-4 pt-3 pb-1"
-      >
-        <div className="mx-auto max-w-md">
-          <div className="h-6" />
-          <div className="pb-2" />
-        </div>
-      </header>
-
-      {isCoachChatOpen && (
-        <CoachChatModal onClose={() => setIsCoachChatOpen(false)} />
-      )}
+      <div className="relative flex items-center justify-center px-4 pt-2 pb-1">
+        <p
+          className="text-base font-medium tracking-[0.2em] text-slate-500 dark:text-slate-400"
+          aria-label="ShiftCoach"
+        >
+          SHIFTCOACH
+        </p>
+        <button
+          type="button"
+          onClick={() => setIsNotificationModalOpen(true)}
+          className="absolute right-4 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100/80 dark:text-slate-400 dark:hover:bg-slate-800/60"
+          aria-label="Notifications"
+        >
+          <span className="relative inline-flex">
+            <Bell className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+            {unreadCount > 0 ? (
+              <span
+                className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-slate-500 ring-2 ring-white dark:bg-slate-400 dark:ring-slate-900"
+                aria-hidden
+              />
+            ) : null}
+          </span>
+        </button>
+      </div>
 
       {isNotificationModalOpen && (
         <NotificationModal

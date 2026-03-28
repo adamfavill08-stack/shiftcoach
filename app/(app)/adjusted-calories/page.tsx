@@ -10,11 +10,25 @@ import {
   getCalorieSnapshotGrouped,
 } from '@/lib/nutrition/buildCalorieBreakdownRows'
 import { MacroTargetsCard } from '@/components/nutrition/MacroTargetsCard'
+import { useMealTimingTodayCard } from '@/lib/hooks/useMealTimingTodayCard'
 import { getMacroTimingTip } from '@/lib/nutrition/getMacroReason'
+
+function mealIconFor(id?: string, label?: string) {
+  const key = (id || label || '').toLowerCase()
+  if (key.includes('breakfast')) return '☀️'
+  if (key.includes('lunch')) return '🍽️'
+  if (key.includes('dinner')) return '🌙'
+  if (key.includes('snack')) return '🍎'
+  if (key.includes('pre-shift')) return '⏱️'
+  if (key.includes('during-shift')) return '🌃'
+  if (key.includes('post-shift')) return '🌅'
+  return '🍽️'
+}
 
 export default function AdjustedCaloriesPage() {
   const { t } = useTranslation()
   const { data, loading } = useTodayNutrition()
+  const { data: mealTimingCard, loading: mealTimingLoading } = useMealTimingTodayCard()
   const baseKcal = data?.baseCalories ?? 0
   const adjustedKcal = data?.adjustedCalories ?? 0
   const deltaPct = baseKcal > 0 ? Math.round(((adjustedKcal - baseKcal) / baseKcal) * 100) : 0
@@ -32,56 +46,32 @@ export default function AdjustedCaloriesPage() {
   const snapshotValueClass = (n: number) =>
     n === 0 ? 'text-slate-500' : n >= 0 ? 'text-emerald-600' : 'text-amber-600'
 
-  const meals = data?.meals ?? []
-
-  const mealIconFor = (id?: string, label?: string) => {
-    const key = (id || label || '').toLowerCase()
-    if (key.includes('breakfast')) return '☀️'
-    if (key.includes('lunch')) return '🍽️'
-    if (key.includes('dinner')) return '🌙'
-    if (key.includes('snack')) return '🍎'
-    if (key.includes('pre-shift')) return '⏱️'
-    if (key.includes('during-shift')) return '🌃'
-    if (key.includes('post-shift')) return '🌅'
-    return '🍽️'
-  }
-
-  const parseTimeToMinutes = (time: string | undefined) => {
-    if (!time) return null
-    const [h, m] = time.split(':')
-    const hours = Number(h)
-    const mins = Number((m || '0').slice(0, 2))
-    if (Number.isNaN(hours) || Number.isNaN(mins)) return null
-    return hours * 60 + mins
-  }
-
-  const formatTimeForDisplay = (time: string | undefined) => {
-    if (!time) return ''
-    const minutes = parseTimeToMinutes(time)
-    if (minutes == null) return time
-    const h24 = Math.floor(minutes / 60)
-    const m = minutes % 60
-    const suffix = h24 >= 12 ? 'PM' : 'AM'
-    const h12 = ((h24 + 11) % 12) + 1
-    return `${h12}:${m.toString().padStart(2, '0')} ${suffix}`
-  }
-
-  let nextMeal: { id: string; label: string; suggestedTime: string; calories: number } | null = null
-  if (meals.length > 0) {
-    const withMinutes = meals
-      .map((meal: any) => ({
-        ...meal,
-        minutes: parseTimeToMinutes(meal.suggestedTime),
+  const mealTimesData = useMemo(() => {
+    const timingMeals = mealTimingCard?.meals
+    if (timingMeals && timingMeals.length > 0) {
+      return timingMeals.map((meal) => ({
+        label: meal.label,
+        time: meal.time,
+        Icon: () => (
+          <span className="text-base leading-none">{mealIconFor(meal.id, meal.label)}</span>
+        ),
       }))
-      .filter((m: any) => m.minutes != null)
-      .sort((a: any, b: any) => a.minutes - b.minutes)
-
-    const now = new Date()
-    const nowMinutes = now.getHours() * 60 + now.getMinutes()
-    nextMeal =
-      withMinutes.find((m: any) => m.minutes >= nowMinutes) ??
-      (withMinutes.length > 0 ? withMinutes[0] : null)
-  }
+    }
+    if (mealTimingLoading) {
+      return undefined
+    }
+    const nutritionMeals = data?.meals
+    if (nutritionMeals && nutritionMeals.length > 0) {
+      return nutritionMeals.map((meal: { id: string; label: string; suggestedTime: string }) => ({
+        label: meal.label,
+        time: meal.suggestedTime,
+        Icon: () => (
+          <span className="text-base leading-none">{mealIconFor(meal.id, meal.label)}</span>
+        ),
+      }))
+    }
+    return undefined
+  }, [mealTimingCard?.meals, mealTimingLoading, data?.meals])
 
   return (
     <main className="min-h-screen bg-white">
@@ -232,25 +222,8 @@ export default function AdjustedCaloriesPage() {
           rhythmScore={data?.rhythmScore ?? null}
           sleepHoursLast24h={data?.sleepHoursLast24h ?? null}
           consumedMacros={data?.consumedMacros}
-          mealTimesData={
-            meals.length > 0
-              ? meals.map((meal: { id: string; label: string; suggestedTime: string }) => ({
-                  label: meal.label,
-                  time: meal.suggestedTime,
-                  Icon: () => (
-                    <span className="text-base leading-none">{mealIconFor(meal.id, meal.label)}</span>
-                  ),
-                }))
-              : undefined
-          }
-          nextMealHighlight={
-            nextMeal
-              ? {
-                  label: nextMeal.label,
-                  time: formatTimeForDisplay(nextMeal.suggestedTime),
-                }
-              : null
-          }
+          mealTimesData={mealTimesData}
+          highlightNextMealLabel={mealTimingCard?.nextMealLabel ?? null}
           timingTip={!loading && data ? getMacroTimingTip(data.shiftType) : null}
           variant="compact"
         />

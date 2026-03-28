@@ -381,70 +381,11 @@ function TonightTargetCard({ targetHours, explanation, loading }: TonightTargetP
 
 /* ---------- Shift coach (dark band) ---------- */
 
+const SHIFT_COACH_SLEEP_TIP =
+  "Keep your sleep schedule as consistent as you can — it helps anchor your body clock across shift changes."
+
 function ShiftCoachCard() {
   const router = useRouter()
-  const [tip, setTip] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    
-    const fetchTip = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        const res = await fetch('/api/coach/tip', { cache: 'no-store' })
-        
-        // API now returns 200 even on errors (with fallback tip)
-        // Only throw if it's a real server error (500+)
-        if (!res.ok && res.status >= 500) {
-          throw new Error(`Failed to fetch tip: ${res.status}`)
-        }
-        
-        const json = await res.json()
-        if (!cancelled) {
-          // Use the tip from response, or fallback if not provided
-          const tipText = json.tip || 'Keep your sleep schedule consistent to maintain your body clock rhythm.'
-          setTip(tipText)
-          
-          // Only set error state if there was an actual error (not just a fallback)
-          if (json.error && !json.fallback) {
-            setError('Unable to load personalized tip')
-          }
-        }
-      } catch (err: any) {
-        // Only log actual errors, not expected fallbacks
-        if (err.message && !err.message.includes('Failed to fetch tip: 200')) {
-          console.error('[ShiftCoachCard] Failed to fetch tip:', err)
-        }
-        if (!cancelled) {
-          // Always provide a fallback tip
-          setTip('Keep your sleep schedule consistent to maintain your body clock rhythm.')
-          setError(null) // Don't show error for fallback tips
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      }
-    }
-
-    fetchTip()
-
-    // Listen for sleep refresh events to refetch tip
-    const handleRefresh = () => {
-      if (!cancelled) {
-        fetchTip()
-      }
-    }
-    window.addEventListener('sleep-refreshed', handleRefresh)
-    
-    return () => {
-      cancelled = true
-      window.removeEventListener('sleep-refreshed', handleRefresh)
-    }
-  }, [])
 
   return (
     <section
@@ -473,23 +414,7 @@ function ShiftCoachCard() {
           </p>
         </div>
 
-        {loading ? (
-          <p className="text-sm leading-relaxed text-slate-200/90 animate-pulse">
-            Loading your personalized tip...
-          </p>
-        ) : error && !tip ? (
-          <p className="text-sm leading-relaxed text-slate-300/80">
-            Unable to load coaching tip. Please try again later.
-          </p>
-        ) : tip ? (
-          <p className="text-sm leading-relaxed text-slate-100/95">
-            {tip}
-          </p>
-        ) : (
-          <p className="text-sm leading-relaxed text-slate-100/95">
-            Keep your sleep schedule consistent to maintain your body clock rhythm.
-          </p>
-        )}
+        <p className="text-sm leading-relaxed text-slate-100/95">{SHIFT_COACH_SLEEP_TIP}</p>
 
         <button 
           onClick={() => {

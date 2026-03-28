@@ -19,11 +19,9 @@ function MiniRing({
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
   const percentage = Math.min(value / maxValue, 1)
-  const offset = circumference - (percentage * circumference)
+  const offset = circumference - percentage * circumference
   const color =
-    level === 'low' ? '#16a34a' :
-    level === 'moderate' ? '#d97706' :
-    '#dc2626'
+    level === 'low' ? '#16a34a' : level === 'moderate' ? '#d97706' : '#dc2626'
 
   return (
     <div className="relative h-[54px] w-[54px]">

@@ -2,13 +2,12 @@
 
 import { useState } from 'react'
 import { useWeeklyGoals } from '@/lib/hooks/useWeeklyGoals'
-import { useCoachState } from '@/lib/hooks/useCoachState'
 
 export function WeeklyGoalsCard() {
   const { goals, loading } = useWeeklyGoals()
-  const { openCoach } = useCoachState()
 
   const [showFeedback, setShowFeedback] = useState(false)
+  const [feedbackThanks, setFeedbackThanks] = useState(false)
 
   if (loading) {
     return null // Don't show anything while loading
@@ -25,54 +24,19 @@ export function WeeklyGoalsCard() {
     day: 'numeric',
   })
 
-  const handleClick = () => {
-    // Set context to open coach with goals discussion
-    try {
-      localStorage.setItem(
-        'coach-context',
-        JSON.stringify({
-          reason: 'weekly_goals',
-          weekStart: goals.week_start,
-        })
-      )
-    } catch {}
-    // Open the coach chat
-    openCoach()
-  }
-
-  const handleFeedback = async (sentiment: 'completed' | 'partial' | 'struggled') => {
+  const handleFeedback = (_sentiment: 'completed' | 'partial' | 'struggled') => {
     setShowFeedback(false)
-    const messages = {
-      completed: "I mostly hit my goals this week!",
-      partial: "I hit some of my goals this week.",
-      struggled: "I struggled with my goals this week.",
-    }
-    const message = messages[sentiment]
-    
-    // Set context and open coach - the message will be sent through the modal
-    try {
-      localStorage.setItem(
-        'coach-context',
-        JSON.stringify({
-          reason: 'weekly_goal_feedback',
-          weekStart: goals.week_start,
-          autoMessage: message, // Signal to modal to auto-send this message
-        })
-      )
-    } catch {}
-    
-    openCoach()
+    setFeedbackThanks(true)
   }
 
   return (
     <section
-      className="rounded-3xl border px-5 py-4 backdrop-blur-2xl cursor-pointer transition-transform duration-150 hover:scale-[1.01] active:scale-[0.99]"
+      className="rounded-3xl border px-5 py-4 backdrop-blur-2xl"
       style={{
         backgroundColor: 'var(--card)',
         borderColor: 'var(--border-subtle)',
         boxShadow: 'var(--shadow-soft)',
       }}
-      onClick={handleClick}
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
@@ -191,12 +155,15 @@ export function WeeklyGoalsCard() {
         </div>
       )}
 
-      <p
-        className="mt-2 text-[11px]"
-        style={{ color: 'var(--text-muted)' }}
-      >
-        Tap to discuss or adjust these with your coach anytime.
-      </p>
+      {feedbackThanks ? (
+        <p className="mt-2 text-xs font-medium" style={{ color: 'var(--text-soft)' }}>
+          Thanks — we&apos;ve noted that for your records.
+        </p>
+      ) : (
+        <p className="mt-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+          Small focus points based on your recent patterns — adjust in Goals when you&apos;re ready.
+        </p>
+      )}
     </section>
   )
 }

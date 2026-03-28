@@ -400,45 +400,22 @@ export default function LogActivityPage() {
           </div>
 
           <div
-            className="flex items-center justify-between rounded-2xl border px-4 py-3"
+            className="flex items-center gap-3 rounded-2xl border px-4 py-3"
             style={{ background: 'var(--card-subtle)', borderColor: 'var(--border-subtle)' }}
           >
-            <div className="flex items-center gap-3">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full text-base"
-                style={{ background: 'linear-gradient(135deg,#3bb2ff,#5f7aff)', color: '#fff' }}
-              >
-                ✨
-              </span>
-              <div>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-base"
+              style={{ background: 'linear-gradient(135deg,#3bb2ff,#5f7aff)', color: '#fff' }}
+            >
+              ✨
+            </span>
+            <div>
                 <p className="text-sm font-semibold text-slate-900">
                   Recommended daily goal: {recommendedRange.min.toLocaleString()}–{recommendedRange.max.toLocaleString()} steps
                 </p>
                 <p className="text-[11px] text-slate-500">
                   Based on your size and typical shift pattern.
                 </p>
-              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                try {
-                  localStorage.setItem(
-                    'coach-context',
-                    JSON.stringify({
-                      reason: 'activity_goal',
-                      autoMessage: "I'd like help setting realistic activity goals around my shifts.",
-                    }),
-                  )
-                } catch {
-                  // ignore
-                }
-                // TODO: wire coach modal trigger
-              }}
-              className="rounded-full border px-3 py-1 text-[11px] font-medium transition-all hover:bg-black/5"
-              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-main)' }}
-            >
-              Ask coach
-            </button>
           </div>
 
           <div className="space-y-3">

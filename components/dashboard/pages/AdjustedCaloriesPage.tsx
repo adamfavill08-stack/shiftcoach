@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Info, X, Sparkles, Droplet, Sun, UtensilsCrossed, Apple, Clock, Timer, Zap, Sunrise, RefreshCw, Moon, Droplets, Check } from "lucide-react";
 import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition";
 import { useTranslation } from "@/components/providers/language-provider";
 import { buildCalorieBreakdownRows } from "@/lib/nutrition/buildCalorieBreakdownRows";
 import { MacroTargetsCard } from "@/components/nutrition/MacroTargetsCard";
+import { useMealTimingTodayCard } from "@/lib/hooks/useMealTimingTodayCard";
 import { getMacroTimingTip } from "@/lib/nutrition/getMacroReason";
 
 /* ---------------------------------------------------
@@ -906,6 +907,7 @@ function ShiftCoachCard({
 export default function AdjustedCaloriesPage() {
   const { t } = useTranslation();
   const { data, loading } = useTodayNutrition();
+  const { data: mealTimingCard, loading: mealTimingLoading } = useMealTimingTodayCard();
   const [showInfo, setShowInfo] = useState(false);
   const [circadian, setCircadian] = useState<any>(null);
   const [circadianAuthoritative, setCircadianAuthoritative] = useState(false);
@@ -1067,24 +1069,41 @@ export default function AdjustedCaloriesPage() {
   // Calculate progress for the ring (capped at 120% for display)
   const progress = adjustedCalories > 0 ? Math.min(consumedCalories / adjustedCalories, 1.2) : 0;
   
-  const mealTimesForMacroCard = data?.meals?.length
-    ? data.meals.map((meal) => ({
+  /** Same wall-clock rows as the dashboard meal card: `/api/meal-timing/today`, not nutrition templates. */
+  const mealTimesForMacroCard = useMemo(() => {
+    const iconForMealId = (id: string) =>
+      id.includes('breakfast') || id.includes('post-shift')
+        ? IconBreakfast
+        : id.includes('lunch') || id.includes('main')
+          ? IconLunchEmoji
+          : id.includes('snack')
+            ? IconSnackEmoji
+            : id.includes('dinner')
+              ? IconDinnerEmoji
+              : id.includes('cutoff')
+                ? IconCutoffClock
+                : IconSnackEmoji
+
+    const timingMeals = mealTimingCard?.meals
+    if (timingMeals && timingMeals.length > 0) {
+      return timingMeals.map((meal) => ({
+        label: meal.label,
+        time: meal.time,
+        Icon: iconForMealId(meal.id),
+      }))
+    }
+    if (mealTimingLoading) {
+      return undefined
+    }
+    if (data?.meals?.length) {
+      return data.meals.map((meal) => ({
         label: meal.label,
         time: meal.suggestedTime,
-        Icon:
-          meal.id.includes('breakfast') || meal.id.includes('post-shift')
-            ? IconBreakfast
-            : meal.id.includes('lunch') || meal.id.includes('main')
-              ? IconLunchEmoji
-              : meal.id.includes('snack')
-                ? IconSnackEmoji
-                : meal.id.includes('dinner')
-                  ? IconDinnerEmoji
-                  : meal.id.includes('cutoff')
-                    ? IconCutoffClock
-                    : IconSnackEmoji,
+        Icon: iconForMealId(meal.id),
       }))
-    : undefined;
+    }
+    return undefined
+  }, [mealTimingCard?.meals, mealTimingLoading, data?.meals])
 
   const macroTimingTip = getMacroTimingTip(data?.shiftType ?? null);
 
@@ -1396,6 +1415,7 @@ export default function AdjustedCaloriesPage() {
           </div>
         </section>
 
+      {/* Next meal window — same API + UI as dashboard */}
       {/* CARD 3 — Macro targets + Meal times */}
       <MacroTargetsCard
         macros={data.macros ?? null}
@@ -1407,6 +1427,7 @@ export default function AdjustedCaloriesPage() {
         sleepHoursLast24h={data.sleepHoursLast24h ?? null}
         consumedMacros={data.consumedMacros}
         mealTimesData={mealTimesForMacroCard}
+        highlightNextMealLabel={mealTimingCard?.nextMealLabel ?? null}
         timingTip={macroTimingTip}
         variant="elevated"
       />

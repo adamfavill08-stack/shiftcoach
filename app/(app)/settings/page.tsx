@@ -8,7 +8,6 @@ import { ProfilePlanSection } from './components/ProfilePlanSection'
 import { NotificationsSection } from './components/NotificationsSection'
 import { NutritionSection } from './components/NutritionSection'
 import { LanguageSection } from './components/LanguageSection'
-import { AICoachSection } from './components/AICoachSection'
 import { DataPrivacySection } from './components/DataPrivacySection'
 import { TesterFeedbackSection } from './components/TesterFeedbackSection'
 import { useTranslation } from '@/components/providers/language-provider'
@@ -68,16 +67,6 @@ export default function SettingsPage() {
                 <NotificationsSection />
                 <NutritionSection />
                 <LanguageSection />
-              </div>
-            </section>
-
-            {/* Coaching Section */}
-            <section className="pt-3">
-              <p className="px-4 pb-1 text-[11px] font-semibold tracking-wide text-sky-600 uppercase">
-                {t('settings.section.coaching')}
-              </p>
-              <div className="space-y-1 px-2 pb-2">
-                <AICoachSection />
               </div>
             </section>
 
