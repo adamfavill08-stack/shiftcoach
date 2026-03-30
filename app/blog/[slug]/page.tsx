@@ -363,7 +363,7 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
 
   if (!post) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-white via-sky-50/40 to-white">
+      <main className="min-h-screen bg-slate-100">
         <div className="max-w-[440px] mx-auto min-h-screen px-4 pb-10 pt-6">
           <div className="text-center py-12">
             <h1 className="text-xl font-bold text-slate-900 mb-2">Article not found</h1>
@@ -382,7 +382,7 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-white via-sky-50/40 to-white">
+    <main className="min-h-screen bg-slate-100">
       <div className="max-w-[440px] mx-auto min-h-screen px-4 pb-10 pt-6">
         {/* Header */}
         <header className="flex items-center gap-3 mb-5">

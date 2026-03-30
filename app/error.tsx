@@ -20,7 +20,7 @@ export default function Error({
     error.message?.includes('NEXT_PUBLIC_')
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 flex flex-col items-center justify-center px-6 py-10">
+    <main className="min-h-screen bg-slate-100 dark:bg-slate-900 flex flex-col items-center justify-center px-6 py-10">
       <div className="max-w-md w-full text-center space-y-6">
         <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100">
           Something went wrong

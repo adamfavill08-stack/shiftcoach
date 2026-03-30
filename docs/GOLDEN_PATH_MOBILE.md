@@ -41,9 +41,13 @@ If the WebView was in the background when a message arrived, open the app again;
 
 ### Wear app → Next.js APIs (dashboard tiles)
 
-- **Debug** builds use `BuildConfig.API_BASE_URL` = `http://10.0.2.2:3000` (watch emulator → host `npm run dev:android`).
+- **Debug** builds use `BuildConfig.API_BASE_URL` = `http://10.0.2.2:3000` (watch emulator → host `npm run dev:android`). **The Next.js dev server must be running** or every request fails.
 - **Release** builds default to `https://www.shiftcoach.app`. Override either: `-PSHIFTCOACH_API_BASE_URL=https://…` on the Gradle command line.
-- Requests are plain `GET` with **no session cookies**; local dev uses the server’s dev user fallback. Production behaviour depends on your deployed API auth (see `lib/supabase/server.ts`).
+- APIs use **cookie auth** in the browser. The watch uses **raw HTTP** (no cookies). In **`NODE_ENV=development` only**, you can set:
+  - **Server** (`.env.local`): `SHIFTCOACH_WEAR_DEV_KEY` (secret string) and `SHIFTCOACH_WEAR_DEV_USER_ID` (Supabase user UUID to impersonate).
+  - **Wear** (Gradle): the same key, e.g. in `gradle.properties`: `SHIFTCOACH_WEAR_DEV_KEY=your-secret` (or `-PSHIFTCOACH_WEAR_DEV_KEY=...` on the command line). This sends header `X-ShiftCoach-Wear-Key` on every request. See `lib/supabase/server.ts`.
+- **Production** watch builds do **not** send the dev key; you still need a future token/session strategy for logged-in data.
+- Logcat tag **`ShiftCoachWear`** logs each URL, HTTP status, and non-OK body snippets.
 
 ## 5. When to restart
 

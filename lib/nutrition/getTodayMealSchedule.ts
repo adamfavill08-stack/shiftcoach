@@ -55,13 +55,29 @@ export function getTodayMealSchedule(opts: {
     templateUsed = 'day'
     const pre = addH(wake, 0.5)
     const mid = new Date((start.getTime() + end.getTime()) / 2)
-    const post = addH(end, 1)
-    const eve = addH(end, 4)
+    // Hunger hits soon after clocking off — put most post-work calories in the first slot.
+    // Second slot stays small and earlier (not late) so it’s easy before bed.
+    const post = addH(end, 0.28)
+    const eve = addH(end, 0.78)
     slots.push(
       { id: 'preShift', label: 'Pre‑shift breakfast', time: pre, windowLabel: window(pre, 1), caloriesTarget: toKcal(0.25), hint: 'Fuel before work' },
       { id: 'midShift', label: 'Mid‑shift meal', time: mid, windowLabel: window(mid, 1), caloriesTarget: toKcal(0.40), hint: 'Main energy block' },
-      { id: 'daySnack', label: 'Post‑shift snack', time: post, windowLabel: window(post, 0.75), caloriesTarget: toKcal(0.15), hint: 'Recovery snack' },
-      { id: 'dinner', label: 'Light evening meal', time: eve, windowLabel: window(eve, 1), caloriesTarget: toKcal(0.20), hint: 'Lighter evening' },
+      {
+        id: 'daySnack',
+        label: 'Post‑shift meal',
+        time: post,
+        windowLabel: window(post, 1),
+        caloriesTarget: toKcal(0.24),
+        hint: 'When hunger peaks after work — balanced plate, not a heavy late feast',
+      },
+      {
+        id: 'dinner',
+        label: 'Light evening bite',
+        time: eve,
+        windowLabel: window(eve, 0.75),
+        caloriesTarget: toKcal(0.11),
+        hint: 'Optional small portion if you still want something before wind‑down',
+      },
     )
   } else if (opts.shiftType === 'night' && start && end) {
     templateUsed = 'night'

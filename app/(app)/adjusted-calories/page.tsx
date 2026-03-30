@@ -74,8 +74,8 @@ export default function AdjustedCaloriesPage() {
   }, [mealTimingCard?.meals, mealTimingLoading, data?.meals])
 
   return (
-    <main className="min-h-screen bg-white">
-      <div className="max-w-[430px] mx-auto min-h-screen bg-white px-4 pb-8 pt-4 flex flex-col gap-5">
+    <main className="min-h-screen bg-slate-100">
+      <div className="max-w-[430px] mx-auto min-h-screen bg-slate-100 px-4 pb-8 pt-4 flex flex-col gap-5">
         {/* Header */}
         <header className="flex items-center gap-2 mb-1">
           <Link

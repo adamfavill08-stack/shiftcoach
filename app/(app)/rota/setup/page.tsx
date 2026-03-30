@@ -918,7 +918,7 @@ export default function RotaSetup() {
 
   return (
     <>
-    <div className="min-h-screen bg-gradient-to-b from-white via-sky-50/40 to-white">
+    <div className="min-h-screen bg-slate-100">
       <div className="mx-auto max-w-md px-4 py-6">
           {!isOnline && (
             <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3" role="status" aria-live="polite">

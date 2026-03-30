@@ -3,7 +3,24 @@
     <string name="app_name">ShiftCoach Wear</string>
 
     <string name="label_loading">Loading…</string>
-    <string name="label_error">Error</string>
     <string name="label_unknown">—</string>
+    <!-- Short placeholder for a failed slot (round screen; avoid long copy). -->
+    <string name="wear_unavailable">—</string>
+    <string name="action_retry">Try again</string>
+    <string name="wear_global_offline_title">Can’t sync data yet</string>
+    <string name="wear_global_offline_body">Run npm run dev:android on your PC. For the emulator, add SHIFTCOACH_WEAR_DEV_KEY to .env.local and Gradle (see docs).</string>
+
+    <string name="wear_chip_sleep">Sleep</string>
+    <string name="wear_chip_heart">Heart</string>
+    <string name="wear_resting_bpm">Resting %1$d</string>
+    <string name="wear_section_plan">Plan</string>
+    <string name="wear_section_movement">Movement</string>
+    <string name="wear_section_behavior">Eating</string>
+    <string name="wear_label_shift_load">Shift load</string>
+    <string name="wear_label_fuel">Fuel</string>
+    <string name="wear_label_steps">Steps</string>
+    <string name="wear_label_active">Active</string>
+    <string name="wear_label_eating">Pattern</string>
+    <string name="wear_as_of">As of %1$s</string>
 </resources>
 

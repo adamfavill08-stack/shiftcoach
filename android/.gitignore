@@ -102,3 +102,4 @@ app/src/main/res/xml/config.xml
 
 # Keystore properties (contains passwords - NEVER commit!)
 keystore.properties
+wear-keystore.properties

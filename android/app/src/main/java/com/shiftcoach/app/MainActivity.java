@@ -85,6 +85,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(ShiftCoachHealthConnectPlugin.class);
         super.onCreate(savedInstanceState);
         // Keep content below status bar until Capacitor StatusBar runs (avoids transparent overlay defaults).
         WindowCompat.setDecorFitsSystemWindows(getWindow(), true);

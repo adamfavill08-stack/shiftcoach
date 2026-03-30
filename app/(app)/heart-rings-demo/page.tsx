@@ -9,7 +9,7 @@ import { HeartRecoveryRings } from "@/components/heart/HeartRecoveryRings";
  */
 export default function HeartRingsDemoPage() {
   return (
-    <main className="min-h-screen bg-white dark:bg-slate-950 px-4 py-8">
+    <main className="min-h-screen bg-slate-100 dark:bg-slate-950 px-4 py-8">
       <div className="mx-auto max-w-md space-y-10">
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">

@@ -79,8 +79,8 @@ export default function ShiftLagInfoPage() {
         };
       case "high":
         return {
-          ringFrom: "#f97373",
-          ringTo: "#fb7185",
+          ringFrom: "#ef4444",
+          ringTo: "#f87171",
           label: "High Shift Lag",
           textClass: "text-rose-700",
         };
@@ -152,7 +152,7 @@ export default function ShiftLagInfoPage() {
         ];
 
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-slate-100">
       <div className="max-w-[430px] mx-auto min-h-screen px-4 pb-8 pt-4 flex flex-col gap-5">
         {/* Header */}
         <header className="flex items-center gap-2 mb-2">

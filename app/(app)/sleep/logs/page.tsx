@@ -300,7 +300,7 @@ export default function SleepLogsPage() {
   }
 
   return (
-    <div className="w-full max-w-md mx-auto min-h-screen bg-gradient-to-b from-slate-50 dark:from-slate-950 via-white dark:via-slate-900 to-white dark:to-slate-950">
+    <div className="w-full max-w-md mx-auto min-h-screen bg-slate-100 dark:bg-slate-950">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-700/40 shadow-sm">
         <div className="flex items-center gap-4 px-4 py-4">

@@ -78,7 +78,7 @@ export default function ListViewPage() {
   const sortedDays = Object.keys(eventsByDay).sort()
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 dark:from-slate-950 via-blue-50/30 dark:via-slate-900 to-slate-50 dark:to-slate-950">
+    <main className="min-h-screen bg-slate-100 dark:bg-slate-950">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-700/40">
         <div className="max-w-4xl mx-auto px-4 py-4">

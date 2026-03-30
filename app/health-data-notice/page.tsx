@@ -9,7 +9,7 @@ export default function HealthDataNoticePage() {
   const lastUpdated = new Date().toLocaleDateString()
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-white via-sky-50/40 to-white px-4 py-10">
+    <main className="min-h-screen bg-slate-100 px-4 py-10">
       <div className="max-w-3xl mx-auto">
         <div className="rounded-3xl bg-white border border-slate-100 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] px-6 py-8">
           <h1 className="text-2xl font-semibold text-slate-900 mb-4">Health Data Notice</h1>

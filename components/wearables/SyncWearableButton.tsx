@@ -1,6 +1,44 @@
 'use client'
 
+import { Capacitor } from '@capacitor/core'
 import { useEffect, useMemo, useState } from 'react'
+
+async function runAndroidHealthConnectPipeline(): Promise<{
+  ran: boolean
+  success: boolean
+  ts?: number
+}> {
+  if (Capacitor.getPlatform() !== 'android' || !Capacitor.isNativePlatform()) {
+    return { ran: false, success: false }
+  }
+  const { ShiftCoachHealthConnect } = await import('@/lib/native/shiftCoachHealthConnect')
+  let status: Awaited<ReturnType<typeof ShiftCoachHealthConnect.getStatus>>
+  try {
+    status = await ShiftCoachHealthConnect.getStatus()
+  } catch {
+    return { ran: false, success: false }
+  }
+  if (!status.available) {
+    return { ran: false, success: false }
+  }
+  if (!status.hasPermissions) {
+    try {
+      const r = await ShiftCoachHealthConnect.requestPermissions()
+      if (!r.granted) {
+        return { ran: true, success: false }
+      }
+    } catch {
+      return { ran: true, success: false }
+    }
+  }
+  try {
+    const r = await ShiftCoachHealthConnect.syncNow()
+    const ts = r.lastSyncedAt ? new Date(r.lastSyncedAt).getTime() : Date.now()
+    return { ran: true, success: !!r.ok, ts }
+  } catch {
+    return { ran: true, success: false }
+  }
+}
 
 type SyncState = 'idle' | 'syncing' | 'synced' | 'error'
 
@@ -31,6 +69,25 @@ export default function SyncWearableButton() {
   async function handleClick() {
     try {
       setState('syncing')
+      const hc = await runAndroidHealthConnectPipeline()
+      if (hc.ran) {
+        if (hc.success && hc.ts != null) {
+          localStorage.setItem('wearables:lastSyncedAt', String(hc.ts))
+          setLastSyncedAt(hc.ts)
+          try {
+            window.dispatchEvent(new CustomEvent('wearables-synced', { detail: { ts: hc.ts } }))
+          } catch {
+            /* ignore */
+          }
+          setState('synced')
+          setTimeout(() => setState('idle'), FRESH_MS)
+          return
+        }
+        setState('error')
+        setTimeout(() => setState('idle'), 5000)
+        return
+      }
+
       const now = Date.now()
       const startOfDay = new Date()
       startOfDay.setHours(0, 0, 0, 0)

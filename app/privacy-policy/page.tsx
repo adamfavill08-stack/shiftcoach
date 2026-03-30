@@ -9,7 +9,7 @@ export default function PrivacyPolicyPage() {
   const lastUpdated = new Date().toLocaleDateString()
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-white via-sky-50/40 to-white px-4 py-10">
+    <main className="min-h-screen bg-slate-100 px-4 py-10">
       <div className="max-w-3xl mx-auto">
         <div className="rounded-3xl bg-white border border-slate-100 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] px-6 py-8">
           <h1 className="text-2xl font-semibold text-slate-900 mb-4">Privacy Policy</h1>
@@ -40,7 +40,6 @@ export default function PrivacyPolicyPage() {
                 <li>Mood and focus ratings</li>
                 <li>Nutrition preferences and goals</li>
                 <li>Subscription and purchase metadata (processed via RevenueCat and Google Play)</li>
-                <li>Messages and interactions with our AI coach</li>
               </ul>
               <p className="mt-4">
                 <strong>Health Data:</strong> With your explicit permission, we may collect health data
@@ -58,7 +57,10 @@ export default function PrivacyPolicyPage() {
                 <li>Track your sleep patterns and recovery</li>
                 <li>Generate insights and progress reports</li>
                 <li>Process payments and manage subscriptions</li>
-                <li>Provide AI-powered coaching and recommendations</li>
+                <li>
+                  Generate optional AI-assisted wording or insights in parts of the app (for example
+                  sleep-related summaries or suggestions), only where that feature is used
+                </li>
                 <li>Send important service updates and notifications</li>
                 <li>Improve our services and develop new features</li>
                 <li>Ensure security and prevent fraud</li>
@@ -72,7 +74,12 @@ export default function PrivacyPolicyPage() {
                 <li><strong>Supabase:</strong> Database and authentication services. Your data is stored securely on Supabase&apos;s servers.</li>
                 <li><strong>RevenueCat + Google Play:</strong> Subscription validation and billing infrastructure. Payment instruments are handled by Google Play and are not stored on our servers.</li>
                 <li><strong>Health Connect / Apple Health:</strong> Optional health data integration. We only access data you explicitly authorize.</li>
-                <li><strong>OpenAI:</strong> AI coaching features. Your messages and context may be processed by OpenAI to provide personalized coaching.</li>
+                <li>
+                  <strong>OpenAI:</strong> Some screens may send limited, relevant context (such as
+                  sleep or wellness-related data you already store in Shift Coach) to OpenAI&apos;s APIs
+                  to generate text or suggestions shown in the app. We do <strong>not</strong> operate an
+                  in-app AI chat that collects ongoing conversation threads between you and a coach bot.
+                </li>
                 <li><strong>Resend:</strong> Email delivery service for notifications and account-related emails.</li>
               </ul>
               <p className="mt-4">
@@ -113,7 +120,7 @@ export default function PrivacyPolicyPage() {
               </p>
             </section>
 
-            <section>
+            <section id="delete-specific-data">
               <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">8. Your Rights</h2>
               <p>You have the right to:</p>
               <ul className="list-disc pl-6 space-y-2">
@@ -122,12 +129,32 @@ export default function PrivacyPolicyPage() {
                 <li>Delete your account and data</li>
                 <li>Correct inaccurate information</li>
               </ul>
+              <h3 className="text-lg font-semibold text-slate-900 mt-6 mb-2">
+                Deleting some of your data (without closing your account)
+              </h3>
+              <p className="mb-2">
+                <strong>Shift Coach</strong> lets you remove individual health and activity records inside
+                the app where supported—for example, you can delete specific sleep logs from your sleep
+                history. Other data types can be updated or cleared from their respective screens as the
+                app provides.
+              </p>
+              <p className="mb-2">
+                If you want broader deletion of certain categories while keeping your account, email us at{' '}
+                <a href="mailto:shift-coach@outlook.com" className="text-blue-600 hover:underline">
+                  shift-coach@outlook.com
+                </a>{' '}
+                from your account email and describe what should be removed. We will confirm and process
+                requests in line with our retention rules (see Data Retention above); we may keep minimal
+                records where the law requires.
+              </p>
               <p className="mt-3">
-                Account deletion is available both in-app and on the web:
+                <strong>Delete your entire account and associated data:</strong>
                 <br />
-                <a href="/account/delete" className="text-blue-600 hover:underline">In-app signed-in deletion</a>
+                <a href="/account/delete" className="text-blue-600 hover:underline">Signed-in account deletion</a>
                 {' '}|{' '}
-                <a href="/account/delete-request" className="text-blue-600 hover:underline">Web deletion request page</a>
+                <a href="/account/delete-request" className="text-blue-600 hover:underline">
+                  Web deletion request (if you cannot sign in)
+                </a>
               </p>
             </section>
 

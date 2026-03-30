@@ -5,9 +5,9 @@
    ============================================ */
 
 :root {
-  /* Backgrounds */
-  --bg: #f5f7fb;
-  --bg-soft: #f9fbff;
+  /* Backgrounds (app canvas; cards stay white) */
+  --bg: #f1f5f9;
+  --bg-soft: #f8fafc;
   --card: rgba(255, 255, 255, 0.92);
   --card-subtle: rgba(255, 255, 255, 0.8);
   --border-subtle: rgba(255, 255, 255, 0.7);
@@ -32,7 +32,7 @@
    ============================================ */
 
 body {
-  background: #ffffff;
+  background: #f1f5f9;
   color: var(--text-main);
   transition: background 300ms ease, color 300ms ease;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;

@@ -54,7 +54,7 @@ export default function WelcomePage() {
   // Don't render until we've checked the flag
   if (!isValid) {
     return (
-      <main className="min-h-screen bg-white flex items-center justify-center px-4 py-8">
+      <main className="min-h-screen bg-slate-100 flex items-center justify-center px-4 py-8">
         <div className="text-slate-500">{t('welcome.loading')}</div>
       </main>
     )
@@ -77,7 +77,7 @@ export default function WelcomePage() {
       : t('welcome.today')
 
   return (
-    <main className="min-h-screen bg-white flex items-center justify-center px-4 py-8">
+    <main className="min-h-screen bg-slate-100 flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
         {/* Main welcome card */}
         <div className="rounded-xl bg-white border border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">

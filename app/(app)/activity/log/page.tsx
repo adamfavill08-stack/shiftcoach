@@ -234,10 +234,7 @@ export default function LogActivityPage() {
   const goBack = () => router.back()
 
   return (
-    <main
-      className="min-h-screen px-4 pt-6 pb-10"
-      style={{ background: 'radial-gradient(circle at top, #f7fbff 0%, #edf1f8 32%, #e7ecf5 100%)' }}
-    >
+    <main className="min-h-screen bg-slate-100 px-4 pt-6 pb-10">
       <div className="mx-auto w-full max-w-md space-y-5">
         <header className="flex items-center justify-between">
           <button

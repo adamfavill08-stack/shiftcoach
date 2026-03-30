@@ -4,6 +4,57 @@ import { z } from 'zod'
 import { parseJsonBody } from '@/lib/api/validation'
 import { apiServerError } from '@/lib/api/response'
 import { rateLimitByIp } from '@/lib/api/security'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+/** Aligns with /api/activity/today: some DBs use `ts`, others `created_at`. */
+async function upsertTodayActivitySteps(
+  supabase: SupabaseClient,
+  userId: string,
+  steps: number,
+  syncedAt: string,
+): Promise<{ error: { message?: string; code?: string } | null }> {
+  const today = new Date().toISOString().slice(0, 10)
+  const startIso = new Date(today + 'T00:00:00Z').toISOString()
+  const endIso = new Date(today + 'T23:59:59Z').toISOString()
+
+  const attempt = async (timeCol: 'ts' | 'created_at') => {
+    const { data: existing, error: selErr } = await supabase
+      .from('activity_logs')
+      .select('id')
+      .eq('user_id', userId)
+      .gte(timeCol, startIso)
+      .lt(timeCol, endIso)
+      .order(timeCol, { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (selErr) return { error: selErr }
+    const updatePayload =
+      timeCol === 'ts'
+        ? { steps, source: 'Health Connect', ts: syncedAt }
+        : { steps, source: 'Health Connect' }
+    const insertPayload =
+      timeCol === 'ts'
+        ? { user_id: userId, steps, source: 'Health Connect', ts: syncedAt }
+        : { user_id: userId, steps, source: 'Health Connect' }
+    if (existing?.id) {
+      const { error } = await supabase.from('activity_logs').update(updatePayload).eq('id', existing.id)
+      return { error: error ?? null }
+    }
+    const { error } = await supabase.from('activity_logs').insert(insertPayload)
+    return { error: error ?? null }
+  }
+
+  let r = await attempt('ts')
+  if (
+    r.error &&
+    (r.error.code === '42703' ||
+      String(r.error.message ?? '').includes('ts') ||
+      String(r.error.message ?? '').includes('column'))
+  ) {
+    r = await attempt('created_at')
+  }
+  return r
+}
 
 const SleepItemSchema = z.object({
   sampleId: z.string().trim().min(1).optional(),
@@ -58,29 +109,9 @@ export async function POST(req: NextRequest) {
       )
 
     if (steps != null) {
-      const today = new Date().toISOString().slice(0, 10)
-      const startIso = new Date(today + 'T00:00:00Z').toISOString()
-      const endIso = new Date(today + 'T23:59:59Z').toISOString()
-
-      const existing = await supabase
-        .from('activity_logs')
-        .select('id')
-        .eq('user_id', userId)
-        .gte('created_at', startIso)
-        .lt('created_at', endIso)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (existing.data?.id) {
-        await supabase
-          .from('activity_logs')
-          .update({ steps, source: 'Health Connect' })
-          .eq('id', existing.data.id)
-      } else {
-        await supabase
-          .from('activity_logs')
-          .insert({ user_id: userId, steps, source: 'Health Connect' })
+      const { error: actErr } = await upsertTodayActivitySteps(supabase, userId, steps, syncedAt)
+      if (actErr) {
+        console.error('[health-connect/sync] activity_logs upsert:', actErr.message ?? actErr)
       }
     }
 

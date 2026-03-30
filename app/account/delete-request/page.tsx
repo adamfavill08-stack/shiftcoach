@@ -35,7 +35,7 @@ export default function DeleteRequestPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-900 p-4">
+    <main className="min-h-screen bg-slate-100 dark:bg-slate-900 p-4">
       <div className="max-w-xl mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow p-6 mt-8">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Request account deletion</h1>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">

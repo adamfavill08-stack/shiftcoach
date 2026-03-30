@@ -95,6 +95,7 @@ export default function HydrationPage() {
       const total = typeof json?.total === "number" ? json.total : baseMl + delta
       setBaseMl(total)
       setSelectedMl(total)
+      window.dispatchEvent(new Event("water-logged"))
     } finally {
       setSaving(false)
     }
@@ -107,7 +108,7 @@ export default function HydrationPage() {
   }, [selectedMl, baseMl, saving])
 
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-slate-100">
       <div className="max-w-[430px] mx-auto min-h-screen px-4 pt-4 pb-8 flex flex-col gap-4">
         {/* Header */}
         <header className="flex items-center gap-3">

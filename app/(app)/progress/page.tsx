@@ -61,7 +61,7 @@ export default function BrowsePage() {
 
   return (
     <>
-      <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50">
+      <main className="min-h-screen bg-slate-100">
         <div className="max-w-[430px] mx-auto min-h-screen px-4 pb-8 pt-4 flex flex-col gap-5">
           {/* Header */}
           <header className="mb-1">

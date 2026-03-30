@@ -112,7 +112,7 @@ function SignInContent() {
   }
 
   return (
-    <main className="min-h-screen bg-white flex items-center justify-center px-6 py-12">
+    <main className="min-h-screen bg-slate-100 flex items-center justify-center px-6 py-12">
       <div className="w-full max-w-md">
         {/* Main sign-in card */}
         <div className="mx-auto max-w-md rounded-xl bg-white border border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.08)] p-7">
@@ -229,7 +229,7 @@ function SignInContent() {
 function SignInFallback() {
   const { t } = useTranslation()
   return (
-    <main className="min-h-screen bg-white flex items-center justify-center px-6 py-12">
+    <main className="min-h-screen bg-slate-100 flex items-center justify-center px-6 py-12">
       <div className="w-full max-w-md relative z-10">
         <div className="mx-auto max-w-md rounded-xl bg-white border border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.08)] p-7 text-center text-sm text-slate-500">
           {t('auth.signIn.loading')}

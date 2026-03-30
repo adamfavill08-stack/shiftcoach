@@ -43,7 +43,7 @@ export default function SplashPage() {
   }, [user, loading, router])
 
   return (
-    <main className="min-h-screen bg-white flex items-stretch justify-center px-4">
+    <main className="min-h-screen bg-slate-100 flex items-stretch justify-center px-4">
       <div className="w-full max-w-md flex flex-col justify-between py-10">
         {/* Top: logo + headline */}
         <div

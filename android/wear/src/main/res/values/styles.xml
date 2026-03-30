@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.ShiftCoachWear" parent="Theme.AppCompat.DayNight.NoActionBar">
-        <item name="colorAccent">@color/healthAccent</item>
-        <item name="android:windowBackground">@color/healthBackground</item>
-        <item name="android:textColorPrimary">@color/healthTextPrimary</item>
-        <item name="android:textColorSecondary">@color/healthTextSecondary</item>
+        <item name="colorAccent">@color/wear_accent</item>
+        <item name="android:windowBackground">@color/wear_background</item>
+        <item name="android:textColorPrimary">@color/wear_text_primary</item>
+        <item name="android:textColorSecondary">@color/wear_text_secondary</item>
     </style>
 
     <style name="HealthSectionTitle">
-        <item name="android:textColor">@color/healthAccent</item>
+        <item name="android:textColor">@color/wear_accent</item>
         <item name="android:textStyle">bold</item>
         <item name="android:textSize">@dimen/health_section_title</item>
     </style>

@@ -5,6 +5,9 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
+-keep class androidx.health.connect.** { *; }
+-dontwarn androidx.health.connect.**
+
 # Keep Capacitor classes (required for Capacitor to work)
 -keep class com.getcapacitor.** { *; }
 -keep class com.capacitorjs.** { *; }

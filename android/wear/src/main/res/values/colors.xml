@@ -1,12 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="healthBackground">#0B0D10</color>
-    <color name="healthCardBackground">#13161B</color>
+    <!-- Aligned with com.shiftcoach.wear.theme.WearColors (Compose is source of truth). -->
+    <color name="wear_background">#000000</color>
+    <color name="wear_surface_1">#0B0F14</color>
+    <color name="wear_surface_card">#0E141C</color>
+    <color name="wear_surface_2">#151D28</color>
+    <color name="wear_accent">#20D38A</color>
+    <color name="wear_text_primary">#F0F4F8</color>
+    <color name="wear_text_secondary">#94A3B8</color>
+    <color name="wear_recovery">#22C55E</color>
+    <color name="wear_caution">#F59E0B</color>
+    <color name="wear_low">#EF4444</color>
+
+    <!-- Legacy names → mapped to Wear palette for compatibility. -->
+    <color name="healthBackground">@color/wear_background</color>
+    <color name="healthCardBackground">@color/wear_surface_1</color>
     <color name="healthCardStroke">#2A313A</color>
-    <color name="healthTextPrimary">#F1F3F5</color>
-    <color name="healthTextSecondary">#A6AFB8</color>
-    <color name="healthAccent">#00E676</color>
+    <color name="healthTextPrimary">@color/wear_text_primary</color>
+    <color name="healthTextSecondary">@color/wear_text_secondary</color>
+    <color name="healthAccent">@color/wear_accent</color>
     <color name="healthDivider">#24303B</color>
     <color name="healthMuted">#6B7480</color>
 </resources>
-

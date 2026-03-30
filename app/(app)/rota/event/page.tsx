@@ -182,7 +182,7 @@ export default function NewRotaEventPage() {
   const selectedType = TYPE_OPTIONS.find((option) => option.value === form.eventType) ?? TYPE_OPTIONS[0]
 
   return (
-    <div className="flex flex-1 justify-center bg-gradient-to-br from-slate-50 via-white to-slate-50">
+    <div className="flex flex-1 justify-center bg-slate-100">
       <div className="relative flex h-full w-full max-w-md flex-col px-4 py-5">
         <div className="flex flex-1 flex-col min-h-0">
           {/* Header */}

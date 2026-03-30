@@ -179,7 +179,7 @@ export default function BodyClockPage() {
           : "bg-rose-50 text-rose-900 ring-rose-100"
 
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-slate-100">
       <div className="max-w-[430px] mx-auto min-h-screen px-4 pb-10 pt-4 flex flex-col gap-6">
         <header className="flex items-center gap-2">
           <Link

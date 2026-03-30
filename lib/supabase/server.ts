@@ -1,8 +1,9 @@
 // lib/supabase/server.ts
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { apiUnauthorized } from '@/lib/api/response'
+import { supabaseServer } from '@/lib/supabase-server'
 
 export class UnauthorizedError extends Error {
   override name = 'UnauthorizedError'
@@ -23,8 +24,31 @@ export async function requireServerUser() {
 }
 
 export async function getServerSupabaseAndUserId() {
-  // Security-critical: always resolve identity from the request/session.
-  // Never fall back to service-role + fixed user ID.
+  /**
+   * Wear OS / raw HTTP clients (no cookies): development-only shared key + env user id.
+   * Production ignores this branch (NODE_ENV !== 'development').
+   * Set SHIFTCOACH_WEAR_DEV_KEY and SHIFTCOACH_WEAR_DEV_USER_ID in .env.local
+   * and the same key in Gradle (-PSHIFTCOACH_WEAR_DEV_KEY=... or gradle.properties).
+   */
+  try {
+    const headerList = await headers()
+    const wearKey = headerList.get('x-shiftcoach-wear-key')
+    if (
+      process.env.NODE_ENV === 'development' &&
+      wearKey &&
+      process.env.SHIFTCOACH_WEAR_DEV_KEY &&
+      wearKey === process.env.SHIFTCOACH_WEAR_DEV_KEY
+    ) {
+      const wearUserId = process.env.SHIFTCOACH_WEAR_DEV_USER_ID?.trim()
+      if (wearUserId) {
+        return { supabase: supabaseServer, userId: wearUserId, isDevFallback: true }
+      }
+    }
+  } catch {
+    // headers() unavailable in rare contexts; fall through to cookies.
+  }
+
+  // Security-critical: resolve identity from session cookies by default.
   try {
     const cookieStore = await cookies()
 

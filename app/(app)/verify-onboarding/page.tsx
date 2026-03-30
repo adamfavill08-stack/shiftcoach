@@ -212,7 +212,7 @@ export default function VerifyOnboardingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 flex items-center justify-center px-4 py-8">
+    <main className="min-h-screen bg-slate-100 flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-2xl">
         <div className="relative overflow-hidden rounded-2xl bg-white/90 backdrop-blur-xl border border-white/90 shadow-[0_8px_24px_rgba(15,23,42,0.08)] p-8">
           <div className="mb-6">

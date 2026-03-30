@@ -351,15 +351,15 @@ function DashboardContent() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 pb-6 pt-10 text-center text-sm text-slate-500">
+      <main className="min-h-screen bg-slate-100 pb-6 pt-10 text-center text-sm text-slate-500">
         {t('dashboard.loading')}
       </main>
     )
   }
 
   return (
-    <div className="min-h-screen bg-white flex justify-center">
-      <div className="w-full max-w-md bg-white">
+    <div className="min-h-screen bg-slate-100 flex justify-center">
+      <div className="w-full max-w-md bg-slate-100">
         {googleFitMessage && (
           <div
             className={`mx-4 mt-2 rounded-lg px-3 py-2 text-sm ${
@@ -389,7 +389,7 @@ function DashboardContent() {
             Displaying cached guidance until connection is restored.
           </div>
         )}
-        <main className="min-h-screen pb-6 bg-white">
+        <main className="min-h-screen pb-6 bg-slate-100">
           <div id="phone-root" className="pb-4 relative">
             <DashboardHeader />
             <DashboardPager pages={pages} />
@@ -405,7 +405,7 @@ export default function DashboardPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 pb-6 pt-10 text-center text-sm text-slate-500">
+        <main className="min-h-screen bg-slate-100 pb-6 pt-10 text-center text-sm text-slate-500">
           {t('dashboard.loading')}
         </main>
       }

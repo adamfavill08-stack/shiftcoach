@@ -4,7 +4,7 @@ import React, { memo, useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Info, X, Clock, UtensilsCrossed, AlertCircle, Sparkles, MessageSquareText, Droplets } from "lucide-react";
+import { ChevronRight, Info, X, Clock, UtensilsCrossed, AlertCircle, Sparkles, MessageSquareText } from "lucide-react";
 import { useGoalChange } from "@/lib/hooks/useGoalChange";
 import { useMealTimingTodayCard, type MealTimingTodayCardData } from "@/lib/hooks/useMealTimingTodayCard";
 import { NextMealWindowCard } from "@/components/nutrition/NextMealWindowCard";
@@ -254,20 +254,26 @@ function ShiftRhythmCard({
       {/* Compact meal times summary card */}
       <HomeMealTimesCard />
 
-      {/* BINGE RISK CARD */}
-      {!showSecondaryCards || isBingeRiskLoading ? (
-        <BingeRiskCardSkeleton />
-      ) : bingeRisk ? (
-        <BingeRiskCard bingeRisk={bingeRisk} />
-      ) : (
-        <div className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-          <p className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">Binge risk</p>
-          <p className="mt-1 text-[11px] text-slate-600">Not enough data yet.</p>
+      {/* Binge risk + Shift lag — compact tiles side by side */}
+      <div className="grid w-full grid-cols-2 gap-2 items-stretch">
+        <div className="flex min-h-0 min-w-0">
+          {!showSecondaryCards || isBingeRiskLoading ? (
+            <BingeRiskCardSkeleton compact />
+          ) : bingeRisk ? (
+            <BingeRiskCard bingeRisk={bingeRisk} compact />
+          ) : (
+            <div className="flex min-h-[6.5rem] w-full flex-col justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+              <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-slate-700">
+                Binge risk
+              </p>
+              <p className="mt-1 text-[10px] leading-snug text-slate-600">Not enough data yet.</p>
+            </div>
+          )}
         </div>
-      )}
-
-      {/* SHIFT LAG CARD */}
-      <ShiftLagCard />
+        <div className="flex min-h-0 min-w-0">
+          <ShiftLagCard compact />
+        </div>
+      </div>
 
       {/* LOG SLEEP TILE */}
       <HomeLogSleepCard />
@@ -414,108 +420,28 @@ function HomeAdjustedCaloriesCard() {
   if (!data) return null;
 
   const adjustedCalories = data.adjustedCalories ?? 0;
-  const baseCalories = data.baseCalories ?? 0;
-
-  let chain = data.modifierChain ?? [];
-  if (chain.length === 0 && baseCalories > 0) {
-    let running = baseCalories;
-    const factors: Array<[string, number]> = [
-      ["rhythm", data.rhythmFactor],
-      ["sleep", data.sleepFactor],
-      ["shift", data.shiftFactor],
-      ["shift_activity", data.shiftActivityFactor ?? 1],
-      ["daily_activity", data.dailyActivityFactor ?? 1],
-    ];
-    chain = factors.map(([id, f]) => {
-      const prev = running;
-      running = prev * f;
-      return {
-        id,
-        factor: f,
-        deltaKcal: Math.round(running - prev),
-        runningKcal: Math.round(running),
-      };
-    });
-  }
-
-  /** Honest dashboard grouping: activity = shift load + steps/min; recovery = everything else (incl. guard remainder). */
-  const totalDelta = adjustedCalories - baseCalories;
-  const activityDelta = chain
-    .filter((m) => m.id === "shift_activity" || m.id === "daily_activity")
-    .reduce((s, m) => s + m.deltaKcal, 0);
-  const recoveryDelta = totalDelta - activityDelta;
-
-  const deltaPct =
-    baseCalories > 0 ? Math.round(((adjustedCalories - baseCalories) / baseCalories) * 100) : 0;
-
-  const fmtSignedKcal = (n: number) =>
-    `${n >= 0 ? "+" : ""}${n.toLocaleString("en-US")} kcal`;
-
-  const colorSigned = (n: number) =>
-    n === 0 ? "text-slate-500" : n >= 0 ? "text-emerald-600" : "text-amber-600";
-
-  const snapshotRows: Array<{ key: string; label: string; value: string; valueClass: string }> = [
-    {
-      key: "snap-base",
-      label: t("dashboard.calories.snapshotBase"),
-      value: `${baseCalories.toLocaleString("en-US")} kcal`,
-      valueClass: "text-slate-900 font-semibold",
-    },
-    {
-      key: "snap-recovery",
-      label: t("dashboard.calories.snapshotRecovery"),
-      value: fmtSignedKcal(recoveryDelta),
-      valueClass: `font-semibold ${colorSigned(recoveryDelta)}`,
-    },
-    {
-      key: "snap-activity",
-      label: t("dashboard.calories.snapshotActivity"),
-      value: fmtSignedKcal(activityDelta),
-      valueClass: `font-semibold ${colorSigned(activityDelta)}`,
-    },
-    {
-      key: "snap-pct",
-      label: t("dashboard.calories.snapshotTotalAdjustment"),
-      value: `${deltaPct >= 0 ? "+" : ""}${deltaPct}%`,
-      valueClass: `font-semibold ${deltaPct === 0 ? "text-slate-500" : deltaPct >= 0 ? "text-emerald-700" : "text-amber-700"}`,
-    },
-  ];
 
   return (
     <Link
       href="/adjusted-calories"
       className="block rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-colors hover:bg-slate-50"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex flex-col">
-              <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
-                {t("dashboard.calories.cardTitle")}
-              </span>
-              <span className="text-[11px] text-slate-600">{t("dashboard.calories.cardSubtitle")}</span>
-            </div>
-            <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
+              {t("dashboard.calories.cardTitle")}
+            </span>
+            <span className="text-[11px] text-slate-600">{t("dashboard.calories.cardSubtitle")}</span>
           </div>
-
-          <div className="mt-1">
-            <div className="flex items-baseline gap-2">
-              <span className="text-[30px] font-semibold text-slate-900 tabular-nums leading-none">
-                {adjustedCalories.toLocaleString("en-US")}
-              </span>
-              <span className="text-sm font-medium text-slate-700">kcal</span>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-slate-200/60 space-y-1">
-            {snapshotRows.map((r) => (
-              <div key={r.key} className="flex items-center justify-between text-[11px] gap-2">
-                <span className="text-slate-600">{r.label}</span>
-                <span className={`tabular-nums flex-shrink-0 ${r.valueClass}`}>{r.value}</span>
-              </div>
-            ))}
+          <div className="flex items-baseline gap-2 pt-0.5">
+            <span className="text-[30px] font-semibold text-slate-900 tabular-nums leading-none">
+              {adjustedCalories.toLocaleString("en-US")}
+            </span>
+            <span className="text-sm font-medium text-slate-700">kcal</span>
           </div>
         </div>
+        <ChevronRight className="h-4 w-4 shrink-0 text-slate-400 self-center" aria-hidden />
       </div>
     </Link>
   );
@@ -917,74 +843,113 @@ function HeartRecoveryCard() {
   );
 }
 
+/** Matches quick-add step on `/hydration` (default glass size). */
+const HYDRATION_QUICK_ADD_ML = 250;
+
+function HydrationJugGraphic({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 48 56" fill="none" className={className} aria-hidden>
+      {/* Water level in the belly */}
+      <path
+        fill="currentColor"
+        fillOpacity={0.28}
+        d="M11.5 27.5c0-1 .8-1.8 1.9-1.9h20.2c1.1.1 1.9.9 1.9 1.9v12.6c0 4.9-3.9 8.9-8.7 8.9h-6.6c-4.8 0-8.7-4-8.7-8.9v-12.6z"
+      />
+      {/* Pitcher: pouring lip (left), wide belly, narrow neck */}
+      <path
+        fill="currentColor"
+        fillOpacity={0.12}
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        d="
+          M 14 14
+          L 9.5 11
+          L 12.5 7.5
+          H 27.5
+          L 30.5 11
+          L 28 14
+          H 29.5
+          C 33.5 14 36.5 17 36.5 21
+          V 40.5
+          C 36.5 46.2 31.8 50.5 26 50.5
+          H 20
+          C 14.2 50.5 9.5 46.2 9.5 40.5
+          V 21
+          C 9.5 17 12.5 14 16.5 14
+          H 14
+          Z
+        "
+      />
+      {/* C-shaped handle on the right */}
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.75}
+        strokeLinecap="round"
+        d="M 31 18.5 C 41.5 22 41.5 39 31 42.5"
+      />
+    </svg>
+  );
+}
+
 function HydrationCard() {
-  const { data } = useTodayNutrition();
+  const [adding, setAdding] = useState(false);
 
-  const targetMl = data?.hydrationTargets?.water_ml ?? null;
-  const consumedMl = data?.hydrationIntake?.water_ml ?? null;
-
-  const targetLitres =
-    targetMl != null ? (targetMl / 1000).toFixed(targetMl >= 2000 ? 1 : 2) : "—";
-
-  const progressPct =
-    targetMl && consumedMl != null && targetMl > 0
-      ? Math.min(100, Math.round((consumedMl / targetMl) * 100))
-      : null;
+  const handleQuickAdd = async () => {
+    if (adding) return;
+    try {
+      setAdding(true);
+      const res = await fetch("/api/logs/water", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ml: HYDRATION_QUICK_ADD_ML }),
+      });
+      if (!res.ok) return;
+      window.dispatchEvent(new Event("water-logged"));
+    } finally {
+      setAdding(false);
+    }
+  };
 
   return (
-    <Link
-      href="/hydration"
-      className="block rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-colors hover:bg-slate-50"
-    >
-      <div className="flex items-start gap-3">
-        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-sky-50 text-sky-600">
-          <Droplets className="w-4 h-4" />
+    <div className="relative rounded-xl border border-slate-200 bg-white px-5 py-4 pr-10 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+      <Link
+        href="/hydration"
+        className="absolute right-3 top-4 rounded-md p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+        aria-label="Open hydration"
+      >
+        <ChevronRight className="h-4 w-4" aria-hidden />
+      </Link>
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1 space-y-2.5">
+          <Link
+            href="/hydration"
+            className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-700 transition-colors hover:text-slate-900"
+          >
+            Hydration
+          </Link>
+          <button
+            type="button"
+            disabled={adding}
+            onClick={handleQuickAdd}
+            className="block w-full text-left text-[15px] font-semibold leading-tight text-slate-900 transition-colors hover:text-sky-700 disabled:opacity-50 rounded-md -mx-1 px-1 py-0.5 hover:bg-sky-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
+            aria-label={`Add ${HYDRATION_QUICK_ADD_ML} millilitres of water`}
+          >
+            {adding ? "Adding…" : `+${HYDRATION_QUICK_ADD_ML}ml`}
+          </button>
         </div>
-        <div className="flex-1 space-y-2">
-          <div className="flex items-start justify-between gap-2">
-            <div className="space-y-1">
-              <p className="font-semibold text-slate-900 text-[11px] uppercase tracking-[0.16em]">
-                Hydration guidance
-              </p>
-              <p className="text-[11px] text-slate-600">
-                Daily water target tuned to your shifts.
-              </p>
-            </div>
-            <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0 mt-1" />
-          </div>
-
-          <div className="flex items-center justify-between text-[11px] text-slate-700">
-            <span>
-              Today&apos;s goal:{" "}
-              <span className="font-semibold text-slate-900">{targetLitres}</span>{" "}
-              <span className="text-slate-500">L</span>
-            </span>
-            {progressPct != null && (
-              <span className="text-[10px] text-slate-500">
-                {progressPct}% logged
-              </span>
-            )}
-          </div>
-
-          {progressPct != null && (
-            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-sky-400 to-emerald-500"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-          )}
-
-          <div className="mt-2 flex items-center justify-between text-[10px] text-slate-600 pt-2 border-t border-slate-200/70">
-            <span>Hydration notifications</span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span className="font-medium text-slate-700">On</span>
-            </span>
-          </div>
-        </div>
+        <Link
+          href="/hydration"
+          className="shrink-0 rounded-md text-sky-500 transition-opacity hover:opacity-90"
+          aria-hidden
+          tabIndex={-1}
+        >
+          <HydrationJugGraphic className="pointer-events-none h-14 w-12" />
+        </Link>
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -1053,7 +1018,13 @@ function ShiftWorkerGoalsCard() {
 
 /* -------------------- BINGE RISK CARD -------------------- */
 
-const BingeRiskCard = memo(function BingeRiskCard({ bingeRisk }: { bingeRisk: { score: number; level: "low" | "medium" | "high"; drivers: string[]; explanation: string } }) {
+const BingeRiskCard = memo(function BingeRiskCard({
+  bingeRisk,
+  compact = false,
+}: {
+  bingeRisk: { score: number; level: "low" | "medium" | "high"; drivers: string[]; explanation: string };
+  compact?: boolean;
+}) {
   const riskScore = bingeRisk.score;
   const riskLevel = bingeRisk.level;
   const drivers = bingeRisk.drivers;
@@ -1061,9 +1032,12 @@ const BingeRiskCard = memo(function BingeRiskCard({ bingeRisk }: { bingeRisk: { 
     .map((d) => d.trim())
     .find((d) => d.length > 0 && d.toLowerCase() !== 'no meals logged today') || '';
 
+  const maxDriverLen = compact ? 22 : 42;
+  const sliceLen = compact ? 19 : 39;
+
   const riskColors = {
     low: {
-      circle: 'bg-emerald-50 border-emerald-200',
+      circle: 'bg-emerald-400 border-emerald-500',
       driver: 'bg-emerald-50/60 border-emerald-200/40 text-emerald-700'
     },
     medium: {
@@ -1077,58 +1051,85 @@ const BingeRiskCard = memo(function BingeRiskCard({ bingeRisk }: { bingeRisk: { 
   };
 
   const colors = riskColors[riskLevel];
-  const levelLabel =
-    riskLevel === "low" ? "Low" : riskLevel === "medium" ? "Medium" : "High";
   const compactDriverLabel = topDriver
-    ? topDriver.length > 42
-      ? `${topDriver.slice(0, 39)}...`
+    ? topDriver.length > maxDriverLen
+      ? `${topDriver.slice(0, sliceLen)}...`
       : topDriver
     : null;
+
+  /** Headline risk tier — avoids showing a driver (e.g. “High shift lag”) that contradicts a low binge score. */
+  const riskLevelLabel =
+    riskLevel === "low" ? "Low" : riskLevel === "medium" ? "Medium" : "High";
 
   return (
     <Link
       href="/binge-risk"
-      className="block rounded-xl bg-white border border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
+      className={`relative rounded-xl border border-slate-200 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-colors hover:bg-slate-50 ${
+        compact
+          ? "flex h-full w-full min-h-[6.5rem] min-w-0 flex-col justify-center px-3 pb-3 pt-2 pr-8"
+          : "block px-5 pb-4 pr-10 pt-2.5"
+      }`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className={`relative h-11 w-11 rounded-full flex items-center justify-center ${colors.circle}`}>
-            <span className="text-base font-semibold text-slate-900 tabular-nums">
-              {riskScore}
+      <ChevronRight
+        className={`pointer-events-none absolute text-slate-400 ${compact ? "right-2 top-2 h-3.5 w-3.5" : "right-3 top-2.5 h-4 w-4"}`}
+        aria-hidden
+      />
+      <div className={`flex items-center ${compact ? "gap-2" : "gap-1.5"}`}>
+        <div className={`flex min-w-0 flex-1 flex-col ${compact ? "space-y-1" : "space-y-2"}`}>
+          <span
+            className={`block font-semibold uppercase leading-tight text-slate-700 ${
+              compact ? "text-[10px] tracking-[0.14em]" : "text-xs tracking-[0.16em]"
+            }`}
+          >
+            Binge risk
+          </span>
+          {compact ? (
+            <span className="block min-h-[22px] text-[15px] font-semibold leading-tight text-slate-900">
+              {riskLevelLabel}
             </span>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
-              Binge risk
-            </span>
-            <span className="text-[11px] text-slate-600">
-              {levelLabel} risk. Tap to see what&apos;s driving it.
-            </span>
-            {compactDriverLabel && (
-              <span className={`mt-1 inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${colors.driver}`}>
+          ) : (
+            compactDriverLabel && (
+              <span
+                className={`inline-flex max-w-full min-h-[22px] items-center truncate rounded-full border px-2 py-0.5 text-[10px] font-medium leading-tight ${colors.driver}`}
+              >
                 {compactDriverLabel}
               </span>
-            )}
-          </div>
+            )
+          )}
         </div>
-        <ChevronRight className="h-4 w-4 text-slate-400" />
+        <div
+          className={`flex shrink-0 items-center justify-center rounded-full ${colors.circle} ${
+            compact ? "h-[50px] w-[50px]" : "-ml-1 h-11 w-11"
+          }`}
+        >
+          <span
+            className={`font-semibold text-slate-900 tabular-nums ${compact ? "text-sm" : "text-base"}`}
+          >
+            {riskScore}
+          </span>
+        </div>
       </div>
     </Link>
   );
 })
 
-function BingeRiskCardSkeleton() {
+function BingeRiskCardSkeleton({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] animate-pulse">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="h-11 w-11 rounded-full bg-slate-100 border border-slate-200" />
-          <div className="flex flex-col gap-1.5">
-            <div className="h-2.5 w-20 rounded bg-slate-200" />
-            <div className="h-2.5 w-40 rounded bg-slate-100" />
-          </div>
+    <div
+      className={`animate-pulse rounded-xl border border-slate-200 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.08)] ${
+        compact
+          ? "flex h-full w-full min-h-[6.5rem] min-w-0 flex-col justify-center px-3 pb-3 pt-2 pr-8"
+          : "px-5 pb-4 pr-10 pt-2.5"
+      }`}
+    >
+      <div className={`flex items-center ${compact ? "gap-2" : "gap-1.5"}`}>
+        <div className={`flex min-w-0 flex-1 flex-col ${compact ? "gap-1" : "gap-2"}`}>
+          <div className={`rounded bg-slate-200 ${compact ? "h-2 w-14" : "h-2.5 w-20"}`} />
+          {compact ? <div className="h-5 w-12 rounded bg-slate-100" /> : null}
         </div>
-        <div className="h-4 w-4 rounded bg-slate-100" />
+        <div
+          className={`shrink-0 rounded-full border border-slate-200 bg-slate-100 ${compact ? "h-[50px] w-[50px]" : "h-11 w-11"}`}
+        />
       </div>
     </div>
   );

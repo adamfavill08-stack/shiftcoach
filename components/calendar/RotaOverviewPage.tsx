@@ -591,7 +591,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
   }
 
   return (
-    <div className="flex flex-1 justify-center bg-gradient-to-b from-white via-sky-50/40 to-white">
+    <div className="flex flex-1 justify-center bg-slate-100">
       {/* Light status bar background */}
       <div 
         className="fixed top-0 left-0 right-0 w-full bg-white z-50"

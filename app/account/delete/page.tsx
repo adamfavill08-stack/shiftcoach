@@ -72,7 +72,7 @@ export default function DeleteAccountPage() {
 
   if (isChecking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900 p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600 dark:border-slate-400 mx-auto mb-4"></div>
           <p className="text-slate-600 dark:text-slate-400">Loading...</p>
@@ -83,7 +83,7 @@ export default function DeleteAccountPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900 p-4">
         <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-8">
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4">
             Delete Account
@@ -109,7 +109,7 @@ export default function DeleteAccountPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900 p-4">
       <div className="max-w-md w-full">
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg overflow-hidden border border-red-200/50 dark:border-red-800/40">
           {/* Header */}

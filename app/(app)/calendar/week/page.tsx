@@ -112,7 +112,7 @@ function WeekViewContent() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-100 dark:from-slate-950 via-slate-100 dark:via-slate-950 to-slate-100 dark:to-slate-950">
+    <main className="min-h-screen bg-slate-100 dark:bg-slate-950">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white/80 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-800/60">
         <div className="max-w-md mx-auto px-3 py-3 flex items-center justify-between">
@@ -311,7 +311,7 @@ function WeekViewContent() {
 export default function WeekViewPage() {
   return (
     <Suspense fallback={
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 dark:from-slate-950 via-blue-50/30 dark:via-slate-900 to-slate-50 dark:to-slate-950 flex items-center justify-center">
+      <main className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
         <div className="text-slate-500 dark:text-slate-400">Loading...</div>
       </main>
     }>

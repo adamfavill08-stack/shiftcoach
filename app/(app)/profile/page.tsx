@@ -375,7 +375,7 @@ function ProfilePageContent() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-white via-sky-50/40 to-white">
+      <main className="min-h-screen bg-slate-100">
         <div className="max-w-md mx-auto px-4 py-8">
           <div className="rounded-3xl bg-white px-6 py-5">
             <div className="animate-pulse text-sm text-slate-500">Loading profile...</div>
@@ -388,7 +388,7 @@ function ProfilePageContent() {
   // If no profile after loading, show error message
   if (!profile) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-white via-sky-50/40 to-white">
+      <main className="min-h-screen bg-slate-100">
         <div className="max-w-md mx-auto px-4 py-8">
           <div className="rounded-3xl bg-white px-6 py-5">
             <div className="text-center">
@@ -673,7 +673,7 @@ function ProfilePageContent() {
 
       return (
         <>
-          <main className="min-h-screen bg-gradient-to-b from-white via-sky-50/40 to-white pb-8">
+          <main className="min-h-screen bg-slate-100 pb-8">
             <div className="mx-auto max-w-md px-4 py-6">
               <div className="rounded-3xl bg-white pb-6">
                 <div className="flex items-center justify-between px-5 pt-5 pb-3">
@@ -1161,7 +1161,7 @@ function ProfilePageContent() {
 export default function ProfilePage() {
   return (
     <Suspense fallback={
-      <main className="min-h-screen bg-gradient-to-b from-white via-sky-50/40 to-white">
+      <main className="min-h-screen bg-slate-100">
         <div className="max-w-md mx-auto px-4 py-8">
           <div className="rounded-3xl bg-white px-6 py-5">
             <div className="animate-pulse text-sm text-slate-500">Loading profile...</div>

@@ -1,6 +1,21 @@
 apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
 
+// Prefer wear-only signing (first Play upload for com.shiftcoach.wear can use a new keystore).
+// android/wear-keystore.properties — keystore file lives under android/wear/ (gitignored).
+// Otherwise fall back to shared android/keystore.properties + android/app/ (same key as phone).
+def wearKeystorePropsFile = rootProject.file("wear-keystore.properties")
+def sharedKeystorePropsFile = rootProject.file("keystore.properties")
+def wearKeystoreProps = new Properties()
+def sharedKeystoreProps = new Properties()
+def wearSigningFromWearFile = wearKeystorePropsFile.exists()
+def wearSigningFromShared = !wearSigningFromWearFile && sharedKeystorePropsFile.exists()
+if (wearSigningFromWearFile) {
+    wearKeystoreProps.load(new FileInputStream(wearKeystorePropsFile))
+} else if (wearSigningFromShared) {
+    sharedKeystoreProps.load(new FileInputStream(sharedKeystorePropsFile))
+}
+
 android {
     namespace "com.shiftcoach.wear"
     compileSdk rootProject.ext.compileSdkVersion
@@ -15,8 +30,27 @@ android {
         // Wear Compose Material 3 requires a higher minSdk than the shared project default.
         minSdkVersion 25
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // Must increase for every Play upload (tracks reject reused versionCode).
+        versionCode 2
+        versionName "1.0.1"
+    }
+
+    signingConfigs {
+        release {
+            if (wearSigningFromWearFile) {
+                def storeName = wearKeystoreProps['WEAR_RELEASE_STORE_FILE'] ?: 'shiftcoach-wear-upload.keystore'
+                storeFile rootProject.file("wear/${storeName}")
+                storePassword wearKeystoreProps['WEAR_RELEASE_STORE_PASSWORD']
+                keyAlias wearKeystoreProps['WEAR_RELEASE_KEY_ALIAS']
+                keyPassword wearKeystoreProps['WEAR_RELEASE_KEY_PASSWORD']
+            } else if (wearSigningFromShared) {
+                def storeName = sharedKeystoreProps['MYAPP_RELEASE_STORE_FILE'] ?: 'shiftcoach-release.keystore'
+                storeFile rootProject.file("app/${storeName}")
+                storePassword sharedKeystoreProps['MYAPP_RELEASE_STORE_PASSWORD']
+                keyAlias sharedKeystoreProps['MYAPP_RELEASE_KEY_ALIAS']
+                keyPassword sharedKeystoreProps['MYAPP_RELEASE_KEY_PASSWORD']
+            }
+        }
     }
 
     composeOptions {
@@ -29,13 +63,18 @@ android {
             // Override any time: -PSHIFTCOACH_API_BASE_URL=https://ngrok-url.ngrok.io
             def apiBaseUrl = project.findProperty("SHIFTCOACH_API_BASE_URL") ?: "http://10.0.2.2:3000"
             buildConfigField "String", "API_BASE_URL", "\"${apiBaseUrl}\""
+            // Matches server .env SHIFTCOACH_WEAR_DEV_KEY (development only; see lib/supabase/server.ts).
+            def wearDevKey = project.findProperty("SHIFTCOACH_WEAR_DEV_KEY") ?: ""
+            buildConfigField "String", "WEAR_DEV_KEY", "\"${wearDevKey}\""
         }
         release {
             minifyEnabled false
             shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
             def apiBaseUrl = project.findProperty("SHIFTCOACH_API_BASE_URL") ?: "https://www.shiftcoach.app"
             buildConfigField "String", "API_BASE_URL", "\"${apiBaseUrl}\""
+            buildConfigField "String", "WEAR_DEV_KEY", "\"\""
         }
     }
 
@@ -74,5 +113,6 @@ dependencies {
     implementation "androidx.wear.compose:compose-foundation:1.5.0"
     implementation "androidx.wear.compose:compose-material3:1.5.0"
     implementation "com.google.android.gms:play-services-wearable:18.2.0"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1"
 }
 

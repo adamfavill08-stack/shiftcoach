@@ -32,22 +32,26 @@ export async function GET() {
     const now = new Date()
     const nowMs = now.getTime()
 
-    const anyHr = await supabase
+    // Plain `limit(1)` (no maybeSingle): avoids PostgREST object+json edge cases; service role bypasses RLS.
+    const { data: anyHrRows, error: anyHrError } = await supabase
       .from('wearable_heart_rate_samples')
       .select('recorded_at')
       .eq('user_id', userId)
       .limit(1)
-      .maybeSingle()
 
-    if (anyHr.error) {
-      console.error('[wearables/heart-rate] any-sample check:', anyHr.error.message)
+    if (anyHrError) {
+      console.error('[wearables/heart-rate] any-sample check:', {
+        message: anyHrError.message,
+        code: anyHrError.code,
+        details: anyHrError.details,
+        hint: anyHrError.hint,
+      })
       return NextResponse.json(
         heartRateUnavailable('error', 'Could not read heart-rate data'),
-        { status: 500 },
       )
     }
 
-    if (!anyHr.data) {
+    if (!anyHrRows?.length) {
       return NextResponse.json(
         heartRateUnavailable(
           'no_device',
@@ -102,7 +106,6 @@ export async function GET() {
       console.error('[wearables/heart-rate] samples query:', hrRows.error.message)
       return NextResponse.json(
         heartRateUnavailable('error', 'Could not read heart-rate samples'),
-        { status: 500 },
       )
     }
 
@@ -193,7 +196,6 @@ export async function GET() {
     console.error('[wearables/heart-rate] Unexpected error:', err)
     return NextResponse.json(
       heartRateUnavailable('error', 'Unexpected error loading heart rate'),
-      { status: 500 },
     )
   }
 }

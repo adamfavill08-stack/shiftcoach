@@ -140,7 +140,13 @@ export function useTodayNutrition() {
     }
   }, [refetch])
 
-  // Meal logging removed - no event listeners needed
+  useEffect(() => {
+    const onWaterLogged = () => {
+      void refetch(true)
+    }
+    window.addEventListener('water-logged', onWaterLogged)
+    return () => window.removeEventListener('water-logged', onWaterLogged)
+  }, [refetch])
 
   return { data, loading, refresh: refetch }
 }

@@ -304,7 +304,7 @@ export default function OnboardingPage() {
   // Show loading state while checking authentication
   if (loading) {
     return (
-      <main className="min-h-screen bg-white flex items-center justify-center px-4">
+      <main className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
         <div className="text-slate-500">{t('onboarding.loading')}</div>
       </main>
     )
@@ -320,7 +320,7 @@ export default function OnboardingPage() {
   const progress = (step / totalSteps) * 100
 
   return (
-    <main className="min-h-screen bg-white flex items-center justify-center px-4 py-8">
+    <main className="min-h-screen bg-slate-100 flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
         {/* Main onboarding card */}
         <div className="rounded-xl bg-white border border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">

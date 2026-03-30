@@ -272,7 +272,7 @@ export default function HeartHealthPage() {
     authoritative && (tone === "overworked" || (restingBpm != null && restingBpm >= 90));
 
   return (
-    <main className="min-h-screen bg-slate-50/80">
+    <main className="min-h-screen bg-slate-100">
       <div className="max-w-[430px] mx-auto min-h-screen px-4 pb-10 pt-4 flex flex-col gap-6">
         <header className="flex items-center gap-2">
           <Link

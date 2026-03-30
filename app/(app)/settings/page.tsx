@@ -19,7 +19,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-white via-sky-50/40 to-white flex items-center justify-center px-4">
+      <main className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
         <div className="rounded-3xl bg-white border border-slate-100 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] px-6 py-5">
           <div className="animate-pulse text-sm text-slate-500">Loading settings...</div>
         </div>
@@ -28,7 +28,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-white via-sky-50/40 to-white flex items-start justify-center px-4 py-6 pb-20 overflow-y-auto">
+    <main className="min-h-screen bg-slate-100 flex items-start justify-center px-4 py-6 pb-20 overflow-y-auto">
       <div className="w-full max-w-md">
         <div className="rounded-3xl bg-white pb-4">
           {/* Header */}
