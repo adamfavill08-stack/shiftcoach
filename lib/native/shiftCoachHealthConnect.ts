@@ -26,7 +26,7 @@ class ShiftCoachHealthConnectWeb extends WebPlugin implements ShiftCoachHealthCo
   }
 
   async syncNow() {
-    throw new Error("Health Connect runs only on Android native");
+    return { ok: false };
   }
 }
 
