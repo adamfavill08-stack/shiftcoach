@@ -6,7 +6,7 @@
 
 :root {
   /* Backgrounds (app canvas; cards stay white) */
-  --bg: #e9e5de;
+  --bg: #f2f1f0;
   --bg-soft: #f8fafc;
   --card: rgba(255, 255, 255, 0.92);
   --card-subtle: rgba(255, 255, 255, 0.8);
