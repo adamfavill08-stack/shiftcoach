@@ -10,6 +10,7 @@ import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus'
 import { DashboardPager } from '@/components/dashboard/DashboardPager'
 import DashboardHeader from '@/components/dashboard/DashboardHeader'
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
+import type { FatigueRiskResult } from '@/lib/fatigue/calculateFatigueRisk'
 import ShiftRhythmCard from '@/components/shift-rhythm/ShiftRhythmCard'
 
 const GOOGLE_FIT_ERROR_MESSAGES: Record<string, string> = {
@@ -49,6 +50,7 @@ function DashboardContent() {
     sleepDeficit,
     socialJetlag: shiftRhythmSocialJetlag,
     bingeRisk: shiftRhythmBingeRisk,
+    fatigueRisk: shiftRhythmFatigueRisk,
   } = useShiftRhythm()
 
   const loadUser = useCallback(async () => {
@@ -84,21 +86,23 @@ function DashboardContent() {
   }, [])
 
   const [bingeRisk, setBingeRisk] = useState<any>(null)
+  const [fatigueRisk, setFatigueRisk] = useState<FatigueRiskResult | null>(null)
 
   const cacheDashboardState = useCallback(
-    (partial: { circadian?: CircadianOutput | null; socialJetlag?: any; shiftLag?: any; bingeRisk?: any }) => {
+    (partial: { circadian?: CircadianOutput | null; socialJetlag?: any; shiftLag?: any; bingeRisk?: any; fatigueRisk?: FatigueRiskResult | null }) => {
       if (typeof window === 'undefined') return
       const snapshot = {
         circadian,
         socialJetlag,
         shiftLag,
         bingeRisk,
+        fatigueRisk,
         ...partial,
         cachedAt: new Date().toISOString(),
       }
       window.localStorage.setItem('dashboard:lastKnownState', JSON.stringify(snapshot))
     },
-    [circadian, socialJetlag, shiftLag, bingeRisk],
+    [circadian, socialJetlag, shiftLag, bingeRisk, fatigueRisk],
   )
 
   // Keep the dashboard's social/binge state in sync with the consolidated
@@ -109,14 +113,16 @@ function DashboardContent() {
 
     setSocialJetlag(shiftRhythmSocialJetlag ?? null)
     setBingeRisk(shiftRhythmBingeRisk ?? null)
+    setFatigueRisk(shiftRhythmFatigueRisk ?? null)
 
     cacheDashboardState({
       socialJetlag: shiftRhythmSocialJetlag ?? null,
       bingeRisk: shiftRhythmBingeRisk ?? null,
+      fatigueRisk: shiftRhythmFatigueRisk ?? null,
     })
 
     setIsUsingCachedData(false)
-  }, [isOnline, shiftRhythmSocialJetlag, shiftRhythmBingeRisk, cacheDashboardState])
+  }, [isOnline, shiftRhythmSocialJetlag, shiftRhythmBingeRisk, shiftRhythmFatigueRisk, cacheDashboardState])
 
   const loadCachedDashboardState = useCallback(() => {
     if (typeof window === 'undefined') return false
@@ -128,6 +134,7 @@ function DashboardContent() {
       setSocialJetlag(cached.socialJetlag ?? null)
       setShiftLag(cached.shiftLag ?? null)
       setBingeRisk(cached.bingeRisk ?? null)
+      setFatigueRisk(cached.fatigueRisk ?? null)
       setIsUsingCachedData(true)
       return true
     } catch {
@@ -326,6 +333,7 @@ function DashboardContent() {
 
   const resolvedSocialJetlag = isOnline ? (shiftRhythmSocialJetlag ?? null) : socialJetlag
   const resolvedBingeRisk = isOnline ? (shiftRhythmBingeRisk ?? null) : bingeRisk
+  const resolvedFatigueRisk = isOnline ? (shiftRhythmFatigueRisk ?? null) : fatigueRisk
 
   const pages = useMemo(
     () => [
@@ -339,6 +347,7 @@ function DashboardContent() {
             socialJetlag={resolvedSocialJetlag}
             shiftLag={shiftLag}
             bingeRisk={resolvedBingeRisk}
+            fatigueRisk={resolvedFatigueRisk}
             isBingeRiskLoading={isOnline ? shiftRhythmLoading : false}
             hasRhythmData={hasShiftRhythmData}
             sleepDeficit={sleepDeficit}
@@ -346,7 +355,7 @@ function DashboardContent() {
         ),
       },
     ],
-    [totalScore, circadian, resolvedSocialJetlag, shiftLag, resolvedBingeRisk, isOnline, shiftRhythmLoading, hasShiftRhythmData, sleepDeficit, t]
+    [totalScore, circadian, resolvedSocialJetlag, shiftLag, resolvedBingeRisk, resolvedFatigueRisk, isOnline, shiftRhythmLoading, hasShiftRhythmData, sleepDeficit, t]
   )
 
   if (loading) {

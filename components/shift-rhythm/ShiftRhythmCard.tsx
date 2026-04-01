@@ -3,21 +3,27 @@
 import React, { memo, useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { Inter } from "next/font/google";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Info, X, Clock, UtensilsCrossed, AlertCircle, Sparkles, MessageSquareText } from "lucide-react";
+import { ChevronRight, Info, X, Clock, UtensilsCrossed, AlertCircle, Sparkles, MessageSquareText, Footprints, Timer, Flame, Heart, Droplet } from "lucide-react";
 import { useGoalChange } from "@/lib/hooks/useGoalChange";
 import { useMealTimingTodayCard, type MealTimingTodayCardData } from "@/lib/hooks/useMealTimingTodayCard";
 import { NextMealWindowCard } from "@/components/nutrition/NextMealWindowCard";
 import { ShiftLagCard } from "@/components/shiftlag/ShiftLagCard";
 import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition";
+import { useTodaySleep } from "@/lib/hooks/useTodaySleep";
+import { useWeeklyProgress } from "@/lib/hooks/useWeeklyProgress";
 import { ShiftWeekStrip } from "@/components/dashboard/ShiftWeekStrip";
 import { useActivityToday } from "@/lib/hooks/useActivityToday";
 import { useTranslation } from "@/components/providers/language-provider";
 import { ExploreCarousel } from "@/components/dashboard/ExploreCarousel";
+import type { FatigueRiskResult } from "@/lib/fatigue/calculateFatigueRisk";
 
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import type { ShiftLagMetrics } from '@/lib/circadian/calculateShiftLag'
 import type { HeartRateApiStatus } from '@/lib/wearables/heartRateApi'
+
+const inter = Inter({ subsets: ["latin"] });
 
 type ShiftRhythmCardProps = {
   // Dashboard passes score as 0–1000 (totalScore * 10) or undefined
@@ -44,6 +50,7 @@ type ShiftRhythmCardProps = {
     drivers: string[];
     explanation: string;
   } | null;
+  fatigueRisk?: FatigueRiskResult | null;
 
   // Comes from the dashboard-level /api/shift-rhythm call via `useShiftRhythm()`
   sleepDeficit?: any;
@@ -59,6 +66,7 @@ function ShiftRhythmCard({
   socialJetlag,
   shiftLag,
   bingeRisk,
+  fatigueRisk,
   hasRhythmData,
   sleepDeficit,
   isBingeRiskLoading = false,
@@ -248,30 +256,32 @@ function ShiftRhythmCard({
         onOpenBodyClock={() => router.push("/body-clock")}
       />
 
+      <HomeFatigueRiskCard sleepDeficit={sleepDeficit} fatigueRisk={fatigueRisk} />
+
       {/* Adjusted calories summary above meal timings */}
       <HomeAdjustedCaloriesCard />
 
       {/* Compact meal times summary card */}
       <HomeMealTimesCard />
 
-      {/* Binge risk + Shift lag — compact tiles side by side */}
-      <div className="grid w-full grid-cols-2 gap-2 items-stretch">
-        <div className="flex min-h-0 min-w-0">
+      {/* Binge risk + Shift lag — stacked full width */}
+      <div className="grid w-full grid-cols-1 gap-6 items-stretch">
+        <div className="flex w-full min-h-0 min-w-0">
           {!showSecondaryCards || isBingeRiskLoading ? (
-            <BingeRiskCardSkeleton compact />
+            <BingeRiskCardSkeleton />
           ) : bingeRisk ? (
-            <BingeRiskCard bingeRisk={bingeRisk} compact />
+            <BingeRiskCard bingeRisk={bingeRisk} />
           ) : (
-            <div className="flex min-h-[6.5rem] w-full flex-col justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-              <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-slate-700">
+            <div className="flex min-h-[6.5rem] w-full flex-col justify-center rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+              <p className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
                 Binge risk
               </p>
-              <p className="mt-1 text-[10px] leading-snug text-slate-600">Not enough data yet.</p>
+              <p className="mt-1 text-xs leading-snug text-slate-600">Not enough data yet.</p>
             </div>
           )}
         </div>
-        <div className="flex min-h-0 min-w-0">
-          <ShiftLagCard compact />
+        <div className="flex w-full min-h-0 min-w-0">
+          <ShiftLagCard />
         </div>
       </div>
 
@@ -291,7 +301,6 @@ function ShiftRhythmCard({
       <div className="pt-2">
         <h2 className="flex items-center gap-1 text-[7px] font-medium tracking-[0.2em] text-slate-200 uppercase">
           <span>Explore</span>
-          <span className="text-[11px]">🧭</span>
         </h2>
       </div>
 
@@ -416,32 +425,167 @@ function BodyClockCard({
 function HomeAdjustedCaloriesCard() {
   const { t } = useTranslation();
   const { data } = useTodayNutrition();
+  const weekly = useWeeklyProgress();
 
   if (!data) return null;
 
   const adjustedCalories = data.adjustedCalories ?? 0;
+  const weeklyAdjusted = weekly.adjustedCalories?.length === 7
+    ? weekly.adjustedCalories
+    : Array.from({ length: 7 }, () => adjustedCalories);
+  const weeklyDays = weekly.days?.length === 7
+    ? weekly.days
+    : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  // Reorder into a rolling 7-day window that always ends on "today".
+  const byDay = new Map<string, number>();
+  weeklyDays.forEach((day, idx) => {
+    byDay.set(day.slice(0, 3).toLowerCase(), weeklyAdjusted[idx] ?? adjustedCalories);
+  });
+  const rollingDayKeys: string[] = [];
+  for (let i = 6; i >= 0; i -= 1) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    rollingDayKeys.push(d.toLocaleDateString("en-GB", { weekday: "short" }).slice(0, 3).toLowerCase());
+  }
+  const rollingAdjusted = rollingDayKeys.map((k) => byDay.get(k) ?? adjustedCalories);
+
+  const minWeekly = Math.min(...rollingAdjusted);
+  const maxWeekly = Math.max(...rollingAdjusted);
+  const valueSpan = Math.max(1, maxWeekly - minWeekly);
+  const chartBars = rollingAdjusted.map((value, idx) => {
+    const normalized = (value - minWeekly) / valueSpan;
+    const heightPx = Math.round(20 + normalized * 16); // 20-36px subtle preview
+    const hue = Math.round(160 - normalized * 125); // soft teal -> warm orange
+    return {
+      day: String(rollingDayKeys[idx] ?? "").slice(0, 1).toUpperCase(),
+      heightPx,
+      color: `hsl(${hue} 72% 50%)`,
+    };
+  });
 
   return (
     <Link
       href="/adjusted-calories"
-      className="block rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-colors hover:bg-slate-50"
+      className="relative block rounded-3xl bg-white border border-slate-200 px-5 py-4 shadow-[0_6px_20px_rgba(15,23,42,0.06)] transition-colors hover:bg-slate-50"
     >
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <div className="flex flex-col">
-            <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
-              {t("dashboard.calories.cardTitle")}
-            </span>
-            <span className="text-[11px] text-slate-600">{t("dashboard.calories.cardSubtitle")}</span>
-          </div>
-          <div className="flex items-baseline gap-2 pt-0.5">
-            <span className="text-[30px] font-semibold text-slate-900 tabular-nums leading-none">
+      <ChevronRight className="absolute right-4 top-4 h-4 w-4 text-slate-400" aria-hidden />
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2 pr-6">
+          <span className={`block text-sm font-semibold leading-tight tracking-[0.08em] text-black ${inter.className}`}>
+            {t("dashboard.calories.cardTitle")}
+          </span>
+        </div>
+        <div className="mt-5 flex items-center gap-10">
+          <div className={`flex items-baseline gap-1.5 pt-2 ${inter.className}`}>
+            <span className="text-[36px] font-semibold text-slate-800 tabular-nums leading-none">
               {adjustedCalories.toLocaleString("en-US")}
             </span>
-            <span className="text-sm font-medium text-slate-700">kcal</span>
+            <span className="mt-2 text-[18px] font-medium text-slate-500 leading-none">kcal</span>
+          </div>
+          <div className="flex w-full max-w-[150px] items-end justify-between pt-1">
+            {chartBars.map((bar, idx) => (
+              <div key={`${bar.day}-${idx}`} className="flex flex-col items-center gap-1">
+                <div
+                  className="w-3 rounded-[3px]"
+                  style={{ height: `${bar.heightPx}px`, backgroundColor: bar.color }}
+                />
+                <span className="text-[9px] font-medium text-slate-400">{bar.day}</span>
+              </div>
+            ))}
           </div>
         </div>
-        <ChevronRight className="h-4 w-4 shrink-0 text-slate-400 self-center" aria-hidden />
+      </div>
+    </Link>
+  );
+}
+
+function HomeFatigueRiskCard({
+  sleepDeficit,
+  fatigueRisk,
+}: {
+  sleepDeficit?: {
+    category?: "low" | "moderate" | "high";
+    weeklyDeficit?: number;
+    sleepDebtHours?: number;
+  } | null;
+  fatigueRisk?: FatigueRiskResult | null;
+}) {
+  const debtHours = Math.max(0, sleepDeficit?.weeklyDeficit ?? sleepDeficit?.sleepDebtHours ?? 0);
+  const fallbackCategory = sleepDeficit?.category ?? "moderate";
+  const fallbackScore = Math.max(
+    22,
+    Math.min(78, Math.round((fallbackCategory === "high" ? 68 : fallbackCategory === "low" ? 28 : 48) + Math.min(14, debtHours * 1.2)))
+  );
+  const score100 = fatigueRisk?.score ?? fallbackScore;
+  const score10 = Math.max(1, Math.min(10, Math.round(score100 / 10)));
+  const markerLeft = `${Math.max(3, Math.min(97, score100))}%`;
+
+  const levelRaw = fatigueRisk?.level ?? (score100 >= 65 ? "high" : score100 < 30 ? "low" : "moderate");
+  const level = levelRaw === "high" ? "High" : levelRaw === "low" ? "Low" : "Moderate";
+  const badgeClass =
+    level === "High"
+      ? "bg-orange-100 text-orange-800"
+      : level === "Low"
+        ? "bg-emerald-100 text-emerald-800"
+        : "bg-emerald-100/80 text-slate-700";
+  const markerColor = (() => {
+    // Match the bar gradient: emerald -> amber -> rose
+    const t = Math.max(0, Math.min(1, score100 / 100));
+    if (t <= 0.5) {
+      const local = t / 0.5;
+      const r = Math.round(52 + (251 - 52) * local);
+      const g = Math.round(211 + (191 - 211) * local);
+      const b = Math.round(153 + (36 - 153) * local);
+      return `rgb(${r} ${g} ${b})`;
+    }
+    const local = (t - 0.5) / 0.5;
+    const r = Math.round(251 + (244 - 251) * local);
+    const g = Math.round(191 + (63 - 191) * local);
+    const b = Math.round(36 + (94 - 36) * local);
+    return `rgb(${r} ${g} ${b})`;
+  })();
+  const subtitle =
+    fatigueRisk?.confidenceLabel === "low"
+      ? "Confidence builds as more sleep and shift data syncs."
+      : fatigueRisk?.drivers?.[0]
+        ? fatigueRisk.drivers[0]
+        : "Rolling risk from fatigue and sleep rhythm.";
+
+  return (
+    <Link
+      href="/fatigue-risk"
+      className="relative block rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-[0_6px_20px_rgba(15,23,42,0.06)] transition-colors hover:bg-slate-50"
+    >
+      <ChevronRight className="absolute right-4 top-4 h-4 w-4 text-slate-400" aria-hidden />
+      <div className="pr-6">
+        <p className={`text-sm font-semibold tracking-[0.08em] text-black ${inter.className}`}>Fatigue risk</p>
+      </div>
+
+      <div className="mt-3 grid grid-cols-[1fr_1.05fr] items-end gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={`text-[42px] font-semibold leading-none text-slate-800 ${inter.className}`}>{score10}</span>
+            <span className={`rounded-full px-2.5 py-1 text-sm font-semibold leading-none ${badgeClass} ${inter.className}`}>
+              {level}
+            </span>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">{subtitle}</p>
+        </div>
+
+        <div className="pb-1">
+          <div className="relative h-4 rounded-md bg-gradient-to-r from-emerald-300 via-amber-300 to-rose-500">
+            <div
+              className="pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(15,23,42,0.18)]"
+              style={{ left: markerLeft, backgroundColor: markerColor }}
+              aria-hidden
+            />
+          </div>
+          <div className="mt-1 flex items-center justify-between text-[10px] font-medium text-slate-400">
+            <span>Low</span>
+            <span>High</span>
+          </div>
+        </div>
       </div>
     </Link>
   );
@@ -453,24 +597,62 @@ function HomeMealTimesCard() {
 }
 
 function HomeLogSleepCard() {
+  const { sleep, loading } = useTodaySleep();
+  const durationMinRaw =
+    typeof sleep?.duration_min === "number"
+      ? sleep.duration_min
+      : sleep?.start_ts && sleep?.end_ts
+        ? Math.max(0, Math.round((new Date(sleep.end_ts).getTime() - new Date(sleep.start_ts).getTime()) / 60000))
+        : 0;
+  const durationMin = Math.max(0, durationMinRaw);
+  const hours = Math.floor(durationMin / 60);
+  const mins = durationMin % 60;
+  const heroValue = loading ? "—" : `${hours}h ${String(mins).padStart(2, "0")}m`;
+
+  const sleepLabel = sleep ? "Main sleep" : "No main sleep";
+  const statusLine = loading
+    ? "Syncing sleep data..."
+    : durationMin >= 450
+      ? "Well recovered"
+      : durationMin >= 390
+        ? "On target"
+        : durationMin >= 330
+          ? "Slightly short"
+          : "Sleep is short";
+
+  const statusTone =
+    durationMin >= 450
+      ? "text-emerald-600"
+      : durationMin >= 390
+        ? "text-sky-600"
+        : durationMin >= 330
+          ? "text-amber-600"
+          : "text-rose-600";
+
   return (
     <Link
       href="/sleep"
-      className="block rounded-xl bg-white border border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
+      className="block rounded-3xl bg-white border border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 shadow-[0_6px_20px_rgba(15,23,42,0.06)]"
     >
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
-            Sleep
-          </span>
-          <span className="text-sm font-medium text-slate-900">
-            Log your sleep
-          </span>
-          <span className="text-[11px] text-slate-600">
-            Add main sleep or naps to keep your body clock on track.
-          </span>
+      <div className="relative">
+        <ChevronRight className="absolute right-0 top-0 h-4 w-4 text-slate-400" aria-hidden />
+        <div className="grid grid-cols-[1fr_126px] items-end gap-4 pr-6">
+          <div className="min-w-0">
+            <span className="text-[10px] font-semibold tracking-[0.16em] uppercase text-slate-500">Sleep</span>
+            <p className={`mt-2 text-[34px] font-semibold leading-none text-slate-900 tabular-nums ${inter.className}`}>
+              {heroValue}
+            </p>
+            <p className="mt-1 text-sm font-medium text-slate-700">{sleepLabel}</p>
+            <p className={`mt-1 text-xs ${loading ? "text-slate-500" : statusTone}`}>{statusLine}</p>
+          </div>
+          <div className="flex justify-end pb-0.5 -mt-3 pr-2">
+            <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-full bg-blue-900/90">
+              <span className={`text-[24px] font-semibold tracking-tight text-white ${inter.className}`} aria-hidden>
+                Zzz
+              </span>
+            </div>
+          </div>
         </div>
-        <ChevronRight className="h-4 w-4 text-slate-500 flex-shrink-0" />
       </div>
     </Link>
   );
@@ -602,6 +784,7 @@ function HomeActivityCard() {
   const steps = data?.steps ?? 0;
   const goal = data?.stepTarget ?? 9000;
   const activeMinutes = data?.activeMinutes ?? 0;
+  const calories = data?.estimatedCaloriesBurned ?? 0;
 
   const progressPct =
     goal > 0 ? Math.max(0, Math.min(100, Math.round((steps / goal) * 100))) : 0;
@@ -612,47 +795,55 @@ function HomeActivityCard() {
       onClick={() => {
         router.push("/activity");
       }}
-      className="w-full text-left rounded-xl bg-white border border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
+      className="w-full text-left rounded-3xl bg-white border border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 shadow-[0_6px_20px_rgba(15,23,42,0.06)]"
     >
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex-1 space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex flex-col">
-              <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
-                Activity
+      <div className="relative pr-6">
+        <ChevronRight className="absolute right-0 top-0 h-4 w-4 text-slate-400" aria-hidden />
+        <p className={`text-sm font-semibold tracking-[0.08em] text-black ${inter.className}`}>Activity</p>
+
+        <div className="mt-3 grid grid-cols-[1fr_92px] items-start gap-4">
+          <div className="space-y-3">
+            <div className="flex items-start gap-2.5">
+              <span className="mt-0.5 inline-flex h-4.5 w-4.5 items-center justify-center rounded-full bg-emerald-400/90" aria-hidden>
+                <Footprints className="h-2.5 w-2.5 text-white" strokeWidth={2.5} />
               </span>
-              <span className="text-[11px] text-slate-600">
-                Steps and active minutes for today.
-              </span>
+              <div>
+                <p className={`text-sm font-semibold text-slate-900 tabular-nums ${inter.className}`}>
+                  {loading ? "0" : steps.toLocaleString()}
+                  <span className="ml-1 text-sm font-medium text-slate-500">Steps</span>
+                </p>
+              </div>
             </div>
-            <ChevronRight className="h-4 w-4 text-slate-500 flex-shrink-0" />
+
+            <div className="flex items-start gap-2.5">
+              <span className="mt-0.5 inline-flex h-4.5 w-4.5 items-center justify-center rounded-full bg-sky-400/90" aria-hidden>
+                <Timer className="h-2.5 w-2.5 text-white" strokeWidth={2.5} />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-slate-900 tabular-nums">
+                  {loading ? "0 " : `${activeMinutes} `}
+                  <span className="text-sm font-medium text-slate-500">Mins</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2.5">
+              <span className="mt-0.5 inline-flex h-4.5 w-4.5 items-center justify-center rounded-full bg-amber-400/90" aria-hidden>
+                <Flame className="h-2.5 w-2.5 text-white" strokeWidth={2.5} />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-slate-900 tabular-nums">
+                  {loading ? "0 " : `${calories.toLocaleString()} `}
+                  <span className="text-sm font-medium text-slate-500">kcal</span>
+                </p>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-2 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-500">Steps</p>
-              <p className="text-base font-semibold text-slate-900">
-                {loading ? "—" : steps.toLocaleString()}{" "}
-                <span className="text-xs font-normal text-slate-500">
-                  / {goal.toLocaleString()}
-                </span>
-              </p>
+          <div className="flex justify-center pt-1">
+            <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-full bg-emerald-500/90">
+              <Footprints className="h-7 w-7 text-white" strokeWidth={2.25} aria-hidden />
             </div>
-            <div className="text-right">
-              <p className="text-xs text-slate-500">
-                Active minutes
-              </p>
-              <p className="text-base font-semibold text-slate-900">
-                {loading ? "—" : `${activeMinutes} min`}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-sky-500 to-indigo-500"
-              style={{ width: `${progressPct}%` }}
-            />
           </div>
         </div>
       </div>
@@ -772,69 +963,71 @@ function HeartRecoveryCard() {
     restingBpm != null &&
     avgBpm != null;
 
-  let recoveryLabel = "Not enough data yet";
-  let recoveryTone = "text-slate-500";
+  let recoveryScore = 50;
+  let recoveryLabel = "Moderate recovery";
+  let supportLine = "Body adapting to recent load";
+  let recoveryTone = "text-slate-600";
 
-  if (authoritative) {
+  if (loading) {
+    recoveryScore = 0;
+    recoveryLabel = "Syncing recovery";
+    supportLine = "Checking heart trends...";
+    recoveryTone = "text-slate-500";
+  } else if (hrStatus === "no_device") {
+    recoveryScore = 0;
+    recoveryLabel = "No wearable connected";
+    supportLine = "Connect your wearable to unlock recovery insights";
+    recoveryTone = "text-slate-500";
+  } else if (hrStatus === "no_recent_data" || hrStatus === "insufficient_data") {
+    recoveryScore = 0;
+    recoveryLabel = "Not enough data";
+    supportLine = "Log a few days of wearable data for a reliable score";
+    recoveryTone = "text-slate-500";
+  } else if (hrStatus === "error") {
+    recoveryScore = 0;
+    recoveryLabel = "Recovery unavailable";
+    supportLine = hrReason ?? "Unable to read heart recovery right now";
+    recoveryTone = "text-slate-500";
+  } else if (authoritative) {
     const diff = recoveryDelta!;
     if (diff > 25) {
-      recoveryLabel = "Recovery over-worked";
+      recoveryScore = 32;
+      recoveryLabel = "Low recovery";
+      supportLine = "Body needs lighter load and extra recovery";
       recoveryTone = "text-rose-600";
     } else if (diff > 15) {
-      recoveryLabel = "Recovery slightly stressed";
+      recoveryScore = 58;
+      recoveryLabel = "Fair recovery";
+      supportLine = "Body recovering but still under strain";
       recoveryTone = "text-amber-600";
     } else {
-      recoveryLabel = "Recovery looks good";
+      recoveryScore = 72;
+      recoveryLabel = "Good recovery";
+      supportLine = "Body ready for load";
       recoveryTone = "text-emerald-600";
     }
-  } else if (hrStatus === "insufficient_data" && restingBpm != null && avgBpm != null) {
-    recoveryLabel = "Need more readings for a score";
-    recoveryTone = "text-slate-500";
   }
-
-  const subline = loading
-    ? "Checking your recovery window…"
-    : hrStatus === "no_device"
-      ? "Connect your wearable to see recovery between shifts."
-      : hrStatus === "no_recent_data"
-        ? hrReason ?? "No heart-rate samples in this window yet."
-        : hrStatus === "insufficient_data"
-          ? hrReason ?? "More samples needed across the window."
-          : hrStatus === "error"
-            ? hrReason ?? "We had trouble reading heart rate."
-            : recoveryLabel;
 
   return (
     <Link
       href="/heart-health"
-      className="block rounded-xl bg-white border border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
+      className="block rounded-3xl bg-white border border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 shadow-[0_6px_20px_rgba(15,23,42,0.06)]"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex flex-col min-w-0">
-              <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
-                Heart recovery
-              </span>
-              <span className={`text-[11px] leading-snug ${recoveryTone}`}>
-                {subline}
-              </span>
-            </div>
-            <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />
+      <div className="relative">
+        <ChevronRight className="absolute right-0 top-0 h-4 w-4 text-slate-400" aria-hidden />
+        <div className="grid grid-cols-[1fr_110px] items-end gap-4 pr-6">
+          <div className="min-w-0">
+            <p className={`text-sm font-semibold tracking-[0.08em] text-black ${inter.className}`}>Heart recovery</p>
+            <p className={`mt-2 text-[34px] font-semibold leading-none text-slate-900 tabular-nums ${inter.className}`}>
+              {recoveryScore}
+            </p>
+            <p className={`mt-1 text-sm font-medium ${recoveryTone}`}>{recoveryLabel}</p>
+            <p className="mt-1 text-xs text-slate-500">{supportLine}</p>
           </div>
 
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-xs text-slate-500">Resting (estimate)</p>
-              <p className="text-base font-semibold text-slate-900 tabular-nums">
-                {loading || restingBpm == null ? "—" : `${restingBpm} bpm`}
-              </p>
-            </div>
-            <div className="text-right min-w-0">
-              <p className="text-xs text-slate-500">Average (window)</p>
-              <p className="text-base font-semibold text-slate-900 tabular-nums">
-                {loading || avgBpm == null ? "—" : `${avgBpm} bpm`}
-              </p>
+          <div className="flex justify-end pb-0.5 pr-2">
+            <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-full bg-rose-500/90">
+              <Heart className="h-8 w-8 text-white" fill="currentColor" aria-hidden />
             </div>
           </div>
         </div>
@@ -849,46 +1042,36 @@ const HYDRATION_QUICK_ADD_ML = 250;
 function HydrationJugGraphic({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 48 56" fill="none" className={className} aria-hidden>
-      {/* Water level in the belly */}
+      {/* Flat opening + short neck */}
       <path
-        fill="currentColor"
-        fillOpacity={0.28}
-        d="M11.5 27.5c0-1 .8-1.8 1.9-1.9h20.2c1.1.1 1.9.9 1.9 1.9v12.6c0 4.9-3.9 8.9-8.7 8.9h-6.6c-4.8 0-8.7-4-8.7-8.9v-12.6z"
-      />
-      {/* Pitcher: pouring lip (left), wide belly, narrow neck */}
-      <path
-        fill="currentColor"
-        fillOpacity={0.12}
+        d="M16 9h14M19 9v5M29 9v5"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={1.7}
+        strokeLinecap="round"
+      />
+      {/* Tapered jug body (narrow top, wider bottom) */}
+      <path
+        d="M18 14h12c2.2 0 4 1.8 4 4v22c0 4.4-3.6 8-8 8h-4c-4.4 0-8-3.6-8-8V18c0-2.2 1.8-4 4-4Z"
+        stroke="currentColor"
+        strokeWidth={1.7}
         strokeLinejoin="round"
-        strokeLinecap="round"
-        d="
-          M 14 14
-          L 9.5 11
-          L 12.5 7.5
-          H 27.5
-          L 30.5 11
-          L 28 14
-          H 29.5
-          C 33.5 14 36.5 17 36.5 21
-          V 40.5
-          C 36.5 46.2 31.8 50.5 26 50.5
-          H 20
-          C 14.2 50.5 9.5 46.2 9.5 40.5
-          V 21
-          C 9.5 17 12.5 14 16.5 14
-          H 14
-          Z
-        "
+        fill="currentColor"
+        fillOpacity={0.08}
       />
-      {/* C-shaped handle on the right */}
+      {/* Separate side handle loop */}
       <path
-        fill="none"
+        d="M34.5 20c6 1.5 6.8 18.5 0 20.5M34.2 24.2c2.8 1.2 3.1 10.2 0 12"
         stroke="currentColor"
-        strokeWidth={1.75}
+        strokeWidth={1.7}
         strokeLinecap="round"
-        d="M 31 18.5 C 41.5 22 41.5 39 31 42.5"
+      />
+      {/* Subtle water level line */}
+      <path
+        d="M17.2 33h13.6"
+        stroke="currentColor"
+        strokeOpacity={0.55}
+        strokeWidth={1.5}
+        strokeLinecap="round"
       />
     </svg>
   );
@@ -923,10 +1106,10 @@ function HydrationCard() {
         <ChevronRight className="h-4 w-4" aria-hidden />
       </Link>
       <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1 space-y-2.5">
+        <div className="min-w-0 flex-1 space-y-2.5 -mt-3">
           <Link
             href="/hydration"
-            className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-700 transition-colors hover:text-slate-900"
+            className={`block text-sm font-semibold tracking-[0.08em] text-black transition-colors hover:text-slate-900 ${inter.className}`}
           >
             Hydration
           </Link>
@@ -942,11 +1125,11 @@ function HydrationCard() {
         </div>
         <Link
           href="/hydration"
-          className="shrink-0 rounded-md text-sky-500 transition-opacity hover:opacity-90"
+          className="shrink-0 rounded-md text-sky-500 transition-opacity hover:opacity-90 pr-5"
           aria-hidden
           tabIndex={-1}
         >
-          <HydrationJugGraphic className="pointer-events-none h-14 w-12" />
+          <Droplet className="pointer-events-none h-12 w-12 text-sky-500" strokeWidth={2.2} aria-hidden />
         </Link>
       </div>
     </div>
@@ -1038,15 +1221,18 @@ const BingeRiskCard = memo(function BingeRiskCard({
   const riskColors = {
     low: {
       circle: 'bg-emerald-400 border-emerald-500',
-      driver: 'bg-emerald-50/60 border-emerald-200/40 text-emerald-700'
+      driver: 'bg-emerald-50/60 border-emerald-200/40 text-emerald-700',
+      bubble: 'bg-emerald-100 text-emerald-800'
     },
     medium: {
       circle: 'bg-amber-50 border-amber-200',
-      driver: 'bg-amber-50/60 border-amber-200/40 text-amber-700'
+      driver: 'bg-amber-50/60 border-amber-200/40 text-amber-700',
+      bubble: 'bg-amber-100 text-amber-800'
     },
     high: {
       circle: 'bg-rose-50 border-rose-200',
-      driver: 'bg-rose-50/60 border-rose-200/40 text-rose-700'
+      driver: 'bg-rose-50/60 border-rose-200/40 text-rose-700',
+      bubble: 'bg-orange-100 text-orange-800'
     }
   };
 
@@ -1060,54 +1246,71 @@ const BingeRiskCard = memo(function BingeRiskCard({
   /** Headline risk tier — avoids showing a driver (e.g. “High shift lag”) that contradicts a low binge score. */
   const riskLevelLabel =
     riskLevel === "low" ? "Low" : riskLevel === "medium" ? "Medium" : "High";
+  const scorePct = Math.max(0, Math.min(100, riskScore));
 
   return (
     <Link
       href="/binge-risk"
-      className={`relative rounded-xl border border-slate-200 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-colors hover:bg-slate-50 ${
+      className={`relative w-full rounded-xl border border-slate-200 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-colors hover:bg-slate-50 ${
         compact
           ? "flex h-full w-full min-h-[6.5rem] min-w-0 flex-col justify-center px-3 pb-3 pt-2 pr-8"
-          : "block px-5 pb-4 pr-10 pt-2.5"
+          : "block px-5 pb-4 pr-10 pt-3.5"
       }`}
     >
       <ChevronRight
         className={`pointer-events-none absolute text-slate-400 ${compact ? "right-2 top-2 h-3.5 w-3.5" : "right-3 top-2.5 h-4 w-4"}`}
         aria-hidden
       />
-      <div className={`flex items-center ${compact ? "gap-2" : "gap-1.5"}`}>
-        <div className={`flex min-w-0 flex-1 flex-col ${compact ? "space-y-1" : "space-y-2"}`}>
-          <span
-            className={`block font-semibold uppercase leading-tight text-slate-700 ${
-              compact ? "text-[10px] tracking-[0.14em]" : "text-xs tracking-[0.16em]"
-            }`}
-          >
-            Binge risk
-          </span>
-          {compact ? (
-            <span className="block min-h-[22px] text-[15px] font-semibold leading-tight text-slate-900">
-              {riskLevelLabel}
-            </span>
-          ) : (
-            compactDriverLabel && (
-              <span
-                className={`inline-flex max-w-full min-h-[22px] items-center truncate rounded-full border px-2 py-0.5 text-[10px] font-medium leading-tight ${colors.driver}`}
-              >
-                {compactDriverLabel}
+      <div className={`${compact ? "flex items-center gap-2" : "space-y-3"}`}>
+        {compact ? (
+          <>
+            <div className="flex min-w-0 flex-1 flex-col space-y-1">
+              <span className={`block text-[10px] font-semibold leading-tight tracking-[0.08em] text-black ${inter.className}`}>
+                Binge risk
               </span>
-            )
-          )}
-        </div>
-        <div
-          className={`flex shrink-0 items-center justify-center rounded-full ${colors.circle} ${
-            compact ? "h-[50px] w-[50px]" : "-ml-1 h-11 w-11"
-          }`}
-        >
-          <span
-            className={`font-semibold text-slate-900 tabular-nums ${compact ? "text-sm" : "text-base"}`}
-          >
-            {riskScore}
-          </span>
-        </div>
+              <span className="block min-h-[22px] text-[15px] font-semibold leading-tight text-slate-900">
+                {riskLevelLabel}
+              </span>
+            </div>
+            <div className={`flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full ${colors.circle}`}>
+              <span className="text-sm font-semibold tabular-nums text-slate-900">{riskScore}</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className={`block text-sm font-semibold leading-tight tracking-[0.08em] text-black ${inter.className}`}>
+                Binge risk
+              </span>
+              <p className={`text-[11px] leading-tight text-slate-500 ${inter.className}`}>
+                Rolling risk from your recent sleep and shift rhythm.
+              </p>
+            </div>
+            <div className="relative ml-auto mr-0 w-full max-w-[130px] translate-x-3 pb-1 pt-[26px]">
+              <div
+                className={`absolute top-0 -translate-x-1/2 rounded-lg px-2 py-0.5 text-center leading-none shadow-sm ${colors.bubble}`}
+                style={{ left: `${scorePct}%` }}
+              >
+                <p className="text-[14px] font-semibold tabular-nums">{riskScore}</p>
+                <span className={`absolute -bottom-0.5 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rotate-45 ${colors.bubble}`} />
+              </div>
+              <div className="relative">
+                <div className="h-3 w-full overflow-hidden rounded-full">
+                  <div className="grid h-full w-full grid-cols-3">
+                    <div className="bg-emerald-300" />
+                    <div className="bg-emerald-400" />
+                    <div className="bg-gradient-to-r from-amber-400 to-orange-500" />
+                  </div>
+                </div>
+                <span
+                  className="pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-emerald-500 shadow-[0_0_0_1px_rgba(15,23,42,0.2)]"
+                  style={{ left: `${scorePct}%` }}
+                  aria-hidden
+                />
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </Link>
   );
@@ -1116,7 +1319,7 @@ const BingeRiskCard = memo(function BingeRiskCard({
 function BingeRiskCardSkeleton({ compact = false }: { compact?: boolean }) {
   return (
     <div
-      className={`animate-pulse rounded-xl border border-slate-200 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.08)] ${
+      className={`animate-pulse w-full rounded-xl border border-slate-200 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.08)] ${
         compact
           ? "flex h-full w-full min-h-[6.5rem] min-w-0 flex-col justify-center px-3 pb-3 pt-2 pr-8"
           : "px-5 pb-4 pr-10 pt-2.5"

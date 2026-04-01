@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import type { FatigueRiskResult } from '@/lib/fatigue/calculateFatigueRisk'
 
 type ShiftRhythmScore = {
   date: string
@@ -28,6 +29,11 @@ type BingeRisk = {
   explanation: string
 } | null
 
+type SleepDeficit = {
+  weeklyDeficit: number
+  category: 'surplus' | 'low' | 'medium' | 'high'
+} | null
+
 /**
  * Hook to fetch shift rhythm score
  * GET /api/shift-rhythm automatically calculates if missing
@@ -36,11 +42,10 @@ type BingeRisk = {
  */
 export function useShiftRhythm(onScoreChange?: (change: number, newScore: number) => void) {
   const [score, setScore] = useState<ShiftRhythmScore | null>(null)
-  // API returns an object (category + weeklyDeficit/etc) for sleep deficit.
-  // Keep it flexible to avoid tight coupling to response shape.
-  const [sleepDeficit, setSleepDeficit] = useState<any>(null)
-  const [socialJetlag, setSocialJetlag] = useState<any>(null)
-  const [bingeRisk, setBingeRisk] = useState<any>(null)
+  const [sleepDeficit, setSleepDeficit] = useState<SleepDeficit>(null)
+  const [socialJetlag, setSocialJetlag] = useState<SocialJetlag>(null)
+  const [bingeRisk, setBingeRisk] = useState<BingeRisk>(null)
+  const [fatigueRisk, setFatigueRisk] = useState<FatigueRiskResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [hasData, setHasData] = useState<boolean>(true)
@@ -62,6 +67,19 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
       const res = await fetch(url)
 
       if (!res.ok) {
+        // During app boot/auth transitions the session cookie may not be ready yet.
+        // Treat auth errors as a transient no-data state instead of a hard failure log.
+        if (res.status === 401 || res.status === 403) {
+          setError(null)
+          setScore(null)
+          setSleepDeficit(null)
+          setSocialJetlag(null)
+          setBingeRisk(null)
+          setFatigueRisk(null)
+          setLoading(false)
+          return
+        }
+
         // If 500, log warning but don't crash
         if (res.status === 500) {
           const errorData = await res.json().catch(() => ({}))
@@ -71,6 +89,7 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
           setSleepDeficit(null)
           setSocialJetlag(null)
           setBingeRisk(null)
+          setFatigueRisk(null)
           setLoading(false)
           return
         }
@@ -81,6 +100,7 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
         setSleepDeficit(null)
         setSocialJetlag(null)
         setBingeRisk(null)
+        setFatigueRisk(null)
         setLoading(false)
         return
       }
@@ -92,6 +112,7 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
       const hasRhythmData = data.hasRhythmData
       const socialJetlagValue: SocialJetlag = data.socialJetlag ?? null
       const bingeRiskValue: BingeRisk = data.bingeRisk ?? null
+      const fatigueRiskValue: FatigueRiskResult | null = data.fatigueRisk ?? null
       
       setScore(newScore)
       setSleepDeficit(deficitValue)
@@ -100,6 +121,7 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
       }
       setSocialJetlag(socialJetlagValue)
       setBingeRisk(bingeRiskValue)
+      setFatigueRisk(fatigueRiskValue)
       
       // Check for significant score change (>1 point on 0-10 scale) compared to yesterday
       if (newScore && yesterdayScore !== null) {
@@ -122,6 +144,7 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
       setSleepDeficit(null)
       setSocialJetlag(null)
       setBingeRisk(null)
+      setFatigueRisk(null)
     } finally {
       setLoading(false)
       inFlightRef.current = false
@@ -141,6 +164,6 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
 
   const refetch = (force = false) => fetchScore(force)
 
-  return { score, total, loading, error, refetch, sleepDeficit, hasData, socialJetlag, bingeRisk }
+  return { score, total, loading, error, refetch, sleepDeficit, hasData, socialJetlag, bingeRisk, fatigueRisk }
 }
 

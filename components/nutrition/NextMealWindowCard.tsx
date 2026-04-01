@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { UtensilsCrossed } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
+import { Inter } from 'next/font/google'
 import { useTranslation } from '@/components/providers/language-provider'
 import type { MealTimingTodayCardData } from '@/lib/hooks/useMealTimingTodayCard'
+
+const inter = Inter({ subsets: ['latin'] })
 
 export type NextMealWindowCardProps = {
   data: MealTimingTodayCardData | null
@@ -76,14 +79,6 @@ export function NextMealWindowCard({
     }
   }, [data?.nextMealAt, data?.nextMealLabel, data?.nextMealTime, notificationsEnabled, t])
 
-  const handleToggleNotifications = () => {
-    const next = !notificationsEnabled
-    setNotificationsEnabled(next)
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('mealNotificationsEnabled', next ? 'on' : 'off')
-    }
-  }
-
   const shell =
     variant === 'elevated'
       ? [
@@ -124,6 +119,33 @@ export function NextMealWindowCard({
   }
 
   const shiftBadgeLabel = data.shiftLabel?.trim() || t('dashboard.nextMealWindow.scheduleFallback')
+  const heroTime = data.nextMealTime || '—'
+  const heroLabel = data.nextMealLabel || t('dashboard.nextMealWindow.nextPrefix')
+  const supportLine = data.cardSubtitle?.trim() || t('dashboard.nextMealWindow.subtitleFallback')
+
+  if (variant === 'compact') {
+    return (
+      <div className={shell}>
+        <div className="relative">
+          <ChevronRight className="pointer-events-none absolute right-1 top-0.5 h-4 w-4 text-slate-400" aria-hidden />
+          <span className={`block text-sm font-semibold tracking-[0.08em] text-black ${inter.className}`}>
+            {t('dashboard.nextMealWindow.title')}
+          </span>
+        </div>
+
+        <div className="mt-2.5 flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-[34px] font-semibold leading-none text-slate-900 tabular-nums">{heroTime}</p>
+            <p className="mt-1 text-[15px] font-medium leading-tight text-slate-800">{heroLabel}</p>
+            <p className="mt-0.5 text-[12px] leading-snug text-slate-500">{supportLine}</p>
+          </div>
+          <span className="mt-0.5 inline-flex shrink-0 items-center rounded-full border border-slate-300/90 bg-slate-50 px-2.5 py-0.5 text-[10px] font-medium text-slate-800">
+            {shiftBadgeLabel}
+          </span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={shell}>

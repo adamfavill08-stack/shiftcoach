@@ -9,6 +9,7 @@ import { getTodayHydrationIntake } from '@/lib/nutrition/getTodayHydrationIntake
 import { calculateSleepDeficit } from '@/lib/sleep/calculateSleepDeficit'
 import { getSocialJetlagMetrics } from '@/lib/circadian/socialJetlag'
 import { calculateBingeRisk } from '@/lib/binge/calculateBingeRisk'
+import { calculateFatigueRisk, type FatigueRiskResult } from '@/lib/fatigue/calculateFatigueRisk'
 import { toShiftType as toStandardShiftType, toShiftRhythmType } from '@/lib/shifts/toShiftType'
 
 // Cache for 60 seconds - shift rhythm scores update daily
@@ -158,6 +159,14 @@ async function buildShiftRhythmInputs(supabase: SupabaseClient, userId: string) 
 }
 
 const DEFAULT_SLEEP_TARGET = 7.5
+const DEFAULT_FATIGUE_RISK: FatigueRiskResult = {
+  score: 20,
+  level: 'low',
+  drivers: ['Not enough recent sleep and shift data yet'],
+  explanation: 'Low fatigue risk for now. Keep logging sleep and shifts to improve accuracy.',
+  confidence: 0.25,
+  confidenceLabel: 'low',
+}
 
 export async function GET(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
@@ -194,7 +203,7 @@ export async function GET(req: NextRequest) {
       // If table doesn't exist, return null instead of error
       if (fetchErr.message?.includes('relation') || fetchErr.message?.includes('does not exist')) {
         console.warn('[/api/shift-rhythm] Table does not exist yet:', fetchErr.message)
-        return NextResponse.json({ score: null }, { status: 200 })
+        return NextResponse.json({ score: null, fatigueRisk: DEFAULT_FATIGUE_RISK }, { status: 200 })
       }
     }
 
@@ -263,7 +272,7 @@ export async function GET(req: NextRequest) {
             // If table doesn't exist, return null
             if (upsertErr.message?.includes('relation') || upsertErr.message?.includes('does not exist')) {
               console.warn('[/api/shift-rhythm] Table does not exist yet:', upsertErr.message)
-              return NextResponse.json({ score: null }, { status: 200 })
+              return NextResponse.json({ score: null, fatigueRisk: DEFAULT_FATIGUE_RISK }, { status: 200 })
             }
 
             // If RLS blocks insert (common when RLS is strict), log and continue WITHOUT failing the request.
@@ -293,7 +302,7 @@ export async function GET(req: NextRequest) {
       } catch (calcErr: any) {
         console.error('[/api/shift-rhythm] Calculation error:', calcErr)
         // Return null if calculation fails, don't crash
-        return NextResponse.json({ score: null }, { status: 200 })
+        return NextResponse.json({ score: null, fatigueRisk: DEFAULT_FATIGUE_RISK }, { status: 200 })
       }
     }
 
@@ -427,6 +436,33 @@ export async function GET(req: NextRequest) {
     } catch (deficitErr) {
       console.warn('[api/shift-rhythm] Failed to calculate sleep deficit:', deficitErr)
       // Continue without deficit data
+    }
+
+    // Calculate fatigue risk from consolidated sleep/shift/circadian signals
+    let fatigueRisk: FatigueRiskResult = DEFAULT_FATIGUE_RISK
+    try {
+      const fatigueInputs = await buildShiftRhythmInputs(supabase, userId)
+      fatigueRisk = calculateFatigueRisk({
+        sleepLogs: fatigueInputs.sleepLogs.map((s: any) => ({
+          durationHours: s.durationHours,
+          quality: s.quality ?? null,
+          start: s.start,
+          end: s.end,
+        })),
+        shifts: fatigueInputs.shiftDays.map((s: any) => ({ type: s.type })),
+        weeklySleepDebtHours: sleepDeficit?.weeklyDeficit ?? undefined,
+        socialJetlag: socialJetlag
+          ? {
+              currentMisalignmentHours: socialJetlag.currentMisalignmentHours,
+              weeklyAverageMisalignmentHours: socialJetlag.weeklyAverageMisalignmentHours,
+              category: socialJetlag.category,
+            }
+          : null,
+        now: new Date(),
+      })
+    } catch (fatigueErr) {
+      console.warn('[api/shift-rhythm] Fatigue risk fallback applied:', fatigueErr)
+      fatigueRisk = DEFAULT_FATIGUE_RISK
     }
 
     // Calculate binge risk
@@ -613,7 +649,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Include yesterday's score, sleep deficit, social jetlag, and binge risk for comparison
-    const response: any = { score, sleepDeficit, socialJetlag, bingeRisk, hasRhythmData }
+    const response: any = { score, sleepDeficit, socialJetlag, fatigueRisk, bingeRisk, hasRhythmData }
     if (yesterdayScore?.total_score !== undefined) {
       response.yesterdayScore = yesterdayScore.total_score
     }

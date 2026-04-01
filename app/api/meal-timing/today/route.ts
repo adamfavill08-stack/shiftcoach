@@ -24,7 +24,7 @@ function mealTimingCardSubtitle(
     off: 'Keep meals steady on your day off.',
     day: 'Keep meals in rhythm with your day shift.',
     late: 'Keep meals in rhythm with your late shift.',
-    night: 'Keep meals in rhythm with your night shift.',
+    night: 'Aligned to your night shift',
   }
   const s = base[templateUsed]
   return usedEstimatedShiftTimes ? `${s} Shift times estimated from a typical pattern.` : s
