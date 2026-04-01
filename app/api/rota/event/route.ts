@@ -25,14 +25,19 @@ const RotaEventCreateSchema = z.object({
   description: z.string().optional(),
 })
 
+function isMissingColumnError(error: any): boolean {
+  const message = String(error?.message ?? '').toLowerCase()
+  return message.includes('column') && message.includes('does not exist')
+}
+
 // GET ?month=11&year=2025 -> list events for month
 export async function GET(req: NextRequest) {
   try {
-    const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    const { userId } = await getServerSupabaseAndUserId()
     if (!userId) return buildUnauthorizedResponse()
 
-    // Use service role client (bypasses RLS) when in dev fallback mode
-    const supabase = isDevFallback ? supabaseServer : authSupabase
+    // Use service role after auth check to avoid RLS drift between environments.
+    const supabase = supabaseServer
     
     const { searchParams } = new URL(req.url)
     const month = Number(searchParams.get('month')) || new Date().getMonth() + 1
@@ -83,6 +88,23 @@ export async function GET(req: NextRequest) {
     const { data, error } = result as { data: any; error: any }
 
     if (error) {
+      // Backward compatibility for older schemas without start_at/end_at.
+      if (isMissingColumnError(error) && String(error?.message ?? '').includes('start_at')) {
+        const gridStartDate = gridStart.toISOString().slice(0, 10)
+        const gridEndDate = gridEnd.toISOString().slice(0, 10)
+        const { data: legacyData, error: legacyError } = await supabase
+          .from('rota_events')
+          .select('*')
+          .eq('user_id', userId)
+          .gte('date', gridStartDate)
+          .lte('date', gridEndDate)
+          .order('date', { ascending: true })
+
+        if (!legacyError) {
+          return NextResponse.json({ events: legacyData ?? [] }, { headers: NO_STORE_HEADERS })
+        }
+      }
+
       // Check if it's a table not found error (non-fatal)
       if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
         console.warn('[api/rota/event] rota_events table not found, returning empty events')
@@ -107,11 +129,11 @@ export async function GET(req: NextRequest) {
 // POST -> save event
 export async function POST(req: NextRequest) {
   try {
-    const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    const { userId } = await getServerSupabaseAndUserId()
     if (!userId) return buildUnauthorizedResponse()
 
-    // Use service role client (bypasses RLS) when in dev fallback mode
-    const supabase = isDevFallback ? supabaseServer : authSupabase
+    // Use service role after auth check to avoid RLS drift between environments.
+    const supabase = supabaseServer
     
     const parsed = await parseJsonBody(req, RotaEventCreateSchema)
     if (!parsed.ok) return parsed.response
@@ -251,10 +273,96 @@ export async function POST(req: NextRequest) {
 
     console.log('[api/rota/event] inserting', eventsToCreate.length, 'event(s)')
 
-    const { data, error } = await supabase
-      .from('rota_events')
-      .insert(eventsToCreate)
-      .select()
+    const withoutTypeAttempts = [
+      // New schema: date + start_at/end_at + all_day + notes
+      () => eventsToCreate.map((e) => ({
+        user_id: e.user_id,
+        title: e.title,
+        date: e.date,
+        event_date: e.date,
+        start_at: e.start_at,
+        end_at: e.end_at,
+        all_day: e.all_day,
+        color: e.color,
+        notes: e.notes,
+      })),
+      // Legacy schema: date + start_time/end_time + all_day + notes
+      () => eventsToCreate.map((e) => ({
+        user_id: e.user_id,
+        title: e.title,
+        date: e.date,
+        event_date: e.date,
+        start_time: body.allDay ? null : (body.startTime || '00:00'),
+        end_time: body.allDay ? null : (body.endTime || '23:59'),
+        all_day: e.all_day,
+        color: e.color,
+        notes: e.notes,
+      })),
+      // Minimal no-type shape (for strict/older variants)
+      () => eventsToCreate.map((e) => ({
+        user_id: e.user_id,
+        title: e.title,
+        date: e.date,
+        event_date: e.date,
+        color: e.color,
+        notes: e.notes,
+      })),
+    ]
+
+    const withTypeAttempts = [
+      // Old schema that requires type (no time columns)
+      () => eventsToCreate.map((e) => ({
+        user_id: e.user_id,
+        title: e.title,
+        type: body.eventType || 'other',
+        date: e.date,
+        event_date: e.date,
+        color: e.color,
+        notes: e.notes,
+      })),
+      // Type + start_at/end_at variant
+      () => eventsToCreate.map((e) => ({
+        user_id: e.user_id,
+        title: e.title,
+        type: body.eventType || 'other',
+        date: e.date,
+        event_date: e.date,
+        start_at: e.start_at,
+        end_at: e.end_at,
+        all_day: e.all_day,
+        color: e.color,
+        notes: e.notes,
+      })),
+    ]
+
+    let data: any[] | null = null
+    let error: any = null
+
+    for (const attempt of withoutTypeAttempts) {
+      const res = await supabase.from('rota_events').insert(attempt()).select()
+      if (!res.error) {
+        data = res.data ?? []
+        error = null
+        break
+      }
+      error = res.error
+    }
+
+    // Only try `type` payloads if DB explicitly demands type.
+    const lastErrorMessage = String(error?.message ?? '').toLowerCase()
+    const needsTypeColumn =
+      lastErrorMessage.includes('null value in column') && lastErrorMessage.includes('type')
+    if (!data && needsTypeColumn) {
+      for (const attempt of withTypeAttempts) {
+        const res = await supabase.from('rota_events').insert(attempt()).select()
+        if (!res.error) {
+          data = res.data ?? []
+          error = null
+          break
+        }
+        error = res.error
+      }
+    }
 
     if (error) {
       console.error('[api/rota/event] insert error', {
@@ -286,11 +394,11 @@ export async function POST(req: NextRequest) {
 // DELETE -> delete event by id
 export async function DELETE(req: NextRequest) {
   try {
-    const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    const { userId } = await getServerSupabaseAndUserId()
     if (!userId) return buildUnauthorizedResponse()
 
-    // Use service role client (bypasses RLS) when in dev fallback mode
-    const supabase = isDevFallback ? supabaseServer : authSupabase
+    // Use service role after auth check to avoid RLS drift between environments.
+    const supabase = supabaseServer
     
     const { searchParams } = new URL(req.url)
     const eventId = searchParams.get('id')
