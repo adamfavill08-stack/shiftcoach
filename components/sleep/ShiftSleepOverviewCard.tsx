@@ -170,6 +170,13 @@ function getChipTone(totalMinutes: number, targetMinutes: number) {
   }
 }
 
+function getRingTrackColor() {
+  if (typeof document !== 'undefined' && document.documentElement.classList.contains('dark')) {
+    return '#334155'
+  }
+  return '#e5e7eb'
+}
+
 export function ShiftSleepOverviewCard({
   totalMinutes,
   targetMinutes,
@@ -227,24 +234,24 @@ export function ShiftSleepOverviewCard({
     : { label: totalMinutes > 0 ? 'Edit today' : 'Edit logs', href: editLogsHref, onClick: null as (() => void) | null }
 
   return (
-    <section className="relative overflow-hidden rounded-[18px] border border-slate-200/80 bg-gradient-to-b from-white to-slate-50/40 px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_16px_36px_-24px_rgba(15,23,42,0.35)]">
+    <section className="relative overflow-hidden rounded-[18px] border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_16px_36px_-24px_rgba(15,23,42,0.35)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
       <div className="relative z-10 flex flex-col items-center text-center gap-3.5">
         <div
           className="relative flex h-[176px] w-[176px] items-center justify-center rounded-full shadow-[inset_0_0_0_1px_rgba(255,255,255,0.9),0_10px_24px_-18px_rgba(15,23,42,0.55)]"
-          style={{ background: `conic-gradient(${ringColor} ${angle}deg, #e5e7eb 0deg)` }}
+          style={{ background: `conic-gradient(${ringColor} ${angle}deg, ${getRingTrackColor()} 0deg)` }}
           aria-label={`${formatHoursMinutes(totalMinutes)} logged, ${displayPercent}% of target, target ${formatHoursMinutes(targetMinutes)}`}
         >
-          <div className="h-[156px] w-[156px] rounded-full bg-gradient-to-b from-white to-slate-50 border border-slate-100/90" />
-          <div className="absolute h-[130px] w-[130px] rounded-full border border-dashed border-slate-300/80" />
+          <div className="h-[156px] w-[156px] rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)]" />
+          <div className="absolute h-[130px] w-[130px] rounded-full border border-dashed border-[var(--border-subtle)]" />
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-1">
-            <span className="text-[32px] font-semibold leading-none tracking-tight text-slate-900">
+            <span className="text-[32px] font-semibold leading-none tracking-tight text-[var(--text-main)]">
               {Math.floor(Math.max(0, totalMinutes) / 60)}
-              <span className="align-top text-[17px] font-normal ml-[1px] text-slate-600">h</span>{' '}
+              <span className="ml-[1px] align-top text-[17px] font-normal text-[var(--text-soft)]">h</span>{' '}
               {Math.max(0, totalMinutes) % 60}
             </span>
-            <span className="text-xs font-medium text-slate-600">{displayPercent}% of target</span>
-            <span className="text-[11px] text-slate-500">Target {(targetMinutes / 60).toFixed(1)}h</span>
-            <span className="text-[11px] text-slate-500">{getSourceLabel(sourceSummary)}</span>
+            <span className="text-xs font-medium text-[var(--text-soft)]">{displayPercent}% of target</span>
+            <span className="text-[11px] text-[var(--text-muted)]">Target {(targetMinutes / 60).toFixed(1)}h</span>
+            <span className="text-[11px] text-[var(--text-muted)]">{getSourceLabel(sourceSummary)}</span>
           </div>
         </div>
 
@@ -252,7 +259,7 @@ export function ShiftSleepOverviewCard({
           <div className={`inline-flex items-center rounded-full border px-3.5 py-1.5 text-[11px] font-semibold ${chipTone}`}>
             {headline}
           </div>
-          <p className="text-sm text-slate-700 leading-relaxed">{subtext}</p>
+          <p className="text-sm leading-relaxed text-[var(--text-soft)]">{subtext}</p>
         </div>
 
         {priorityBlock && (
@@ -262,7 +269,7 @@ export function ShiftSleepOverviewCard({
                 ? 'w-full rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 text-left shadow-[0_1px_3px_rgba(244,63,94,0.12)]'
                 : priorityBlock.tone === 'warn'
                 ? 'w-full rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 text-left shadow-[0_1px_3px_rgba(245,158,11,0.12)]'
-                : 'w-full rounded-xl border border-slate-200/80 bg-white/90 p-3 text-xs text-slate-600 leading-relaxed text-left'
+                : 'w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] p-3 text-left text-xs leading-relaxed text-[var(--text-soft)]'
             }
           >
             {priorityBlock.text}
@@ -281,7 +288,7 @@ export function ShiftSleepOverviewCard({
           {secondaryAction.href ? (
             <Link
               href={secondaryAction.href}
-              className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 text-center transition active:scale-[0.99]"
+              className="flex-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-4 py-3 text-center text-sm font-semibold text-[var(--text-soft)] transition hover:bg-[var(--card-subtle)] active:scale-[0.99]"
             >
               {secondaryAction.label}
             </Link>
@@ -290,7 +297,7 @@ export function ShiftSleepOverviewCard({
               type="button"
               onClick={secondaryAction.onClick ?? undefined}
               disabled={!secondaryAction.onClick}
-              className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 text-center transition active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-4 py-3 text-center text-sm font-semibold text-[var(--text-soft)] transition hover:bg-[var(--card-subtle)] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {secondaryAction.label}
             </button>
@@ -298,36 +305,36 @@ export function ShiftSleepOverviewCard({
         </div>
 
         <div className="grid w-full grid-cols-2 gap-2 pt-0.5">
-          <div className="rounded-xl bg-white/90 px-3 py-2.5 text-left border border-slate-200/80 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-            <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Primary sleep</div>
-            <div className="text-[13px] font-semibold text-slate-900">{formatHoursMinutes(primaryMinutes)}</div>
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+            <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">Primary sleep</div>
+            <div className="text-[13px] font-semibold text-[var(--text-main)]">{formatHoursMinutes(primaryMinutes)}</div>
           </div>
-          <div className="rounded-xl bg-white/90 px-3 py-2.5 text-left border border-slate-200/80 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-            <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Naps</div>
-            <div className="text-[13px] font-semibold text-slate-900">{formatHoursMinutes(napMinutes)}</div>
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+            <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">Naps</div>
+            <div className="text-[13px] font-semibold text-[var(--text-main)]">{formatHoursMinutes(napMinutes)}</div>
           </div>
-          <div className="rounded-xl bg-white/90 px-3 py-2.5 text-left border border-slate-200/80 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-            <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Primary type</div>
-            <div className="text-[13px] font-semibold text-slate-900">
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+            <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">Primary type</div>
+            <div className="text-[13px] font-semibold text-[var(--text-main)]">
               {dominantType ? getSleepTypeLabel(dominantType) : 'None'}
             </div>
           </div>
-          <div className="rounded-xl bg-white/90 px-3 py-2.5 text-left border border-slate-200/80 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-            <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Last sync</div>
-            <div className="text-[13px] font-semibold text-slate-900">
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+            <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">Last sync</div>
+            <div className="text-[13px] font-semibold text-[var(--text-main)]">
               {formatRelativeSyncLabel(lastSyncAt, hasWearableConnection)}
             </div>
           </div>
-          <div className="rounded-xl bg-white/90 px-3 py-2.5 text-left col-span-2 border border-slate-200/80 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-            <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Recovery need</div>
-            <div className="text-sm font-semibold text-slate-900">
+          <div className="col-span-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+            <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">Recovery need</div>
+            <div className="text-sm font-semibold text-[var(--text-main)]">
               {sleepDebtMinutes == null
                 ? 'Loading'
                 : sleepDebtMinutes > 0
                 ? `${formatHoursMinutes(sleepDebtMinutes)} recovery needed`
                 : 'Recovery covered'}
             </div>
-            <div className="mt-1 text-[10px] text-slate-500">
+            <div className="mt-1 text-[10px] text-[var(--text-muted)]">
               Timing alignment:{' '}
               {circadianAlignment == null
                 ? 'Not enough data'

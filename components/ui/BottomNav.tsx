@@ -44,7 +44,7 @@ export default function BottomNav() {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[100] bg-slate-100 border-t border-slate-200/60 pb-[calc(env(safe-area-inset-bottom)+12px)]">
+    <div className="fixed bottom-0 left-0 right-0 z-[100] border-t border-slate-200/60 bg-slate-100 pb-[calc(env(safe-area-inset-bottom)+12px)] dark:border-[var(--border-subtle)] dark:bg-black">
       <div className="w-full max-w-[430px] mx-auto px-2">
         <nav className="flex items-center justify-around h-16">
           {navItems.map((item) => {
@@ -55,11 +55,11 @@ export default function BottomNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex flex-1 flex-col items-center justify-center py-1.5 text-black"
+                className="flex flex-1 flex-col items-center justify-center py-1.5 text-black dark:text-white"
               >
-                <Icon className="h-5 w-5 text-black" aria-hidden />
+                <Icon className="h-5 w-5 text-black dark:text-white" aria-hidden />
                 {active && (
-                  <span className="mt-0.5 text-[11px] font-medium text-black">
+                  <span className="mt-0.5 text-[11px] font-medium text-black dark:text-white">
                     {t(item.labelKey)}
                   </span>
                 )}

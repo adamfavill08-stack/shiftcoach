@@ -41,7 +41,7 @@ export default function SplashPage() {
   }, [user, loading, router])
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
+    <div className="flex min-h-screen w-full items-center justify-center overflow-x-hidden bg-[var(--bg)] px-4">
       <div
         className={`flex justify-center transform transition-all duration-500 ease-out ${
           showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'
@@ -52,7 +52,7 @@ export default function SplashPage() {
           alt="ShiftCoach"
           width={200}
           height={80}
-          className="h-20 w-auto"
+          className="h-20 w-auto dark:brightness-0 dark:invert"
           priority
         />
       </div>

@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ============================================
-   SHIFTCALI THEME TOKENS (light only)
+   SHIFTCALI THEME TOKENS (light + class dark mode)
    ============================================ */
 
 :root {
@@ -27,6 +27,21 @@
   --ring-bg: #e2e8f0;       /* rings track */
 }
 
+.dark {
+  --bg: #000000;
+  --bg-soft: #0b0b0d;
+  --card: #141416;
+  --card-subtle: #1c1c20;
+  --border-subtle: #303036;
+  --text-main: #f5f5f5;
+  --text-soft: #d7d7dc;
+  --text-muted: #b3b3bd;
+  --accent-blue: #5a93b5;
+  --accent-indigo: #7284c3;
+  --accent-violet: #9a88bf;
+  --ring-bg: #34343a;
+}
+
 /* ============================================
    SMOOTH THEME TRANSITIONS
    ============================================ */
@@ -46,6 +61,119 @@ body {
 /* Keep existing slate utility usage but match requested app canvas exactly. */
 .bg-slate-100 {
   background-color: var(--bg) !important;
+}
+
+.dark .bg-white {
+  background-color: var(--card) !important;
+}
+
+.dark .border-slate-200,
+.dark .border-slate-200\/60,
+.dark .border-slate-200\/70,
+.dark .border-slate-200\/80,
+.dark .border-slate-200\/90,
+.dark .border-slate-100 {
+  border-color: var(--border-subtle) !important;
+}
+
+.dark .text-slate-900 {
+  color: var(--text-main) !important;
+}
+
+.dark .text-slate-800,
+.dark .text-slate-600,
+.dark .text-slate-700 {
+  color: var(--text-soft) !important;
+}
+
+.dark .text-slate-500,
+.dark .text-slate-400 {
+  color: var(--text-muted) !important;
+}
+
+.dark .text-black {
+  color: var(--text-main) !important;
+}
+
+.dark .bg-white\/95,
+.dark .bg-white\/90,
+.dark .bg-white\/85,
+.dark .bg-white\/80,
+.dark .bg-white\/75,
+.dark .bg-white\/70,
+.dark .bg-white\/60 {
+  background-color: var(--card) !important;
+}
+
+.dark .bg-slate-50,
+.dark .bg-slate-50\/95,
+.dark .bg-slate-50\/90,
+.dark .bg-slate-50\/80,
+.dark .bg-slate-50\/70,
+.dark .bg-slate-50\/60,
+.dark .bg-slate-50\/50,
+.dark .bg-slate-50\/40 {
+  background-color: var(--card-subtle) !important;
+}
+
+.dark .bg-slate-100,
+.dark .bg-slate-100\/95,
+.dark .bg-slate-100\/90,
+.dark .bg-slate-100\/80,
+.dark .bg-slate-100\/70,
+.dark .bg-slate-100\/60,
+.dark .bg-slate-100\/50,
+.dark .bg-slate-100\/40 {
+  background-color: var(--card-subtle) !important;
+}
+
+.dark .bg-gray-50,
+.dark .bg-gray-50\/95,
+.dark .bg-gray-50\/90,
+.dark .bg-gray-50\/80,
+.dark .bg-gray-100,
+.dark .bg-gray-100\/90,
+.dark .bg-gray-100\/80 {
+  background-color: var(--card-subtle) !important;
+}
+
+.dark .border-slate-200\/40,
+.dark .border-slate-200\/50,
+.dark .border-slate-200\/60,
+.dark .border-slate-200\/70,
+.dark .border-slate-200\/80 {
+  border-color: var(--border-subtle) !important;
+}
+
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-200\/60,
+.dark .border-gray-200\/70,
+.dark .border-gray-200\/80,
+.dark .border-gray-300 {
+  border-color: var(--border-subtle) !important;
+}
+
+.dark .text-gray-900 {
+  color: var(--text-main) !important;
+}
+
+.dark .text-gray-800,
+.dark .text-gray-700,
+.dark .text-gray-600 {
+  color: var(--text-soft) !important;
+}
+
+.dark .text-gray-500,
+.dark .text-gray-400 {
+  color: var(--text-muted) !important;
+}
+
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-slate-100:hover,
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-gray-100:hover {
+  background-color: var(--card-subtle) !important;
 }
 
 /* ============================================

@@ -1221,7 +1221,7 @@ export default function RotaSetup() {
                       <button
                         type="button"
                         onClick={() => setShowAllShiftLengths((prev) => !prev)}
-                        className="mt-4 text-sm font-medium text-slate-600 hover:text-slate-900 transition"
+                        className="mt-4 text-sm font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
                       >
                         {showAllShiftLengths ? 'Hide less common shift lengths' : 'Show less common shift lengths'}
                       </button>
@@ -1248,8 +1248,8 @@ export default function RotaSetup() {
                                 className={[
                                   'inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60 focus-visible:ring-offset-2',
                                   isSelected
-                                    ? 'bg-white border border-emerald-200/70 shadow-[0_10px_26px_-18px_rgba(15,23,42,0.4)] text-slate-800'
-                                    : 'bg-slate-50 border border-slate-200 text-slate-800 hover:bg-white hover:border-slate-300',
+                                    ? 'bg-white border border-emerald-200/70 shadow-[0_10px_26px_-18px_rgba(15,23,42,0.4)] text-slate-800 dark:bg-slate-800 dark:border-emerald-400/50 dark:text-slate-100'
+                                    : 'bg-slate-50 border border-slate-200 text-slate-800 hover:bg-white hover:border-slate-300 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800 dark:hover:border-slate-600',
                                 ].join(' ')}
                               >
                                 {option.label}
@@ -1262,8 +1262,8 @@ export default function RotaSetup() {
 
                   {/* Custom Hours Input */}
                   {selectedShiftHours === 'custom' && (
-                    <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 shadow-sm">
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 shadow-sm dark:border-slate-700 dark:from-slate-900 dark:to-slate-800">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
                         Enter Your Shift Hours
                       </label>
                       <div className="flex items-center gap-3">
@@ -1275,11 +1275,11 @@ export default function RotaSetup() {
                           value={customHours}
                           onChange={(e) => setCustomHours(e.target.value)}
                           placeholder="e.g., 10, 14, 10.5"
-                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-sm transition-all focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-sm transition-all focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                         />
-                        <span className="text-sm font-semibold text-slate-600">hours</span>
+                        <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">hours</span>
                       </div>
-                      <p className="mt-2 text-xs text-slate-500">
+                      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                         Enter the number of hours you work per shift (e.g., 10, 14, 10.5)
                       </p>
                     </div>
@@ -1287,12 +1287,12 @@ export default function RotaSetup() {
                 </div>
 
                   {/* CalAI Magic Hint */}
-                  <div className="mt-5 rounded-2xl p-4 bg-gradient-to-br from-slate-50 to-white border border-slate-200">
-                    <p className="text-xs font-semibold tracking-tight text-slate-900 flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-slate-400" />
+                  <div className="mt-5 rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 dark:border-slate-700 dark:from-slate-900 dark:to-slate-800">
+                    <p className="flex items-center gap-2 text-xs font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                      <Sparkles className="h-4 w-4 text-slate-400 dark:text-slate-500" />
                       Why we ask
                     </p>
-                    <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+                    <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                       Shift length helps ShiftCoach predict energy dips and suggest the best meal and sleep timing.
                     </p>
                   </div>

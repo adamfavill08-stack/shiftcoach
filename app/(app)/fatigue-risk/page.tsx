@@ -60,48 +60,48 @@ export default function FatigueRiskPage() {
         : 'bg-emerald-100 text-emerald-700'
 
   return (
-    <div className="min-h-screen bg-[#F1F1F3] p-4 md:p-6">
+    <div className="min-h-screen bg-[var(--bg)] p-4 md:p-6">
       <div className="mx-auto max-w-md space-y-4">
-        <div className="rounded-[28px] border border-slate-200/70 bg-white p-5 shadow-sm">
+        <div className="rounded-[28px] border border-[var(--border-subtle)] bg-[var(--card)] p-5 shadow-sm dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-slate-500">Fatigue Risk</p>
+              <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">Fatigue Risk</p>
               <div className="mt-3 flex items-end gap-3">
-                <h1 className="text-5xl font-semibold tracking-tight text-slate-900">{scoreLabel}</h1>
+                <h1 className="text-5xl font-semibold tracking-tight text-[var(--text-main)]">{scoreLabel}</h1>
                 <span className={`mb-1 rounded-full px-3 py-1 text-sm font-medium ${levelBadgeClass}`}>
                   {level}
                 </span>
               </div>
-              <p className="mt-3 max-w-[28ch] text-sm leading-6 text-slate-600">{explanation}</p>
+              <p className="mt-3 max-w-[28ch] text-sm leading-6 text-[var(--text-soft)]">{explanation}</p>
             </div>
-            <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600">
+            <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-soft)]">
               {confidenceLabel} confidence
             </div>
           </div>
 
           <div className="mt-6">
-            <div className="mb-3 flex items-center justify-between text-xs text-slate-500">
+            <div className="mb-3 flex items-center justify-between text-xs text-[var(--text-muted)]">
               <span>Current window</span>
               <span>{currentPoint.time}</span>
             </div>
-            <div className="relative h-3 w-full overflow-hidden rounded-full bg-slate-100">
+            <div className="relative h-3 w-full overflow-hidden rounded-full bg-[var(--card-subtle)]">
               <div className="absolute inset-0 bg-gradient-to-r from-emerald-300 via-lime-300 via-60% to-orange-400" />
               <div
-                className="absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full border-2 border-white bg-slate-900 shadow"
+                className="absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full border-2 border-white bg-slate-900 shadow dark:bg-slate-100"
                 style={{ left: markerLeft, transform: 'translate(-50%, -50%)' }}
               />
             </div>
-            <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
+            <div className="mt-2 flex items-center justify-between text-xs text-[var(--text-muted)]">
               <span>Low</span>
               <span>High</span>
             </div>
           </div>
         </div>
 
-        <div className="rounded-[28px] border border-slate-200/70 bg-white p-5 shadow-sm">
+        <div className="rounded-[28px] border border-[var(--border-subtle)] bg-[var(--card)] p-5 shadow-sm dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-slate-900">Today's fatigue curve</h2>
-            <span className="text-xs text-slate-500">Live estimate</span>
+            <h2 className="text-base font-semibold text-[var(--text-main)]">Today's fatigue curve</h2>
+            <span className="text-xs text-[var(--text-muted)]">Live estimate</span>
           </div>
 
           <div className="mt-5 flex h-40 items-end gap-3">
@@ -110,40 +110,40 @@ export default function FatigueRiskPage() {
                 <div className="flex h-28 w-full items-end">
                   <div className={`w-full rounded-t-2xl ${getRiskColor(point.value)}`} style={{ height: `${point.value}%` }} />
                 </div>
-                <span className="text-[11px] text-slate-500">{point.time}</span>
+                <span className="text-[11px] text-[var(--text-muted)]">{point.time}</span>
               </div>
             ))}
           </div>
 
-          <p className="mt-4 text-sm leading-6 text-slate-600">
+          <p className="mt-4 text-sm leading-6 text-[var(--text-soft)]">
             Risk is lowest after aligned recovery sleep and rises into late biological-night hours.
           </p>
         </div>
 
-        <div className="rounded-[28px] border border-slate-200/70 bg-white p-5 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-900">What's driving your risk</h2>
+        <div className="rounded-[28px] border border-[var(--border-subtle)] bg-[var(--card)] p-5 shadow-sm dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]">
+          <h2 className="text-base font-semibold text-[var(--text-main)]">What's driving your risk</h2>
           <div className="mt-4 grid gap-3">
             {drivers.map((driver) => (
-              <div key={driver} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+              <div key={driver} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-4 py-3 text-sm text-[var(--text-soft)]">
                 {driver}
               </div>
             ))}
           </div>
         </div>
 
-        <div className="rounded-[28px] border border-slate-200/70 bg-white p-5 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-900">How to lower fatigue risk</h2>
-          <div className="mt-4 space-y-4 text-sm leading-6 text-slate-600">
+        <div className="rounded-[28px] border border-[var(--border-subtle)] bg-[var(--card)] p-5 shadow-sm dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]">
+          <h2 className="text-base font-semibold text-[var(--text-main)]">How to lower fatigue risk</h2>
+          <div className="mt-4 space-y-4 text-sm leading-6 text-[var(--text-soft)]">
             <div>
-              <p className="font-medium text-slate-900">Protect post-shift sleep</p>
+              <p className="font-medium text-[var(--text-main)]">Protect post-shift sleep</p>
               <p>Aim for an immediate recovery sleep block after your shift to reduce the next risk peak.</p>
             </div>
             <div>
-              <p className="font-medium text-slate-900">Use a pre-shift nap if needed</p>
+              <p className="font-medium text-[var(--text-main)]">Use a pre-shift nap if needed</p>
               <p>A short nap before the next duty window can reduce strain from consecutive shifts.</p>
             </div>
             <div>
-              <p className="font-medium text-slate-900">Watch the 02:00-06:00 window</p>
+              <p className="font-medium text-[var(--text-main)]">Watch the 02:00-06:00 window</p>
               <p>This is your highest-risk period, so use extra caution with driving, decisions, and workload.</p>
             </div>
           </div>

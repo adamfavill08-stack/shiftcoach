@@ -57,7 +57,7 @@ function MacroRingIcon({ className = '' }: { className?: string }) {
 function DefaultMealIcon({ className }: { className?: string }) {
   return (
     <span
-      className={`text-[15px] leading-none text-slate-500 ${className ?? ''}`}
+      className={`text-[15px] leading-none text-slate-500 dark:text-slate-300 ${className ?? ''}`}
       aria-hidden
     >
       🍽️
@@ -101,7 +101,7 @@ export function MacroTargetsCard({
   const displayMacros = consumedMacros ?? { protein_g: 0, carbs_g: 0, fat_g: 0 }
 
   const compactShell =
-    'relative overflow-hidden rounded-[24px] border border-slate-200/70 bg-gradient-to-b from-white to-slate-50/40 p-5 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_16px_36px_-24px_rgba(15,23,42,0.28)]'
+    'relative overflow-hidden rounded-[24px] border border-slate-200/70 bg-gradient-to-b from-white to-slate-50/40 p-5 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_16px_36px_-24px_rgba(15,23,42,0.28)] dark:border-[var(--border-subtle)] dark:from-[var(--card)] dark:to-[var(--card-subtle)] dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]'
 
   if (loading) {
     const shell =
@@ -163,15 +163,15 @@ export function MacroTargetsCard({
 
     return (
       <section className={`${outer} ${className}`.trim()}>
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[5.5rem] bg-gradient-to-b from-white via-white/70 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[5.5rem] bg-gradient-to-b from-white via-white/70 to-transparent dark:from-white/5 dark:via-white/0" />
 
         <div className="relative flex flex-col gap-5">
           <header className="space-y-2 pr-1">
-            <h2 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-900">Macro targets</h2>
-            <p className="text-[12px] leading-snug text-slate-500">
+            <h2 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-900 dark:text-slate-100">Macro targets</h2>
+            <p className="text-[12px] leading-snug text-slate-500 dark:text-slate-400">
               Your macro target today, based on your shift-tuned calories and goal.
             </p>
-            <p className="text-[11px] leading-relaxed text-slate-500/95">{reasonTip}</p>
+            <p className="text-[11px] leading-relaxed text-slate-500/95 dark:text-slate-400">{reasonTip}</p>
           </header>
 
           <div className="flex flex-col gap-2.5">
@@ -180,18 +180,18 @@ export function MacroTargetsCard({
               return (
                 <div
                   key={key}
-                  className="flex items-center gap-3.5 rounded-[20px] border border-slate-200/60 bg-white/80 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)]"
+                  className="flex items-center gap-3.5 rounded-[20px] border border-slate-200/60 bg-white/80 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] dark:border-[var(--border-subtle)] dark:bg-[var(--card-subtle)] dark:shadow-none"
                 >
                   <MacroRingIcon />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[15px] font-semibold leading-tight text-slate-800">{key}</p>
-                    <p className="mt-1 text-[11px] font-medium text-slate-500">Today&apos;s target</p>
+                    <p className="text-[15px] font-semibold leading-tight text-slate-800 dark:text-slate-100">{key}</p>
+                    <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">Today&apos;s target</p>
                   </div>
                   <div className="shrink-0 text-right tabular-nums">
-                    <span className="text-[22px] font-semibold leading-none tracking-tight text-slate-900">
+                    <span className="text-[22px] font-semibold leading-none tracking-tight text-slate-900 dark:text-slate-100">
                       {grams}
                     </span>
-                    <span className="text-[13px] font-medium text-slate-400"> g</span>
+                    <span className="text-[13px] font-medium text-slate-400 dark:text-slate-500"> g</span>
                   </div>
                 </div>
               )
@@ -200,41 +200,41 @@ export function MacroTargetsCard({
 
           {mealRows.length > 0 ? (
             <>
-              <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent" />
+              <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent dark:via-[var(--border-subtle)]" />
 
               <div className="flex flex-col gap-3">
                 <header>
-                  <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-900">Meal times</h3>
+                  <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-900 dark:text-slate-100">Meal times</h3>
                   {ctx ? (
-                    <p className="mt-1 text-[11px] font-medium text-slate-500">{ctx}</p>
+                    <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">{ctx}</p>
                   ) : null}
                 </header>
 
-                {mealTimesPreface ? <p className="text-[12px] text-slate-600">{mealTimesPreface}</p> : null}
+                {mealTimesPreface ? <p className="text-[12px] text-slate-600 dark:text-slate-300">{mealTimesPreface}</p> : null}
 
-                <div className="overflow-hidden rounded-[20px] border border-slate-200/60 bg-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                <div className="overflow-hidden rounded-[20px] border border-slate-200/60 bg-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:border-[var(--border-subtle)] dark:bg-[var(--card-subtle)] dark:shadow-none">
                   {mealRows.map(({ label, time, Icon }, index) => {
                     const isNext = nextLabelNorm != null && label.trim().toLowerCase() === nextLabelNorm
                     return (
                       <div
                         key={`${label}-${index}`}
                         className={[
-                          'flex items-center justify-between gap-3 border-b border-slate-200/35 px-4 py-3.5 last:border-b-0',
-                          isNext ? 'bg-slate-50/70' : '',
+                          'flex items-center justify-between gap-3 border-b border-slate-200/35 px-4 py-3.5 last:border-b-0 dark:border-[var(--border-subtle)]',
+                          isNext ? 'bg-slate-50/70 dark:bg-white/5' : '',
                         ].join(' ')}
                       >
                         <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200/55 bg-slate-50/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.95)]">
-                            {Icon ? <Icon className="h-5 w-5 text-slate-600" /> : <DefaultMealIcon />}
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200/55 bg-slate-50/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.95)] dark:border-[var(--border-subtle)] dark:bg-[var(--card)] dark:shadow-none">
+                            {Icon ? <Icon className="h-5 w-5 text-slate-600 dark:text-slate-300" /> : <DefaultMealIcon />}
                           </div>
                           <div className="min-w-0">
-                            <p className="truncate text-[15px] font-semibold text-slate-800">{label}</p>
-                            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                            <p className="truncate text-[15px] font-semibold text-slate-800 dark:text-slate-100">{label}</p>
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
                               Suggested
                             </p>
                           </div>
                         </div>
-                        <span className="shrink-0 text-[15px] font-semibold tabular-nums tracking-tight text-slate-900">
+                        <span className="shrink-0 text-[15px] font-semibold tabular-nums tracking-tight text-slate-900 dark:text-slate-100">
                           {time}
                         </span>
                       </div>
@@ -246,16 +246,16 @@ export function MacroTargetsCard({
           ) : null}
 
           {timingTip ? (
-            <div className="rounded-[18px] border border-slate-200/60 bg-slate-50/80 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
+            <div className="rounded-[18px] border border-slate-200/60 bg-slate-50/80 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] dark:border-[var(--border-subtle)] dark:bg-[var(--card-subtle)] dark:shadow-none">
               <div className="flex gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/80 shadow-sm ring-1 ring-slate-200/50">
-                  <Sparkles className="h-[18px] w-[18px] text-sky-500/90" strokeWidth={1.75} />
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/80 shadow-sm ring-1 ring-slate-200/50 dark:bg-[var(--card)] dark:ring-[var(--border-subtle)]">
+                  <Sparkles className="h-[18px] w-[18px] text-sky-500/90 dark:text-sky-400/85" strokeWidth={1.75} />
                 </div>
                 <div className="min-w-0 pt-0.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
                     Timing insight
                   </p>
-                  <p className="mt-2 text-[13px] leading-[1.45] text-slate-600">{timingTip}</p>
+                  <p className="mt-2 text-[13px] leading-[1.45] text-slate-600 dark:text-slate-300">{timingTip}</p>
                 </div>
               </div>
             </div>

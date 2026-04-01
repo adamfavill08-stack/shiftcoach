@@ -59,13 +59,13 @@ function SleepMetricsCard({
   loading: boolean
 }) {
   return (
-    <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+    <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="space-y-1">
-          <p className="text-[11px] font-semibold tracking-[0.16em] text-slate-500 uppercase">
+          <p className="text-[11px] font-semibold tracking-[0.16em] text-[var(--text-muted)] uppercase">
             Sleep metrics
           </p>
-          <h2 className="text-sm font-semibold tracking-tight text-slate-900">
+          <h2 className="text-sm font-semibold tracking-tight text-[var(--text-main)]">
             Tonight&apos;s target &amp; weekly overview
           </h2>
         </div>
@@ -74,35 +74,35 @@ function SleepMetricsCard({
       <div className="grid grid-cols-3 gap-3 text-xs">
         {/* Tonight's target */}
         <div className="space-y-1">
-          <p className="font-semibold tracking-[0.14em] uppercase text-slate-500">
+          <p className="font-semibold tracking-[0.14em] uppercase text-[var(--text-muted)]">
             Tonight&apos;s target
           </p>
-          <p className="text-lg font-semibold text-slate-900">
+          <p className="text-lg font-semibold text-[var(--text-main)]">
             {loading ? '—' : `${targetHours.toFixed(1)}h`}
           </p>
-          <p className="text-[11px] text-slate-600 leading-snug">
+          <p className="text-[11px] leading-snug text-[var(--text-soft)]">
             Goal sleep for tonight based on your profile.
           </p>
         </div>
 
         {/* Consistency */}
         <div className="space-y-1">
-          <p className="font-semibold tracking-[0.14em] uppercase text-slate-500">
+          <p className="font-semibold tracking-[0.14em] uppercase text-[var(--text-muted)]">
             Consistency
           </p>
-          <div className="h-1.5 w-full rounded-full bg-slate-100 mb-1" />
-          <p className="text-[11px] text-slate-500 leading-snug">
+          <div className="mb-1 h-1.5 w-full rounded-full bg-[var(--card-subtle)]" />
+          <p className="text-[11px] leading-snug text-[var(--text-muted)]">
             Log 2-3 shifted days to unlock stronger weekly guidance
           </p>
         </div>
 
         {/* Sleep deficit */}
         <div className="space-y-1 text-right">
-          <p className="font-semibold tracking-[0.14em] uppercase text-slate-500">
+          <p className="font-semibold tracking-[0.14em] uppercase text-[var(--text-muted)]">
             Sleep deficit
           </p>
-          <p className="text-lg font-semibold text-slate-900">0.0h</p>
-          <p className="text-[11px] text-slate-600 leading-snug">
+          <p className="text-lg font-semibold text-[var(--text-main)]">0.0h</p>
+          <p className="text-[11px] leading-snug text-[var(--text-soft)]">
             Ahead of weekly target
           </p>
         </div>
@@ -124,14 +124,14 @@ function SleepStageGrid() {
       {stages.map((stage) => (
         <div
           key={stage.label}
-          className="rounded-lg bg-white border border-slate-200 px-4 py-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)]"
+          className="rounded-lg border border-[var(--border-subtle)] bg-[var(--card)] px-4 py-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)]"
         >
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1">
+          <div className="mb-1 flex items-center justify-between text-xs font-semibold text-[var(--text-soft)]">
             <span className="uppercase tracking-[0.12em]">{stage.label}</span>
             <span>0%</span>
           </div>
-          <div className="h-1.5 w-full rounded-full bg-slate-100 mb-2" />
-          <p className="text-[11px] text-slate-600 leading-snug">
+          <div className="mb-2 h-1.5 w-full rounded-full bg-[var(--card-subtle)]" />
+          <p className="text-[11px] leading-snug text-[var(--text-soft)]">
             {stage.description}
           </p>
         </div>
@@ -751,12 +751,12 @@ export function ShiftWorkerSleepPage() {
       <div className="flex items-center gap-3">
         <Link
           href="/dashboard"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:bg-slate-50 hover:text-slate-800 transition"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card)] text-[var(--text-soft)] shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition hover:bg-[var(--card-subtle)] hover:text-[var(--text-main)]"
           aria-label="Back to home"
         >
           <ChevronLeft className="h-4 w-4" />
         </Link>
-        <h1 className="text-xs font-semibold tracking-[0.22em] text-slate-500 uppercase">
+        <h1 className="text-xs font-semibold tracking-[0.22em] text-[var(--text-soft)] uppercase">
           Sleep
         </h1>
       </div>
@@ -802,16 +802,16 @@ export function ShiftWorkerSleepPage() {
       />
 
       {/* Weekly sleep debt (Google Fit style) */}
-      <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
         <SleepDebtCard />
       </section>
 
       {/* Quick Sleep Log Buttons */}
-      <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-        <h2 className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400 mb-1.5">
+      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+        <h2 className="mb-1.5 text-xs font-semibold tracking-[0.16em] uppercase text-[var(--text-muted)]">
           Quick log for shift workers
         </h2>
-        <p className="text-[11px] text-slate-500 mb-3">
+        <p className="mb-3 text-[11px] text-[var(--text-soft)]">
           Quick log based on your shift pattern.
         </p>
         <QuickSleepLogButtons onLogSleep={handleQuickLog} />
@@ -819,8 +819,8 @@ export function ShiftWorkerSleepPage() {
 
       {/* Sleep Timeline Bar */}
       {selectedDayData && selectedDayData.sessions.length > 0 && (
-        <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-          <h2 className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400 mb-3">
+        <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+          <h2 className="mb-3 text-xs font-semibold tracking-[0.16em] uppercase text-[var(--text-muted)]">
             24‑hour sleep timeline
           </h2>
           <SleepTimelineBar
@@ -834,20 +834,20 @@ export function ShiftWorkerSleepPage() {
       )}
 
       {/* 30-day sleep guide */}
-      <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>
-            <h2 className="text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+            <h2 className="text-sm font-semibold tracking-tight text-[var(--text-main)]">
               Last 30 days
             </h2>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
               Pick a day to see if your sleep was enough for that shift, based on your profile.
             </p>
           </div>
           <div className="flex items-center gap-2">
             {historyDays.length > 0 && (
               <select
-                className="text-xs rounded-full border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/80 px-3 py-1 text-slate-700 dark:text-slate-100"
+                className="rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-1 text-xs text-[var(--text-soft)]"
                 value={selectedHistory?.date ?? historyDays[0].date}
                 onChange={(e) => setSelectedHistoryDate(e.target.value)}
               >
@@ -869,7 +869,7 @@ export function ShiftWorkerSleepPage() {
             )}
             <Link
               href="/sleep/history"
-              className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+              className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card)] px-3 py-1.5 text-[11px] font-medium text-[var(--text-soft)] shadow-sm hover:bg-[var(--card-subtle)]"
             >
               Edit logs
             </Link>
@@ -900,15 +900,15 @@ export function ShiftWorkerSleepPage() {
               <div className="space-y-3">
                 <div className="flex items-baseline justify-between">
                   <div>
-                    <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                    <p className="text-[11px] font-medium text-[var(--text-muted)]">
                       Total sleep that shifted day
                     </p>
-                    <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mt-0.5">
+                    <p className="mt-0.5 text-2xl font-semibold text-[var(--text-main)]">
                       {hours.toFixed(1)}h
                     </p>
                   </div>
                   {selectedHistory.shiftLabel && selectedHistory.shiftLabel !== 'OFF' && (
-                    <span className="inline-flex items-center rounded-full bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 px-2.5 py-0.5 text-[10px] text-slate-600 dark:text-slate-300">
+                    <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-2.5 py-0.5 text-[10px] text-[var(--text-soft)]">
                       {selectedHistory.shiftLabel}
                     </span>
                   )}
@@ -923,19 +923,19 @@ export function ShiftWorkerSleepPage() {
             )
           })()
         ) : (
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-[var(--text-muted)]">
             No sleep history in the last 30 days yet. Start logging to unlock guidance.
           </p>
         )}
       </section>
 
       {/* Sleep stages snapshot (de-emphasized) */}
-      <section className="rounded-xl bg-white/80 border border-slate-200/80 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
+      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
         <div className="mb-3">
-          <h2 className="text-xs font-semibold tracking-[0.14em] uppercase text-slate-500">
+          <h2 className="text-xs font-semibold tracking-[0.14em] uppercase text-[var(--text-muted)]">
             Sleep stages
           </h2>
-          <p className="text-[11px] text-slate-500 mt-1">
+          <p className="mt-1 text-[11px] text-[var(--text-soft)]">
             From wearable data or estimated from your latest sleep.
           </p>
         </div>

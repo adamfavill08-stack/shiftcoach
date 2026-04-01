@@ -152,24 +152,24 @@ export default function ShiftLagInfoPage() {
         ];
 
   return (
-    <main className="min-h-screen bg-slate-100">
+    <main className="min-h-screen bg-[var(--bg)]">
       <div className="max-w-[430px] mx-auto min-h-screen px-4 pb-8 pt-4 flex flex-col gap-5">
         {/* Header */}
         <header className="flex items-center gap-2 mb-2">
           <Link
             href="/dashboard"
-            className="p-2 rounded-full bg-white border border-slate-200 shadow-sm text-slate-700 hover:bg-slate-50 transition-colors"
+            className="rounded-full border border-[var(--border-subtle)] bg-[var(--card)] p-2 text-[var(--text-soft)] shadow-sm transition-colors hover:bg-[var(--card-subtle)]"
             aria-label="Back to dashboard"
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
-          <h1 className="text-xl font-semibold tracking-tight text-slate-900">
+          <h1 className="text-xl font-semibold tracking-tight text-[var(--text-main)]">
             Shift Lag
           </h1>
         </header>
 
         {/* Hero score ring */}
-        <section className="rounded-3xl bg-white px-5 py-6 flex flex-col items-center gap-5">
+        <section className="flex flex-col items-center gap-5 rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-6 shadow-[0_14px_36px_rgba(0,0,0,0.38)]">
           <div className="relative h-52 w-52">
             <svg viewBox="0 0 220 220" className="h-full w-full">
               <defs>
@@ -182,7 +182,7 @@ export default function ShiftLagInfoPage() {
                 cx="110"
                 cy="110"
                 r={radius}
-                className="stroke-slate-100"
+                className="stroke-slate-100 dark:stroke-slate-700"
                 strokeWidth="8"
                 fill="none"
               />
@@ -201,20 +201,20 @@ export default function ShiftLagInfoPage() {
             </svg>
 
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
-              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">
+              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-[var(--text-muted)]">
                 Shift Lag
               </p>
               {loading ? (
-                <div className="h-6 w-14 rounded-full bg-slate-100 animate-pulse" />
+                <div className="h-6 w-14 animate-pulse rounded-full bg-[var(--card-subtle)]" />
               ) : error ? (
-                <span className="text-xs text-slate-500">No data</span>
+                <span className="text-xs text-[var(--text-muted)]">No data</span>
               ) : (
                 <>
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-4xl font-semibold leading-none text-slate-900">
+                    <span className="text-4xl font-semibold leading-none text-[var(--text-main)]">
                       {clampedScore}
                     </span>
-                    <span className="text-sm text-slate-500">/100</span>
+                    <span className="text-sm text-[var(--text-muted)]">/100</span>
                   </div>
                   <span className={`text-xs font-semibold ${textClass}`}>
                     {label}
@@ -224,22 +224,22 @@ export default function ShiftLagInfoPage() {
             </div>
           </div>
 
-          <p className="text-sm text-slate-600 text-center max-w-xs">
+          <p className="max-w-xs text-center text-sm text-[var(--text-soft)]">
             {data?.explanation ??
               "Shift Lag is how out-of-sync your body clock is with your recent shifts. Lower scores mean your sleep and shifts are working together."}
           </p>
         </section>
 
         {/* Shift Lag drivers this week */}
-        <section className="rounded-xl bg-white border border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.08)] px-5 py-5 flex flex-col gap-4">
+        <section className="flex flex-col gap-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-5 shadow-[0_14px_36px_rgba(0,0,0,0.32)]">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="text-lg">📈</span>
-              <p className="text-sm font-semibold text-slate-900">
+              <p className="text-sm font-semibold text-[var(--text-main)]">
                 Shift Lag drivers this week
               </p>
             </div>
-            <span className="text-[11px] px-2 py-1 rounded-full bg-slate-50 text-slate-500 font-medium">
+            <span className="rounded-full bg-[var(--card-subtle)] px-2 py-1 text-[11px] font-medium text-[var(--text-muted)]">
               Last 7 days
             </span>
           </div>
@@ -247,16 +247,16 @@ export default function ShiftLagInfoPage() {
           <div className="space-y-3">
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-medium text-slate-600">
+                <span className="text-xs font-medium text-[var(--text-soft)]">
                   Sleep debt
                 </span>
                 {data && (
-                  <span className="text-xs font-semibold text-slate-900">
+                  <span className="text-xs font-semibold text-[var(--text-main)]">
                     {data.sleepDebtScore}/40
                   </span>
                 )}
               </div>
-              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div className="h-2 overflow-hidden rounded-full bg-[var(--card-subtle)]">
                 <div
                   className="h-full bg-gradient-to-r from-sky-500 to-sky-600 rounded-full transition-all duration-500"
                   style={{
@@ -268,16 +268,16 @@ export default function ShiftLagInfoPage() {
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-medium text-slate-600">
+                <span className="text-xs font-medium text-[var(--text-soft)]">
                   Night work in body‑night
                 </span>
                 {data && (
-                  <span className="text-xs font-semibold text-slate-900">
+                  <span className="text-xs font-semibold text-[var(--text-main)]">
                     {data.misalignmentScore}/40
                   </span>
                 )}
               </div>
-              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div className="h-2 overflow-hidden rounded-full bg-[var(--card-subtle)]">
                 <div
                   className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full transition-all duration-500"
                   style={{
@@ -291,16 +291,16 @@ export default function ShiftLagInfoPage() {
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-medium text-slate-600">
+                <span className="text-xs font-medium text-[var(--text-soft)]">
                   Schedule instability
                 </span>
                 {data && (
-                  <span className="text-xs font-semibold text-slate-900">
+                  <span className="text-xs font-semibold text-[var(--text-main)]">
                     {data.instabilityScore}/20
                   </span>
                 )}
               </div>
-              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div className="h-2 overflow-hidden rounded-full bg-[var(--card-subtle)]">
                 <div
                   className="h-full bg-gradient-to-r from-amber-500 to-amber-600 rounded-full transition-all duration-500"
                   style={{
@@ -315,34 +315,34 @@ export default function ShiftLagInfoPage() {
         </section>
 
         {/* Sleep debt this week */}
-        <section className="rounded-xl bg-white border border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.08)] px-5 py-5 flex flex-col gap-3">
+        <section className="flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-5 shadow-[0_14px_36px_rgba(0,0,0,0.32)]">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">😴</span>
-            <p className="text-sm font-semibold text-slate-900">
+            <p className="text-sm font-semibold text-[var(--text-main)]">
               Sleep debt this week
             </p>
           </div>
-          <p className="text-2xl font-semibold text-slate-900">
+          <p className="text-2xl font-semibold text-[var(--text-main)]">
             {sleepDebtHours == null ? "—" : `${sleepDebtHours.toFixed(1)} hrs`}
           </p>
-          <p className="text-sm text-slate-700">{sleepDebtSummary}</p>
+          <p className="text-sm text-[var(--text-soft)]">{sleepDebtSummary}</p>
         </section>
 
         {/* Night work in body-night */}
-        <section className="rounded-xl bg-white border border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.08)] px-5 py-5 flex flex-col gap-3">
+        <section className="flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-5 shadow-[0_14px_36px_rgba(0,0,0,0.32)]">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">🌌</span>
-            <p className="text-sm font-semibold text-slate-900">
+            <p className="text-sm font-semibold text-[var(--text-main)]">
               Night work in body‑night
             </p>
           </div>
-          <p className="text-2xl font-semibold text-slate-900">
+          <p className="text-2xl font-semibold text-[var(--text-main)]">
             {avgNightOverlap == null
               ? "—"
               : `${avgNightOverlap.toFixed(1)} hrs / shift`}
           </p>
-          <p className="text-sm font-medium text-slate-700">{nightWorkLabel}</p>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm font-medium text-[var(--text-soft)]">{nightWorkLabel}</p>
+          <p className="text-sm text-[var(--text-soft)]">
             Body‑night is roughly 2–6am when your internal clock expects deep,
             recovery sleep. More work in this window means higher Shift Lag and
             slower recovery between runs of shifts.
@@ -350,20 +350,20 @@ export default function ShiftLagInfoPage() {
         </section>
 
         {/* Schedule instability tracker */}
-        <section className="rounded-xl bg-white border border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.08)] px-5 py-5 flex flex-col gap-3">
+        <section className="flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-5 shadow-[0_14px_36px_rgba(0,0,0,0.32)]">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">📅</span>
-            <p className="text-sm font-semibold text-slate-900">
+            <p className="text-sm font-semibold text-[var(--text-main)]">
               Schedule instability
             </p>
           </div>
-          <p className="text-2xl font-semibold text-slate-900">
+          <p className="text-2xl font-semibold text-[var(--text-main)]">
             {startVariability == null
               ? "—"
               : `${startVariability.toFixed(1)} hrs swing`}
           </p>
-          <p className="text-sm font-medium text-slate-700">{instabilityLabel}</p>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm font-medium text-[var(--text-soft)]">{instabilityLabel}</p>
+          <p className="text-sm text-[var(--text-soft)]">
             Big swings between early, late and night shifts make it harder for
             your body clock to know when to be asleep. Keeping runs of similar
             shifts together and protecting recovery days keeps Shift Lag lower.
@@ -371,34 +371,34 @@ export default function ShiftLagInfoPage() {
         </section>
 
         {/* What the levels mean */}
-        <section className="rounded-xl bg-white border border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.08)] px-5 py-5 flex flex-col gap-3">
+        <section className="flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-5 shadow-[0_14px_36px_rgba(0,0,0,0.32)]">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">🎚️</span>
-            <p className="text-sm font-semibold text-slate-900">
+            <p className="text-sm font-semibold text-[var(--text-main)]">
               What Low / Moderate / High mean
             </p>
           </div>
-          <div className="flex flex-col gap-2 text-sm text-slate-700">
+          <div className="flex flex-col gap-2 text-sm text-[var(--text-soft)]">
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              <p className="font-medium text-slate-900">Low</p>
-              <p className="text-xs text-slate-500">
+              <p className="font-medium text-[var(--text-main)]">Low</p>
+              <p className="text-xs text-[var(--text-muted)]">
                 Your sleep and shifts are mostly aligned. Recovery should feel
                 manageable.
               </p>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-              <p className="font-medium text-slate-900">Moderate</p>
-              <p className="text-xs text-slate-500">
+              <p className="font-medium text-[var(--text-main)]">Moderate</p>
+              <p className="text-xs text-[var(--text-muted)]">
                 You are building up sleep debt or doing more nights in body‑night.
                 Plan recovery days and steadier routines.
               </p>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-rose-500" />
-              <p className="font-medium text-slate-900">High</p>
-              <p className="text-xs text-slate-500">
+              <p className="font-medium text-[var(--text-main)]">High</p>
+              <p className="text-xs text-[var(--text-muted)]">
                 Your body clock is very out of sync. Expect heavy fatigue, mood
                 swings and cravings until you recover.
               </p>
@@ -407,14 +407,14 @@ export default function ShiftLagInfoPage() {
         </section>
 
         {/* Simple tips */}
-        <section className="rounded-xl bg-white border border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.08)] px-5 py-5 flex flex-col gap-3">
+        <section className="flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-5 shadow-[0_14px_36px_rgba(0,0,0,0.32)]">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">🌙</span>
-            <p className="text-sm font-semibold text-slate-900">
+            <p className="text-sm font-semibold text-[var(--text-main)]">
               Quick ways to lower Shift Lag
             </p>
           </div>
-          <ul className="text-sm list-disc list-inside space-y-2 text-slate-700">
+          <ul className="list-disc list-inside space-y-2 text-sm text-[var(--text-soft)]">
             <li>
               Protect one{" "}
               <span className="font-semibold">long main sleep</span> after nights
@@ -436,21 +436,21 @@ export default function ShiftLagInfoPage() {
         </section>
 
         {/* Tonight's protection plan */}
-        <section className="rounded-xl bg-white border border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.08)] px-5 py-5 flex flex-col gap-3">
+        <section className="flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-5 shadow-[0_14px_36px_rgba(0,0,0,0.32)]">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">🛡️</span>
-            <p className="text-sm font-semibold text-slate-900">
+            <p className="text-sm font-semibold text-[var(--text-main)]">
               Tonight&apos;s protection plan
             </p>
           </div>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-[var(--text-soft)]">
             Three small things you can do in the next 24 hours to protect your
             body clock on your current pattern.
           </p>
-          <ul className="space-y-2 text-sm text-slate-700">
+          <ul className="space-y-2 text-sm text-[var(--text-soft)]">
             {tonightPlan.map((item, idx) => (
               <li key={idx} className="flex gap-2 items-start">
-                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-slate-400" />
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[var(--text-muted)]" />
                 <span>{item}</span>
               </li>
             ))}
@@ -459,10 +459,10 @@ export default function ShiftLagInfoPage() {
 
         {/* ShiftCoach logo footer */}
         <div className="pt-6 pb-4 flex flex-col items-center gap-1">
-          <div className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-400">
+          <div className="text-xs font-semibold tracking-[0.16em] uppercase text-[var(--text-muted)]">
             ShiftCoach
           </div>
-          <p className="text-[10px] text-slate-400 text-center max-w-[260px]">
+          <p className="max-w-[260px] text-center text-[10px] text-[var(--text-muted)]">
             {t("detail.common.disclaimer")}
           </p>
         </div>

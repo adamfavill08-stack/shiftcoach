@@ -8,6 +8,7 @@ import { ProfilePlanSection } from './components/ProfilePlanSection'
 import { NotificationsSection } from './components/NotificationsSection'
 import { NutritionSection } from './components/NutritionSection'
 import { LanguageSection } from './components/LanguageSection'
+import { AppearanceSection } from './components/AppearanceSection'
 import { DataPrivacySection } from './components/DataPrivacySection'
 import { TesterFeedbackSection } from './components/TesterFeedbackSection'
 import { useTranslation } from '@/components/providers/language-provider'
@@ -64,6 +65,7 @@ export default function SettingsPage() {
                 {t('settings.section.preferences')}
               </p>
               <div className="space-y-1 px-2 pb-2">
+                <AppearanceSection />
                 <NotificationsSection />
                 <NutritionSection />
                 <LanguageSection />

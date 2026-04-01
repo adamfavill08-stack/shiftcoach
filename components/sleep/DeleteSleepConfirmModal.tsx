@@ -59,19 +59,19 @@ export function DeleteSleepConfirmModal({
 
       {/* Modal */}
       <div className="relative z-10 w-full max-w-sm mx-4">
-        <div className="relative overflow-hidden rounded-[28px] bg-white/95 backdrop-blur-2xl border border-white/90 shadow-[0_24px_60px_rgba(15,23,42,0.25)]">
+        <div className="relative overflow-hidden rounded-[28px] border border-[var(--border-subtle)] bg-[var(--card)] backdrop-blur-2xl shadow-[0_24px_60px_rgba(15,23,42,0.25)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
           {/* Gradient overlay */}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/98 via-white/90 to-white/80" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[var(--card)] via-[var(--card)] to-[var(--card-subtle)]" />
           
           {/* Inner glow */}
-          <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/60" />
+          <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-[var(--border-subtle)]" />
           
           <div className="relative z-10 p-6">
             {/* Header */}
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 border border-rose-200/60">
-                  <AlertTriangle className="h-5 w-5 text-rose-600" strokeWidth={2.5} />
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-rose-300/60 bg-rose-50 dark:border-rose-800/60 dark:bg-rose-950/35">
+                  <AlertTriangle className="h-5 w-5 text-rose-600 dark:text-rose-300" strokeWidth={2.5} />
                 </div>
                 <h3 className="text-[17px] font-bold tracking-tight text-slate-900">
                   Delete sleep entry?
@@ -80,7 +80,7 @@ export function DeleteSleepConfirmModal({
               <button
                 onClick={onClose}
                 disabled={loading}
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100/80 hover:bg-slate-200/80 text-slate-600 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--card-subtle)] text-[var(--text-soft)] transition-all hover:scale-105 hover:bg-[var(--card-subtle)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Close"
               >
                 <X className="h-4 w-4" strokeWidth={2.5} />
@@ -88,7 +88,7 @@ export function DeleteSleepConfirmModal({
             </div>
 
             {/* Message */}
-            <p className="text-[13px] text-slate-600 leading-relaxed mb-6">
+            <p className="mb-6 text-[13px] leading-relaxed text-[var(--text-soft)]">
               This will remove this sleep log and update your sleep and Shift Rhythm calculations.
             </p>
 
@@ -97,7 +97,7 @@ export function DeleteSleepConfirmModal({
               <button
                 onClick={onClose}
                 disabled={loading}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-slate-100/80 hover:bg-slate-200/80 text-[13px] font-semibold text-slate-700 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-4 py-2.5 text-[13px] font-semibold text-[var(--text-soft)] transition-all hover:scale-[1.02] hover:bg-[var(--card)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>

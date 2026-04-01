@@ -272,7 +272,7 @@ function ShiftRhythmCard({
           ) : bingeRisk ? (
             <BingeRiskCard bingeRisk={bingeRisk} />
           ) : (
-            <div className="flex min-h-[6.5rem] w-full flex-col justify-center rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+            <div className="flex min-h-[6.5rem] w-full flex-col justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
               <p className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
                 Binge risk
               </p>
@@ -434,7 +434,7 @@ function BodyClockCard({
           </div>
 
           {/* Predictive circadian insights */}
-          <div className="w-full rounded-xl border border-slate-200/80 bg-white/85 px-4 py-3 text-left shadow-[0_4px_12px_rgba(15,23,42,0.04)]">
+          <div className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-4 py-3 text-left shadow-[0_4px_12px_rgba(15,23,42,0.04)]">
             <p className={`text-sm font-semibold tracking-[0.08em] text-black ${inter.className}`}>Circadian forcast</p>
             <p className="mt-2 text-xs font-medium text-slate-700">🟢 Peak alertness — 19:30</p>
             <p className="mt-1 text-xs text-slate-700">🔵 Low energy — 03:00</p>
@@ -493,7 +493,7 @@ function HomeAdjustedCaloriesCard() {
   return (
     <Link
       href="/adjusted-calories"
-      className="relative block rounded-3xl bg-white border border-slate-200 px-5 py-4 shadow-[0_6px_20px_rgba(15,23,42,0.06)] transition-colors hover:bg-slate-50"
+      className="relative block rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_6px_20px_rgba(15,23,42,0.06)] transition-colors hover:bg-[var(--card-subtle)] dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]"
     >
       <ChevronRight className="absolute right-4 top-4 h-4 w-4 text-slate-400" aria-hidden />
       <div className="space-y-1.5">
@@ -581,7 +581,7 @@ function HomeFatigueRiskCard({
   return (
     <Link
       href="/fatigue-risk"
-      className="relative block rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-[0_6px_20px_rgba(15,23,42,0.06)] transition-colors hover:bg-slate-50"
+      className="relative block rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_6px_20px_rgba(15,23,42,0.06)] transition-colors hover:bg-[var(--card-subtle)] dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]"
     >
       <ChevronRight className="absolute right-4 top-4 h-4 w-4 text-slate-400" aria-hidden />
       <div className="pr-6">
@@ -663,7 +663,7 @@ function HomeLogSleepCard() {
   return (
     <Link
       href="/sleep"
-      className="block rounded-3xl bg-white border border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 shadow-[0_6px_20px_rgba(15,23,42,0.06)]"
+      className="block rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 transition-colors hover:bg-[var(--card-subtle)] shadow-[0_6px_20px_rgba(15,23,42,0.06)] dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]"
     >
       <div className="relative">
         <ChevronRight className="absolute right-0 top-0 h-4 w-4 text-slate-400" aria-hidden />
@@ -677,7 +677,7 @@ function HomeLogSleepCard() {
             <p className={`mt-1 text-xs ${loading ? "text-slate-500" : statusTone}`}>{statusLine}</p>
           </div>
           <div className="flex justify-end pb-0.5 -mt-3 pr-2">
-            <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-full bg-blue-900/90">
+            <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-full bg-blue-900/90 dark:bg-blue-800/80">
               <span className={`text-[24px] font-semibold tracking-tight text-white ${inter.className}`} aria-hidden>
                 Zzz
               </span>
@@ -737,7 +737,7 @@ function HomeSleepDebtCard() {
 
   if (error || weeklyDeficit === null || requiredDaily === null) {
     return (
-      <div className="rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm text-xs text-slate-500 dark:text-slate-400">
+      <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-sm text-xs text-[var(--text-muted)]">
         {error || "No sleep debt data yet. Log a few days of main sleep to unlock this view."}
       </div>
     );
@@ -772,26 +772,26 @@ function HomeSleepDebtCard() {
   return (
     <Link
       href="/sleep"
-      className="block rounded-3xl bg-white/95 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-800/60 px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
+      className="block rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 space-y-1.5">
           <div className="flex items-center justify-between gap-2">
             <div className="flex flex-col">
-              <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
+              <span className="text-xs font-semibold tracking-[0.16em] uppercase text-[var(--text-muted)]">
                 Sleep debt
               </span>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="text-[11px] text-[var(--text-muted)]">
                 Last 7 days vs your ideal.
               </span>
             </div>
-            <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+            <ChevronRight className="h-4 w-4 flex-shrink-0 text-[var(--text-muted)]" />
           </div>
 
           <div className="mt-2 flex items-baseline justify-between">
             <div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Behind / ahead</p>
-              <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+              <p className="text-xs text-[var(--text-muted)]">Behind / ahead</p>
+              <p className="text-2xl font-semibold text-[var(--text-main)]">
                 {isSurplus ? "-" : "+"}
                 {absHours}h
               </p>
@@ -826,53 +826,53 @@ function HomeActivityCard() {
       onClick={() => {
         router.push("/activity");
       }}
-      className="w-full text-left rounded-3xl bg-white border border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 shadow-[0_6px_20px_rgba(15,23,42,0.06)]"
+      className="w-full text-left rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 transition-colors hover:bg-[var(--card-subtle)] shadow-[0_6px_20px_rgba(15,23,42,0.06)] dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]"
     >
       <div className="relative pr-6">
-        <ChevronRight className="absolute right-0 top-0 h-4 w-4 text-slate-400" aria-hidden />
-        <p className={`text-sm font-semibold tracking-[0.08em] text-black ${inter.className}`}>Activity</p>
+        <ChevronRight className="absolute right-0 top-0 h-4 w-4 text-[var(--text-muted)]" aria-hidden />
+        <p className={`text-sm font-semibold tracking-[0.08em] text-[var(--text-main)] ${inter.className}`}>Activity</p>
 
         <div className="mt-3 grid grid-cols-[1fr_92px] items-start gap-4">
           <div className="space-y-3">
             <div className="flex items-start gap-2.5">
-              <span className="mt-0.5 inline-flex h-4.5 w-4.5 items-center justify-center rounded-full bg-emerald-400/90" aria-hidden>
+              <span className="mt-0.5 inline-flex h-4.5 w-4.5 items-center justify-center rounded-full bg-emerald-400/90 dark:bg-emerald-400/70" aria-hidden>
                 <Footprints className="h-2.5 w-2.5 text-white" strokeWidth={2.5} />
               </span>
               <div>
-                <p className={`text-sm font-semibold text-slate-900 tabular-nums ${inter.className}`}>
+                <p className={`text-sm font-semibold text-[var(--text-main)] tabular-nums ${inter.className}`}>
                   {loading ? "0" : steps.toLocaleString()}
-                  <span className="ml-1 text-sm font-medium text-slate-500">Steps</span>
+                  <span className="ml-1 text-sm font-medium text-[var(--text-muted)]">Steps</span>
                 </p>
               </div>
             </div>
 
             <div className="flex items-start gap-2.5">
-              <span className="mt-0.5 inline-flex h-4.5 w-4.5 items-center justify-center rounded-full bg-sky-400/90" aria-hidden>
+              <span className="mt-0.5 inline-flex h-4.5 w-4.5 items-center justify-center rounded-full bg-sky-400/90 dark:bg-sky-400/70" aria-hidden>
                 <Timer className="h-2.5 w-2.5 text-white" strokeWidth={2.5} />
               </span>
               <div>
-                <p className="text-sm font-semibold text-slate-900 tabular-nums">
+                <p className="text-sm font-semibold text-[var(--text-main)] tabular-nums">
                   {loading ? "0 " : `${activeMinutes} `}
-                  <span className="text-sm font-medium text-slate-500">Mins</span>
+                  <span className="text-sm font-medium text-[var(--text-muted)]">Mins</span>
                 </p>
               </div>
             </div>
 
             <div className="flex items-start gap-2.5">
-              <span className="mt-0.5 inline-flex h-4.5 w-4.5 items-center justify-center rounded-full bg-amber-400/90" aria-hidden>
+              <span className="mt-0.5 inline-flex h-4.5 w-4.5 items-center justify-center rounded-full bg-amber-400/90 dark:bg-amber-400/70" aria-hidden>
                 <Flame className="h-2.5 w-2.5 text-white" strokeWidth={2.5} />
               </span>
               <div>
-                <p className="text-sm font-semibold text-slate-900 tabular-nums">
+                <p className="text-sm font-semibold text-[var(--text-main)] tabular-nums">
                   {loading ? "0 " : `${calories.toLocaleString()} `}
-                  <span className="text-sm font-medium text-slate-500">kcal</span>
+                  <span className="text-sm font-medium text-[var(--text-muted)]">kcal</span>
                 </p>
               </div>
             </div>
           </div>
 
           <div className="flex justify-center pt-1">
-            <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-full bg-emerald-500/90">
+            <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-full bg-emerald-500/90 dark:bg-emerald-500/75">
               <Footprints className="h-7 w-7 text-white" strokeWidth={2.25} aria-hidden />
             </div>
           </div>
@@ -1042,22 +1042,22 @@ function HeartRecoveryCard() {
   return (
     <Link
       href="/heart-health"
-      className="block rounded-3xl bg-white border border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 shadow-[0_6px_20px_rgba(15,23,42,0.06)]"
+      className="block rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 transition-colors hover:bg-[var(--card-subtle)] shadow-[0_6px_20px_rgba(15,23,42,0.06)] dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]"
     >
       <div className="relative">
-        <ChevronRight className="absolute right-0 top-0 h-4 w-4 text-slate-400" aria-hidden />
+        <ChevronRight className="absolute right-0 top-0 h-4 w-4 text-[var(--text-muted)]" aria-hidden />
         <div className="grid grid-cols-[1fr_110px] items-end gap-4 pr-6">
           <div className="min-w-0">
-            <p className={`text-sm font-semibold tracking-[0.08em] text-black ${inter.className}`}>Heart recovery</p>
-            <p className={`mt-2 text-[34px] font-semibold leading-none text-slate-900 tabular-nums ${inter.className}`}>
+            <p className={`text-sm font-semibold tracking-[0.08em] text-[var(--text-main)] ${inter.className}`}>Heart recovery</p>
+            <p className={`mt-2 text-[34px] font-semibold leading-none text-[var(--text-main)] tabular-nums ${inter.className}`}>
               {recoveryScore}
             </p>
             <p className={`mt-1 text-sm font-medium ${recoveryTone}`}>{recoveryLabel}</p>
-            <p className="mt-1 text-xs text-slate-500">{supportLine}</p>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">{supportLine}</p>
           </div>
 
           <div className="flex justify-end pb-0.5 pr-2">
-            <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-full bg-rose-500/90">
+            <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-full bg-rose-500/90 dark:bg-rose-500/75">
               <Heart className="h-8 w-8 text-white" fill="currentColor" aria-hidden />
             </div>
           </div>
@@ -1128,10 +1128,10 @@ function HydrationCard() {
   };
 
   return (
-    <div className="relative rounded-xl border border-slate-200 bg-white px-5 py-4 pr-10 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+    <div className="relative rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 pr-10 shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.32)]">
       <Link
         href="/hydration"
-        className="absolute right-3 top-4 rounded-md p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+        className="absolute right-3 top-4 rounded-md p-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--card-subtle)] hover:text-[var(--text-main)]"
         aria-label="Open hydration"
       >
         <ChevronRight className="h-4 w-4" aria-hidden />
@@ -1140,7 +1140,7 @@ function HydrationCard() {
         <div className="min-w-0 flex-1 space-y-2.5 -mt-3">
           <Link
             href="/hydration"
-            className={`block text-sm font-semibold tracking-[0.08em] text-black transition-colors hover:text-slate-900 ${inter.className}`}
+            className={`block text-sm font-semibold tracking-[0.08em] text-[var(--text-main)] transition-colors hover:text-[var(--text-main)] ${inter.className}`}
           >
             Hydration
           </Link>
@@ -1148,7 +1148,7 @@ function HydrationCard() {
             type="button"
             disabled={adding}
             onClick={handleQuickAdd}
-            className="block w-full text-left text-[15px] font-semibold leading-tight text-slate-900 transition-colors hover:text-sky-700 disabled:opacity-50 rounded-md -mx-1 px-1 py-0.5 hover:bg-sky-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
+            className="block w-full text-left text-[15px] font-semibold leading-tight text-[var(--text-main)] transition-colors hover:text-sky-700 disabled:opacity-50 rounded-md -mx-1 px-1 py-0.5 hover:bg-sky-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
             aria-label={`Add ${HYDRATION_QUICK_ADD_ML} millilitres of water`}
           >
             {adding ? "Adding…" : `+${HYDRATION_QUICK_ADD_ML}ml`}
@@ -1284,7 +1284,7 @@ const BingeRiskCard = memo(function BingeRiskCard({
   return (
     <Link
       href="/binge-risk"
-      className={`relative w-full rounded-xl border border-slate-200 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-colors hover:bg-slate-50 ${
+      className={`relative w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-colors hover:bg-[var(--card-subtle)] ${
         compact
           ? "flex h-full w-full min-h-[6.5rem] min-w-0 flex-col justify-center px-3 pb-3 pt-2 pr-8"
           : "block px-5 pb-4 pr-10 pt-3.5"
@@ -1301,12 +1301,12 @@ const BingeRiskCard = memo(function BingeRiskCard({
               <span className={`block text-[10px] font-semibold leading-tight tracking-[0.08em] text-black ${inter.className}`}>
                 Binge risk
               </span>
-              <span className="block min-h-[22px] text-[15px] font-semibold leading-tight text-slate-900">
+              <span className="block min-h-[22px] text-[15px] font-semibold leading-tight text-[var(--text-main)]">
                 {riskLevelLabel}
               </span>
             </div>
             <div className={`flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full ${colors.circle}`}>
-              <span className="text-sm font-semibold tabular-nums text-slate-900">{riskScore}</span>
+              <span className="text-sm font-semibold tabular-nums text-[var(--text-main)]">{riskScore}</span>
             </div>
           </>
         ) : (
@@ -1352,7 +1352,7 @@ const BingeRiskCard = memo(function BingeRiskCard({
 function BingeRiskCardSkeleton({ compact = false }: { compact?: boolean }) {
   return (
     <div
-      className={`animate-pulse w-full rounded-xl border border-slate-200 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.08)] ${
+      className={`animate-pulse w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] shadow-[0_1px_3px_rgba(15,23,42,0.08)] ${
         compact
           ? "flex h-full w-full min-h-[6.5rem] min-w-0 flex-col justify-center px-3 pb-3 pt-2 pr-8"
           : "px-5 pb-4 pr-10 pt-2.5"
@@ -1361,10 +1361,10 @@ function BingeRiskCardSkeleton({ compact = false }: { compact?: boolean }) {
       <div className={`flex items-center ${compact ? "gap-2" : "gap-1.5"}`}>
         <div className={`flex min-w-0 flex-1 flex-col ${compact ? "gap-1" : "gap-2"}`}>
           <div className={`rounded bg-slate-200 ${compact ? "h-2 w-14" : "h-2.5 w-20"}`} />
-          {compact ? <div className="h-5 w-12 rounded bg-slate-100" /> : null}
+          {compact ? <div className="h-5 w-12 rounded bg-[var(--card-subtle)]" /> : null}
         </div>
         <div
-          className={`shrink-0 rounded-full border border-slate-200 bg-slate-100 ${compact ? "h-[50px] w-[50px]" : "h-11 w-11"}`}
+          className={`shrink-0 rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] ${compact ? "h-[50px] w-[50px]" : "h-11 w-11"}`}
         />
       </div>
     </div>
@@ -1537,6 +1537,7 @@ function CircadianGauge({ score }: { score: number }) {
   const radius = 94;
   const stroke = 12;
   const [nowTs, setNowTs] = useState(() => Date.now());
+  const [isDark, setIsDark] = useState(false);
   const normalizedRadius = radius - stroke / 2;
   const circumference = normalizedRadius * 2 * Math.PI;
   const capped = Math.min(Math.max(score, 0), 100);
@@ -1546,6 +1547,15 @@ function CircadianGauge({ score }: { score: number }) {
       setNowTs(Date.now());
     }, 1000);
     return () => window.clearInterval(intervalId);
+  }, []);
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    const syncTheme = () => setIsDark(root.classList.contains("dark"));
+    syncTheme();
+    const observer = new MutationObserver(syncTheme);
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
   }, []);
   const now = new Date(nowTs);
   const minutesOfDay = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
@@ -1558,6 +1568,15 @@ function CircadianGauge({ score }: { score: number }) {
   const nightDash = circumference * 0.22; // subtle 22% arc for night/rest window
   const dayDash = circumference - nightDash;
   const nightOffset = circumference * 0.18; // position rest arc toward lower-right
+  const trackStart = isDark ? "#3a3a40" : "#E7E5E4";
+  const trackEnd = isDark ? "#2c2c31" : "#D6D3D1";
+  const bezelStroke = isDark ? "#3a3a40" : "#D6D3D1";
+  const tickStroke = isDark ? "#8b8b94" : "#A8A29E";
+  const centerFill = isDark ? "#17171b" : "#f2f1f0";
+  const centerText = isDark ? "#f3f4f6" : "#0f172a";
+  const centerHalo = isDark
+    ? "pointer-events-none absolute h-32 w-32 rounded-full border border-white/10 bg-white/5 blur-[1px]"
+    : "pointer-events-none absolute h-32 w-32 rounded-full border border-slate-300/35 bg-slate-200/20 blur-[1px]";
 
   return (
     <div className="relative flex h-52 w-52 items-center justify-center">
@@ -1569,8 +1588,8 @@ function CircadianGauge({ score }: { score: number }) {
       >
         <defs>
           <linearGradient id="trackGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#E7E5E4" />
-            <stop offset="100%" stopColor="#D6D3D1" />
+            <stop offset="0%" stopColor={trackStart} />
+            <stop offset="100%" stopColor={trackEnd} />
           </linearGradient>
           <filter id="activeArcGlow" x="-22%" y="-22%" width="144%" height="144%">
             <feGaussianBlur stdDeviation="1.6" result="blur">
@@ -1596,7 +1615,7 @@ function CircadianGauge({ score }: { score: number }) {
             </feMerge>
           </filter>
           <filter id="nowMarkerShadow" x="-120%" y="-120%" width="340%" height="340%">
-            <feDropShadow dx="0" dy="1.1" stdDeviation="1.2" floodColor="#0f172a" floodOpacity="0.22" />
+            <feDropShadow dx="0" dy="1.1" stdDeviation="1.2" floodColor={isDark ? "#000000" : "#0f172a"} floodOpacity={isDark ? "0.5" : "0.22"} />
           </filter>
         </defs>
 
@@ -1606,7 +1625,7 @@ function CircadianGauge({ score }: { score: number }) {
           cy={size / 2}
           r={normalizedRadius + stroke / 2 + 3}
           fill="none"
-          stroke="#D6D3D1"
+          stroke={bezelStroke}
           strokeOpacity={0.75}
           strokeWidth={1.5}
         />
@@ -1626,7 +1645,7 @@ function CircadianGauge({ score }: { score: number }) {
               y1={y1}
               x2={x2}
               y2={y2}
-              stroke="#A8A29E"
+              stroke={tickStroke}
               strokeOpacity={isCardinalTick ? 0.88 : 0.34}
               strokeWidth={isCardinalTick ? 1.35 : 0.8}
               strokeLinecap="round"
@@ -1637,7 +1656,7 @@ function CircadianGauge({ score }: { score: number }) {
           cx={size / 2}
           cy={size / 2}
           r={normalizedRadius}
-          fill="#f2f1f0"
+          fill={centerFill}
           stroke="url(#trackGradient)"
           strokeWidth={stroke}
         />
@@ -1687,10 +1706,10 @@ function CircadianGauge({ score }: { score: number }) {
       {/* Center value only */}
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
         <div
-          className="pointer-events-none absolute h-32 w-32 rounded-full border border-slate-300/35 bg-slate-200/20 blur-[1px]"
+          className={centerHalo}
           aria-hidden
         />
-        <p className={`text-5xl font-semibold text-slate-900 tabular-nums leading-none ${inter.className}`}>
+        <p className={`text-5xl font-semibold tabular-nums leading-none ${inter.className}`} style={{ color: centerText }}>
           {Math.round(capped)}
         </p>
       </div>
