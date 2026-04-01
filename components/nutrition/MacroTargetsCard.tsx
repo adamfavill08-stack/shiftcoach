@@ -48,7 +48,7 @@ function MacroRingIcon({ className = '' }: { className?: string }) {
       aria-hidden
     >
       <div className="absolute inset-0 rounded-full bg-gradient-to-br from-emerald-400/95 via-sky-400 to-indigo-500 p-[3px] shadow-[0_3px_14px_-3px_rgba(14,165,233,0.45),0_1px_2px_rgba(15,23,42,0.06)]">
-        <div className="h-full w-full rounded-full bg-gradient-to-b from-white to-slate-50/95 shadow-[inset_0_1px_2px_rgba(255,255,255,1),inset_0_-1px_1px_rgba(15,23,42,0.04)]" />
+        <div className="h-full w-full rounded-full bg-gradient-to-b from-white to-slate-50/95 shadow-[inset_0_1px_2px_rgba(255,255,255,1),inset_0_-1px_1px_rgba(15,23,42,0.04)] dark:from-[var(--card-subtle)] dark:to-[var(--card)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),inset_0_-1px_1px_rgba(0,0,0,0.45)]" />
       </div>
     </div>
   )
@@ -163,7 +163,7 @@ export function MacroTargetsCard({
 
     return (
       <section className={`${outer} ${className}`.trim()}>
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[5.5rem] bg-gradient-to-b from-white via-white/70 to-transparent dark:from-white/5 dark:via-white/0" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[5.5rem] bg-gradient-to-b from-white via-white/70 to-transparent dark:from-[var(--card-subtle)]/35 dark:via-transparent" />
 
         <div className="relative flex flex-col gap-5">
           <header className="space-y-2 pr-1">
