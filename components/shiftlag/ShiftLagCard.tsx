@@ -3,8 +3,11 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ChevronRight } from "lucide-react"
+import { Inter } from "next/font/google"
 import type { ShiftLagMetrics, ShiftLagLevel } from "@/lib/shiftlag/calculateShiftLag"
 import { useTranslation } from "@/components/providers/language-provider"
+
+const inter = Inter({ subsets: ["latin"] })
 
 function MiniRing({
   value,
@@ -146,28 +149,39 @@ export function ShiftLagCard({ compact = false }: ShiftLagCardProps) {
 
   const showScoreRow =
     data && !isUnlockPlaceholder(data) && !isCalcFailure(data)
-  const showRing = showScoreRow
-
   const ringSize = compact ? 50 : 64
+  const scorePct = data ? Math.max(0, Math.min(100, data.score)) : 0
+  const bubbleTone =
+    data?.level === "high"
+      ? "bg-rose-100 text-rose-800"
+      : data?.level === "moderate"
+      ? "bg-amber-100 text-amber-800"
+      : "bg-emerald-100 text-emerald-800"
+  const markerTone =
+    data?.level === "high"
+      ? "bg-rose-500"
+      : data?.level === "moderate"
+      ? "bg-amber-500"
+      : "bg-emerald-500"
 
   return (
     <section
-      className={`rounded-xl border border-slate-200 bg-white text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.08)] ${compact ? "h-full w-full min-w-0" : ""}`}
+      className={`w-full rounded-xl border border-slate-200 bg-white text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.08)] ${compact ? "h-full w-full min-w-0" : ""}`}
     >
       <Link
         href="/shift-lag"
-        className={`relative flex h-full min-h-0 flex-col justify-center ${compact ? "min-h-[6.5rem] px-3 pb-3 pt-2 pr-8" : "px-5 pb-4 pr-10 pt-2.5"}`}
+        className={`relative flex h-full min-h-0 flex-col justify-center ${compact ? "min-h-[6.5rem] px-3 pb-3 pt-2 pr-8" : "px-5 pb-4 pr-10 pt-3.5"}`}
       >
         <ChevronRight
           className={`pointer-events-none absolute text-slate-400 ${compact ? "right-2 top-2 h-3.5 w-3.5" : "right-3 top-2.5 h-4 w-4"}`}
           aria-hidden
         />
-        <div className={`flex items-center ${compact ? "gap-2" : "gap-1.5"}`}>
+        <div className={`${compact ? "flex items-center gap-2" : "space-y-2"}`}>
           <div className={`min-w-0 flex-1 ${compact ? "space-y-1" : "space-y-2"}`}>
             <span
-              className={`block font-semibold uppercase leading-tight text-slate-700 ${compact ? "text-[10px] tracking-[0.14em]" : "text-xs tracking-[0.16em]"}`}
+              className={`block font-semibold leading-tight text-black ${inter.className} ${compact ? "text-[10px] tracking-[0.08em]" : "text-sm tracking-[0.08em]"}`}
             >
-              {t("dashboard.shiftLag.cardTitle")}
+              Shift lag
             </span>
 
             {loading ? (
@@ -182,20 +196,48 @@ export function ShiftLagCard({ compact = false }: ShiftLagCardProps) {
               </p>
             ) : data && isCalcFailure(data) ? (
               <p className={`text-slate-600 ${compact ? "text-[11px] leading-tight" : "text-sm"}`}>{data.explanation}</p>
-            ) : showScoreRow && data ? (
+            ) : showScoreRow && data && compact ? (
               <span
                 className={`block font-semibold tabular-nums text-slate-900 ${compact ? "text-[15px] leading-tight" : "text-lg"}`}
               >
                 {data.score}
                 {t("dashboard.shiftLag.per100")}
               </span>
+            ) : showScoreRow && data && !compact ? (
+              <p className="text-[11px] leading-tight text-slate-500">
+                Rolling lag from your recent shift timing and sleep rhythm.
+              </p>
             ) : null}
           </div>
 
-          {showRing && data ? (
-            <div
-              className={`flex shrink-0 items-center justify-center ${compact ? "h-[50px] w-[50px]" : ""} ${compact ? "" : "-ml-1"}`}
-            >
+          {showScoreRow && data && !compact ? (
+            <div className="relative ml-auto mr-0 w-full max-w-[130px] translate-x-3 pb-1 pt-[26px]">
+              <div
+                className={`absolute top-0 -translate-x-1/2 rounded-lg px-2 py-0.5 text-center leading-none shadow-sm ${bubbleTone}`}
+                style={{ left: `${scorePct}%` }}
+              >
+                <p className="text-[14px] font-semibold tabular-nums">{data.score}</p>
+                <span className={`absolute -bottom-0.5 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rotate-45 ${bubbleTone}`} />
+              </div>
+              <div className="relative">
+                <div className="h-3 w-full overflow-hidden rounded-full">
+                  <div className="grid h-full w-full grid-cols-3">
+                    <div className="bg-emerald-300" />
+                    <div className="bg-emerald-400" />
+                    <div className="bg-gradient-to-r from-amber-400 to-orange-500" />
+                  </div>
+                </div>
+                <span
+                  className={`pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white ${markerTone} shadow-[0_0_0_1px_rgba(15,23,42,0.2)]`}
+                  style={{ left: `${scorePct}%` }}
+                  aria-hidden
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {showScoreRow && data && compact ? (
+            <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center">
               <MiniRing value={data.score} level={data.level} size={ringSize} />
             </div>
           ) : null}
