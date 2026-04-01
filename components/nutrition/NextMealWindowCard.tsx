@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, UtensilsCrossed } from 'lucide-react'
 import { Inter } from 'next/font/google'
 import { useTranslation } from '@/components/providers/language-provider'
 import type { MealTimingTodayCardData } from '@/lib/hooks/useMealTimingTodayCard'
@@ -78,6 +78,14 @@ export function NextMealWindowCard({
       }
     }
   }, [data?.nextMealAt, data?.nextMealLabel, data?.nextMealTime, notificationsEnabled, t])
+
+  const handleToggleNotifications = () => {
+    const next = !notificationsEnabled
+    setNotificationsEnabled(next)
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('mealNotificationsEnabled', next ? 'on' : 'off')
+    }
+  }
 
   const shell =
     variant === 'elevated'
