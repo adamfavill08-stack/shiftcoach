@@ -599,18 +599,23 @@ function HomeFatigueRiskCard({
           <p className="mt-2 text-xs text-slate-500">{subtitle}</p>
         </div>
 
-        <div className="pb-1">
-          <div className="relative h-4 rounded-md bg-gradient-to-r from-emerald-300 via-amber-300 to-rose-500">
-            <div
-              className="pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(15,23,42,0.18)]"
-              style={{ left: markerLeft, backgroundColor: markerColor }}
-              aria-hidden
-            />
+        <div className="relative ml-auto mr-0 w-full max-w-[130px] translate-x-3 pb-1">
+          <div className="h-3 w-full overflow-hidden rounded-full">
+            <div className="grid h-full w-full grid-cols-3">
+              <div className="bg-emerald-300" />
+              <div className="bg-emerald-400" />
+              <div className="bg-gradient-to-r from-amber-400 to-orange-500" />
+            </div>
           </div>
-          <div className="mt-1 flex items-center justify-between text-[10px] font-medium text-slate-400">
-            <span>Low</span>
-            <span>High</span>
-          </div>
+          <div
+            className="pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(15,23,42,0.18)]"
+            style={{ left: markerLeft, backgroundColor: markerColor }}
+            aria-hidden
+          />
+        </div>
+        <div className="mt-1 ml-auto flex w-full max-w-[130px] translate-x-3 items-center justify-between text-[10px] font-medium text-slate-400">
+          <span>Low</span>
+          <span>High</span>
         </div>
       </div>
     </Link>
@@ -664,7 +669,7 @@ function HomeLogSleepCard() {
         <ChevronRight className="absolute right-0 top-0 h-4 w-4 text-slate-400" aria-hidden />
         <div className="grid grid-cols-[1fr_126px] items-end gap-4 pr-6">
           <div className="min-w-0">
-            <span className="text-[10px] font-semibold tracking-[0.16em] uppercase text-slate-500">Sleep</span>
+            <span className={`text-sm font-semibold leading-tight tracking-[0.08em] text-black ${inter.className}`}>Sleep</span>
             <p className={`mt-2 text-[34px] font-semibold leading-none text-slate-900 tabular-nums ${inter.className}`}>
               {heroValue}
             </p>

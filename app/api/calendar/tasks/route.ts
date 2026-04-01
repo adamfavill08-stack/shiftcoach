@@ -2,6 +2,30 @@ import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/sup
 import { supabaseServer } from '@/lib/supabase-server'
 import { NextRequest, NextResponse } from 'next/server'
 import { Event, TYPE_TASK } from '@/lib/models/calendar/Event'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+async function resolveEventTypeId(
+  supabase: SupabaseClient,
+  requestedEventType?: number
+): Promise<number> {
+  if (typeof requestedEventType === 'number' && Number.isFinite(requestedEventType) && requestedEventType > 0) {
+    const { data: existing } = await supabase
+      .from('event_types')
+      .select('id')
+      .eq('id', requestedEventType)
+      .maybeSingle()
+    if (existing?.id) return existing.id
+  }
+
+  const { data: fallback } = await supabase
+    .from('event_types')
+    .select('id')
+    .order('id', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  return fallback?.id ?? 1
+}
 
 // GET /api/calendar/tasks - Get tasks
 export async function GET(request: NextRequest) {
@@ -73,6 +97,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const task: Partial<Event> = { ...body, type: TYPE_TASK }
+    const safeEventTypeId = await resolveEventTypeId(supabase, task.eventType)
 
     const taskData = {
       user_id: userId,
@@ -95,7 +120,7 @@ export async function POST(request: NextRequest) {
       import_id: task.importId || '',
       time_zone: task.timeZone || '',
       flags: task.flags ?? 0,
-      event_type: task.eventType ?? 1,
+      event_type: safeEventTypeId,
       parent_id: task.parentId ?? 0,
       last_updated: Math.floor(Date.now() / 1000),
       source: task.source || 'simple-calendar',

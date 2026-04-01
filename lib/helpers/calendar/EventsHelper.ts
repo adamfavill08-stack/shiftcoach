@@ -363,44 +363,48 @@ function getDayEndTS(dayCode: string): number {
 
 // Create event
 export async function createEvent(event: Partial<Event>): Promise<Event | null> {
-  try {
-    const response = await fetch('/api/calendar/events', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(event),
-    })
-    
-    if (!response.ok) {
-      throw new Error('Failed to create event')
+  const response = await fetch('/api/calendar/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(event),
+  })
+
+  if (!response.ok) {
+    let message = 'Failed to create event'
+    try {
+      const payload = await response.json()
+      if (payload?.error) message = payload.error
+    } catch {
+      // keep default message
     }
-    
-    const data = await response.json()
-    return data.event
-  } catch (error) {
-    console.error('Error creating event:', error)
-    return null
+    throw new Error(message)
   }
+
+  const data = await response.json()
+  return data.event ?? null
 }
 
 // Update event
 export async function updateEvent(eventId: number, event: Partial<Event>): Promise<Event | null> {
-  try {
-    const response = await fetch(`/api/calendar/events/${eventId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(event),
-    })
-    
-    if (!response.ok) {
-      throw new Error('Failed to update event')
+  const response = await fetch(`/api/calendar/events/${eventId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(event),
+  })
+
+  if (!response.ok) {
+    let message = 'Failed to update event'
+    try {
+      const payload = await response.json()
+      if (payload?.error) message = payload.error
+    } catch {
+      // keep default message
     }
-    
-    const data = await response.json()
-    return data.event
-  } catch (error) {
-    console.error('Error updating event:', error)
-    return null
+    throw new Error(message)
   }
+
+  const data = await response.json()
+  return data.event ?? null
 }
 
 // Delete event

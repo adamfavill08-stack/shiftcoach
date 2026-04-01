@@ -3,6 +3,30 @@ import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/sup
 import { supabaseServer } from '@/lib/supabase-server'
 import { NextRequest, NextResponse } from 'next/server'
 import { Event } from '@/lib/models/calendar/Event'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+async function resolveEventTypeId(
+  supabase: SupabaseClient,
+  requestedEventType?: number
+): Promise<number> {
+  if (typeof requestedEventType === 'number' && Number.isFinite(requestedEventType) && requestedEventType > 0) {
+    const { data: existing } = await supabase
+      .from('event_types')
+      .select('id')
+      .eq('id', requestedEventType)
+      .maybeSingle()
+    if (existing?.id) return existing.id
+  }
+
+  const { data: fallback } = await supabase
+    .from('event_types')
+    .select('id')
+    .order('id', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  return fallback?.id ?? 1
+}
 
 // GET /api/calendar/events - Get events in date range
 export async function GET(request: NextRequest) {
@@ -88,6 +112,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const event: Partial<Event> = body
+    const safeEventTypeId = await resolveEventTypeId(supabase, event.eventType)
 
     // Prepare event data
     const eventData = {
@@ -111,7 +136,7 @@ export async function POST(request: NextRequest) {
       import_id: event.importId || '',
       time_zone: event.timeZone || '',
       flags: event.flags ?? 0,
-      event_type: event.eventType ?? 1, // Default to REGULAR_EVENT_TYPE_ID
+      event_type: safeEventTypeId,
       parent_id: event.parentId ?? 0,
       last_updated: Math.floor(Date.now() / 1000),
       source: event.source || 'simple-calendar',

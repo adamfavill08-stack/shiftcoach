@@ -151,9 +151,11 @@ export function EventFormModal({ isOpen, onClose, event, defaultDate, onSave }: 
 
     try {
       if (event?.id) {
-        await updateEvent(event.id, formData)
+        const updated = await updateEvent(event.id, formData)
+        if (!updated) throw new Error('Failed to update event')
       } else {
-        await createEvent(formData)
+        const created = await createEvent(formData)
+        if (!created) throw new Error('Failed to create event')
       }
       onSave()
       onClose()
