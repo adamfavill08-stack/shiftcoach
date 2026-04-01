@@ -6,7 +6,7 @@
 
 :root {
   /* Backgrounds (app canvas; cards stay white) */
-  --bg: #f1f5f9;
+  --bg: #e9e5de;
   --bg-soft: #f8fafc;
   --card: rgba(255, 255, 255, 0.92);
   --card-subtle: rgba(255, 255, 255, 0.8);
@@ -32,7 +32,7 @@
    ============================================ */
 
 body {
-  background: #f1f5f9;
+  background: var(--bg);
   color: var(--text-main);
   transition: background 300ms ease, color 300ms ease;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
@@ -41,6 +41,11 @@ body {
 .theme-transition * {
   transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease,
     box-shadow 220ms ease, transform 220ms ease;
+}
+
+/* Keep existing slate utility usage but match requested app canvas exactly. */
+.bg-slate-100 {
+  background-color: var(--bg) !important;
 }
 
 /* ============================================
