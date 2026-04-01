@@ -253,7 +253,7 @@ export default function DashboardHeader() {
     <>
       <div className="relative flex items-center justify-center px-4 pt-2 pb-1">
         <p
-          className="text-base font-medium tracking-[0.2em] text-slate-500 dark:text-slate-400"
+          className="text-base font-medium tracking-[0.2em] text-black"
           aria-label="ShiftCoach"
         >
           SHIFTCOACH
@@ -261,7 +261,7 @@ export default function DashboardHeader() {
         <button
           type="button"
           onClick={() => setIsNotificationModalOpen(true)}
-          className="absolute right-4 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100/80 dark:text-slate-400 dark:hover:bg-slate-800/60"
+          className="absolute right-4 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full text-black transition hover:bg-slate-100/80"
           aria-label="Notifications"
         >
           <span className="relative inline-flex">

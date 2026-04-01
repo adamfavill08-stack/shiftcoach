@@ -39,8 +39,8 @@ function getBorderColor(label: string | null, status: string | null): string {
   switch (kind) {
     case 'day': return 'border-sky-500'    // blue ring for day shifts
     case 'night': return 'border-red-500'  // red ring for night shifts
-    case 'off': return 'border-slate-200'  // light / white‑ish ring for days off
-    default: return 'border-slate-300'
+    case 'off': return 'border-slate-300'  // darker neutral ring for no rota/off
+    default: return 'border-slate-400'
   }
 }
 
@@ -55,8 +55,8 @@ function getTextColor(label: string | null, status: string | null): string {
   switch (kind) {
     case 'day': return 'text-sky-500'
     case 'night': return 'text-red-500'
-    case 'off': return 'text-slate-400'
-    default: return 'text-slate-500'
+    case 'off': return 'text-slate-500'
+    default: return 'text-slate-600'
   }
 }
 

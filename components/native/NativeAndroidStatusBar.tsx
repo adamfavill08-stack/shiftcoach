@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { Capacitor } from '@capacitor/core'
 
 /** Light shell to match app background (layout theme-color / main bg) */
-const STATUS_BAR_BACKGROUND = '#f1f5f9'
+const STATUS_BAR_BACKGROUND = '#f1f1f3'
 
 const DATA_ATTR = 'data-cap-android-statusbar'
 

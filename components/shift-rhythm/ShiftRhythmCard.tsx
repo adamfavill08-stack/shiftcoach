@@ -370,14 +370,35 @@ function BodyClockCard({
 }) {
   const { t } = useTranslation();
   const noData = hasRhythmData === false || (!circadian && score <= 0);
+  const capped = Math.max(0, Math.min(100, score));
 
-  const headingText = useMemo(() => {
-    if (noData) return t("dashboard.bodyClock.comingSoon");
-    if (score >= 80) return t("dashboard.bodyClock.stronglyAligned");
-    if (score >= 70) return t("dashboard.bodyClock.inSync");
-    if (score >= 55) return t("dashboard.bodyClock.slightlyOut");
-    return t("dashboard.bodyClock.outOfSync");
-  }, [score, noData, t]);
+  const statusLabel = useMemo(() => {
+    if (noData) return "Learning your rhythm";
+    if (capped >= 80) return "Well aligned";
+    if (capped >= 65) return "Slightly out of sync";
+    return "Misaligned";
+  }, [capped, noData]);
+
+  const explanation = useMemo(() => {
+    if (noData) return "Log sleep and shift patterns to unlock your circadian guidance.";
+    if (capped >= 80) return "Your rhythm is stable and closely aligned to your current schedule.";
+    if (capped >= 65) return "Your body clock is adapting after recent shift timing changes.";
+    return "Your current sleep and shift timing are misaligning your body clock.";
+  }, [capped, noData]);
+
+  const scoreDescription = useMemo(() => {
+    if (noData) return "Score updates after a few days of sleep and shift logs.";
+    return `${Math.round(capped)}/100 estimates how aligned your circadian rhythm is today.`;
+  }, [capped, noData]);
+
+  const predictive = useMemo(() => {
+    if (noData) {
+      return { peak: "Peak alertness pending", low: "Low energy window pending" };
+    }
+    if (capped >= 80) return { peak: "Peak alertness at 10:30", low: "Low energy expected at 02:30" };
+    if (capped >= 65) return { peak: "Peak alertness at 19:30", low: "Low energy expected at 03:00" };
+    return { peak: "Peak alertness at 21:00", low: "Low energy expected at 04:00" };
+  }, [capped, noData]);
 
   return (
     <button
@@ -394,26 +415,31 @@ function BodyClockCard({
           "p-4 pb-2",
         ].join(" ")}
       >
-        <div className="relative z-10 flex flex-col items-center text-center gap-4">
+        <div className="relative z-10 flex w-full flex-col items-center text-center gap-4">
           {/* Main circular gauge */}
           <CircadianGauge score={score} />
 
-          {/* Heading + explanation */}
+          {/* Status + explanation */}
           <div className="space-y-2 max-w-xs">
-            <h3 className="text-[18px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-              {headingText}
+            <h3 className={`text-[18px] font-semibold tracking-tight text-black ${inter.className}`}>
+              Circadian Rhythm
             </h3>
-            <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-              {noData
-                ? t("dashboard.bodyClock.unlockHint")
-                : t("dashboard.bodyClock.calculatedFrom")}
+            <p
+              className={`text-sm font-medium ${
+                noData ? "text-slate-500" : capped >= 80 ? "text-emerald-600" : capped >= 65 ? "text-amber-600" : "text-rose-600"
+              }`}
+            >
+              {statusLabel}
             </p>
           </div>
 
-          {/* Last sync label */}
-          <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-            {wearableLastSyncLabel}
-          </p>
+          {/* Predictive circadian insights */}
+          <div className="w-full rounded-xl border border-slate-200/80 bg-white/85 px-4 py-3 text-left shadow-[0_4px_12px_rgba(15,23,42,0.04)]">
+            <p className={`text-sm font-semibold tracking-[0.08em] text-black ${inter.className}`}>Circadian forcast</p>
+            <p className="mt-2 text-xs font-medium text-slate-700">🟢 Peak alertness — 19:30</p>
+            <p className="mt-1 text-xs text-slate-700">🔵 Low energy — 03:00</p>
+          </div>
+
         </div>
       </section>
     </button>
@@ -1125,11 +1151,13 @@ function HydrationCard() {
         </div>
         <Link
           href="/hydration"
-          className="shrink-0 rounded-md text-sky-500 transition-opacity hover:opacity-90 pr-5"
+          className="shrink-0 rounded-md transition-opacity hover:opacity-90 pr-3"
           aria-hidden
           tabIndex={-1}
         >
-          <Droplet className="pointer-events-none h-12 w-12 text-sky-500" strokeWidth={2.2} aria-hidden />
+          <span className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-full bg-sky-300/90">
+            <Droplet className="pointer-events-none h-10 w-10 text-white" strokeWidth={2.2} aria-hidden />
+          </span>
         </Link>
       </div>
     </div>
@@ -1500,17 +1528,34 @@ function CircadianPhaseDial() {
 /* -------------------- CIRCadian GAUGE -------------------- */
 
 function CircadianGauge({ score }: { score: number }) {
-  const size = 176; // h-44 = 176px
-  const radius = 80;
-  const stroke = 8;
+  const size = 208; // h-52 = 208px
+  const radius = 94;
+  const stroke = 12;
+  const [nowTs, setNowTs] = useState(() => Date.now());
   const normalizedRadius = radius - stroke / 2;
   const circumference = normalizedRadius * 2 * Math.PI;
   const capped = Math.min(Math.max(score, 0), 100);
   const offset = circumference * (1 - capped / 100);
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNowTs(Date.now());
+    }, 1000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+  const now = new Date(nowTs);
+  const minutesOfDay = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+  // Orient dial with 12:00 at top, 18:00 right, 00:00 bottom, 06:00 left
+  const markerAngleDeg = (minutesOfDay / 1440) * 360 + 90;
+  const markerX = size / 2 + normalizedRadius * Math.cos((markerAngleDeg * Math.PI) / 180);
+  const markerY = size / 2 + normalizedRadius * Math.sin((markerAngleDeg * Math.PI) / 180);
+  const alignmentStroke =
+    capped >= 80 ? "#22c55e" : capped >= 65 ? "#f59e0b" : "#ef4444"; // green / orange / red
+  const nightDash = circumference * 0.22; // subtle 22% arc for night/rest window
+  const dayDash = circumference - nightDash;
+  const nightOffset = circumference * 0.18; // position rest arc toward lower-right
 
   return (
-    <div className="relative flex h-44 w-44 items-center justify-center">
-      {/* Google Fit–style: light ring on white, no dark disc */}
+    <div className="relative flex h-52 w-52 items-center justify-center">
       <svg
         height={size}
         width={size}
@@ -1519,24 +1564,92 @@ function CircadianGauge({ score }: { score: number }) {
       >
         <defs>
           <linearGradient id="trackGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#E5E7EB" />
-            <stop offset="100%" stopColor="#E2E8F0" />
+            <stop offset="0%" stopColor="#E7E5E4" />
+            <stop offset="100%" stopColor="#D6D3D1" />
           </linearGradient>
-          <linearGradient id="activeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#38BDF8" />
-            <stop offset="50%" stopColor="#3B82F6" />
-            <stop offset="100%" stopColor="#6366F1" />
-          </linearGradient>
+          <filter id="activeArcGlow" x="-22%" y="-22%" width="144%" height="144%">
+            <feGaussianBlur stdDeviation="1.6" result="blur">
+              <animate
+                attributeName="stdDeviation"
+                values="1.45;1.85;1.45"
+                dur="7s"
+                repeatCount="indefinite"
+              />
+            </feGaussianBlur>
+            <feColorMatrix
+              in="blur"
+              type="matrix"
+              values="1 0 0 0 0
+                      0 1 0 0 0
+                      0 0 1 0 0
+                      0 0 0 0.28 0"
+              result="glow"
+            />
+            <feMerge>
+              <feMergeNode in="glow" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="nowMarkerShadow" x="-120%" y="-120%" width="340%" height="340%">
+            <feDropShadow dx="0" dy="1.1" stdDeviation="1.2" floodColor="#0f172a" floodOpacity="0.22" />
+          </filter>
         </defs>
 
         {/* Background track */}
         <circle
           cx={size / 2}
           cy={size / 2}
+          r={normalizedRadius + stroke / 2 + 3}
+          fill="none"
+          stroke="#D6D3D1"
+          strokeOpacity={0.75}
+          strokeWidth={1.5}
+        />
+        {Array.from({ length: 12 }).map((_, i) => {
+          const isCardinalTick = i % 3 === 0; // 00 / 06 / 12 / 18 anchors
+          const angle = (i / 12) * Math.PI * 2 - Math.PI / 2;
+          const rOuter = normalizedRadius + stroke / 2 + 6.5;
+          const rInner = rOuter - (isCardinalTick ? 4.8 : 2.8);
+          const x1 = size / 2 + rInner * Math.cos(angle);
+          const y1 = size / 2 + rInner * Math.sin(angle);
+          const x2 = size / 2 + rOuter * Math.cos(angle);
+          const y2 = size / 2 + rOuter * Math.sin(angle);
+          return (
+            <line
+              key={`minute-marker-${i}`}
+              x1={x1}
+              y1={y1}
+              x2={x2}
+              y2={y2}
+              stroke="#A8A29E"
+              strokeOpacity={isCardinalTick ? 0.88 : 0.34}
+              strokeWidth={isCardinalTick ? 1.35 : 0.8}
+              strokeLinecap="round"
+            />
+          );
+        })}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
           r={normalizedRadius}
-          fill="white"
+          fill="#f2f1f0"
           stroke="url(#trackGradient)"
           strokeWidth={stroke}
+        />
+
+        {/* Night/rest window (blue semantic cue) */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={normalizedRadius}
+          fill="none"
+          stroke="#3b82f6"
+          strokeOpacity={0.45}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={`${nightDash} ${dayDash}`}
+          strokeDashoffset={-nightOffset}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
 
         {/* Active arc with gradient */}
@@ -1545,21 +1658,38 @@ function CircadianGauge({ score }: { score: number }) {
           cy={size / 2}
           r={normalizedRadius}
           fill="none"
-          stroke="url(#activeGradient)"
+          stroke={alignmentStroke}
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
+          filter="url(#activeArcGlow)"
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+
+        {/* Marker showing current cycle position with live local time */}
+        <circle
+          cx={markerX}
+          cy={markerY}
+          r={8.2}
+          fill="#1d4ed8"
+          stroke="white"
+          strokeWidth={3}
+          filter="url(#nowMarkerShadow)"
         />
       </svg>
 
       {/* Center value only */}
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <p className="text-3xl font-semibold text-slate-900 tabular-nums leading-none">
+        <div
+          className="pointer-events-none absolute h-32 w-32 rounded-full border border-slate-300/35 bg-slate-200/20 blur-[1px]"
+          aria-hidden
+        />
+        <p className={`text-5xl font-semibold text-slate-900 tabular-nums leading-none ${inter.className}`}>
           {Math.round(capped)}
         </p>
       </div>
+
     </div>
   );
 }
