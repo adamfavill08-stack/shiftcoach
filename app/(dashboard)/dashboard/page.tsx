@@ -1,10 +1,11 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 import { useTranslation } from '@/components/providers/language-provider'
 import { supabase } from '@/lib/supabase'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 import { useShiftRhythm } from '@/lib/hooks/useShiftRhythm'
 import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus'
 import { DashboardPager } from '@/components/dashboard/DashboardPager'
@@ -27,7 +28,6 @@ const GOOGLE_FIT_ERROR_MESSAGES: Record<string, string> = {
 function DashboardContent() {
   const { t } = useTranslation()
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [googleFitMessage, setGoogleFitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -144,12 +144,15 @@ function DashboardContent() {
 
   const fetchCircadian = useCallback(async () => {
     try {
-      const res = await fetch('/api/circadian/calculate', { cache: 'no-store' })
+      const res = await authedFetch('/api/circadian/calculate', { cache: 'no-store' })
       if (!res.ok) {
         const json = await res.json().catch(() => ({}))
         if (res.status === 503 || json.type === 'network_error') {
           console.warn('[dashboard] circadian fetch - database temporarily unavailable')
           // Don't log as error for network issues - it's expected when DB is down
+        } else if (res.status === 401 || res.status === 403) {
+          // Session cookie may lag behind client session; same handling as useShiftRhythm.
+          console.warn('[dashboard] circadian fetch - auth not ready yet', res.status)
         } else {
           console.error('[dashboard] circadian fetch failed', res.status, json.error || '')
         }
@@ -182,9 +185,13 @@ function DashboardContent() {
 
   const fetchShiftLag = useCallback(async () => {
     try {
-      const res = await fetch('/api/shiftlag', { cache: 'no-store' })
+      const res = await authedFetch('/api/shiftlag', { cache: 'no-store' })
       if (!res.ok) {
-        console.error('[dashboard] shiftlag fetch failed', res.status)
+        if (res.status === 401 || res.status === 403) {
+          console.warn('[dashboard] shiftlag fetch - auth not ready yet', res.status)
+        } else {
+          console.error('[dashboard] shiftlag fetch failed', res.status)
+        }
         setShiftLag(null)
         return
       }
@@ -220,10 +227,12 @@ function DashboardContent() {
   fetchShiftLagRef.current = fetchShiftLag
   refetchShiftRhythmRef.current = refetchShiftRhythm
 
-  // Show Google Fit callback result and clear URL
+  // Google Fit redirect params — read from the URL on mount only (avoids useSearchParams + Suspense hydration mismatches).
   useEffect(() => {
-    const error = searchParams.get('googleFitError')
-    const connected = searchParams.get('googleFitConnected')
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const error = params.get('googleFitError')
+    const connected = params.get('googleFitConnected')
     if (connected === '1') {
       setGoogleFitMessage({ type: 'success', text: 'Google Fit connected. You can sync wearables now.' })
       router.replace('/dashboard', { scroll: false })
@@ -234,7 +243,7 @@ function DashboardContent() {
       setGoogleFitMessage({ type: 'error', text })
       router.replace('/dashboard', { scroll: false })
     }
-  }, [searchParams, router])
+  }, [router])
 
   useEffect(() => {
     if (!isOnline) {
@@ -398,29 +407,18 @@ function DashboardContent() {
             Displaying cached guidance until connection is restored.
           </div>
         )}
-        <main className="min-h-screen pb-6 bg-slate-100">
+        <div className="min-h-screen pb-6 bg-slate-100">
           <div id="phone-root" className="pb-4 relative">
             <DashboardHeader />
             <DashboardPager pages={pages} />
           </div>
-        </main>
+        </div>
       </div>
     </div>
   )
 }
 
 export default function DashboardPage() {
-  const { t } = useTranslation()
-  return (
-    <Suspense
-      fallback={
-        <main className="min-h-screen bg-slate-100 pb-6 pt-10 text-center text-sm text-slate-500">
-          {t('dashboard.loading')}
-        </main>
-      }
-    >
-      <DashboardContent />
-    </Suspense>
-  )
+  return <DashboardContent />
 }
 

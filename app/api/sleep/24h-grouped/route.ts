@@ -26,6 +26,24 @@ function getShiftedDayStart(date: Date): Date {
   return shifted
 }
 
+function normalizeTimestamps(row: any) {
+  const start_at = row.start_at ?? row.start_ts ?? null
+  const end_at = row.end_at ?? row.end_ts ?? null
+  return { ...row, start_at, end_at }
+}
+
+function sessionOverlapsWindow(
+  startIso: string,
+  endIso: string,
+  winStart: Date,
+  winEnd: Date,
+): boolean {
+  const a = new Date(startIso).getTime()
+  const b = new Date(endIso).getTime()
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return false
+  return b >= winStart.getTime() && a <= winEnd.getTime()
+}
+
 function groupByShiftedDay(sessions: any[]): Record<string, any[]> {
   const grouped: Record<string, any[]> = {}
 
@@ -67,28 +85,87 @@ export async function GET(req: NextRequest) {
     const days = parseInt(searchParams.get('days') || '3') // Default: last 3 shifted days
 
     const now = new Date()
-    const startDate = new Date(now)
-    startDate.setDate(startDate.getDate() - days)
-    startDate.setHours(0, 0, 0, 0)
-    
-    const endDate = new Date(now)
-    endDate.setHours(23, 59, 59, 999)
-    
-    const { data: sessions, error } = await supabase
-      .from('sleep_logs')
-      .select('id, start_at, end_at, type, quality, notes, source, created_at')
-      .eq('user_id', userId)
-      .is('deleted_at', null)
-      .gte('start_at', startDate.toISOString())
-      .lte('start_at', endDate.toISOString())
-      .order('start_at', { ascending: false })
+    const winStart = new Date(now)
+    winStart.setDate(winStart.getDate() - days - 1)
+    winStart.setHours(0, 0, 0, 0)
+    const winEnd = new Date(now)
+    winEnd.setHours(23, 59, 59, 999)
+
+    // Pull a slightly wider slice from SQL, then filter overlaps in JS (avoids edge cases with PostgREST).
+    const sqlLowerBound = new Date(winStart)
+    sqlLowerBound.setDate(sqlLowerBound.getDate() - 3)
+    sqlLowerBound.setHours(0, 0, 0, 0)
+    const sqlUpperBound = new Date(winEnd)
+    sqlUpperBound.setDate(sqlUpperBound.getDate() + 2)
+    sqlUpperBound.setHours(23, 59, 59, 999)
+
+    const fullSelect =
+      'id, start_at, end_at, start_ts, end_ts, type, quality, notes, source, created_at'
+
+    async function fetchRows(opts: { withDeletedNull: boolean; columns: string }) {
+      let q = supabase
+        .from('sleep_logs')
+        .select(opts.columns)
+        .eq('user_id', userId)
+        // Loose overlap: session intersects [sqlLowerBound, sqlUpperBound]; tighten to win* in JS.
+        .not('start_at', 'is', null)
+        .not('end_at', 'is', null)
+        .gte('end_at', sqlLowerBound.toISOString())
+        .lte('start_at', sqlUpperBound.toISOString())
+        .order('start_at', { ascending: false })
+        .limit(800)
+      if (opts.withDeletedNull) q = q.is('deleted_at', null)
+      return q
+    }
+
+    let r = await fetchRows({ withDeletedNull: true, columns: fullSelect })
+    let rows: any[] | null = r.data as any[] | null
+    let error = r.error
+
+    const deletedBroken =
+      !!error &&
+      (error.code === 'PGRST204' ||
+        error.code === '42703' ||
+        (error.message ?? '').toLowerCase().includes('deleted_at') ||
+        (error.message ?? '').includes('does not exist'))
+
+    if (deletedBroken) {
+      r = await fetchRows({ withDeletedNull: false, columns: fullSelect })
+      rows = r.data as any[] | null
+      error = r.error
+    }
+
+    const columnBroken =
+      !!error &&
+      ((error.message ?? '').includes('column') || error.code === 'PGRST204' || error.code === '42703')
+
+    if (columnBroken) {
+      const r3 = await supabase
+        .from('sleep_logs')
+        .select('id, start_at, end_at, type, quality, notes, source, created_at')
+        .eq('user_id', userId)
+        .not('start_at', 'is', null)
+        .not('end_at', 'is', null)
+        .gte('end_at', sqlLowerBound.toISOString())
+        .lte('start_at', sqlUpperBound.toISOString())
+        .order('start_at', { ascending: false })
+        .limit(800)
+      rows = r3.data as any[] | null
+      error = r3.error
+    }
 
     if (error) {
       console.error('[api/sleep/24h-grouped] Query error:', error)
       return NextResponse.json({ days: [], currentShiftedDay: getShiftedDayKey(now) }, { status: 200 })
     }
 
-    const sessionsArray = (sessions ?? []).map((s: any) => ({
+    const normalized = (rows ?? []).map(normalizeTimestamps).filter((s: any) => s.start_at && s.end_at)
+
+    const inWindow = normalized.filter((s: any) =>
+      sessionOverlapsWindow(s.start_at, s.end_at, winStart, winEnd),
+    )
+
+    const sessionsArray = inWindow.map((s: any) => ({
       id: s.id,
       start_at: s.start_at,
       end_at: s.end_at,
@@ -98,6 +175,16 @@ export async function GET(req: NextRequest) {
       source: s.source || 'manual',
       created_at: s.created_at,
     }))
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[api/sleep/24h-grouped]', {
+        userId,
+        rawRows: rows?.length ?? 0,
+        normalized: normalized.length,
+        inWindow: inWindow.length,
+        daysParam: days,
+      })
+    }
 
     const grouped = groupByShiftedDay(sessionsArray)
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -13,6 +13,18 @@ import { ShiftSleepOverviewCard } from './ShiftSleepOverviewCard'
 import { getShiftAwareInsight } from '@/lib/sleep/coaching'
 import type { SleepType as PredictedSleepType } from '@/lib/sleep/predictSleep'
 import type { SleepLogInput, SleepType } from '@/lib/sleep/types'
+import { pickDefaultShiftedDay, buildSevenShiftedDaySleepBars } from '@/lib/sleep/utils'
+import { authedFetch } from '@/lib/supabase/authedFetch'
+
+type WeekSleepOverview = {
+  loading: boolean
+  error: string | null
+  weeklyDeficit: number | null
+  requiredDaily: number | null
+  category: string | null
+  consistencyScore: number | null
+  consistencyError: string | null
+}
 
 interface SleepSession {
   id: string
@@ -53,11 +65,34 @@ function extractApiErrorMessage(errorData: any, fallback: string): string {
 
 function SleepMetricsCard({
   targetHours,
-  loading,
+  targetLoading,
+  week,
 }: {
   targetHours: number
-  loading: boolean
+  targetLoading: boolean
+  week: WeekSleepOverview
 }) {
+  const weekLoading = week.loading
+  const deficitHours = week.weeklyDeficit
+  const deficitLabel =
+    deficitHours == null
+      ? '—'
+      : deficitHours <= 0
+        ? `${Math.abs(deficitHours).toFixed(1)}h ahead`
+        : `${deficitHours.toFixed(1)}h behind`
+  const deficitSub =
+    deficitHours == null
+      ? week.error || 'Weekly vs target (7-day).'
+      : deficitHours <= 0
+        ? 'Ahead of weekly sleep target.'
+        : 'Behind on weekly sleep target.'
+
+  const consistencyPct = week.consistencyScore
+  const consistencySub =
+    consistencyPct != null
+      ? 'Bedtime regularity from main sleep (last 7 days).'
+      : week.consistencyError || 'Log at least two main-sleep sessions to score consistency.'
+
   return (
     <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -72,38 +107,46 @@ function SleepMetricsCard({
       </div>
 
       <div className="grid grid-cols-3 gap-3 text-xs">
-        {/* Tonight's target */}
         <div className="space-y-1">
           <p className="font-semibold tracking-[0.14em] uppercase text-[var(--text-muted)]">
             Tonight&apos;s target
           </p>
           <p className="text-lg font-semibold text-[var(--text-main)]">
-            {loading ? '—' : `${targetHours.toFixed(1)}h`}
+            {targetLoading ? '—' : `${targetHours.toFixed(1)}h`}
           </p>
           <p className="text-[11px] leading-snug text-[var(--text-soft)]">
             Goal sleep for tonight based on your profile.
           </p>
         </div>
 
-        {/* Consistency */}
         <div className="space-y-1">
           <p className="font-semibold tracking-[0.14em] uppercase text-[var(--text-muted)]">
             Consistency
           </p>
-          <div className="mb-1 h-1.5 w-full rounded-full bg-[var(--card-subtle)]" />
+          {weekLoading ? (
+            <div className="mb-1 h-1.5 w-full rounded-full bg-[var(--card-subtle)] animate-pulse" />
+          ) : (
+            <div className="mb-1 h-1.5 w-full rounded-full bg-[var(--card-subtle)] overflow-hidden">
+              <div
+                className="h-full rounded-full bg-sky-500/80 dark:bg-sky-400/80 transition-[width] duration-300"
+                style={{ width: consistencyPct != null ? `${consistencyPct}%` : '0%' }}
+              />
+            </div>
+          )}
           <p className="text-[11px] leading-snug text-[var(--text-muted)]">
-            Log 2-3 shifted days to unlock stronger weekly guidance
+            {weekLoading ? '…' : consistencyPct != null ? `${consistencyPct}/100 · main sleep rhythm` : consistencySub}
           </p>
         </div>
 
-        {/* Sleep deficit */}
         <div className="space-y-1 text-right">
           <p className="font-semibold tracking-[0.14em] uppercase text-[var(--text-muted)]">
             Sleep deficit
           </p>
-          <p className="text-lg font-semibold text-[var(--text-main)]">0.0h</p>
+          <p className="text-lg font-semibold text-[var(--text-main)]">
+            {weekLoading ? '—' : deficitLabel}
+          </p>
           <p className="text-[11px] leading-snug text-[var(--text-soft)]">
-            Ahead of weekly target
+            {weekLoading ? '…' : deficitSub}
           </p>
         </div>
       </div>
@@ -140,41 +183,8 @@ function SleepStageGrid() {
   )
 }
 
-function SleepDebtCard() {
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [weeklyDeficit, setWeeklyDeficit] = useState<number | null>(null)
-  const [requiredDaily, setRequiredDaily] = useState<number | null>(null)
-  const [category, setCategory] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    const fetchDeficit = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        const res = await fetch('/api/sleep/deficit', { cache: 'no-store' })
-        if (!res.ok) {
-          throw new Error(String(res.status))
-        }
-        const json = await res.json()
-        if (cancelled) return
-        setWeeklyDeficit(json.weeklyDeficit ?? 0)
-        setRequiredDaily(json.requiredDaily ?? 7.5)
-        setCategory(json.category ?? 'low')
-      } catch (err: any) {
-        console.error('[SleepDebtCard] error:', err)
-        if (!cancelled) setError('Unable to load sleep debt yet.')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    void fetchDeficit()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+function SleepDebtCard({ week }: { week: WeekSleepOverview }) {
+  const { loading, error, weeklyDeficit, category } = week
 
   if (loading) {
     return (
@@ -185,7 +195,7 @@ function SleepDebtCard() {
     )
   }
 
-  if (error || weeklyDeficit === null || requiredDaily === null) {
+  if (error || weeklyDeficit === null || category === null) {
     return (
       <div className="text-xs text-slate-500 dark:text-slate-400">
         {error || "No sleep debt data yet. Log a few days of main sleep to unlock this view."}
@@ -260,8 +270,19 @@ function getShiftAdjustedTargetMinutes(baseTargetMinutes: number, shiftLabel: st
   }
 }
 
+const initialWeekOverview: WeekSleepOverview = {
+  loading: true,
+  error: null,
+  weeklyDeficit: null,
+  requiredDaily: null,
+  category: null,
+  consistencyScore: null,
+  consistencyError: null,
+}
+
 export function ShiftWorkerSleepPage() {
   const router = useRouter()
+  const [weekSleepOverview, setWeekSleepOverview] = useState<WeekSleepOverview>(initialWeekOverview)
   const [shiftedDays, setShiftedDays] = useState<ShiftedDay[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
@@ -283,12 +304,56 @@ export function ShiftWorkerSleepPage() {
   const [lastWearableSyncAt, setLastWearableSyncAt] = useState<number | null>(null)
   const [isWearableSyncing, setIsWearableSyncing] = useState(false)
   const [heroActionError, setHeroActionError] = useState<string | null>(null)
+  const selectedDayRef = useRef<string | null>(null)
+  useEffect(() => {
+    selectedDayRef.current = selectedDay
+  }, [selectedDay])
+
+  const fetchWeekSleepOverview = useCallback(async () => {
+    setWeekSleepOverview((s) => ({ ...s, loading: true, error: null }))
+    try {
+      const [defRes, conRes] = await Promise.all([
+        authedFetch('/api/sleep/deficit', { cache: 'no-store' }),
+        authedFetch('/api/sleep/consistency', { cache: 'no-store' }),
+      ])
+      if (!defRes.ok) {
+        throw new Error(`deficit ${defRes.status}`)
+      }
+      const defJson = await defRes.json()
+      const conJson = conRes.ok ? await conRes.json().catch(() => ({})) : {}
+      setWeekSleepOverview({
+        loading: false,
+        error: null,
+        weeklyDeficit: defJson.weeklyDeficit ?? 0,
+        requiredDaily: defJson.requiredDaily ?? 7.5,
+        category: defJson.category ?? 'low',
+        consistencyScore:
+          typeof conJson.consistencyScore === 'number' ? conJson.consistencyScore : null,
+        consistencyError: typeof conJson.error === 'string' ? conJson.error : null,
+      })
+    } catch (err) {
+      console.error('[ShiftWorkerSleepPage] week metrics:', err)
+      setWeekSleepOverview({
+        loading: false,
+        error: 'Unable to load weekly sleep metrics.',
+        weeklyDeficit: null,
+        requiredDaily: null,
+        category: null,
+        consistencyScore: null,
+        consistencyError: null,
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    void fetchWeekSleepOverview()
+  }, [fetchWeekSleepOverview])
 
   // Fetch shifted day sleep data
   const fetchShiftedDays = useCallback(async (isInitial = false) => {
     try {
       if (isInitial) setLoading(true)
-      const res = await fetch('/api/sleep/24h-grouped?days=3', { cache: 'no-store' })
+      const res = await authedFetch('/api/sleep/24h-grouped?days=14', { cache: 'no-store' })
       
       if (!res.ok) {
         console.error('[ShiftWorkerSleepPage] Failed to fetch:', res.status)
@@ -297,43 +362,31 @@ export function ShiftWorkerSleepPage() {
       }
 
       const data = await res.json()
-      setShiftedDays(data.days || [])
-      
-      // Auto-select current shifted day if no day is selected yet.
-      if (data.currentShiftedDay && !selectedDay) {
-        setSelectedDay(data.currentShiftedDay)
-      }
+      const days = data.days || []
+      setShiftedDays(days)
+      const picked = pickDefaultShiftedDay(
+        days,
+        data.currentShiftedDay,
+        selectedDayRef.current,
+      )
+      if (picked) setSelectedDay(picked)
     } catch (err) {
       console.error('[ShiftWorkerSleepPage] Error:', err)
       setShiftedDays([])
     } finally {
       if (isInitial) setLoading(false)
     }
-  }, [selectedDay])
+  }, [])
 
   useEffect(() => {
     void fetchShiftedDays(true)
   }, [fetchShiftedDays])
 
-  // Keep selected day valid against the latest API payload.
-  // If current selection is missing (e.g. timezone/day-key mismatch), fall back safely.
-  useEffect(() => {
-    if (!shiftedDays.length) return
-    if (!selectedDay) {
-      setSelectedDay(shiftedDays[0].date)
-      return
-    }
-    const exists = shiftedDays.some((d) => d.date === selectedDay)
-    if (!exists) {
-      setSelectedDay(shiftedDays[0].date)
-    }
-  }, [shiftedDays, selectedDay])
-
   // Fetch profile-based sleep goal (takes into account age, sex, etc. set in profile)
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const res = await fetch('/api/profile', { cache: 'no-store' })
+        const res = await authedFetch('/api/profile', { cache: 'no-store' })
         if (!res.ok) return
         const json = await res.json()
         const goal = json?.profile?.sleep_goal_h
@@ -352,7 +405,7 @@ export function ShiftWorkerSleepPage() {
   const fetchSleepHistory = useCallback(async () => {
     try {
       setHistoryLoading(true)
-      const res = await fetch('/api/sleep/history', { cache: 'no-store' })
+      const res = await authedFetch('/api/sleep/history', { cache: 'no-store' })
       if (!res.ok) {
         console.error('[ShiftWorkerSleepPage] history error:', res.status)
         setHistoryDays([])
@@ -413,7 +466,7 @@ export function ShiftWorkerSleepPage() {
 
   const fetchShifts = useCallback(async () => {
     try {
-      const res = await fetch('/api/shifts?days=30', { cache: 'no-store' })
+      const res = await authedFetch('/api/shifts?days=30', { cache: 'no-store' })
       if (!res.ok) return
 
       const json = await res.json()
@@ -436,7 +489,7 @@ export function ShiftWorkerSleepPage() {
 
   const fetchWearableStatus = useCallback(async () => {
     try {
-      const res = await fetch('/api/wearables/status', { cache: 'no-store' })
+      const res = await authedFetch('/api/wearables/status', { cache: 'no-store' })
       if (!res.ok) return
       const json = await res.json()
       setHasWearableConnection(Boolean(json?.connected))
@@ -455,6 +508,11 @@ export function ShiftWorkerSleepPage() {
     void fetchWearableStatus()
   }, [fetchWearableStatus])
 
+  const sevenDaySleepBars = useMemo(
+    () => buildSevenShiftedDaySleepBars(shiftedDays, selectedDay),
+    [shiftedDays, selectedDay],
+  )
+
   // Handle quick log button click
   const mapPredictedToCanonicalType = (type: PredictedSleepType): SleepType => {
     if (type === 'post_shift') return 'post_shift_sleep'
@@ -472,14 +530,19 @@ export function ShiftWorkerSleepPage() {
 
   const refreshSleepPageData = useCallback(async () => {
     try {
-      await Promise.all([fetchShiftedDays(false), fetchSleepHistory(), fetchShifts()])
-      void fetch('/api/shift-rhythm?force=true').catch(() => {})
-      void fetch('/api/sleep/tonight-target').catch(() => {})
+      await Promise.all([
+        fetchShiftedDays(false),
+        fetchSleepHistory(),
+        fetchShifts(),
+        fetchWeekSleepOverview(),
+      ])
+      void authedFetch('/api/shift-rhythm?force=true').catch(() => {})
+      void authedFetch('/api/sleep/tonight-target').catch(() => {})
       router.refresh()
     } catch (err) {
       console.error('[ShiftWorkerSleepPage] refresh error:', err)
     }
-  }, [fetchShiftedDays, fetchSleepHistory, fetchShifts, router])
+  }, [fetchShiftedDays, fetchSleepHistory, fetchShifts, fetchWeekSleepOverview, router])
 
   const handleSyncWearable = useCallback(async () => {
     try {
@@ -489,7 +552,7 @@ export function ShiftWorkerSleepPage() {
       const startOfDay = new Date()
       startOfDay.setHours(0, 0, 0, 0)
       const startTimeMillis = startOfDay.getTime()
-      const res = await fetch('/api/wearables/sync', {
+      const res = await authedFetch('/api/wearables/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ startTimeMillis, endTimeMillis: now }),
@@ -513,7 +576,7 @@ export function ShiftWorkerSleepPage() {
   // Handle log sleep submit
   const handleLogSleep = async (data: SleepLogInput) => {
     try {
-      const res = await fetch('/api/sleep/log', {
+      const res = await authedFetch('/api/sleep/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -545,7 +608,7 @@ export function ShiftWorkerSleepPage() {
 
     setIsDeleting(true)
     try {
-      const res = await fetch(`/api/sleep/sessions/${deletingSessionId}`, {
+      const res = await authedFetch(`/api/sleep/sessions/${deletingSessionId}`, {
         method: 'DELETE',
       })
 
@@ -793,17 +856,20 @@ export function ShiftWorkerSleepPage() {
         }}
         onSyncWearable={handleSyncWearable}
         editLogsHref="/sleep/history"
+        sevenDayBars={sevenDaySleepBars}
+        highlightDateKey={selectedDay}
       />
 
       {/* Sleep metrics card */}
       <SleepMetricsCard
         targetHours={sleepGoalHours ?? 7.5}
-        loading={sleepGoalHours == null}
+        targetLoading={sleepGoalHours == null}
+        week={weekSleepOverview}
       />
 
       {/* Weekly sleep debt (Google Fit style) */}
       <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-        <SleepDebtCard />
+        <SleepDebtCard week={weekSleepOverview} />
       </section>
 
       {/* Quick Sleep Log Buttons */}

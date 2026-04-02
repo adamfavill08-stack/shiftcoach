@@ -55,11 +55,18 @@ export default function BottomNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex flex-1 flex-col items-center justify-center py-1.5 text-black dark:text-white"
+                className="flex flex-1 flex-col items-center justify-center py-1.5"
               >
-                <Icon className="h-5 w-5 text-black dark:text-white" aria-hidden />
+                <Icon
+                  className={`h-5 w-5 stroke-current ${
+                    active
+                      ? 'text-[var(--text-main)] dark:text-white'
+                      : 'text-[var(--text-soft)] dark:text-white'
+                  }`}
+                  aria-hidden
+                />
                 {active && (
-                  <span className="mt-0.5 text-[11px] font-medium text-black dark:text-white">
+                  <span className="mt-0.5 text-[11px] font-medium text-[var(--text-main)] dark:text-white">
                     {t(item.labelKey)}
                   </span>
                 )}

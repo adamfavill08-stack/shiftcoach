@@ -6,6 +6,8 @@ import { ChevronRight } from "lucide-react"
 import { Inter } from "next/font/google"
 import type { ShiftLagMetrics, ShiftLagLevel } from "@/lib/shiftlag/calculateShiftLag"
 import { useTranslation } from "@/components/providers/language-provider"
+import { apiErrorMessageFromJson } from "@/lib/api/clientErrorMessage"
+import { authedFetch } from "@/lib/supabase/authedFetch"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -88,24 +90,28 @@ export function ShiftLagCard({ compact = false }: ShiftLagCardProps) {
       setLoading(true)
       setError(null)
 
-      const res = await fetch("/api/shiftlag", { cache: "no-store" })
+      const res = await authedFetch("/api/shiftlag", { cache: "no-store" })
 
       if (!res.ok) {
         const errorText = await res.text()
-        let errorJson: { error?: string }
+        let errorJson: unknown
         try {
           errorJson = JSON.parse(errorText)
         } catch {
           errorJson = { error: errorText || `HTTP ${res.status}` }
         }
-        console.error("[ShiftLagCard] API error:", res.status, errorJson)
-        setError(errorJson.error || `Failed to fetch: ${res.status}`)
+        if (res.status === 401 || res.status === 403) {
+          console.warn("[ShiftLagCard] API auth not ready", res.status)
+        } else {
+          console.error("[ShiftLagCard] API error:", res.status, errorJson)
+        }
+        setError(apiErrorMessageFromJson(errorJson, `Failed to fetch: ${res.status}`))
         return
       }
 
       const json = await res.json()
       if (json.error) {
-        setError(json.error)
+        setError(apiErrorMessageFromJson(json, "Unable to load ShiftLag"))
         return
       }
 
@@ -189,7 +195,9 @@ export function ShiftLagCard({ compact = false }: ShiftLagCardProps) {
                 className={`max-w-full rounded bg-slate-200 animate-pulse ${compact ? "h-5 w-14" : "h-8 w-36"}`}
               />
             ) : error ? (
-              <p className={`text-slate-600 ${compact ? "text-[11px] leading-tight" : "text-sm"}`}>{error}</p>
+              <p className={`text-slate-600 ${compact ? "text-[11px] leading-tight" : "text-sm"}`}>
+                {typeof error === "string" ? error : "Unable to load Shift lag"}
+              </p>
             ) : data && isUnlockPlaceholder(data) ? (
               <p className={`text-slate-500 ${compact ? "text-[10px] leading-snug" : "text-sm"}`}>
                 {t("dashboard.shiftLag.unlockHint")}

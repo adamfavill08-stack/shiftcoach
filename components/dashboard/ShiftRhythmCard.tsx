@@ -12,6 +12,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import type { SleepDeficitResponse } from '@/lib/sleep/calculateSleepDeficit'
 import type { ShiftLagMetrics } from '@/lib/circadian/calculateShiftLag'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 
 type ShiftRhythmCardProps = {
   // Dashboard passes score as 0–1000 (totalScore * 10) or undefined
@@ -54,7 +55,7 @@ function ShiftRhythmCard({ score, circadian, sleepDeficit, socialJetlag, shiftLa
     let cancelled = false;
     const fetchMoodFocus = async () => {
       try {
-        const res = await fetch('/api/today', { credentials: 'include' });
+        const res = await authedFetch('/api/today');
         if (!res.ok) throw new Error(String(res.status));
         const json = await res.json();
         if (!cancelled) {
@@ -135,7 +136,7 @@ function ShiftRhythmCard({ score, circadian, sleepDeficit, socialJetlag, shiftLa
         setRecoveryLoading(true);
         setRecoveryError(null);
 
-        const res = await fetch('/api/sleep/overview', { next: { revalidate: 30 } });
+        const res = await authedFetch('/api/sleep/overview', { next: { revalidate: 30 } } as RequestInit);
         const json = await res.json().catch(() => ({}));
 
         if (!res.ok) {
@@ -176,7 +177,7 @@ function ShiftRhythmCard({ score, circadian, sleepDeficit, socialJetlag, shiftLa
       try {
         setSleepConsistencyLoading(true);
 
-        const res = await fetch('/api/sleep/consistency', { next: { revalidate: 60 } });
+        const res = await authedFetch('/api/sleep/consistency', { next: { revalidate: 60 } } as RequestInit);
         const json = await res.json().catch(() => ({}));
 
         if (!res.ok) {
@@ -215,7 +216,7 @@ function ShiftRhythmCard({ score, circadian, sleepDeficit, socialJetlag, shiftLa
       
       try {
         setIsLoadingDeficit(true);
-        const res = await fetch('/api/sleep/deficit', { next: { revalidate: 30 } });
+        const res = await authedFetch('/api/sleep/deficit', { next: { revalidate: 30 } } as RequestInit);
         if (!res.ok) throw new Error(String(res.status));
         const json = await res.json();
         if (!cancelled) {
@@ -260,10 +261,9 @@ function ShiftRhythmCard({ score, circadian, sleepDeficit, socialJetlag, shiftLa
       const requestBody = { mood: newMood, focus: newFocus };
       console.log('[ShiftRhythmCard] Sending mood/focus:', requestBody);
       
-      const res = await fetch('/api/logs/mood', {
+      const res = await authedFetch('/api/logs/mood', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(requestBody),
       });
       
@@ -301,7 +301,7 @@ function ShiftRhythmCard({ score, circadian, sleepDeficit, socialJetlag, shiftLa
         
         // Revert on error
         try {
-          const currentRes = await fetch('/api/today', { credentials: 'include' });
+          const currentRes = await authedFetch('/api/today');
           if (currentRes.ok) {
             const current = await currentRes.json();
             setMood(current.mood ?? 3);
@@ -325,7 +325,7 @@ function ShiftRhythmCard({ score, circadian, sleepDeficit, socialJetlag, shiftLa
       console.error('[ShiftRhythmCard] Error saving mood/focus:', err);
       // Revert on error
       try {
-        const currentRes = await fetch('/api/today', { credentials: 'include' });
+        const currentRes = await authedFetch('/api/today');
         if (currentRes.ok) {
           const current = await currentRes.json();
           setMood(current.mood ?? 3);

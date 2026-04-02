@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
+import { rowCountsAsPrimarySleep } from '@/lib/sleep/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -93,17 +94,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ consistencyScore: null, error: 'No sleep data available' }, { status: 200 })
     }
 
-    // Filter for main sleep sessions only (not naps)
-    // New schema: type === 'sleep', Old schema: naps === 0 or null
-    const mainSleepSessions = sleepLogsArray.filter((log: any) => {
-      if (log.type !== undefined) {
-        // New schema
-        return log.type === 'sleep' || log.type === 'main'
-      } else {
-        // Old schema
-        return log.naps === 0 || log.naps === null || !log.naps
-      }
-    })
+    const mainSleepSessions = sleepLogsArray.filter((log: any) => rowCountsAsPrimarySleep(log))
 
     if (mainSleepSessions.length < 2) {
       // Need at least 2 main sleep sessions to calculate consistency

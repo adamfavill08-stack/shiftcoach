@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import type { ShiftLagMetrics } from "@/lib/shiftlag/calculateShiftLag";
 import { useTranslation } from "@/components/providers/language-provider";
+import { apiErrorMessageFromJson } from "@/lib/api/clientErrorMessage";
+import { authedFetch } from "@/lib/supabase/authedFetch";
 
 export default function ShiftLagInfoPage() {
   const { t } = useTranslation();
@@ -18,14 +20,14 @@ export default function ShiftLagInfoPage() {
         setLoading(true);
         setError(null);
 
-        const res = await fetch("/api/shiftlag", { cache: "no-store" });
+        const res = await authedFetch("/api/shiftlag", { cache: "no-store" });
         if (!res.ok) {
           throw new Error(`Failed to fetch: ${res.status}`);
         }
 
         const json = await res.json();
         if (json.error) {
-          setError(json.error);
+          setError(apiErrorMessageFromJson(json, "Shift Lag request failed"));
           return;
         }
 

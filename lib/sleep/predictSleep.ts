@@ -12,6 +12,8 @@
 import { getServerSupabaseAndUserId } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { getSleepDeficitForCircadian } from '@/lib/circadian/sleep'
+import { fetchShiftContext } from '@/lib/shift-context'
+import type { ShiftContextResult, ShiftContextSnapshot } from '@/lib/shift-context/types'
 
 export type SleepType = "main" | "post_shift" | "pre_shift_nap" | "recovery" | "nap"
 
@@ -36,74 +38,36 @@ interface RecentSleep {
   type: string
 }
 
-/**
- * Get most recent shift (ended within last 24h)
- */
-async function getRecentShift(userId: string): Promise<ShiftData | null> {
-  const supabase = supabaseServer
-  const now = new Date()
-  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-  
-  const { data } = await supabase
-    .from('shifts')
-    .select('date, label, start_ts, end_ts')
-    .eq('user_id', userId)
-    .lte('date', now.toISOString().slice(0, 10))
-    .order('date', { ascending: false })
-    .limit(5)
-  
-  if (!data || data.length === 0) return null
-  
-  // Find shift that ended recently
-  for (const shift of data) {
-    if (shift.end_ts) {
-      const endTime = new Date(shift.end_ts)
-      const hoursSinceEnd = (now.getTime() - endTime.getTime()) / (1000 * 60 * 60)
-      if (hoursSinceEnd >= 0 && hoursSinceEnd <= 24) {
-        return shift
-      }
-    }
+function snapshotToShiftData(s: ShiftContextSnapshot | null): ShiftData | null {
+  if (!s) return null
+  return {
+    date: s.rotaDate,
+    label: s.label,
+    start_ts: s.startTs,
+    end_ts: s.endTs,
   }
-  
-  // Fallback to most recent shift
-  return data[0] || null
 }
 
-/**
- * Get upcoming shift (starts within next 36h)
- */
-async function getUpcomingShift(userId: string): Promise<ShiftData | null> {
-  const supabase = supabaseServer
-  const now = new Date()
-  const future = new Date(now.getTime() + 36 * 60 * 60 * 1000)
-  
-  const { data } = await supabase
-    .from('shifts')
-    .select('date, label, start_ts, end_ts')
-    .eq('user_id', userId)
-    .gte('date', now.toISOString().slice(0, 10))
-    .lte('date', future.toISOString().slice(0, 10))
-    .order('date', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-  
-  return data || null
-}
-
-/**
- * Classify shift type from times
- */
-function classifyShiftType(shift: ShiftData | null): 'night' | 'morning' | 'day' | 'afternoon' | null {
-  if (!shift || !shift.start_ts) return null
-  
-  const start = new Date(shift.start_ts)
-  const hour = start.getHours()
-  
-  if (hour >= 22 || hour < 6) return 'night'
-  if (hour >= 6 && hour < 10) return 'morning'
-  if (hour >= 10 && hour < 14) return 'day'
-  if (hour >= 14 && hour < 18) return 'afternoon'
-  return 'day'
+/** Work shift the user is on or about to start — aligns with shift-context primary / next, not calendar-only upcoming row. */
+function upcomingWorkForSleep(ctx: ShiftContextResult): ShiftContextSnapshot | null {
+  const now = Date.now()
+  const p = ctx.primaryOperationalShift
+  if (p && p.operationalKind !== 'off' && p.operationalKind !== 'other') {
+    const t0 = p.startTs ? new Date(p.startTs).getTime() : NaN
+    if (!Number.isNaN(t0) && t0 > now) return p
+    if (p.isActive) return p
+  }
+  if (ctx.nextShift && ctx.nextShift.operationalKind !== 'off' && ctx.nextShift.operationalKind !== 'other') {
+    return ctx.nextShift
+  }
+  if (
+    ctx.mealPlanningShift &&
+    ctx.mealPlanningShift.operationalKind !== 'off' &&
+    ctx.mealPlanningShift.operationalKind !== 'other'
+  ) {
+    return ctx.mealPlanningShift
+  }
+  return null
 }
 
 /**
@@ -142,39 +106,34 @@ function predictPostShiftSleep(recentShift: ShiftData): SleepPrediction | null {
  * Predict Pre-Shift Nap
  * Before night shift (~19:00 start) → 90-120 min nap between 14:00-17:00
  */
-function predictPreShiftNap(upcomingShift: ShiftData): SleepPrediction | null {
-  if (!upcomingShift.start_ts) return null
-  
-  const startTime = new Date(upcomingShift.start_ts)
-  const hour = startTime.getHours()
-  
-  // Night shift typically starts 18:00-22:00
-  if (hour >= 18 && hour <= 22) {
-    const now = new Date()
-    const suggestedStart = new Date(now)
-    
-    // Target nap window: 14:00-17:00
-    const targetHour = 15 // 3 PM
-    suggestedStart.setHours(targetHour, 0, 0, 0)
-    
-    // If it's already past 15:00, suggest 1 hour from now
-    if (suggestedStart.getTime() < now.getTime()) {
-      suggestedStart.setTime(now.getTime() + 60 * 60 * 1000) // 1 hour from now
-    }
-    
-    const suggestedEnd = new Date(suggestedStart)
-    suggestedEnd.setHours(suggestedEnd.getHours() + 1.75) // 1h 45min nap
-    
-    return {
-      suggestedStart,
-      suggestedEnd,
-      type: 'pre_shift_nap',
-      confidence: 80,
-      reasoning: 'Pre-night-shift nap (1h 45min) to boost alertness'
-    }
+function predictPreShiftNap(upcomingShift: ShiftData, isNightShift: boolean): SleepPrediction | null {
+  const hour = upcomingShift.start_ts ? new Date(upcomingShift.start_ts).getHours() : 12
+  const nightish = isNightShift || (hour >= 18 && hour <= 22) || hour < 6
+  if (!nightish) return null
+  if (!upcomingShift.start_ts && !isNightShift) return null
+
+  const now = new Date()
+  const suggestedStart = new Date(now)
+
+  // Target nap window: 14:00-17:00
+  const targetHour = 15 // 3 PM
+  suggestedStart.setHours(targetHour, 0, 0, 0)
+
+  // If it's already past 15:00, suggest 1 hour from now
+  if (suggestedStart.getTime() < now.getTime()) {
+    suggestedStart.setTime(now.getTime() + 60 * 60 * 1000) // 1 hour from now
   }
-  
-  return null
+
+  const suggestedEnd = new Date(suggestedStart)
+  suggestedEnd.setHours(suggestedEnd.getHours() + 1.75) // 1h 45min nap
+
+  return {
+    suggestedStart,
+    suggestedEnd,
+    type: 'pre_shift_nap',
+    confidence: 80,
+    reasoning: 'Pre-night-shift nap (1h 45min) to boost alertness before your upcoming shift',
+  }
 }
 
 /**
@@ -183,14 +142,20 @@ function predictPreShiftNap(upcomingShift: ShiftData): SleepPrediction | null {
  */
 function predictMainSleep(
   circadianPhase: number | null,
-  weeklyDeficit: number
+  weeklyDeficit: number,
+  ctx: ShiftContextResult | null = null,
 ): SleepPrediction {
   const now = new Date()
   const suggestedStart = new Date(now)
-  
+
   // Base bedtime: 22:00 (10 PM)
   suggestedStart.setHours(22, 0, 0, 0)
-  
+
+  const upcoming = ctx ? upcomingWorkForSleep(ctx) : null
+  if (upcoming?.operationalKind === 'night') {
+    suggestedStart.setHours(21, 0, 0, 0)
+  }
+
   // Adjust for sleep deficit
   if (weeklyDeficit > 6) {
     // High deficit: go to bed 30-60 min earlier
@@ -199,27 +164,37 @@ function predictMainSleep(
     // Surplus: can go to bed slightly later
     suggestedStart.setHours(22, 30, 0, 0)
   }
-  
+
   // If it's already past suggested start, use tomorrow
   if (suggestedStart.getTime() < now.getTime()) {
     suggestedStart.setDate(suggestedStart.getDate() + 1)
   }
-  
+
   const suggestedEnd = new Date(suggestedStart)
   // Base duration: 7.5 hours, adjust for deficit
   let duration = 7.5
   if (weeklyDeficit > 4) duration += 0.5
   if (weeklyDeficit > 8) duration += 0.5
   suggestedEnd.setHours(suggestedEnd.getHours() + duration)
-  
+
+  let reasoning =
+    weeklyDeficit > 4
+      ? `Main sleep with recovery boost (${duration.toFixed(1)}h) to address ${weeklyDeficit.toFixed(1)}h deficit`
+      : `Main sleep (${duration.toFixed(1)}h)`
+  if (upcoming?.operationalKind === 'night') {
+    reasoning +=
+      ' A night shift is coming — aim earlier than a pure “day person” bedtime where possible.'
+  } else if (ctx?.guidanceMode === 'transition_night_to_day') {
+    reasoning +=
+      ' Transitioning off nights: anchor wake time to pull your rhythm forward, not just more hours in bed.'
+  }
+
   return {
     suggestedStart,
     suggestedEnd,
     type: 'main',
     confidence: circadianPhase ? 75 : 70,
-    reasoning: weeklyDeficit > 4 
-      ? `Main sleep with recovery boost (${duration.toFixed(1)}h) to address ${weeklyDeficit.toFixed(1)}h deficit`
-      : `Main sleep (${duration.toFixed(1)}h)`
+    reasoning,
   }
 }
 
@@ -265,18 +240,21 @@ export async function predictSleep(
       actualUserId = uid
     }
     
-    // Fetch context data
+    // Fetch context data (shift resolution matches meals / fatigue — imminent work dominates)
     const supabase = supabaseServer
-    const [recentShift, upcomingShift, sleepDeficitResult] = await Promise.all([
-      getRecentShift(actualUserId),
-      getUpcomingShift(actualUserId),
-      getSleepDeficitForCircadian(supabase, actualUserId).catch(() => null)
+    const [ctx, sleepDeficitResult] = await Promise.all([
+      fetchShiftContext(supabase, actualUserId, new Date()),
+      getSleepDeficitForCircadian(supabase, actualUserId).catch(() => null),
     ])
-    
+
+    const recentShift = snapshotToShiftData(ctx.lastCompletedShift)
+    const upcomingSnap = upcomingWorkForSleep(ctx)
+    const upcomingShift = snapshotToShiftData(upcomingSnap)
+
     const sleepDeficit = sleepDeficitResult
-    
+
     const weeklyDeficit = sleepDeficit?.weeklyDeficit ?? 0
-    
+
     // Route to appropriate prediction
     switch (type) {
       case 'post_shift':
@@ -284,18 +262,18 @@ export async function predictSleep(
           return predictPostShiftSleep(recentShift)
         }
         break
-        
+
       case 'pre_shift_nap':
         if (upcomingShift) {
-          return predictPreShiftNap(upcomingShift)
+          return predictPreShiftNap(upcomingShift, upcomingSnap?.operationalKind === 'night')
         }
         break
-        
+
       case 'recovery':
         return predictRecoverySleep(weeklyDeficit)
-        
+
       case 'main':
-        return predictMainSleep(null, weeklyDeficit) // TODO: get circadian phase
+        return predictMainSleep(null, weeklyDeficit, ctx) // TODO: get circadian phase
         
       case 'nap':
         // Micro nap: 20-30 minutes, anytime

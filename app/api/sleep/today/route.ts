@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
+import { supabaseServer } from '@/lib/supabase-server'
 
 // Cache for 30 seconds - sleep data updates when logged
 export const revalidate = 30
@@ -15,47 +16,73 @@ type SleepTodayPayload = {
   } | null
 }
 
+function isOldSchemaFallbackError(err: { code?: string; message?: string } | null): boolean {
+  if (!err) return false
+  if (err.code === 'PGRST204') return true
+  const m = err.message ?? ''
+  return m.includes('start_at') || m.includes('type')
+}
+
+type TodayRow = {
+  id: string
+  start_ts: string | null
+  end_ts: string | null
+  quality: number | null
+  naps: number | null
+}
+
 export async function GET(req: NextRequest) {
   try {
-    const { supabase, userId } = await getServerSupabaseAndUserId()
+    const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    const supabase = isDevFallback ? supabaseServer : authSupabase
     if (!userId) return buildUnauthorizedResponse()
 
     const now = new Date()
     const sinceIso = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
 
-    let result = await supabase
+    // Prefer start_at (matches POST /api/sleep/log). start_ts-first would miss rows that only populate start_at.
+    const primary = await supabase
       .from('sleep_logs')
-      .select('id, start_ts, end_ts, quality, naps')
+      .select('id, start_at, end_at, quality, type')
       .eq('user_id', userId)
-      .gte('start_ts', sinceIso)
-      .order('start_ts', { ascending: false })
+      .gte('start_at', sinceIso)
+      .order('start_at', { ascending: false })
       .limit(1)
       .maybeSingle()
 
-    if (result.error && (result.error.code === 'PGRST204' || result.error.message?.includes('start_ts'))) {
+    let data: TodayRow | null = null
+    let error = primary.error
+
+    if (primary.error && isOldSchemaFallbackError(primary.error)) {
       const fallback = await supabase
         .from('sleep_logs')
-        .select('id, start_at, end_at, quality, type')
+        .select('id, start_ts, end_ts, quality, naps')
         .eq('user_id', userId)
-        .gte('start_at', sinceIso)
-        .order('start_at', { ascending: false })
+        .gte('start_ts', sinceIso)
+        .order('start_ts', { ascending: false })
         .limit(1)
         .maybeSingle()
 
-      result = {
-        data: fallback.data
-          ? {
-              id: fallback.data.id,
-              start_ts: fallback.data.start_at ?? null,
-              end_ts: fallback.data.end_at ?? null,
-              quality: fallback.data.quality ?? null,
-              naps: fallback.data.type === 'nap' ? 1 : 0,
-            }
-          : null,
-        error: fallback.error,
-      } as any
+      error = fallback.error
+      if (fallback.data) {
+        data = {
+          id: fallback.data.id,
+          start_ts: fallback.data.start_ts ?? null,
+          end_ts: fallback.data.end_ts ?? null,
+          quality: fallback.data.quality ?? null,
+          naps: fallback.data.naps ?? null,
+        }
+      }
+    } else if (!primary.error && primary.data) {
+      const row = primary.data
+      data = {
+        id: row.id,
+        start_ts: row.start_at ?? null,
+        end_ts: row.end_at ?? null,
+        quality: row.quality ?? null,
+        naps: row.type === 'nap' ? 1 : 0,
+      }
     }
-    const { data, error } = result
 
     if (error) {
       console.error('[/api/sleep/today] query error:', error)

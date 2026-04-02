@@ -1,3 +1,7 @@
+import type { FatigueShiftGuidance } from '@/lib/shift-context/types'
+
+export type { FatigueShiftGuidance }
+
 export type FatigueRiskLevel = 'low' | 'moderate' | 'high'
 export type FatigueConfidenceLabel = 'low' | 'medium' | 'high'
 
@@ -29,16 +33,18 @@ type FatigueSocialJetlag = {
 
 export type CalculateFatigueRiskInputs = {
   sleepLogs: FatigueSleepLog[]
-  shifts: FatigueShift[]
+  shifts: readonly FatigueShift[]
   weeklySleepDebtHours?: number
   socialJetlag?: FatigueSocialJetlag
   now: Date
   restingHeartRateDeltaBpm?: number | null
   hrvSuppressionPct?: number | null
+  /** When set, blends biology with upcoming / primary operational shift (from shift-context resolver). */
+  shiftGuidance?: FatigueShiftGuidance | null
 }
 
 type Contribution = {
-  key: 'sleep' | 'circadian' | 'sequence' | 'recovery' | 'physiology' | 'timeWindow'
+  key: 'sleep' | 'circadian' | 'sequence' | 'recovery' | 'physiology' | 'timeWindow' | 'shiftDemand'
   points: number
   driver?: string
 }
@@ -105,7 +111,7 @@ function calculateCircadianContribution(socialJetlag?: FatigueSocialJetlag): Con
   return { key: 'circadian', points, driver: `Body clock misalignment (${misalignment.toFixed(1)}h)` }
 }
 
-function countConsecutiveNights(shifts: FatigueShift[]): number {
+function countConsecutiveNights(shifts: readonly FatigueShift[]): number {
   let streak = 0
   for (const s of shifts) {
     if (s.type === 'night') streak += 1
@@ -114,7 +120,10 @@ function countConsecutiveNights(shifts: FatigueShift[]): number {
   return streak
 }
 
-function calculateShiftSequenceContribution(shifts: FatigueShift[], sleepLogs: FatigueSleepLog[]): Contribution {
+function calculateShiftSequenceContribution(
+  shifts: readonly FatigueShift[],
+  sleepLogs: FatigueSleepLog[],
+): Contribution {
   if (shifts.length === 0) return { key: 'sequence', points: 0 }
   const recent = shifts.slice(0, 7)
   const consecutiveNights = countConsecutiveNights(recent)
@@ -201,11 +210,65 @@ function calculatePhysiologyContribution(inputs: CalculateFatigueRiskInputs): Co
   return { key: 'physiology', points, driver: 'Physiology suggests elevated strain' }
 }
 
-function calculateTimeWindowContribution(now: Date, shifts: FatigueShift[]): Contribution {
-  const hour = now.getHours() + now.getMinutes() / 60
+function circadianNightStressContext(
+  shiftGuidance: FatigueShiftGuidance | null | undefined,
+  shifts: readonly FatigueShift[],
+): boolean {
+  if (shiftGuidance) {
+    if (shiftGuidance.focusKind === 'night') return true
+    const gm = shiftGuidance.guidanceMode
+    if (gm === 'night_shift' || gm === 'pre_night_shift' || gm === 'transition_day_to_night')
+      return true
+    if (gm === 'recovery_after_night') return true
+  }
   const currentShift = shifts[0]?.type
   const previousShift = shifts[1]?.type
-  const onNightContext = currentShift === 'night' || previousShift === 'night'
+  return currentShift === 'night' || previousShift === 'night'
+}
+
+function calculateShiftDemandContribution(
+  shiftGuidance: FatigueShiftGuidance | null | undefined,
+  sleepLogs: FatigueSleepLog[],
+): Contribution {
+  if (!shiftGuidance) return { key: 'shiftDemand', points: 0 }
+  const lastSleep = sleepLogs[0]?.durationHours ?? 0
+  const gm = shiftGuidance.guidanceMode
+  const ts = shiftGuidance.transitionState
+  let points = 0
+  let driver: string | undefined
+
+  if (
+    (gm === 'pre_night_shift' || gm === 'transition_day_to_night') &&
+    lastSleep > 0 &&
+    lastSleep < 6
+  ) {
+    points = 8
+    driver = 'Limited sleep before an upcoming night shift'
+  } else if (
+    gm === 'day_shift' &&
+    ts === 'night_to_day' &&
+    lastSleep > 0 &&
+    lastSleep < 5.5
+  ) {
+    points = 5
+    driver = 'Switching back to days with a thin sleep buffer'
+  } else if (gm === 'night_shift' && lastSleep > 0 && lastSleep < 5.5) {
+    points = 6
+    driver = 'Short sleep while currently on nights'
+  }
+
+  points = clamp(points, 0, 12)
+  if (points <= 0) return { key: 'shiftDemand', points: 0 }
+  return { key: 'shiftDemand', points, driver }
+}
+
+function calculateTimeWindowContribution(
+  now: Date,
+  shifts: readonly FatigueShift[],
+  shiftGuidance?: FatigueShiftGuidance | null,
+): Contribution {
+  const hour = now.getHours() + now.getMinutes() / 60
+  const onNightContext = circadianNightStressContext(shiftGuidance, shifts)
 
   let points = 0
   // Circadian trough penalty.
@@ -225,6 +288,15 @@ function calculateTimeWindowContribution(now: Date, shifts: FatigueShift[]): Con
   }
 }
 
+function effectiveOperationalShiftType(inputs: CalculateFatigueRiskInputs): FatigueShift['type'] {
+  const fk = inputs.shiftGuidance?.focusKind
+  if (fk === 'night') return 'night'
+  if (fk === 'off' || fk === 'other' || fk == null) {
+    return inputs.shifts[0]?.type ?? 'off'
+  }
+  return 'day'
+}
+
 function classifyRecoveryPhase(inputs: CalculateFatigueRiskInputs, scoreBeforePhase: number): RecoveryPhase {
   const lastSleep = inputs.sleepLogs[0]?.durationHours ?? 0
   const avg2 =
@@ -232,7 +304,7 @@ function classifyRecoveryPhase(inputs: CalculateFatigueRiskInputs, scoreBeforePh
       ? inputs.sleepLogs.slice(0, 2).reduce((sum, s) => sum + Math.max(0, s.durationHours || 0), 0) / Math.min(2, inputs.sleepLogs.length)
       : 0
   const debt = Math.max(0, inputs.weeklySleepDebtHours ?? 0)
-  const latestShift = inputs.shifts[0]?.type ?? 'off'
+  const latestShift = effectiveOperationalShiftType(inputs)
 
   if ((latestShift === 'night' && lastSleep < 6) || scoreBeforePhase >= 72) return 'active_strain'
   if (latestShift === 'night' && lastSleep >= 6.5) return 'post_shift_recovery'
@@ -258,9 +330,15 @@ function calculateConfidence(inputs: CalculateFatigueRiskInputs): number {
       : inputs.hrvSuppressionPct !== null && inputs.hrvSuppressionPct !== undefined
         ? 1
         : 0
+  const hasShiftGuidance = inputs.shiftGuidance ? 0.08 : 0
 
   return clamp(
-    sleepCoverage * 0.45 + shiftCoverage * 0.25 + hasDebt * 0.15 + hasJetlag * 0.1 + hasPhysio * 0.05,
+    sleepCoverage * 0.42 +
+      shiftCoverage * 0.25 +
+      hasDebt * 0.15 +
+      hasJetlag * 0.1 +
+      hasPhysio * 0.05 +
+      hasShiftGuidance,
     0,
     1,
   )
@@ -274,7 +352,8 @@ export function calculateFatigueRisk(inputs: CalculateFatigueRiskInputs): Fatigu
     calculateShiftSequenceContribution(inputs.shifts, inputs.sleepLogs),
     calculateRecoveryContribution(inputs.sleepLogs),
     calculatePhysiologyContribution(inputs),
-    calculateTimeWindowContribution(inputs.now, inputs.shifts),
+    calculateShiftDemandContribution(inputs.shiftGuidance, inputs.sleepLogs),
+    calculateTimeWindowContribution(inputs.now, inputs.shifts, inputs.shiftGuidance),
   ]
 
   const baseScore = contributions.reduce((sum, c) => sum + c.points, 0)

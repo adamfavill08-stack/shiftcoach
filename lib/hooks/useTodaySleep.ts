@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { apiErrorMessageFromJson } from '@/lib/api/clientErrorMessage'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 
 export type TodaySleep = {
   id: string
@@ -28,14 +30,13 @@ export function useTodaySleep(): TodaySleepState {
       setLoading(true)
       setError(null)
 
-      const res = await fetch('/api/sleep/today', {
+      const res = await authedFetch('/api/sleep/today', {
         method: 'GET',
-        credentials: 'include',
       })
 
       if (!res.ok) {
-        const data = await res.json().catch(() => null)
-        throw new Error(data?.error || data?.message || `Failed to fetch sleep (${res.status})`)
+        const data = (await res.json().catch(() => null)) as Record<string, unknown> | null
+        throw new Error(apiErrorMessageFromJson(data, `Failed to fetch sleep (${res.status})`))
       }
 
       const json = (await res.json()) as { sleep: TodaySleep | null }

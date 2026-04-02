@@ -2,163 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import * as SupabaseServer from '@/lib/supabase-server'
-import { calculateShiftRhythm } from '@/lib/shift-rhythm/engine'
-import { calculateAdjustedCalories } from '@/lib/nutrition/calculateAdjustedCalories'
+import { calculateShiftRhythm, type SleepLogInput } from '@/lib/shift-rhythm/engine'
+import { buildShiftRhythmInputs } from '@/lib/shift-rhythm/buildShiftRhythmInputs'
 import { getHydrationAndCaffeineTargets } from '@/lib/nutrition/getHydrationAndCaffeineTargets'
 import { getTodayHydrationIntake } from '@/lib/nutrition/getTodayHydrationIntake'
 import { calculateSleepDeficit } from '@/lib/sleep/calculateSleepDeficit'
 import { getSocialJetlagMetrics } from '@/lib/circadian/socialJetlag'
 import { calculateBingeRisk } from '@/lib/binge/calculateBingeRisk'
 import { calculateFatigueRisk, type FatigueRiskResult } from '@/lib/fatigue/calculateFatigueRisk'
-import { toShiftType as toStandardShiftType, toShiftRhythmType } from '@/lib/shifts/toShiftType'
-
+import { fetchShiftContext, fatigueGuidanceFromContext } from '@/lib/shift-context'
 // Cache for 60 seconds - shift rhythm scores update daily
 export const revalidate = 60
-
-type SupabaseClient = Awaited<ReturnType<typeof getServerSupabaseAndUserId>>['supabase']
-
-async function buildShiftRhythmInputs(supabase: SupabaseClient, userId: string) {
-  const today = new Date()
-  const sevenDaysAgo = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000)
-  const todayIso = today.toISOString().slice(0, 10)
-
-  const [
-    sleepQuery,
-    shiftQuery,
-    hydrationTargets,
-    hydrationIntake,
-    adjustedCalories,
-  ] =
-    await Promise.all([
-      supabase
-        .from('sleep_logs')
-        .select('start_ts,end_ts,sleep_hours,quality')
-        .eq('user_id', userId)
-        .gte('start_ts', sevenDaysAgo.toISOString())
-        .order('start_ts', { ascending: false }),
-      supabase
-        .from('shifts')
-        .select('date,label')
-        .eq('user_id', userId)
-        .gte('date', sevenDaysAgo.toISOString().slice(0, 10))
-        .lte('date', todayIso),
-      getHydrationAndCaffeineTargets(supabase, userId),
-      getTodayHydrationIntake(supabase, userId),
-      calculateAdjustedCalories(supabase, userId),
-    ])
-
-  const sleepLogs =
-    (sleepQuery.data ?? []).map((row: any) => {
-      const start = row.start_ts ?? row.start ?? row.created_at
-      const end = row.end_ts ?? row.end ?? start
-      const durationHours =
-        row.sleep_hours ??
-        Math.max(0, (new Date(end).getTime() - new Date(start).getTime()) / 3600000)
-      return {
-        date: (start ?? new Date().toISOString()).slice(0, 10),
-        start,
-        end,
-        durationHours,
-        quality: row.quality ?? null,
-      }
-    }) ?? []
-
-  const shiftDays =
-    (shiftQuery.data ?? []).map((row: any) => ({
-      date: row.date,
-      type: toShiftRhythmType(toStandardShiftType(row.label, row.start_ts)),
-    })) ?? []
-
-  // Note: If shiftDays is empty, calculations will still work but may be less accurate
-  // The shift-rhythm engine handles missing shift data gracefully (returns score of 70)
-
-  // Meal logging removed - using advice-only approach
-  const consumedCalories = 0
-  const mealTimingActual: any[] = []
-
-  const nutritionSnapshot = {
-    adjustedCalories: adjustedCalories.adjustedCalories,
-    consumedCalories,
-    calorieTarget: adjustedCalories.adjustedCalories,
-    macros: {
-      protein: { target: adjustedCalories.macros.protein_g, consumed: null },
-      carbs: { target: adjustedCalories.macros.carbs_g, consumed: null },
-      fat: { target: adjustedCalories.macros.fat_g, consumed: null },
-      satFat: { limit: adjustedCalories.macros.sat_fat_g, consumed: null },
-    },
-    hydration: {
-      water: {
-        targetMl: hydrationTargets.water_ml,
-        consumedMl: hydrationIntake.water_ml,
-      },
-      caffeine: {
-        limitMg: hydrationTargets.caffeine_mg,
-        consumedMg: hydrationIntake.caffeine_mg,
-      },
-    },
-  }
-
-  const { data: stepGoalRow } = await supabase
-    .from('profiles')
-    .select('daily_steps_goal, sleep_goal_h')
-    .eq('user_id', userId)
-    .maybeSingle()
-
-  let activityResponse = await supabase
-    .from('activity_logs')
-    .select('steps,active_minutes,date')
-    .eq('user_id', userId)
-    .eq('date', todayIso)
-    .maybeSingle()
-
-  let activeMinutes: number | null = activityResponse.data?.active_minutes ?? null
-
-  if (activityResponse.error) {
-    const err = activityResponse.error
-    if (err.code === '42703' || err.message?.includes('active_minutes')) {
-      console.warn('[/api/shift-rhythm] activity_logs.active_minutes missing, falling back without it')
-      activityResponse = await supabase
-        .from('activity_logs')
-        .select('steps,date')
-        .eq('user_id', userId)
-        .eq('date', todayIso)
-        .maybeSingle()
-      activeMinutes = null
-    }
-  }
-
-  const activityRow = activityResponse?.data ?? null
-
-  const activitySnapshot = {
-    steps: activityRow?.steps ?? null,
-    stepsGoal: stepGoalRow?.daily_steps_goal ?? 10000,
-    activeMinutes,
-    activeMinutesGoal: 30,
-  }
-
-  const mealTimingSnapshot = {
-    recommended: (adjustedCalories.meals ?? []).map((meal) => ({
-      slot: meal.label,
-      windowStart: meal.suggestedTime,
-      windowEnd: meal.suggestedTime,
-    })),
-    actual: mealTimingActual,
-  }
-
-  return {
-    sleepLogs,
-    shiftDays,
-    nutrition: nutritionSnapshot,
-    activity: activitySnapshot,
-    mealTiming: mealTimingSnapshot,
-    targets: {
-      sleepHours:
-        stepGoalRow?.sleep_goal_h ?? adjustedCalories.sleepHoursLast24h ?? DEFAULT_SLEEP_TARGET,
-    },
-  }
-}
-
-const DEFAULT_SLEEP_TARGET = 7.5
 const DEFAULT_FATIGUE_RISK: FatigueRiskResult = {
   score: 20,
   level: 'low',
@@ -229,7 +83,7 @@ export async function GET(req: NextRequest) {
       try {
         const inputs = await buildShiftRhythmInputs(supabase, userId)
 
-        const hasMeaningfulSleep = inputs.sleepLogs.some((s) => s.durationHours > 0)
+        const hasMeaningfulSleep = inputs.sleepLogs.some((s: SleepLogInput) => s.durationHours > 0)
         const hasMeaningfulShifts = inputs.shiftDays.length > 0
         hasRhythmData = hasMeaningfulSleep || hasMeaningfulShifts
 
@@ -306,11 +160,19 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Resolved shift context (today / next shift–aware) for jetlag copy + fatigue blending
+    let shiftContextBundle = null
+    try {
+      shiftContextBundle = await fetchShiftContext(supabase, userId)
+    } catch {
+      shiftContextBundle = null
+    }
+
     // Calculate social jetlag
     let socialJetlag = null
     try {
       console.log('[api/shift-rhythm] Calculating social jetlag for user:', userId)
-      const jetlagMetrics = await getSocialJetlagMetrics(supabase, userId)
+      const jetlagMetrics = await getSocialJetlagMetrics(supabase, userId, shiftContextBundle)
       
       // Only include social jetlag if it has valid data (not default/error metrics)
       // Valid data means: has a category and explanation doesn't contain error messages
@@ -459,6 +321,8 @@ export async function GET(req: NextRequest) {
             }
           : null,
         now: new Date(),
+        shiftGuidance:
+          fatigueGuidanceFromContext(fatigueInputs.shiftContext ?? shiftContextBundle) ?? undefined,
       })
     } catch (fatigueErr) {
       console.warn('[api/shift-rhythm] Fatigue risk fallback applied:', fatigueErr)

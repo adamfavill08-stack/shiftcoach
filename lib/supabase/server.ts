@@ -1,6 +1,7 @@
 // lib/supabase/server.ts
 import { cookies, headers } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { apiUnauthorized } from '@/lib/api/response'
 import { supabaseServer } from '@/lib/supabase-server'
@@ -46,6 +47,29 @@ export async function getServerSupabaseAndUserId() {
     }
   } catch {
     // headers() unavailable in rare contexts; fall through to cookies.
+  }
+
+  // Bearer token: same user as cookie session, but available immediately after
+  // client-side sign-in before Set-Cookie is always present on the next request.
+  try {
+    const headerList = await headers()
+    const authHeader = headerList.get('authorization') ?? ''
+    const m = authHeader.match(/^Bearer\s+(.+)$/i)
+    const token = m?.[1]?.trim() ?? ''
+    if (token) {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { global: { headers: { Authorization: `Bearer ${token}` } } },
+      )
+      const { data: authData, error: authErr } = await supabase.auth.getUser()
+      const user = authData?.user ?? null
+      if (user && !authErr) {
+        return { supabase, userId: user.id, isDevFallback: false }
+      }
+    }
+  } catch {
+    // fall through to cookies
   }
 
   // Security-critical: resolve identity from session cookies by default.

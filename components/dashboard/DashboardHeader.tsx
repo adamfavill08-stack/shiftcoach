@@ -5,6 +5,7 @@ import { Bell } from 'lucide-react'
 
 import { NotificationModal } from '@/components/notifications/NotificationModal'
 import { useNotifications } from '@/lib/hooks/useNotifications'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 
 type Shift = {
   date: string
@@ -46,16 +47,20 @@ export default function DashboardHeader() {
         const endIso = new Date(toDate + 'T23:59:59Z').toISOString()
         
         const [shiftsRes, eventsRes] = await Promise.all([
-          fetch(`/api/shifts?from=${fromDate}&to=${toDate}`, {
-            next: { revalidate: 60 }
-          }),
-          fetch(`/api/rota/event?month=${today.getMonth() + 1}&year=${today.getFullYear()}`, {
-            next: { revalidate: 60 }
-          })
+          authedFetch(`/api/shifts?from=${fromDate}&to=${toDate}`, {
+            next: { revalidate: 60 },
+          } as RequestInit),
+          authedFetch(`/api/rota/event?month=${today.getMonth() + 1}&year=${today.getFullYear()}`, {
+            next: { revalidate: 60 },
+          } as RequestInit),
         ])
-        
+
         if (!shiftsRes.ok) {
-          console.error('[DashboardHeader] Failed to fetch shifts')
+          if (shiftsRes.status === 401 || shiftsRes.status === 403) {
+            console.warn('[DashboardHeader] Shifts fetch — session not ready', shiftsRes.status)
+          } else {
+            console.error('[DashboardHeader] Failed to fetch shifts', shiftsRes.status)
+          }
           setShifts([])
           setLoadingShifts(false)
           return

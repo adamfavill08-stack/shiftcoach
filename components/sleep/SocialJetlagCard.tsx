@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 import { Info } from 'lucide-react'
 
 type SocialJetlagData = {
@@ -25,7 +26,7 @@ export function SocialJetlagCard() {
         setLoading(true)
         setError(null)
         
-        const res = await fetch('/api/shift-rhythm', { cache: 'no-store' })
+        const res = await authedFetch('/api/shift-rhythm', { cache: 'no-store' })
         if (!res.ok) {
           throw new Error(`Failed to fetch: ${res.status}`)
         }

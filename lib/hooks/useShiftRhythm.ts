@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import type { FatigueRiskResult } from '@/lib/fatigue/calculateFatigueRisk'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 
 type ShiftRhythmScore = {
   date: string
@@ -64,7 +65,7 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
       setError(null)
       
       const url = force ? '/api/shift-rhythm?force=true' : '/api/shift-rhythm'
-      const res = await fetch(url)
+      const res = await authedFetch(url)
 
       if (!res.ok) {
         // During app boot/auth transitions the session cookie may not be ready yet.

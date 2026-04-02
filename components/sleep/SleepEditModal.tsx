@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Calendar, Clock, X, ChevronDown, Trash2 } from 'lucide-react'
 import type { SleepType } from '@/lib/sleep/types'
 import { qualityLabelToNumber } from '@/lib/sleep/utils'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 
 type SleepSession = {
   id: string
@@ -139,7 +140,7 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
       
       console.log('[SleepEditModal] Updating session:', session.id, 'with payload:', payload)
       
-      const res = await fetch(`/api/sleep/sessions/${session.id}`, {
+      const res = await authedFetch(`/api/sleep/sessions/${session.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -181,7 +182,7 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
 
     setDeleting(true)
     try {
-      const res = await fetch(`/api/sleep/sessions/${session.id}`, {
+      const res = await authedFetch(`/api/sleep/sessions/${session.id}`, {
         method: 'DELETE',
       })
 

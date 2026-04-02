@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 import type { IntensityBreakdown } from '@/lib/activity/calculateIntensityBreakdown'
 import type { ShiftMovementPlan } from '@/lib/activity/generateShiftMovementPlan'
 import type { MovementConsistencyResult } from '@/lib/activity/calculateMovementConsistency'
@@ -79,7 +80,7 @@ export function useActivityToday() {
     let cancelled = false
     const fetchData = async () => {
       try {
-        const res = await fetch('/api/activity/today', { credentials: 'include', cache: 'no-store' })
+        const res = await authedFetch('/api/activity/today', { cache: 'no-store' })
         if (!res.ok) throw new Error(String(res.status))
         const json = await res.json()
         if (!cancelled) {

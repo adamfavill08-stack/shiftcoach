@@ -1,4 +1,9 @@
 import { getShiftedDayKey } from '@/lib/sleep/utils'
+import {
+  fetchShiftContext,
+  mealGuidanceFromContext,
+  type ShiftContextResult,
+} from '@/lib/shift-context'
 
 export type MealSlot = {
   id: string
@@ -67,6 +72,8 @@ export type CalorieResult = {
   calorieModifiersCapped: boolean
   goal: 'lose' | 'maintain' | 'gain'
   macroPreset: 'balanced' | 'high_protein' | 'custom'
+  /** Resolved shift context: operational + meal planning bias toward current/next shift. */
+  shiftContext: ShiftContextResult | null
 }
 
 const clamp = (n: number, min: number, max: number) => Math.min(Math.max(n, min), max)
@@ -387,20 +394,21 @@ export async function calculateAdjustedCalories(supabase: any, userId: string): 
     else sleepFactor = 0.9
   }
 
-  const { data: shift } = await supabase
-    .from('shifts')
-    .select('label, date')
-    .eq('user_id', userId)
-    .eq('date', shiftedDayKey)
-    .maybeSingle()
-
-  const label = ((shift?.label as string | undefined) || '').toUpperCase()
-  let shiftType: CalorieResult['shiftType'] = 'other'
-  if (label === 'DAY') shiftType = 'day'
-  else if (label === 'NIGHT') shiftType = 'night'
-  else if (label === 'OFF') shiftType = 'off'
-  else if (label === 'EARLY') shiftType = 'early'
-  else if (label === 'LATE') shiftType = 'late'
+  const shiftContext = await fetchShiftContext(supabase, userId, now)
+  const mealGuide = mealGuidanceFromContext(shiftContext)
+  const mealKind =
+    mealGuide.anchorShift?.operationalKind ??
+    shiftContext.mealPlanningShift?.operationalKind
+  let shiftType: CalorieResult['shiftType'] =
+    mealKind === 'day' ||
+    mealKind === 'night' ||
+    mealKind === 'off' ||
+    mealKind === 'early' ||
+    mealKind === 'late'
+      ? mealKind
+      : mealKind === 'other'
+        ? 'other'
+        : 'off'
 
   // Small schedule nudge only; meal layout and logged shift activity carry most shift-related variation.
   let shiftFactor = 1
@@ -623,5 +631,6 @@ export async function calculateAdjustedCalories(supabase: any, userId: string): 
     calorieModifiersCapped,
     goal,
     macroPreset,
+    shiftContext,
   }
 }

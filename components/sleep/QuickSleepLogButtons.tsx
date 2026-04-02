@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Moon, Coffee, Zap, Heart, Plus } from 'lucide-react'
 import type { SleepType } from '@/lib/sleep/predictSleep'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 
 type QuickSleepLogButtonsProps = {
   onLogSleep: (type: SleepType, start: Date, end: Date) => void
@@ -26,7 +27,7 @@ export function QuickSleepLogButtons({ onLogSleep, loading = false }: QuickSleep
       
       for (const type of types) {
         try {
-          const res = await fetch('/api/sleep/predict', {
+          const res = await authedFetch('/api/sleep/predict', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type }),

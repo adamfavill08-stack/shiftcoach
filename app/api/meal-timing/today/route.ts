@@ -7,7 +7,12 @@ import {
   resolveDiurnalWakeAnchor,
 } from '@/lib/nutrition/resolveDiurnalWakeAnchor'
 import { isoLocalDate } from '@/lib/shifts'
-import type { StandardShiftType } from '@/lib/shifts/toShiftType'
+import {
+  fetchShiftContext,
+  mealGuidanceFromContext,
+  shiftBoundsFromSnapshot,
+} from '@/lib/shift-context'
+import type { GuidanceMode, TransitionState } from '@/lib/shift-context/types'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -15,6 +20,8 @@ function mealTimingCardSubtitle(
   templateUsed: 'off' | 'day' | 'night' | 'late',
   requestedShift: 'off' | 'day' | 'night' | 'late',
   usedEstimatedShiftTimes: boolean,
+  guidanceMode?: GuidanceMode,
+  transitionState?: TransitionState,
 ): string {
   if (templateUsed === 'off' && requestedShift !== 'off') {
     const est = usedEstimatedShiftTimes ? ' Typical shift hours estimated where needed.' : ''
@@ -26,7 +33,20 @@ function mealTimingCardSubtitle(
     late: 'Keep meals in rhythm with your late shift.',
     night: 'Aligned to your night shift',
   }
-  const s = base[templateUsed]
+  let s = base[templateUsed]
+  if (
+    guidanceMode === 'transition_day_to_night' ||
+    transitionState === 'day_to_night'
+  ) {
+    s = `${s} Transition day: fueling pattern follows your upcoming night shift, not yesterday’s day shift.`
+  } else if (
+    guidanceMode === 'transition_night_to_day' ||
+    transitionState === 'night_to_day'
+  ) {
+    s = `${s} Transition day: rhythm is shifting back toward days — keep meals lighter late if you’re still on nights’ timing.`
+  } else if (guidanceMode === 'pre_night_shift' && templateUsed === 'night') {
+    s = `${s} Pre-night focus: anchor a solid pre-shift meal before you head in.`
+  }
   return usedEstimatedShiftTimes ? `${s} Shift times estimated from a typical pattern.` : s
 }
 
@@ -56,24 +76,24 @@ export async function GET(req: NextRequest) {
 
     // Get adjusted calories and meal plan
     const adjusted = await calculateAdjustedCalories(supabase, userId)
+    const now = new Date()
+    const today = isoLocalDate(now)
 
-    // Get today's shift
-    const today = isoLocalDate(new Date())
-    const { data: todayShift } = await supabase
-      .from('shifts')
-      .select('label, start_ts, end_ts')
-      .eq('user_id', userId)
-      .eq('date', today)
-      .maybeSingle()
+    const shiftCtx = adjusted.shiftContext ?? (await fetchShiftContext(supabase, userId, now))
+    const mealGuide = mealGuidanceFromContext(shiftCtx)
+    const bounds0 = shiftBoundsFromSnapshot(mealGuide.anchorShift)
 
-    // Determine shift type using shared utility
-    const { toShiftType, toActivityShiftType } = await import('@/lib/shifts/toShiftType')
-    const standardType: StandardShiftType = toShiftType(todayShift?.label, todayShift?.start_ts)
-    /** Meal-planning shift kind: evening (from rota) maps to late template for this route only. */
-    let shiftType: 'day' | 'night' | 'late' | 'off' = toActivityShiftType(standardType)
-    if (standardType === 'evening') {
-      shiftType = 'late'
-    }
+    let shiftType: 'day' | 'night' | 'late' | 'off' = mealGuide.template
+    let shiftStart: Date | undefined = bounds0?.start
+    let shiftEnd: Date | undefined = bounds0?.end
+    let usedEstimatedShiftTimes = mealGuide.anchorShift?.usedEstimatedTimes ?? false
+
+    const hasExactShiftTimes = Boolean(
+      mealGuide.anchorShift &&
+        mealGuide.anchorShift.startTs &&
+        mealGuide.anchorShift.endTs &&
+        !mealGuide.anchorShift.usedEstimatedTimes,
+    )
 
     // Get wake time from latest sleep or estimate
     let latestSleepResult = await supabase
@@ -99,13 +119,7 @@ export async function GET(req: NextRequest) {
     }
     const latestSleep = latestSleepResult.data
 
-    const now = new Date()
-    const hasExactShiftTimes = Boolean(todayShift?.start_ts && todayShift?.end_ts)
-    let shiftStart: Date | undefined = todayShift?.start_ts ? new Date(todayShift.start_ts) : undefined
-    let shiftEnd: Date | undefined = todayShift?.end_ts ? new Date(todayShift.end_ts) : undefined
-    let usedEstimatedShiftTimes = false
-
-    if (!hasExactShiftTimes && shiftType === 'night') {
+    if ((!shiftStart || !shiftEnd || Number.isNaN(shiftStart.getTime())) && shiftType === 'night') {
       usedEstimatedShiftTimes = true
       const base = new Date(now)
       shiftStart = new Date(base)
@@ -113,13 +127,20 @@ export async function GET(req: NextRequest) {
       shiftEnd = new Date(base)
       shiftEnd.setDate(shiftEnd.getDate() + 1)
       shiftEnd.setHours(7, 0, 0, 0)
-    } else if (!hasExactShiftTimes && shiftType === 'late') {
+    } else if ((!shiftStart || !shiftEnd || Number.isNaN(shiftStart.getTime())) && shiftType === 'late') {
       usedEstimatedShiftTimes = true
       const base = new Date(now)
       shiftStart = new Date(base)
       shiftStart.setHours(15, 0, 0, 0)
       shiftEnd = new Date(base)
       shiftEnd.setHours(23, 0, 0, 0)
+    } else if ((!shiftStart || !shiftEnd || Number.isNaN(shiftStart.getTime())) && shiftType === 'day') {
+      usedEstimatedShiftTimes = true
+      const base = new Date(now)
+      shiftStart = new Date(base)
+      shiftStart.setHours(9, 0, 0, 0)
+      shiftEnd = new Date(base)
+      shiftEnd.setHours(17, 0, 0, 0)
     }
 
     const rawWakeEnd = latestSleep?.end_ts ? new Date(latestSleep.end_ts as string) : null
@@ -144,7 +165,13 @@ export async function GET(req: NextRequest) {
     })
 
     const usedFallbackTemplate = usedEstimatedShiftTimes || scheduleTypeUsed !== shiftType
-    const cardSubtitle = mealTimingCardSubtitle(scheduleTypeUsed, shiftType, usedEstimatedShiftTimes)
+    const cardSubtitle = mealTimingCardSubtitle(
+      scheduleTypeUsed,
+      shiftType,
+      usedEstimatedShiftTimes,
+      mealGuide.guidanceMode,
+      mealGuide.transitionState,
+    )
 
     // Get sleep hours last 24h
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
@@ -179,21 +206,24 @@ export async function GET(req: NextRequest) {
     const steps = activityLog?.steps ?? 0
     const activityContext = `${steps.toLocaleString()} steps so far today`
 
-    // Format shift label for display
-    const shiftStartTime = todayShift?.start_ts
-      ? new Date(todayShift.start_ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    // Format shift label for display (anchor = operational focus, not calendar “today” alone)
+    const anchor = mealGuide.anchorShift
+    const startIso = anchor?.startTs
+    const endIso = anchor?.endTs
+    const shiftStartTime = startIso
+      ? new Date(startIso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       : ''
-    const shiftEndTime = todayShift?.end_ts
-      ? new Date(todayShift.end_ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const shiftEndTime = endIso
+      ? new Date(endIso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       : ''
 
-    const rawShiftLabel = todayShift?.label ?? (shiftType ? String(shiftType) : null)
+    const rawShiftLabel = anchor?.label ?? (shiftType ? String(shiftType) : null)
     const shiftLabel =
       rawShiftLabel
         ? rawShiftLabel.charAt(0).toUpperCase() + rawShiftLabel.slice(1).toLowerCase()
         : 'Off'
 
-    const shiftLabelFormatted = todayShift
+    const shiftLabelFormatted = anchor
       ? `${shiftLabel} shift${shiftStartTime && shiftEndTime ? ` · ${shiftStartTime}–${shiftEndTime}` : ''}`
       : 'Day Off'
 
@@ -302,6 +332,12 @@ export async function GET(req: NextRequest) {
         meals,
         tips: [],
         status,
+      },
+      shiftContext: {
+        guidanceMode: mealGuide.guidanceMode,
+        transitionState: mealGuide.transitionState,
+        primaryLabel: shiftCtx.primaryOperationalShift?.label ?? null,
+        anchorLabel: anchor?.label ?? null,
       },
     }
 

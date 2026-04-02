@@ -1,6 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isoLocalDate } from '@/lib/shifts'
 import type { Profile } from '@/lib/profile'
+import { fetchShiftContext } from '@/lib/shift-context'
+import type { ShiftContextResult } from '@/lib/shift-context/types'
+
+function shiftContextCoachLabel(ctx: ShiftContextResult): string | null {
+  const p = ctx.primaryOperationalShift
+  const m = ctx.mealPlanningShift
+  if (p?.label) return `${p.label} (focus · ${ctx.guidanceMode})`
+  if (m?.label) return `${m.label} (next · ${ctx.guidanceMode})`
+  if (ctx.guidanceMode === 'recovery_after_night') return 'Recovery after nights'
+  if (ctx.guidanceMode === 'off_day') return 'Off day'
+  return null
+}
 
 function utcDayRange() {
   const now = new Date()
@@ -93,25 +105,13 @@ export async function getUserMetrics(
       sleepHoursLast24 = Math.round((totalMinutes / 60) * 10) / 10 // Round to 1 decimal
     }
 
-    // Get today's shift (reuse todayISO defined above)
-    const { data: todayShift } = await supabase
-      .from('shifts')
-      .select('label, start_ts, end_ts')
-      .eq('user_id', userId)
-      .eq('date', todayISO)
-      .maybeSingle()
-
-    let shiftType: string | null = null
-    if (todayShift) {
-      shiftType = todayShift.label || null
-      // If no label, classify from times
-      if (!shiftType && todayShift.start_ts && todayShift.end_ts) {
-        const start = new Date(todayShift.start_ts)
-        const startH = start.getHours()
-        if (startH >= 18 || startH < 8) shiftType = 'NIGHT'
-        else if (startH >= 12) shiftType = 'LATE'
-        else shiftType = 'DAY'
-      }
+    const shiftCtx = await fetchShiftContext(supabase, userId, new Date())
+    let shiftType = shiftContextCoachLabel(shiftCtx)
+    if (!shiftType && shiftCtx.primaryOperationalShift?.operationalKind) {
+      shiftType = shiftCtx.primaryOperationalShift.operationalKind.toUpperCase()
+    }
+    if (!shiftType && shiftCtx.mealPlanningShift?.operationalKind) {
+      shiftType = `${shiftCtx.mealPlanningShift.operationalKind.toUpperCase()} (upcoming)`
     }
 
     // Get steps (for now, return null - TODO: wire real steps data)

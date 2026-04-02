@@ -18,6 +18,7 @@ import { useActivityToday } from "@/lib/hooks/useActivityToday";
 import { useTranslation } from "@/components/providers/language-provider";
 import { ExploreCarousel } from "@/components/dashboard/ExploreCarousel";
 import type { FatigueRiskResult } from "@/lib/fatigue/calculateFatigueRisk";
+import { authedFetch } from "@/lib/supabase/authedFetch";
 
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import type { ShiftLagMetrics } from '@/lib/circadian/calculateShiftLag'
@@ -140,7 +141,7 @@ function ShiftRhythmCard({
     let cancelled = false;
     const fetchMoodFocus = async () => {
       try {
-        const res = await fetch('/api/today', { credentials: 'include' });
+        const res = await authedFetch('/api/today');
         if (!res.ok) throw new Error(String(res.status));
         const json = await res.json();
         if (!cancelled) {
@@ -179,10 +180,9 @@ function ShiftRhythmCard({
     // Save to API (no visual change; errors are handled by reverting state)
     try {
       const requestBody = { mood: newMood, focus: newFocus };
-      const res = await fetch('/api/logs/mood', {
+      const res = await authedFetch('/api/logs/mood', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(requestBody),
       });
       if (!res.ok) {
@@ -209,7 +209,7 @@ function ShiftRhythmCard({
         
         // Revert on error
         try {
-          const currentRes = await fetch('/api/today', { credentials: 'include' });
+          const currentRes = await authedFetch('/api/today');
           if (currentRes.ok) {
             const current = await currentRes.json();
             setMood(current.mood ?? 3);
@@ -229,7 +229,7 @@ function ShiftRhythmCard({
     } catch {
       // Revert on error
       try {
-        const currentRes = await fetch('/api/today', { credentials: 'include' });
+        const currentRes = await authedFetch('/api/today');
         if (currentRes.ok) {
           const current = await currentRes.json();
           setMood(current.mood ?? 3);
@@ -493,7 +493,7 @@ function HomeAdjustedCaloriesCard() {
   return (
     <Link
       href="/adjusted-calories"
-      className="relative block rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_6px_20px_rgba(15,23,42,0.06)] transition-colors hover:bg-[var(--card-subtle)] dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]"
+      className="relative block rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-colors hover:bg-[var(--card-subtle)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]"
     >
       <ChevronRight className="absolute right-4 top-4 h-4 w-4 text-slate-400" aria-hidden />
       <div className="space-y-1.5">
@@ -581,7 +581,7 @@ function HomeFatigueRiskCard({
   return (
     <Link
       href="/fatigue-risk"
-      className="relative block rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_6px_20px_rgba(15,23,42,0.06)] transition-colors hover:bg-[var(--card-subtle)] dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]"
+      className="relative block rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-colors hover:bg-[var(--card-subtle)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]"
     >
       <ChevronRight className="absolute right-4 top-4 h-4 w-4 text-slate-400" aria-hidden />
       <div className="pr-6">
@@ -663,7 +663,7 @@ function HomeLogSleepCard() {
   return (
     <Link
       href="/sleep"
-      className="block rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 transition-colors hover:bg-[var(--card-subtle)] shadow-[0_6px_20px_rgba(15,23,42,0.06)] dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]"
+      className="block rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 transition-colors hover:bg-[var(--card-subtle)] shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]"
     >
       <div className="relative">
         <ChevronRight className="absolute right-0 top-0 h-4 w-4 text-slate-400" aria-hidden />
@@ -703,7 +703,7 @@ function HomeSleepDebtCard() {
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch("/api/sleep/deficit", { cache: "no-store" });
+        const res = await authedFetch("/api/sleep/deficit", { cache: "no-store" });
         if (!res.ok) {
           throw new Error(String(res.status));
         }
@@ -826,7 +826,7 @@ function HomeActivityCard() {
       onClick={() => {
         router.push("/activity");
       }}
-      className="w-full text-left rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 transition-colors hover:bg-[var(--card-subtle)] shadow-[0_6px_20px_rgba(15,23,42,0.06)] dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]"
+      className="w-full text-left rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 transition-colors hover:bg-[var(--card-subtle)] shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]"
     >
       <div className="relative pr-6">
         <ChevronRight className="absolute right-0 top-0 h-4 w-4 text-[var(--text-muted)]" aria-hidden />
@@ -899,7 +899,7 @@ function HeartRecoveryCard() {
         setHrStatus(null);
         setHrReason(null);
 
-        const res = await fetch("/api/wearables/heart-rate");
+        const res = await authedFetch("/api/wearables/heart-rate");
         const data = await res.json().catch(() => ({}));
         const status = data?.status as HeartRateApiStatus | undefined;
 
@@ -1042,7 +1042,7 @@ function HeartRecoveryCard() {
   return (
     <Link
       href="/heart-health"
-      className="block rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 transition-colors hover:bg-[var(--card-subtle)] shadow-[0_6px_20px_rgba(15,23,42,0.06)] dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]"
+      className="block rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 transition-colors hover:bg-[var(--card-subtle)] shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]"
     >
       <div className="relative">
         <ChevronRight className="absolute right-0 top-0 h-4 w-4 text-[var(--text-muted)]" aria-hidden />
@@ -1115,7 +1115,7 @@ function HydrationCard() {
     if (adding) return;
     try {
       setAdding(true);
-      const res = await fetch("/api/logs/water", {
+      const res = await authedFetch("/api/logs/water", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ml: HYDRATION_QUICK_ADD_ML }),
@@ -1128,7 +1128,7 @@ function HydrationCard() {
   };
 
   return (
-    <div className="relative rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 pr-10 shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.32)]">
+    <div className="relative rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 pr-10 shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]">
       <Link
         href="/hydration"
         className="absolute right-3 top-4 rounded-md p-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--card-subtle)] hover:text-[var(--text-main)]"
@@ -2485,7 +2485,7 @@ function DetailedMealTimesCard() {
   const fetchMealTiming = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/meal-timing/today', { cache: 'no-store' });
+      const res = await authedFetch('/api/meal-timing/today', { cache: 'no-store' });
       if (res.ok) {
         const json = await res.json();
         setData(json);
@@ -2833,7 +2833,7 @@ function AdjustedMealTimesCard() {
   const fetchMealTiming = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/meal-timing/today', { cache: 'no-store' });
+      const res = await authedFetch('/api/meal-timing/today', { cache: 'no-store' });
       if (res.ok) {
         const json = await res.json();
         // Handle new API structure - convert meals array to old structure for compatibility
@@ -3573,7 +3573,7 @@ function BlogSection() {
 
     const fetchPosts = async () => {
       try {
-        const res = await fetch('/api/blog', { cache: 'no-store' });
+        const res = await authedFetch('/api/blog', { cache: 'no-store' });
         if (!res.ok) {
           console.warn('[BlogSection] Blog API returned status', res.status);
           return;

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useGoalChange } from './useGoalChange'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 
 type MealSlot = {
   id: string
@@ -78,15 +79,19 @@ export function useTodayNutrition() {
     try {
       setLoading(true)
 
-      const res = await fetch(
+      const res = await authedFetch(
         '/api/nutrition/today',
-        forceFresh
-          ? { cache: 'no-store' } // used when something important just changed
-          : { next: { revalidate: 30 } } // short-lived cache for normal loads
+        (forceFresh
+          ? { cache: 'no-store' }
+          : { next: { revalidate: 30 } }) as RequestInit,
       )
 
       if (!res.ok) {
-        console.error('[useTodayNutrition] failed:', res.status)
+        if (res.status === 401 || res.status === 403) {
+          console.warn('[useTodayNutrition] auth not ready', res.status)
+        } else {
+          console.error('[useTodayNutrition] failed:', res.status)
+        }
         setData(null)
         return
       }

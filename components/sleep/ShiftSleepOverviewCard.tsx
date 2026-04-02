@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { getSleepTypeLabel } from '@/lib/sleep/utils'
+import { getSleepTypeLabel, type SleepBarPoint } from '@/lib/sleep/utils'
 import type { SleepType } from '@/lib/sleep/types'
 
 type SourceSummary = 'none' | 'manual' | 'wearable' | 'mixed'
@@ -24,6 +24,8 @@ type ShiftSleepOverviewCardProps = {
   onLogSleep: () => void
   onSyncWearable?: () => Promise<void> | void
   editLogsHref: string
+  sevenDayBars: SleepBarPoint[]
+  highlightDateKey?: string | null
 }
 
 const WEARABLE_STALE_MS = 4 * 60 * 60 * 1000 // 4h
@@ -109,7 +111,8 @@ function getSubtext(
   return `You've logged ${formatHoursMinutes(primaryMinutes)} of primary sleep and ${formatHoursMinutes(napMinutes)} of naps this shifted day.`
 }
 
-function getSourceLabel(sourceSummary: SourceSummary) {
+function getSourceLabel(sourceSummary: SourceSummary, totalMinutes: number) {
+  if (totalMinutes <= 0 && sourceSummary === 'none') return 'No sleep logged yet'
   if (sourceSummary === 'none') return 'No source data'
   if (sourceSummary === 'manual') return 'Manual data'
   if (sourceSummary === 'wearable') return 'Wearable data'
@@ -136,24 +139,6 @@ function compactInsight(text: string | null | undefined): string | null {
   return `${firstSentence.slice(0, 117).trimEnd()}...`
 }
 
-function getRingColor(totalMinutes: number, targetMinutes: number) {
-  const state = getProgressState(totalMinutes, targetMinutes)
-  switch (state) {
-    case 'empty':
-      return '#cbd5e1'
-    case 'behind':
-      return '#f59e0b'
-    case 'progress':
-      return '#3b82f6'
-    case 'on_track':
-      return '#22c55e'
-    case 'recovery':
-      return '#6366f1'
-    default:
-      return '#94a3b8'
-  }
-}
-
 function getChipTone(totalMinutes: number, targetMinutes: number) {
   const state = getProgressState(totalMinutes, targetMinutes)
   switch (state) {
@@ -170,12 +155,19 @@ function getChipTone(totalMinutes: number, targetMinutes: number) {
   }
 }
 
-function getRingTrackColor() {
-  if (typeof document !== 'undefined' && document.documentElement.classList.contains('dark')) {
-    return '#334155'
+function barClasses(minutes: number, targetMinutes: number) {
+  if (minutes <= 0) {
+    return 'bg-[var(--card-subtle)] border border-[var(--border-subtle)]'
   }
-  return '#e5e7eb'
+  if (targetMinutes <= 0) return 'bg-sky-500/85 dark:bg-sky-400/80'
+  const r = minutes / targetMinutes
+  if (r < 0.6) return 'bg-amber-500/90 dark:bg-amber-500/75'
+  if (r < 1) return 'bg-sky-500/90 dark:bg-sky-400/80'
+  if (r <= 1.15) return 'bg-emerald-500/90 dark:bg-emerald-500/75'
+  return 'bg-indigo-500/85 dark:bg-indigo-400/75'
 }
+
+const CHART_H = 128
 
 export function ShiftSleepOverviewCard({
   totalMinutes,
@@ -195,14 +187,11 @@ export function ShiftSleepOverviewCard({
   onLogSleep,
   onSyncWearable,
   editLogsHref,
+  sevenDayBars,
+  highlightDateKey = null,
 }: ShiftSleepOverviewCardProps) {
   const headline = getHeadline(totalMinutes, targetMinutes, shiftLabel)
   const subtext = getSubtext(totalMinutes, primaryMinutes, napMinutes, dominantType, sleepDebtMinutes, shiftLabel)
-  const rawPercent = targetMinutes > 0 ? Math.round((totalMinutes / targetMinutes) * 100) : 0
-  const displayPercent = Math.max(0, Math.min(999, rawPercent))
-  const cappedPercent = Math.max(0, Math.min(100, rawPercent))
-  const angle = (cappedPercent / 100) * 360
-  const ringColor = getRingColor(totalMinutes, targetMinutes)
   const chipTone = getChipTone(totalMinutes, targetMinutes)
   const syncAgeMs = lastSyncAt ? Date.now() - lastSyncAt : Number.POSITIVE_INFINITY
   const wearableStale = hasWearableConnection && syncAgeMs > WEARABLE_STALE_MS
@@ -233,25 +222,81 @@ export function ShiftSleepOverviewCard({
     ? { label: 'Log manually', href: null as string | null, onClick: onLogSleep }
     : { label: totalMinutes > 0 ? 'Edit today' : 'Edit logs', href: editLogsHref, onClick: null as (() => void) | null }
 
+  const maxBarMinutes = Math.max(
+    targetMinutes,
+    ...sevenDayBars.map((b) => b.totalMinutes),
+    60,
+  )
+  const targetBarPx =
+    targetMinutes > 0 ? Math.min(CHART_H, Math.round((targetMinutes / maxBarMinutes) * CHART_H)) : 0
+  const chartSummary = sevenDayBars
+    .map((b) => `${b.dateKey}: ${(b.totalMinutes / 60).toFixed(1)}h`)
+    .join('; ')
+
   return (
     <section className="relative overflow-hidden rounded-[18px] border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_16px_36px_-24px_rgba(15,23,42,0.35)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
       <div className="relative z-10 flex flex-col items-center text-center gap-3.5">
-        <div
-          className="relative flex h-[176px] w-[176px] items-center justify-center rounded-full shadow-[inset_0_0_0_1px_rgba(255,255,255,0.9),0_10px_24px_-18px_rgba(15,23,42,0.55)]"
-          style={{ background: `conic-gradient(${ringColor} ${angle}deg, ${getRingTrackColor()} 0deg)` }}
-          aria-label={`${formatHoursMinutes(totalMinutes)} logged, ${displayPercent}% of target, target ${formatHoursMinutes(targetMinutes)}`}
-        >
-          <div className="h-[156px] w-[156px] rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)]" />
-          <div className="absolute h-[130px] w-[130px] rounded-full border border-dashed border-[var(--border-subtle)]" />
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-1">
-            <span className="text-[32px] font-semibold leading-none tracking-tight text-[var(--text-main)]">
-              {Math.floor(Math.max(0, totalMinutes) / 60)}
-              <span className="ml-[1px] align-top text-[17px] font-normal text-[var(--text-soft)]">h</span>{' '}
-              {Math.max(0, totalMinutes) % 60}
+        <div className="w-full space-y-2 text-left">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+              Last 7 shifted days
+            </p>
+            <p className="text-[11px] text-[var(--text-muted)]">07:00–07:00 · {(targetMinutes / 60).toFixed(1)}h target</p>
+          </div>
+          <div
+            className="relative flex h-[136px] w-full items-end gap-1 sm:gap-1.5"
+            role="img"
+            aria-label={`Sleep hours by shifted day. ${chartSummary}`}
+          >
+            {targetMinutes > 0 && targetBarPx > 0 && (
+              <div
+                className="pointer-events-none absolute left-0 right-0 z-10 border-t border-dashed border-emerald-500/55 dark:border-emerald-400/45"
+                style={{ bottom: `${targetBarPx}px` }}
+                aria-hidden
+              />
+            )}
+            {sevenDayBars.map((day) => {
+              const hPx =
+                day.totalMinutes <= 0
+                  ? 3
+                  : Math.max(8, Math.round((day.totalMinutes / maxBarMinutes) * CHART_H))
+              const isHi = highlightDateKey != null && day.dateKey === highlightDateKey
+              const label = new Date(`${day.dateKey}T12:00:00`).toLocaleDateString(undefined, {
+                weekday: 'short',
+              })
+              return (
+                <div
+                  key={day.dateKey}
+                  className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1"
+                >
+                  <div
+                    className={`w-full max-w-[36px] rounded-t-md shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition-[height] duration-300 dark:shadow-none ${barClasses(day.totalMinutes, targetMinutes)} ${
+                      isHi
+                        ? 'ring-2 ring-sky-500/80 ring-offset-2 ring-offset-[var(--card)] dark:ring-sky-400/70'
+                        : ''
+                    }`}
+                    style={{ height: hPx }}
+                    title={`${day.dateKey}: ${(day.totalMinutes / 60).toFixed(1)}h total sleep`}
+                  />
+                  <span className="w-full truncate text-center text-[10px] font-medium text-[var(--text-muted)]">
+                    {label}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-[var(--text-muted)]">
+            <span>
+              Selected day:{' '}
+              <span className="font-semibold text-[var(--text-main)]">{formatHoursMinutes(totalMinutes)}</span>
+              {targetMinutes > 0 ? (
+                <span className="text-[var(--text-soft)]">
+                  {' '}
+                  ({Math.min(999, Math.round((totalMinutes / targetMinutes) * 100))}% of target)
+                </span>
+              ) : null}
             </span>
-            <span className="text-xs font-medium text-[var(--text-soft)]">{displayPercent}% of target</span>
-            <span className="text-[11px] text-[var(--text-muted)]">Target {(targetMinutes / 60).toFixed(1)}h</span>
-            <span className="text-[11px] text-[var(--text-muted)]">{getSourceLabel(sourceSummary)}</span>
+            <span>{getSourceLabel(sourceSummary, totalMinutes)}</span>
           </div>
         </div>
 

@@ -11,6 +11,8 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { ShiftContextResult } from '@/lib/shift-context/types'
+import { jetlagExplanationWithShiftContext } from '@/lib/shift-context/jetlagNarrative'
 
 export type SocialJetlagCategory = "low" | "moderate" | "high"
 
@@ -98,7 +100,8 @@ function median(values: number[]): number {
  */
 export async function getSocialJetlagMetrics(
   supabase: SupabaseClient,
-  userId: string
+  userId: string,
+  shiftContext?: ShiftContextResult | null,
 ): Promise<SocialJetlagMetrics> {
   const now = new Date()
   const fourteenDaysAgo = new Date(now)
@@ -301,8 +304,11 @@ export async function getSocialJetlagMetrics(
     category = "high"
   }
 
-  // Generate explanation
-  const explanation = getExplanation(category, currentMisalignmentHours)
+  // Generate explanation (optionally layered with transition / upcoming-shift context)
+  const explanation = jetlagExplanationWithShiftContext(
+    getExplanation(category, currentMisalignmentHours),
+    shiftContext ?? null,
+  )
 
   return {
     currentMisalignmentHours: Math.round(currentMisalignmentHours * 10) / 10, // Round to 1 decimal

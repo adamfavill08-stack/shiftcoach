@@ -1,4 +1,5 @@
 import { calculateAdjustedCalories } from '@/lib/nutrition/calculateAdjustedCalories'
+import type { ShiftContextResult } from '@/lib/shift-context/types'
 import { getHydrationAndCaffeineTargets } from '@/lib/nutrition/getHydrationAndCaffeineTargets'
 import { getTodayHydrationIntake } from '@/lib/nutrition/getTodayHydrationIntake'
 import { toShiftType as toStandardShiftType, toShiftRhythmType } from '@/lib/shifts/toShiftType'
@@ -123,6 +124,8 @@ export async function buildShiftRhythmInputs(supabase: any, userId: string) {
     actual: mealTimingActual,
   }
 
+  const shiftContext: ShiftContextResult | null = adjustedCalories.shiftContext ?? null
+
   return {
     sleepLogs,
     shiftDays,
@@ -133,6 +136,7 @@ export async function buildShiftRhythmInputs(supabase: any, userId: string) {
       sleepHours:
         stepGoalRow?.sleep_goal_h ?? adjustedCalories.sleepHoursLast24h ?? DEFAULT_SLEEP_TARGET,
     },
+    shiftContext,
   }
 }
 

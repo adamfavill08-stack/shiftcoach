@@ -64,6 +64,8 @@ export type ShiftRhythmInputs = {
   targets?: {
     sleepHours?: number
   }
+  /** Present when inputs are built with `calculateAdjustedCalories` (ignored by scoring heuristics). */
+  shiftContext?: import('@/lib/shift-context/types').ShiftContextResult | null
 }
 
 export type ShiftRhythmScores = {

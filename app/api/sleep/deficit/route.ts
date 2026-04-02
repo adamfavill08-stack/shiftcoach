@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { calculateSleepDeficit } from '@/lib/sleep/calculateSleepDeficit'
+import { rowCountsAsPrimarySleep } from '@/lib/sleep/utils'
 
 // Cache for 30 seconds - sleep deficit updates when sleep is logged
 export const revalidate = 30
@@ -95,16 +96,7 @@ export async function GET(req: NextRequest) {
       byDay[key] = 0
     }
 
-    // Filter for main sleep sessions only (not naps) - similar to consistency API
-    const mainSleepLogs = weekLogs.filter((row: any) => {
-      if (row.type !== undefined) {
-        // New schema: type === 'sleep' or 'main'
-        return row.type === 'sleep' || row.type === 'main'
-      } else {
-        // Old schema: naps === 0 or null
-        return row.naps === 0 || row.naps === null || !row.naps
-      }
-    })
+    const mainSleepLogs = weekLogs.filter((row: any) => rowCountsAsPrimarySleep(row))
 
     // Aggregate sleep by day (only main sleep, not naps)
     for (const row of mainSleepLogs ?? []) {

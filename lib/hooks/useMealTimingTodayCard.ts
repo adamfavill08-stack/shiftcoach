@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useGoalChange } from '@/lib/hooks/useGoalChange'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 
 /** Payload from GET /api/meal-timing/today used by the home “Next meal window” card. */
 export type MealTimingTodayCardData = {
@@ -39,13 +40,16 @@ export function useMealTimingTodayCard() {
   const fetchMealTiming = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await fetch('/api/meal-timing/today', {
-        credentials: 'include',
+      const res = await authedFetch('/api/meal-timing/today', {
         cache: 'no-store',
       })
       if (!res.ok) {
         setData(null)
-        console.error('[useMealTimingTodayCard] meal-timing response:', res.status)
+        if (res.status === 401 || res.status === 403) {
+          console.warn('[useMealTimingTodayCard] meal-timing auth not ready', res.status)
+        } else {
+          console.error('[useMealTimingTodayCard] meal-timing response:', res.status)
+        }
         return
       }
       const json = await res.json()
