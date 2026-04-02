@@ -1,7 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useGoalChange } from '@/lib/hooks/useGoalChange'
+import { useShiftState } from '@/components/providers/shift-state-provider'
+import { applyUserShiftStateToMealTimingJson } from '@/lib/nutrition/applyUserShiftStateToMealTiming'
 import { authedFetch } from '@/lib/supabase/authedFetch'
 
 /** Payload from GET /api/meal-timing/today used by the home “Next meal window” card. */
@@ -10,6 +12,7 @@ export type MealTimingTodayCardData = {
   nextMealTime: string
   nextMealAt?: string | null
   nextMealType: string
+  nextMealSubtitle?: string | null
   nextMealMacros: { protein: number; carbs: number; fats: number }
   shiftLabel: string
   shiftType: 'day' | 'night' | 'late' | 'off'
@@ -27,15 +30,38 @@ export type MealTimingTodayCardData = {
     windowLabel: string
     calories: number
     hint: string
+    subtitle?: string
     macros: { protein: number; carbs: number; fats: number }
+    /** Template label (e.g. "Dinner") when `label` is a shift-coach reason. */
+    categoryLabel?: string
   }>
+  mealPlanInputs?: {
+    shiftType: 'day' | 'night' | 'late' | 'off'
+    shiftStartIso: string | null
+    shiftEndIso: string | null
+    wakeTimeIso: string | null
+    expectedSleepHours?: number
+    loggedWakeAfterShiftIso?: string | null
+  }
   sleepContext: string
   activityContext: string
 }
 
 export function useMealTimingTodayCard() {
-  const [data, setData] = useState<MealTimingTodayCardData | null>(null)
+  const { userShiftState } = useShiftState()
+  const [apiRaw, setApiRaw] = useState<MealTimingTodayCardData | null>(null)
   const [loading, setLoading] = useState(true)
+
+  const data = useMemo(
+    () =>
+      apiRaw
+        ? (applyUserShiftStateToMealTimingJson(
+            apiRaw as unknown as Record<string, unknown>,
+            userShiftState,
+          ) as MealTimingTodayCardData)
+        : null,
+    [apiRaw, userShiftState],
+  )
 
   const fetchMealTiming = useCallback(async () => {
     try {
@@ -44,7 +70,7 @@ export function useMealTimingTodayCard() {
         cache: 'no-store',
       })
       if (!res.ok) {
-        setData(null)
+        setApiRaw(null)
         if (res.status === 401 || res.status === 403) {
           console.warn('[useMealTimingTodayCard] meal-timing auth not ready', res.status)
         } else {
@@ -54,13 +80,13 @@ export function useMealTimingTodayCard() {
       }
       const json = await res.json()
       if (json.error) {
-        setData(null)
+        setApiRaw(null)
         return
       }
-      setData(json)
+      setApiRaw(json as MealTimingTodayCardData)
     } catch (err) {
       console.error('[useMealTimingTodayCard] Failed to fetch meal timing:', err)
-      setData(null)
+      setApiRaw(null)
     } finally {
       setLoading(false)
     }
@@ -80,6 +106,12 @@ export function useMealTimingTodayCard() {
     return () => {
       window.removeEventListener('profile-updated', handleProfileUpdate)
     }
+  }, [fetchMealTiming])
+
+  useEffect(() => {
+    const onSleepRefreshed = () => fetchMealTiming()
+    window.addEventListener('sleep-refreshed', onSleepRefreshed)
+    return () => window.removeEventListener('sleep-refreshed', onSleepRefreshed)
   }, [fetchMealTiming])
 
   useEffect(() => {

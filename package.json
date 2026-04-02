@@ -40,14 +40,15 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "cross-env": "^7.0.3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "critters": "^0.0.23",
+    "cross-env": "^7.0.3",
     "eslint": "^9",
     "eslint-config-next": "^16.1.7",
+    "happy-dom": "^20.8.9",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.4"

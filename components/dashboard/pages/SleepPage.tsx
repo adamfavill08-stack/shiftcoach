@@ -7,6 +7,7 @@ import { Sleep7DayBars } from "@/components/sleep/Sleep7DayBars";
 import { useRouter } from "next/navigation";
 import { SleepDeficitCard } from "@/components/dashboard/SleepDeficitCard";
 import type { SleepLogInput } from "@/lib/sleep/types";
+import { notifySleepLogsUpdated } from "@/lib/circadian/circadianAgent";
 
 function ShellCard({
   children,
@@ -746,6 +747,8 @@ export default function SleepPage() {
         const errorData = await res.json().catch(() => ({ error: 'Failed to save sleep' }))
         throw new Error(errorData.error || 'Failed to save sleep')
       }
+
+      notifySleepLogsUpdated()
 
       // Refresh the page data
       router.refresh()

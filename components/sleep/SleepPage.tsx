@@ -9,6 +9,7 @@ import type { SleepType } from '@/lib/sleep/predictSleep';
 import { DeleteSleepConfirmModal } from "@/components/sleep/DeleteSleepConfirmModal";
 import { useRouter } from "next/navigation";
 import type { SleepLogInput } from '@/lib/sleep/types';
+import { notifySleepLogsUpdated } from '@/lib/circadian/circadianAgent';
 
 // Lazy-load heavier visual components so the initial Sleep page bundle stays small
 const CombinedSleepMetricsCard = dynamic(
@@ -580,6 +581,8 @@ export default function SleepPage() {
         const errorData = await res.json().catch(() => ({ error: 'Failed to save sleep' }))
         throw new Error(errorData.error || 'Failed to save sleep')
       }
+
+      notifySleepLogsUpdated()
 
       // Refresh the page data
       router.refresh()

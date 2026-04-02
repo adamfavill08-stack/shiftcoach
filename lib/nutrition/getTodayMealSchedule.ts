@@ -1,3 +1,10 @@
+import {
+  isMorningNightShiftEndLocal,
+  mealFallsInExpectedSleepWindow,
+  NO_MEAL_MS_AFTER_NIGHT_SHIFT_END,
+  pickLoggedWakeAfterMorningShiftEnd,
+} from '@/lib/nutrition/nightShiftMorningEndMeals'
+
 export type MealSlotId =
   | 'breakfast'
   | 'preShift'
@@ -15,6 +22,8 @@ export type MealSlot = {
   windowLabel: string
   caloriesTarget: number
   hint: string
+  /** Extra line under the label (e.g. wake assumption for night-shift morning ends). */
+  subtitle?: string
 }
 
 /** Which branch of the meal planner actually ran (may differ from requested shift when times are missing). */
@@ -26,6 +35,10 @@ export function getTodayMealSchedule(opts: {
   shiftStart?: Date
   shiftEnd?: Date
   wakeTime: Date
+  /** Used when night shift ends early morning; from profile + recent sleep averages. */
+  expectedSleepHours?: number
+  /** Latest logged sleep end if it qualifies as wake after this shift end (early-morning night end only). */
+  loggedWakeAfterShift?: Date | null
 }): { slots: MealSlot[]; templateUsed: MealScheduleTemplate } {
   const total = Math.max(1200, Math.round(opts.adjustedCalories || 0))
   const toKcal = (pct: number) => Math.round(total * pct)
@@ -85,15 +98,62 @@ export function getTodayMealSchedule(opts: {
     const early = addH(start, 2)
     const bodyNight = new Date(pre)
     bodyNight.setHours(2, 0, 0, 0)
-    const post = addH(end, 1)
-    const daySnack = addH(post, 6)
-    slots.push(
-      { id: 'preShift', label: 'Pre‑shift meal', time: pre, windowLabel: window(pre, 1), caloriesTarget: toKcal(0.35), hint: 'Largest before shift' },
-      { id: 'midShift', label: 'Early‑shift snack', time: early, windowLabel: window(early, 0.75), caloriesTarget: toKcal(0.25), hint: 'Keep steady' },
-      { id: 'nightSnack', label: 'Body‑night snack', time: bodyNight, windowLabel: window(bodyNight, 0.5), caloriesTarget: toKcal(0.10), hint: 'Very light' },
-      { id: 'postShiftBreakfast', label: 'Post‑shift breakfast', time: post, windowLabel: window(post, 1), caloriesTarget: toKcal(0.20), hint: 'Before sleep' },
-      { id: 'daySnack', label: 'Day snack (optional)', time: daySnack, windowLabel: window(daySnack, 0.5), caloriesTarget: toKcal(0.10), hint: 'Only if needed' },
-    )
+
+    if (isMorningNightShiftEndLocal(end)) {
+      const sleepH = Math.min(14, Math.max(4, opts.expectedSleepHours ?? 7.5))
+      const loggedWake = pickLoggedWakeAfterMorningShiftEnd(end, opts.loggedWakeAfterShift ?? null)
+      const expectedWake = new Date(end.getTime() + sleepH * 60 * 60 * 1000)
+      const wakeAt = loggedWake ?? expectedWake
+      const postSubtitle = loggedWake
+        ? `Using your logged wake · ${fmt(loggedWake)}`
+        : `Assumes ~${sleepH}h sleep · wake ~${fmt(expectedWake)}`
+
+      const wakeMealKcal = toKcal(0.20)
+      const snackKcal = toKcal(0.10)
+
+      const optionalSnackTime = addH(wakeAt, 3.5)
+      const optionalInSleep = mealFallsInExpectedSleepWindow(optionalSnackTime, end, wakeAt)
+      const optionalTooSoon = optionalSnackTime.getTime() <= end.getTime() + NO_MEAL_MS_AFTER_NIGHT_SHIFT_END
+
+      const includeDaySnack = !optionalInSleep && !optionalTooSoon
+      const postCalories = includeDaySnack ? wakeMealKcal : wakeMealKcal + snackKcal
+
+      slots.push(
+        { id: 'preShift', label: 'Pre‑shift meal', time: pre, windowLabel: window(pre, 1), caloriesTarget: toKcal(0.35), hint: 'Largest before shift' },
+        { id: 'midShift', label: 'Early‑shift snack', time: early, windowLabel: window(early, 0.75), caloriesTarget: toKcal(0.25), hint: 'Keep steady' },
+        { id: 'nightSnack', label: 'Body‑night snack', time: bodyNight, windowLabel: window(bodyNight, 0.5), caloriesTarget: toKcal(0.10), hint: 'Very light' },
+        {
+          id: 'postShiftBreakfast',
+          label: 'Wake-up meal',
+          time: wakeAt,
+          windowLabel: window(wakeAt, 1),
+          caloriesTarget: postCalories,
+          hint: 'First meal after sleep — protein, fluids, gentle carbs',
+          subtitle: postSubtitle,
+        },
+      )
+
+      if (includeDaySnack) {
+        slots.push({
+          id: 'daySnack',
+          label: 'Day snack (optional)',
+          time: optionalSnackTime,
+          windowLabel: window(optionalSnackTime, 0.5),
+          caloriesTarget: snackKcal,
+          hint: 'Only if needed',
+        })
+      }
+    } else {
+      const post = addH(end, 1)
+      const daySnack = addH(post, 6)
+      slots.push(
+        { id: 'preShift', label: 'Pre‑shift meal', time: pre, windowLabel: window(pre, 1), caloriesTarget: toKcal(0.35), hint: 'Largest before shift' },
+        { id: 'midShift', label: 'Early‑shift snack', time: early, windowLabel: window(early, 0.75), caloriesTarget: toKcal(0.25), hint: 'Keep steady' },
+        { id: 'nightSnack', label: 'Body‑night snack', time: bodyNight, windowLabel: window(bodyNight, 0.5), caloriesTarget: toKcal(0.10), hint: 'Very light' },
+        { id: 'postShiftBreakfast', label: 'Post‑shift breakfast', time: post, windowLabel: window(post, 1), caloriesTarget: toKcal(0.20), hint: 'Before sleep' },
+        { id: 'daySnack', label: 'Day snack (optional)', time: daySnack, windowLabel: window(daySnack, 0.5), caloriesTarget: toKcal(0.10), hint: 'Only if needed' },
+      )
+    }
   } else if (opts.shiftType === 'late' && start && end) {
     templateUsed = 'late'
     const pre = addH(wake, 0.5)

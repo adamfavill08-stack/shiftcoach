@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Inter } from "next/font/google";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Info, X, Clock, UtensilsCrossed, AlertCircle, Sparkles, MessageSquareText, Footprints, Timer, Flame, Heart, Droplet } from "lucide-react";
+import { ChevronRight, Info, X, Clock, UtensilsCrossed, AlertCircle, Sparkles, MessageSquareText, Footprints, Timer, Flame, Heart, Droplet, ArrowUp, ArrowDown, Minus } from "lucide-react";
 import { useGoalChange } from "@/lib/hooks/useGoalChange";
 import { useMealTimingTodayCard, type MealTimingTodayCardData } from "@/lib/hooks/useMealTimingTodayCard";
 import { NextMealWindowCard } from "@/components/nutrition/NextMealWindowCard";
@@ -19,12 +19,21 @@ import { useTranslation } from "@/components/providers/language-provider";
 import { ExploreCarousel } from "@/components/dashboard/ExploreCarousel";
 import type { FatigueRiskResult } from "@/lib/fatigue/calculateFatigueRisk";
 import { authedFetch } from "@/lib/supabase/authedFetch";
+import { useShiftState } from "@/components/providers/shift-state-provider";
+import { useCircadianState } from "@/components/providers/circadian-state-provider";
+import { applyUserShiftStateToMealTimingJson } from "@/lib/nutrition/applyUserShiftStateToMealTiming";
+import { useTransitionPlanPanelPresence } from "@/lib/hooks/useTransitionPlanPanelPresence";
 
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
+import type { CircadianState } from '@/lib/circadian/calculateCircadianScore'
 import type { ShiftLagMetrics } from '@/lib/circadian/calculateShiftLag'
 import type { HeartRateApiStatus } from '@/lib/wearables/heartRateApi'
 
 const inter = Inter({ subsets: ["latin"] });
+
+/** Same surface as other dashboard tiles (e.g. adjusted calories). */
+const dashboardTileClassName =
+  "w-full rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 text-left shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]";
 
 type ShiftRhythmCardProps = {
   // Dashboard passes score as 0–1000 (totalScore * 10) or undefined
@@ -74,13 +83,13 @@ function ShiftRhythmCard({
 }: ShiftRhythmCardProps) {
   const { t } = useTranslation();
   const router = useRouter();
-  // Use circadian phase if available, otherwise fall back to normalized score
-  const displayScore = circadian?.circadianPhase ?? normalizeScore(score);
-  const inSync = displayScore >= 70;
+  const { circadianState, isLoading: circadianAgentLoading } = useCircadianState();
+  const legacyDisplayScore = circadian?.circadianPhase ?? normalizeScore(score);
+  const displayScore =
+    circadianState != null ? circadianState.score : legacyDisplayScore;
   const [mood, setMood] = useState<number>(3);
   const [focus, setFocus] = useState<number>(3);
   const [isLoadingMood, setIsLoadingMood] = useState(true);
-  const [lastWearableSync, setLastWearableSync] = useState<number | null>(null);
   const [showSecondaryCards, setShowSecondaryCards] = useState(false);
 
   // Defer secondary cards by one frame so primary dashboard content paints first.
@@ -90,51 +99,6 @@ function ShiftRhythmCard({
     });
     return () => cancelAnimationFrame(id);
   }, []);
-
-  // Load last wearable sync time and listen for sync events
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const loadFromStorage = () => {
-      const ts = window.localStorage.getItem("wearables:lastSyncedAt");
-      if (ts) {
-        const n = Number(ts);
-        if (!Number.isNaN(n)) setLastWearableSync(n);
-      }
-    };
-
-    loadFromStorage();
-
-    const handleSynced = (e: Event) => {
-      const detailTs = (e as CustomEvent).detail?.ts as number | undefined;
-      if (detailTs && typeof detailTs === "number") {
-        setLastWearableSync(detailTs);
-      } else {
-        loadFromStorage();
-      }
-    };
-
-    window.addEventListener("wearables-synced", handleSynced as EventListener);
-
-    return () => {
-      window.removeEventListener(
-        "wearables-synced",
-        handleSynced as EventListener
-      );
-    };
-  }, []);
-
-  const wearableLastSyncLabel = useMemo(() => {
-    if (!lastWearableSync) return t("dashboard.lastSync.notYet");
-    const diffMs = Date.now() - lastWearableSync;
-    const diffMin = Math.round(diffMs / 60000);
-    if (diffMin < 2) return t("dashboard.lastSync.justNow");
-    if (diffMin < 60) return t("dashboard.lastSync.minAgo").replace("{n}", String(diffMin));
-    const diffH = Math.round(diffMin / 60);
-    if (diffH < 24) return t("dashboard.lastSync.hAgo").replace("{n}", String(diffH));
-    const diffD = Math.round(diffH / 24);
-    return diffD > 1 ? t("dashboard.lastSync.daysAgo").replace("{n}", String(diffD)) : t("dashboard.lastSync.dayAgo").replace("{n}", String(diffD));
-  }, [lastWearableSync, t]);
 
   // Fetch current mood and focus values
   useEffect(() => {
@@ -249,9 +213,10 @@ function ShiftRhythmCard({
       {/* MAIN BODY CLOCK CARD */}
       <BodyClockCard
         score={displayScore}
-        inSync={inSync}
+        legacyScore={legacyDisplayScore}
         circadian={circadian}
-        wearableLastSyncLabel={wearableLastSyncLabel}
+        circadianState={circadianState}
+        circadianAgentLoading={circadianAgentLoading}
         hasRhythmData={hasRhythmData}
         onOpenBodyClock={() => router.push("/body-clock")}
       />
@@ -351,54 +316,107 @@ function normalizeScore(score?: number) {
   return Math.min(Math.max(scaled, 0), 100);
 }
 
+function formatSleepMidpointOffsetLabel(offsetHours: number): string {
+  const abs = Math.round(Math.abs(offsetHours) * 10) / 10;
+  if (abs < 0.05) return "Near biological anchor (03:00)";
+  if (offsetHours > 0) return `${abs} hour${abs === 1 ? "" : "s"} delayed`;
+  return `${abs} hour${abs === 1 ? "" : "s"} advanced`;
+}
+
 /* -------------------- MAIN BODY CLOCK CARD -------------------- */
 
 function BodyClockCard({
   score,
-  inSync,
+  legacyScore,
   circadian,
-  wearableLastSyncLabel,
+  circadianState,
+  circadianAgentLoading,
   hasRhythmData,
   onOpenBodyClock,
 }: {
   score: number;
-  inSync: boolean;
+  legacyScore: number;
   circadian?: CircadianOutput | null;
-  wearableLastSyncLabel: string;
+  circadianState: CircadianState | null;
+  circadianAgentLoading: boolean;
   hasRhythmData?: boolean;
   onOpenBodyClock: () => void;
 }) {
   const { t } = useTranslation();
-  const noData = hasRhythmData === false || (!circadian && score <= 0);
-  const capped = Math.max(0, Math.min(100, score));
+  const useAgent = circadianState != null;
+  const fallbackNoData =
+    hasRhythmData === false || (!circadian && legacyScore <= 0);
+  const noData = useAgent ? false : fallbackNoData;
+  const capped = Math.max(0, Math.min(100, useAgent ? circadianState!.score : score));
 
   const statusLabel = useMemo(() => {
+    if (useAgent) return circadianState!.status;
     if (noData) return "Learning your rhythm";
     if (capped >= 80) return "Well aligned";
     if (capped >= 65) return "Slightly out of sync";
     return "Misaligned";
-  }, [capped, noData]);
-
-  const explanation = useMemo(() => {
-    if (noData) return "Log sleep and shift patterns to unlock your circadian guidance.";
-    if (capped >= 80) return "Your rhythm is stable and closely aligned to your current schedule.";
-    if (capped >= 65) return "Your body clock is adapting after recent shift timing changes.";
-    return "Your current sleep and shift timing are misaligning your body clock.";
-  }, [capped, noData]);
-
-  const scoreDescription = useMemo(() => {
-    if (noData) return "Score updates after a few days of sleep and shift logs.";
-    return `${Math.round(capped)}/100 estimates how aligned your circadian rhythm is today.`;
-  }, [capped, noData]);
+  }, [useAgent, circadianState, noData, capped]);
 
   const predictive = useMemo(() => {
+    if (useAgent) {
+      return {
+        peak: circadianState!.peakAlertnessTime,
+        low: circadianState!.lowEnergyTime,
+      };
+    }
     if (noData) {
       return { peak: "Peak alertness pending", low: "Low energy window pending" };
     }
-    if (capped >= 80) return { peak: "Peak alertness at 10:30", low: "Low energy expected at 02:30" };
-    if (capped >= 65) return { peak: "Peak alertness at 19:30", low: "Low energy expected at 03:00" };
-    return { peak: "Peak alertness at 21:00", low: "Low energy expected at 04:00" };
-  }, [capped, noData]);
+    if (capped >= 80) return { peak: "10:30", low: "02:30" };
+    if (capped >= 65) return { peak: "19:30", low: "03:00" };
+    return { peak: "21:00", low: "04:00" };
+  }, [useAgent, circadianState, noData, capped]);
+
+  const trendForGauge = useAgent ? circadianState!.trend : null;
+
+  const statusColorClass = useMemo(() => {
+    if (!useAgent) {
+      return noData ? "text-slate-500" : capped >= 80 ? "text-emerald-600" : capped >= 65 ? "text-amber-600" : "text-rose-600";
+    }
+    const s = circadianState!.score;
+    if (s >= 75) return "text-emerald-600";
+    if (s >= 55) return "text-amber-600";
+    return "text-rose-600";
+  }, [useAgent, circadianState, noData, capped]);
+
+  const breakdownRows = useMemo(() => {
+    if (!useAgent || !circadianState) return null;
+    const b = circadianState.scoreBreakdown;
+    const rows: { key: string; line: string }[] = [
+      {
+        key: "mid",
+        line: `Sleep midpoint offset: ${formatSleepMidpointOffsetLabel(circadianState.sleepMidpointOffset)} vs 03:00 anchor`,
+      },
+    ];
+    if (b.driftPenalty > 0 && circadianState.consecutiveMisalignedDays > 0) {
+      rows.push({
+        key: "drift",
+        line: `${circadianState.consecutiveMisalignedDays} consecutive day${
+          circadianState.consecutiveMisalignedDays === 1 ? "" : "s"
+        } misaligned — drift penalty −${b.driftPenalty} pts`,
+      });
+    }
+    if (b.recoveryBonus > 0) {
+      rows.push({
+        key: "rec",
+        line: `Recovery trajectory bonus +${b.recoveryBonus} pts`,
+      });
+    }
+    if (b.shiftFitBonus > 0) {
+      rows.push({
+        key: "fit",
+        line: circadianState.adaptedPattern
+          ? `Adapted pattern (stable timing ≥7d) +${b.shiftFitBonus} pts`
+          : `Shift / timing fit +${b.shiftFitBonus} pts`,
+      });
+    }
+    return rows;
+  }, [useAgent, circadianState]);
 
   return (
     <button
@@ -409,37 +427,62 @@ function BodyClockCard({
     >
       <section
         className={[
-          "relative overflow-hidden rounded-3xl",
+          "relative overflow-visible rounded-3xl",
           "bg-transparent",
-          "text-slate-900 dark:text-slate-100",
+          "text-[var(--text-main)]",
           "p-4 pb-2",
         ].join(" ")}
       >
-        <div className="relative z-10 flex w-full flex-col items-center text-center gap-4">
-          {/* Main circular gauge */}
-          <CircadianGauge score={score} />
+        <div className="relative z-10 flex w-full flex-col items-center text-center gap-6">
+          <CircadianGauge score={score} trend={trendForGauge} />
 
-          {/* Status + explanation */}
-          <div className="space-y-2 max-w-xs">
-            <h3 className={`text-[18px] font-semibold tracking-tight text-black ${inter.className}`}>
+          <div className="mt-10 space-y-2 max-w-xs">
+            <h3 className={`text-[18px] font-semibold tracking-tight text-[var(--text-main)] ${inter.className}`}>
               Circadian Rhythm
             </h3>
-            <p
-              className={`text-sm font-medium ${
-                noData ? "text-slate-500" : capped >= 80 ? "text-emerald-600" : capped >= 65 ? "text-amber-600" : "text-rose-600"
-              }`}
-            >
-              {statusLabel}
+            <p className={`text-sm font-medium ${statusColorClass} ${inter.className}`}>{statusLabel}</p>
+            {useAgent && circadianState!.dataQuality === "insufficient" ? (
+              <p
+                className={`text-xs text-amber-700 dark:text-amber-400 text-left ${inter.className}`}
+              >
+                Limited sleep logs in the last 14 days — this score is preliminary. Log more nights for a
+                reliable reading.
+              </p>
+            ) : null}
+            {useAgent && circadianState!.dataQuality === "partial" ? (
+              <p className={`text-xs text-[var(--text-muted)] text-left ${inter.className}`}>
+                Partial data (2–4 sleep logs in 14 days). More logs will refine this score.
+              </p>
+            ) : null}
+            {!useAgent && circadianAgentLoading ? (
+              <p className={`text-xs text-[var(--text-muted)] ${inter.className}`}>Updating circadian score…</p>
+            ) : null}
+          </div>
+
+          {breakdownRows && breakdownRows.length > 0 ? (
+            <div className={dashboardTileClassName}>
+              <p className={`text-sm font-semibold text-[var(--text-main)] ${inter.className}`}>Score factors</p>
+              <ul className={`mt-3 space-y-2 text-base text-[var(--text-soft)] leading-snug ${inter.className}`}>
+                {breakdownRows.map((r) => (
+                  <li key={r.key} className="leading-snug">
+                    {r.line}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          <div className={dashboardTileClassName}>
+            <p className={`text-sm font-semibold text-[var(--text-main)] ${inter.className}`}>
+              Circadian forecast
+            </p>
+            <p className={`mt-3 text-base font-medium text-[var(--text-soft)] leading-snug ${inter.className}`}>
+              Peak alertness — {predictive.peak}
+            </p>
+            <p className={`mt-2 text-base text-[var(--text-soft)] leading-snug ${inter.className}`}>
+              Low energy — {predictive.low}
             </p>
           </div>
-
-          {/* Predictive circadian insights */}
-          <div className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-4 py-3 text-left shadow-[0_4px_12px_rgba(15,23,42,0.04)]">
-            <p className={`text-sm font-semibold tracking-[0.08em] text-black ${inter.className}`}>Circadian forcast</p>
-            <p className="mt-2 text-xs font-medium text-slate-700">🟢 Peak alertness — 19:30</p>
-            <p className="mt-1 text-xs text-slate-700">🔵 Low energy — 03:00</p>
-          </div>
-
         </div>
       </section>
     </button>
@@ -1532,16 +1575,32 @@ function CircadianPhaseDial() {
 
 /* -------------------- CIRCadian GAUGE -------------------- */
 
-function CircadianGauge({ score }: { score: number }) {
-  const size = 208; // h-52 = 208px
-  const radius = 94;
-  const stroke = 12;
-  const [nowTs, setNowTs] = useState(() => Date.now());
-  const [isDark, setIsDark] = useState(false);
-  const normalizedRadius = radius - stroke / 2;
+/** Portrait base art (`Body.svg`); ring is overlaid in the centre. Path: `public/assets/circadian-body-base.svg`. */
+const CIRCADIAN_BODY_BASE_SRC = "/assets/circadian-body-base.svg";
+
+function CircadianGauge({
+  score,
+  trend,
+}: {
+  score: number;
+  trend?: "improving" | "stable" | "declining" | null;
+}) {
+  /** Taller slot + zoomed art so the silhouette fills the area (not a small figure in gray margin). */
+  const portraitH = 280;
+  const portraitW = Math.round((portraitH * 810) / 1440);
+  const ringPx = 158;
+
+  const stroke = 15;
+  const normalizedRadius = 76;
+  const vb = 200;
+  const cx = vb / 2;
+  const cy = vb / 2;
   const circumference = normalizedRadius * 2 * Math.PI;
   const capped = Math.min(Math.max(score, 0), 100);
   const offset = circumference * (1 - capped / 100);
+
+  const [nowTs, setNowTs] = useState(() => Date.now());
+  const [isDark, setIsDark] = useState(false);
   useEffect(() => {
     const intervalId = window.setInterval(() => {
       setNowTs(Date.now());
@@ -1557,163 +1616,150 @@ function CircadianGauge({ score }: { score: number }) {
     observer.observe(root, { attributes: true, attributeFilter: ["class"] });
     return () => observer.disconnect();
   }, []);
+
   const now = new Date(nowTs);
   const minutesOfDay = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
-  // Orient dial with 12:00 at top, 18:00 right, 00:00 bottom, 06:00 left
   const markerAngleDeg = (minutesOfDay / 1440) * 360 + 90;
-  const markerX = size / 2 + normalizedRadius * Math.cos((markerAngleDeg * Math.PI) / 180);
-  const markerY = size / 2 + normalizedRadius * Math.sin((markerAngleDeg * Math.PI) / 180);
+  const markerX = cx + normalizedRadius * Math.cos((markerAngleDeg * Math.PI) / 180);
+  const markerY = cy + normalizedRadius * Math.sin((markerAngleDeg * Math.PI) / 180);
   const alignmentStroke =
-    capped >= 80 ? "#22c55e" : capped >= 65 ? "#f59e0b" : "#ef4444"; // green / orange / red
-  const nightDash = circumference * 0.22; // subtle 22% arc for night/rest window
+    capped >= 80 ? "#22c55e" : capped >= 65 ? "#f59e0b" : "#ef4444";
+  const nightDash = circumference * 0.22;
   const dayDash = circumference - nightDash;
-  const nightOffset = circumference * 0.18; // position rest arc toward lower-right
+  const nightOffset = circumference * 0.18;
   const trackStart = isDark ? "#3a3a40" : "#E7E5E4";
   const trackEnd = isDark ? "#2c2c31" : "#D6D3D1";
-  const bezelStroke = isDark ? "#3a3a40" : "#D6D3D1";
-  const tickStroke = isDark ? "#8b8b94" : "#A8A29E";
-  const centerFill = isDark ? "#17171b" : "#f2f1f0";
+  const centerFill = isDark ? "rgba(23,23,27,0.42)" : "rgba(255,255,255,0.38)";
   const centerText = isDark ? "#f3f4f6" : "#0f172a";
   const centerHalo = isDark
-    ? "pointer-events-none absolute h-32 w-32 rounded-full border border-white/10 bg-white/5 blur-[1px]"
-    : "pointer-events-none absolute h-32 w-32 rounded-full border border-slate-300/35 bg-slate-200/20 blur-[1px]";
+    ? "pointer-events-none absolute h-[7.25rem] w-[7.25rem] rounded-full border border-white/10 bg-black/20 blur-[2px]"
+    : "pointer-events-none absolute h-[7.25rem] w-[7.25rem] rounded-full border border-white/50 bg-white/25 blur-[1px]";
 
   return (
-    <div className="relative flex h-52 w-52 items-center justify-center">
-      <svg
-        height={size}
-        width={size}
-        viewBox={`0 0 ${size} ${size}`}
-        className="block"
-      >
-        <defs>
-          <linearGradient id="trackGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={trackStart} />
-            <stop offset="100%" stopColor={trackEnd} />
-          </linearGradient>
-          <filter id="activeArcGlow" x="-22%" y="-22%" width="144%" height="144%">
-            <feGaussianBlur stdDeviation="1.6" result="blur">
-              <animate
-                attributeName="stdDeviation"
-                values="1.45;1.85;1.45"
-                dur="7s"
-                repeatCount="indefinite"
-              />
-            </feGaussianBlur>
-            <feColorMatrix
-              in="blur"
-              type="matrix"
-              values="1 0 0 0 0
-                      0 1 0 0 0
-                      0 0 1 0 0
-                      0 0 0 0.28 0"
-              result="glow"
-            />
-            <feMerge>
-              <feMergeNode in="glow" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          <filter id="nowMarkerShadow" x="-120%" y="-120%" width="340%" height="340%">
-            <feDropShadow dx="0" dy="1.1" stdDeviation="1.2" floodColor={isDark ? "#000000" : "#0f172a"} floodOpacity={isDark ? "0.5" : "0.22"} />
-          </filter>
-        </defs>
+    <div className="relative shrink-0 overflow-visible bg-transparent" style={{ width: portraitW, height: portraitH }}>
+      <img
+        src={CIRCADIAN_BODY_BASE_SRC}
+        alt=""
+        width={portraitW}
+        height={portraitH}
+        decoding="async"
+        className="pointer-events-none absolute left-1/2 top-1/2 min-h-full min-w-full -translate-x-1/2 -translate-y-1/2 scale-[1.72] object-cover object-[50%_38%]"
+        aria-hidden
+      />
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="relative" style={{ width: ringPx, height: ringPx }}>
+          <svg width={ringPx} height={ringPx} viewBox={`0 0 ${vb} ${vb}`} className="block" aria-hidden>
+            <defs>
+              <linearGradient id="circadianBodyTrackGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor={trackStart} />
+                <stop offset="100%" stopColor={trackEnd} />
+              </linearGradient>
+              <radialGradient id="circadianBodyInnerDial" cx="38%" cy="32%" r="72%">
+                <stop
+                  offset="0%"
+                  stopColor={isDark ? "rgba(60,60,68,0.65)" : "rgba(255,255,255,0.75)"}
+                />
+                <stop offset="100%" stopColor={centerFill} />
+              </radialGradient>
+              <filter id="circadianBodyActiveGlow" x="-22%" y="-22%" width="144%" height="144%">
+                <feGaussianBlur stdDeviation="1.6" result="blur">
+                  <animate
+                    attributeName="stdDeviation"
+                    values="1.45;1.85;1.45"
+                    dur="7s"
+                    repeatCount="indefinite"
+                  />
+                </feGaussianBlur>
+                <feColorMatrix
+                  in="blur"
+                  type="matrix"
+                  values="1 0 0 0 0
+                          0 1 0 0 0
+                          0 0 1 0 0
+                          0 0 0 0.28 0"
+                  result="glow"
+                />
+                <feMerge>
+                  <feMergeNode in="glow" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+              <filter id="circadianBodyNowMarker" x="-120%" y="-120%" width="340%" height="340%">
+                <feDropShadow
+                  dx="0"
+                  dy="1.1"
+                  stdDeviation="1.2"
+                  floodColor={isDark ? "#000000" : "#0f172a"}
+                  floodOpacity={isDark ? "0.5" : "0.22"}
+                />
+              </filter>
+            </defs>
 
-        {/* Background track */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={normalizedRadius + stroke / 2 + 3}
-          fill="none"
-          stroke={bezelStroke}
-          strokeOpacity={0.75}
-          strokeWidth={1.5}
-        />
-        {Array.from({ length: 12 }).map((_, i) => {
-          const isCardinalTick = i % 3 === 0; // 00 / 06 / 12 / 18 anchors
-          const angle = (i / 12) * Math.PI * 2 - Math.PI / 2;
-          const rOuter = normalizedRadius + stroke / 2 + 6.5;
-          const rInner = rOuter - (isCardinalTick ? 4.8 : 2.8);
-          const x1 = size / 2 + rInner * Math.cos(angle);
-          const y1 = size / 2 + rInner * Math.sin(angle);
-          const x2 = size / 2 + rOuter * Math.cos(angle);
-          const y2 = size / 2 + rOuter * Math.sin(angle);
-          return (
-            <line
-              key={`minute-marker-${i}`}
-              x1={x1}
-              y1={y1}
-              x2={x2}
-              y2={y2}
-              stroke={tickStroke}
-              strokeOpacity={isCardinalTick ? 0.88 : 0.34}
-              strokeWidth={isCardinalTick ? 1.35 : 0.8}
+            <circle
+              cx={cx}
+              cy={cy}
+              r={normalizedRadius}
+              fill="url(#circadianBodyInnerDial)"
+              stroke="url(#circadianBodyTrackGradient)"
+              strokeWidth={stroke}
+            />
+            <circle
+              cx={cx}
+              cy={cy}
+              r={normalizedRadius}
+              fill="none"
+              stroke="#3b82f6"
+              strokeOpacity={0.45}
+              strokeWidth={stroke}
               strokeLinecap="round"
+              strokeDasharray={`${nightDash} ${dayDash}`}
+              strokeDashoffset={-nightOffset}
+              transform={`rotate(-90 ${cx} ${cy})`}
             />
-          );
-        })}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={normalizedRadius}
-          fill={centerFill}
-          stroke="url(#trackGradient)"
-          strokeWidth={stroke}
-        />
+            <circle
+              cx={cx}
+              cy={cy}
+              r={normalizedRadius}
+              fill="none"
+              stroke={alignmentStroke}
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={offset}
+              filter="url(#circadianBodyActiveGlow)"
+              transform={`rotate(-90 ${cx} ${cy})`}
+            />
+            <circle
+              cx={markerX}
+              cy={markerY}
+              r={7.5}
+              fill="#1d4ed8"
+              stroke="white"
+              strokeWidth={2.35}
+              filter="url(#circadianBodyNowMarker)"
+            />
+          </svg>
 
-        {/* Night/rest window (blue semantic cue) */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={normalizedRadius}
-          fill="none"
-          stroke="#3b82f6"
-          strokeOpacity={0.45}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={`${nightDash} ${dayDash}`}
-          strokeDashoffset={-nightOffset}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
-
-        {/* Active arc with gradient */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={normalizedRadius}
-          fill="none"
-          stroke={alignmentStroke}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          filter="url(#activeArcGlow)"
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
-
-        {/* Marker showing current cycle position with live local time */}
-        <circle
-          cx={markerX}
-          cy={markerY}
-          r={8.2}
-          fill="#1d4ed8"
-          stroke="white"
-          strokeWidth={3}
-          filter="url(#nowMarkerShadow)"
-        />
-      </svg>
-
-      {/* Center value only */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <div
-          className={centerHalo}
-          aria-hidden
-        />
-        <p className={`text-5xl font-semibold tabular-nums leading-none ${inter.className}`} style={{ color: centerText }}>
-          {Math.round(capped)}
-        </p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+            <div className={centerHalo} aria-hidden />
+            <div className="relative z-[1] flex items-center justify-center gap-1">
+              <p
+                className={`text-[2.125rem] font-semibold tabular-nums leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] dark:drop-shadow-[0_1px_3px_rgba(0,0,0,0.75)] ${inter.className}`}
+                style={{ color: centerText }}
+              >
+                {Math.round(capped)}
+              </p>
+              {trend === "improving" ? (
+                <ArrowUp className="h-[1.35rem] w-[1.35rem] shrink-0 text-emerald-500 drop-shadow-sm" strokeWidth={2.5} aria-hidden />
+              ) : trend === "declining" ? (
+                <ArrowDown className="h-[1.35rem] w-[1.35rem] shrink-0 text-rose-500 drop-shadow-sm" strokeWidth={2.5} aria-hidden />
+              ) : trend === "stable" ? (
+                <Minus className="h-5 w-5 shrink-0 text-slate-400 drop-shadow-sm" strokeWidth={2.5} aria-hidden />
+              ) : null}
+            </div>
+          </div>
+        </div>
       </div>
-
     </div>
   );
 }
@@ -2478,9 +2524,22 @@ function WhyYouHaveThisScoreCard({
 
 function DetailedMealTimesCard() {
   const { t } = useTranslation();
-  const [data, setData] = useState<MealTimingTodayCardData | null>(null);
+  const { userShiftState } = useShiftState();
+  useTransitionPlanPanelPresence(userShiftState);
+  const [raw, setRaw] = useState<MealTimingTodayCardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showInfo, setShowInfo] = useState(false);
+
+  const data = useMemo(
+    () =>
+      raw
+        ? (applyUserShiftStateToMealTimingJson(
+            raw as unknown as Record<string, unknown>,
+            userShiftState,
+          ) as MealTimingTodayCardData)
+        : null,
+    [raw, userShiftState],
+  );
 
   const fetchMealTiming = async () => {
     try {
@@ -2488,7 +2547,7 @@ function DetailedMealTimesCard() {
       const res = await authedFetch('/api/meal-timing/today', { cache: 'no-store' });
       if (res.ok) {
         const json = await res.json();
-        setData(json);
+        setRaw(json);
       }
     } catch (err) {
       console.error('[DetailedMealTimesCard] Failed to fetch meal timing:', err);
@@ -2709,6 +2768,12 @@ function DetailedMealTimesCard() {
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] font-medium text-emerald-700/70 dark:text-emerald-300 uppercase tracking-wider mb-1.5">Next Meal</p>
                 <p className="text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100 mb-1">{nextMeal.label}</p>
+                {nextMeal.subtitle ? (
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-0.5">{nextMeal.subtitle}</p>
+                ) : null}
+                {nextMeal.categoryLabel ? (
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-0.5">{nextMeal.categoryLabel}</p>
+                ) : null}
                 <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums mb-2.5">{nextMeal.time} · {nextMeal.windowLabel}</p>
                 <div className="flex items-center gap-1.5 mb-2.5">
                   <span className="text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">{nextMeal.calories}</span>
@@ -2747,12 +2812,20 @@ function DetailedMealTimesCard() {
                           <span className="text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                             {meal.label}
                           </span>
+                          {meal.categoryLabel ? (
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-normal">
+                              ({meal.categoryLabel})
+                            </span>
+                          ) : null}
                           {isNext && (
                             <span className="text-[9px] font-semibold text-emerald-700/80 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded-full">
                               Next
                             </span>
                           )}
                         </div>
+                        {meal.subtitle ? (
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2 leading-snug">{meal.subtitle}</p>
+                        ) : null}
                         <div className="flex items-center gap-3 mb-2">
                           <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">{meal.windowLabel}</p>
                           <span className="text-slate-300 dark:text-slate-600">•</span>
@@ -2810,6 +2883,7 @@ type MealTimingData = {
     slot?: string;
     id?: string;
     label?: string;
+    categoryLabel?: string;
     windowStart?: string;
     windowEnd?: string;
     windowLabel?: string;
@@ -2826,9 +2900,39 @@ type MealTimingData = {
 
 function AdjustedMealTimesCard() {
   const { t } = useTranslation();
-  const [mealTiming, setMealTiming] = useState<MealTimingData | null>(null);
+  const { userShiftState } = useShiftState();
+  useTransitionPlanPanelPresence(userShiftState);
+  const [rawJson, setRawJson] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [showInfo, setShowInfo] = useState(false);
+
+  const mergedJson = useMemo(
+    () =>
+      rawJson ? applyUserShiftStateToMealTimingJson(rawJson, userShiftState) : null,
+    [rawJson, userShiftState],
+  );
+
+  const mealTiming = useMemo((): MealTimingData | null => {
+    const json = mergedJson as any;
+    if (!json?.meals || !Array.isArray(json.meals)) return null;
+    return {
+      shiftType: json.shiftType || 'off',
+      recommended: json.meals.map((m: any) => ({
+        id: m.id,
+        label: m.label,
+        categoryLabel: m.categoryLabel,
+        windowLabel: m.windowLabel,
+        windowStart: m.windowStart,
+        windowEnd: m.windowEnd,
+        suggestedTime: m.time,
+        calories: m.calories,
+        caloriesTarget: m.calories,
+        hint: m.hint,
+        slot: m.id,
+      })),
+      actual: json.actual || [],
+    };
+  }, [mergedJson]);
 
   const fetchMealTiming = async () => {
     try {
@@ -2836,28 +2940,7 @@ function AdjustedMealTimesCard() {
       const res = await authedFetch('/api/meal-timing/today', { cache: 'no-store' });
       if (res.ok) {
         const json = await res.json();
-        // Handle new API structure - convert meals array to old structure for compatibility
-        if (json.meals && Array.isArray(json.meals)) {
-          setMealTiming({
-            shiftType: json.shiftType || 'off',
-            recommended: json.meals.map((m: any) => ({
-              id: m.id,
-              label: m.label,
-              windowLabel: m.windowLabel,
-              windowStart: m.windowStart,
-              windowEnd: m.windowEnd,
-              suggestedTime: m.time,
-              calories: m.calories,
-              caloriesTarget: m.calories,
-              hint: m.hint,
-              slot: m.id,
-            })),
-            actual: json.actual || [],
-          });
-        } else {
-          // Old structure
-          setMealTiming(json);
-        }
+        setRawJson(json);
       }
     } catch (err) {
       console.error('[AdjustedMealTimesCard] Failed to fetch meal timing:', err);
@@ -2946,7 +3029,8 @@ function AdjustedMealTimesCard() {
   };
 
   const getMealLabel = (meal: typeof recommended[0]) => {
-    return meal.label || meal.slot || 'Meal';
+    const primary = meal.label || meal.slot || 'Meal';
+    return meal.categoryLabel ? `${primary} · ${meal.categoryLabel}` : primary;
   };
 
   const getMealTimeWindow = (meal: typeof recommended[0]) => {

@@ -3,6 +3,11 @@ import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/sup
 import { calculateAdjustedCalories } from '@/lib/nutrition/calculateAdjustedCalories'
 import { getTodayMealSchedule, type MealSlot } from '@/lib/nutrition/getTodayMealSchedule'
 import {
+  expectedSleepHoursFromProfileAndLogs,
+  isMorningNightShiftEndLocal,
+  pickLoggedWakeAfterMorningShiftEnd,
+} from '@/lib/nutrition/nightShiftMorningEndMeals'
+import {
   resolveDefaultWakeNoSleep,
   resolveDiurnalWakeAnchor,
 } from '@/lib/nutrition/resolveDiurnalWakeAnchor'
@@ -147,6 +152,54 @@ export async function GET(req: NextRequest) {
     const usesNightBoundsForMeals =
       shiftType === 'night' && shiftStart != null && shiftEnd != null && !Number.isNaN(shiftStart.getTime()) && !Number.isNaN(shiftEnd.getTime())
 
+    const [{ data: profileForSleepH }, avgSleepRowsResult] = await Promise.all([
+      supabase.from('profiles').select('sleep_goal_h').eq('user_id', userId).maybeSingle(),
+      supabase
+        .from('sleep_logs')
+        .select('sleep_hours, duration_min')
+        .eq('user_id', userId)
+        .order('end_ts', { ascending: false })
+        .limit(14),
+    ])
+
+    type SleepAvgRow = { sleep_hours: number | null; duration_min: number | null }
+    let recentSleepAvgRows: SleepAvgRow[] = []
+    if (!avgSleepRowsResult.error) {
+      recentSleepAvgRows = (avgSleepRowsResult.data ?? []) as SleepAvgRow[]
+    } else if (
+      avgSleepRowsResult.error.code === 'PGRST204' ||
+      avgSleepRowsResult.error.message?.includes('end_ts')
+    ) {
+      const fb = await supabase
+        .from('sleep_logs')
+        .select('sleep_hours, duration_min')
+        .eq('user_id', userId)
+        .order('end_at', { ascending: false })
+        .limit(14)
+      recentSleepAvgRows = (fb.data ?? []) as SleepAvgRow[]
+    }
+
+    const recentHoursForAvg = (recentSleepAvgRows ?? [])
+      .map((r) => {
+        if (r.sleep_hours != null && Number.isFinite(r.sleep_hours)) return r.sleep_hours
+        if (r.duration_min != null && Number.isFinite(r.duration_min)) return r.duration_min / 60
+        return null
+      })
+      .filter((h): h is number => h != null && h > 0)
+
+    const expectedSleepHours = expectedSleepHoursFromProfileAndLogs(
+      profileForSleepH?.sleep_goal_h,
+      recentHoursForAvg,
+    )
+
+    const loggedWakeForMeals =
+      shiftType === 'night' &&
+      shiftEnd != null &&
+      !Number.isNaN(shiftEnd.getTime()) &&
+      isMorningNightShiftEndLocal(shiftEnd)
+        ? pickLoggedWakeAfterMorningShiftEnd(shiftEnd, rawWakeEnd)
+        : null
+
     let wakeTime: Date
     if (usesNightBoundsForMeals) {
       wakeTime = resolveDefaultWakeNoSleep(now, 'night')
@@ -162,6 +215,8 @@ export async function GET(req: NextRequest) {
       shiftStart,
       shiftEnd,
       wakeTime,
+      expectedSleepHours,
+      loggedWakeAfterShift: loggedWakeForMeals,
     })
 
     const usedFallbackTemplate = usedEstimatedShiftTimes || scheduleTypeUsed !== shiftType
@@ -232,11 +287,11 @@ export async function GET(req: NextRequest) {
     const nextMealAt = nextPick?.at ?? null
 
     // Build recommended windows
-    const recommendedWindows = mealSchedule.map((meal, index) => ({
+    const recommendedWindows = mealSchedule.map((meal) => ({
       id: meal.id,
       label: meal.label,
       timeRange: meal.windowLabel,
-      focus: meal.hint,
+      focus: [meal.hint, meal.subtitle].filter(Boolean).join(' · ') || meal.hint,
     }))
 
     // Build meals array (for visualization)
@@ -283,6 +338,7 @@ export async function GET(req: NextRequest) {
         windowLabel: meal.windowLabel,
         calories: meal.caloriesTarget,
         hint: meal.hint,
+        subtitle: meal.subtitle,
         macros: {
           protein: Math.round(totalMacros.protein_g * mealCalorieRatio),
           carbs: Math.round(totalMacros.carbs_g * mealCalorieRatio),
@@ -306,6 +362,7 @@ export async function GET(req: NextRequest) {
       nextMealTime: nextMealTimeStr,
       nextMealAt: nextMealAt ? nextMealAt.toISOString() : null,
       nextMealType: nextMealSlot?.hint || 'Balanced meal',
+      nextMealSubtitle: nextMealWithMacros?.subtitle ?? null,
       nextMealMacros: nextMealWithMacros?.macros || {
         protein: Math.round(totalMacros.protein_g / mealSchedule.length),
         carbs: Math.round(totalMacros.carbs_g / mealSchedule.length),
@@ -321,6 +378,15 @@ export async function GET(req: NextRequest) {
       totalCalories: adjusted.adjustedCalories,
       totalMacros,
       meals: mealsWithMacros,
+      /** Lets the client re-run getTodayMealSchedule with shift-agent wake anchor. */
+      mealPlanInputs: {
+        shiftType,
+        shiftStartIso: shiftStart && !Number.isNaN(shiftStart.getTime()) ? shiftStart.toISOString() : null,
+        shiftEndIso: shiftEnd && !Number.isNaN(shiftEnd.getTime()) ? shiftEnd.toISOString() : null,
+        wakeTimeIso: wakeTime.toISOString(),
+        expectedSleepHours,
+        loggedWakeAfterShiftIso: loggedWakeForMeals ? loggedWakeForMeals.toISOString() : null,
+      },
       lastMeal: {
         time: '—',
         description: 'No meals logged yet',

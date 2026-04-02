@@ -1,6 +1,9 @@
 import './globals.css'
 import type { Metadata, Viewport } from 'next'
 import { AuthProvider } from '@/components/AuthProvider'
+import { ShiftStateProvider } from '@/components/providers/shift-state-provider'
+import { CircadianStateProvider } from '@/components/providers/circadian-state-provider'
+import { TransitionAlertsSubscriber } from '@/components/notifications/TransitionAlertsSubscriber'
 import { QuickAddProvider } from '@/lib/quickAddContext'
 import { QuickAddSheet } from '@/components/quick-add/QuickAddSheet'
 import { EventNotificationLoader } from '@/components/notifications/EventNotificationLoader'
@@ -125,18 +128,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <LanguageProvider>
             <ThemeProvider>
               <AuthProvider>
-                <QuickAddProvider>
-                  <AutoHealthSync />
-                  <NativeAndroidStatusBar />
-                  <NativeAndroidBackButton />
-                  <EventNotificationLoader />
-                  <main className="app-main-shell relative min-h-screen pb-24 bg-[var(--bg)]">
-                    {children}
-                    <QuickAddSheet />
-                    <ToastContainer />
-                    <BottomNavWrapper />
-                  </main>
-                </QuickAddProvider>
+                <ShiftStateProvider>
+                  <CircadianStateProvider>
+                  <TransitionAlertsSubscriber />
+                  <QuickAddProvider>
+                    <AutoHealthSync />
+                    <NativeAndroidStatusBar />
+                    <NativeAndroidBackButton />
+                    <EventNotificationLoader />
+                    <main className="app-main-shell relative min-h-screen pb-24 bg-[var(--bg)]">
+                      {children}
+                      <QuickAddSheet />
+                      <ToastContainer />
+                      <BottomNavWrapper />
+                    </main>
+                  </QuickAddProvider>
+                  </CircadianStateProvider>
+                </ShiftStateProvider>
               </AuthProvider>
             </ThemeProvider>
           </LanguageProvider>

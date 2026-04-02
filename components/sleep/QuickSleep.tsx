@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { notifySleepLogsUpdated } from '@/lib/circadian/circadianAgent'
 
 function dISO(d: Date){ return d.toISOString().slice(0,10) }
 function toISO(dateISO: string, hhmm: string) {
@@ -47,7 +48,12 @@ export function QuickSleep({ onSaved }:{ onSaved: ()=>void }) {
       user_id: user.id, start_ts: startISO, end_ts: endISO, quality, type
     })
     if (error) setMsg(error.message)
-    else { setMsg('Saved'); setOpen(false); onSaved() }
+    else {
+      setMsg('Saved')
+      setOpen(false)
+      notifySleepLogsUpdated()
+      onSaved()
+    }
   }
 
   return (

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { Inter } from "next/font/google"
 import { ChevronLeft } from "lucide-react"
 import { useWeeklyProgress } from "@/lib/hooks/useWeeklyProgress"
 import {
@@ -11,6 +12,21 @@ import {
 import { getShiftRhythmMessage, type ShiftRhythmScores } from "@/lib/shift-rhythm/engine"
 import { useTranslation } from "@/components/providers/language-provider"
 import { cn } from "@/lib/utils"
+import { useCircadianState } from "@/components/providers/circadian-state-provider"
+import { useShiftState } from "@/components/providers/shift-state-provider"
+import { ArrowUp, ArrowDown, Minus } from "lucide-react"
+import {
+  buildCircadianHabitBullets,
+  buildForecastRecoveryLine,
+  buildTodaysTakeaway,
+  buildTransitionForecastNote,
+} from "@/lib/body-clock/bodyClockCircadianUi"
+
+const inter = Inter({ subsets: ["latin"] })
+
+/** Matches dashboard primary cards (e.g. ShiftRhythm / adjusted-calories links). */
+const dashboardCardClassName =
+  "rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]"
 
 type ShiftRhythmResponse = {
   score?: Partial<ShiftRhythmScores> & { total_score?: number }
@@ -46,29 +62,29 @@ function ScoreBarRow({
 }) {
   const v = Math.min(100, Math.max(0, Math.round(value)))
   return (
-    <div className="space-y-1.5 py-3 border-b border-slate-100 last:border-0">
+    <div className={`space-y-1.5 py-3 border-b border-[var(--border-subtle)] last:border-0 ${inter.className}`}>
       <div className="flex justify-between items-baseline gap-2">
-        <span className="text-sm font-medium text-slate-800">{label}</span>
-        <span className="text-sm font-semibold tabular-nums text-slate-900 shrink-0">{v}</span>
+        <span className="text-sm font-medium text-[var(--text-soft)]">{label}</span>
+        <span className="text-sm font-semibold tabular-nums text-[var(--text-main)] shrink-0">{v}</span>
       </div>
-      <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+      <div className="h-2 rounded-full bg-[var(--ring-bg)] overflow-hidden">
         <div
           className={cn(
             "h-full rounded-full transition-[width] duration-300",
-            muted
-              ? "bg-slate-300"
-              : "bg-gradient-to-r from-sky-500 to-indigo-500",
+            muted ? "bg-slate-400/50 dark:bg-slate-600/60" : "bg-gradient-to-r from-sky-500 to-indigo-500",
           )}
           style={{ width: `${v}%` }}
         />
       </div>
-      <p className="text-[11px] text-slate-500 leading-snug">{hint}</p>
+      <p className="text-[11px] text-[var(--text-muted)] leading-snug">{hint}</p>
     </div>
   )
 }
 
 export default function BodyClockPage() {
   const { t } = useTranslation()
+  const { circadianState, isLoading: circadianAgentLoading } = useCircadianState()
+  const { userShiftState } = useShiftState()
   const [loading, setLoading] = useState(true)
   const [detail, setDetail] = useState<ShiftRhythmScores | null>(null)
   const [hasRhythmData, setHasRhythmData] = useState<boolean | undefined>(undefined)
@@ -107,26 +123,32 @@ export default function BodyClockPage() {
     }
   }, [])
 
-  const displayScore = useMemo(
+  const legacyGaugeScore = useMemo(
     () => shiftRhythmTotalToGauge100(detail?.total_score ?? null),
     [detail?.total_score],
   )
 
+  const displayScore =
+    circadianState != null ? circadianState.score : legacyGaugeScore
+
   const noData = hasRhythmData === false || (!loading && detail == null)
 
   const headingText = useMemo(() => {
+    if (circadianState != null) return circadianState.status
     if (loading) return t("detail.bodyClock.loading")
     if (noData || detail == null) return t("dashboard.bodyClock.comingSoon")
-    if (displayScore >= 80) return t("dashboard.bodyClock.stronglyAligned")
-    if (displayScore >= 70) return t("dashboard.bodyClock.inSync")
-    if (displayScore >= 55) return t("dashboard.bodyClock.slightlyOut")
+    if (legacyGaugeScore >= 80) return t("dashboard.bodyClock.stronglyAligned")
+    if (legacyGaugeScore >= 70) return t("dashboard.bodyClock.inSync")
+    if (legacyGaugeScore >= 55) return t("dashboard.bodyClock.slightlyOut")
     return t("dashboard.bodyClock.outOfSync")
-  }, [displayScore, noData, detail, loading, t])
+  }, [circadianState, loading, noData, detail, legacyGaugeScore, t])
 
   const subText =
-    noData || detail == null
-      ? t("dashboard.bodyClock.unlockHint")
-      : t("dashboard.bodyClock.calculatedFrom")
+    circadianState != null
+      ? "Based on your recent sleep logs (14-day window), shift context, and the 03:00 anchor."
+      : noData || detail == null
+        ? t("dashboard.bodyClock.unlockHint")
+        : t("dashboard.bodyClock.calculatedFrom")
 
   const coachLine =
     detail != null && !noData ? getShiftRhythmMessage(detail.total_score) : null
@@ -169,46 +191,87 @@ export default function BodyClockPage() {
             ? t("detail.bodyClock.timingShifting")
             : t("detail.bodyClock.timingFlipped")
 
+  const todaysTakeaway = useMemo(
+    () => (circadianState != null ? buildTodaysTakeaway(circadianState) : null),
+    [circadianState],
+  )
+
+  const transitionForecastNote = useMemo(
+    () => buildTransitionForecastNote(userShiftState),
+    [userShiftState],
+  )
+
+  const circadianHabits = useMemo(
+    () => (circadianState != null ? buildCircadianHabitBullets(circadianState) : null),
+    [circadianState],
+  )
+
+  const forecastRecoveryLine = useMemo(
+    () => (circadianState != null ? buildForecastRecoveryLine(circadianState.forecast) : null),
+    [circadianState],
+  )
+
   const statusPillClass =
-    loading || noData || detail == null
-      ? "bg-slate-100 text-slate-700 ring-slate-200"
-      : displayScore >= 70
+    circadianState != null
+      ? circadianState.score >= 75
         ? "bg-emerald-50 text-emerald-900 ring-emerald-100"
-        : displayScore >= 55
+        : circadianState.score >= 55
           ? "bg-amber-50 text-amber-900 ring-amber-100"
           : "bg-rose-50 text-rose-900 ring-rose-100"
+      : loading || noData || detail == null
+        ? "bg-slate-100 text-slate-700 ring-slate-200"
+        : legacyGaugeScore >= 70
+          ? "bg-emerald-50 text-emerald-900 ring-emerald-100"
+          : legacyGaugeScore >= 55
+            ? "bg-amber-50 text-amber-900 ring-amber-100"
+            : "bg-rose-50 text-rose-900 ring-rose-100"
 
   return (
-    <main className="min-h-screen bg-slate-100">
+    <main className="min-h-screen bg-[var(--bg)]">
       <div className="max-w-[430px] mx-auto min-h-screen px-4 pb-10 pt-4 flex flex-col gap-6">
         <header className="flex items-center gap-2">
           <Link
             href="/dashboard"
-            className="p-2 rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm"
+            className="p-2 rounded-full border border-[var(--border-subtle)] bg-[var(--card)] text-[var(--text-soft)] shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.35)]"
             aria-label={t("detail.common.backToDashboard")}
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
-          <h1 className="text-xl font-semibold tracking-tight text-slate-900">
+          <h1 className={`text-xl font-semibold tracking-tight text-[var(--text-main)] ${inter.className}`}>
             {t("detail.bodyClock.title")}
           </h1>
         </header>
 
-        {/* Hero — no card chrome; sits on page background */}
-        <section className="flex flex-col items-center">
-          <div className="pt-2 pb-4 flex flex-col items-center w-full">
+        {/* Hero — gauge + stacked cards share the same vertical rhythm as the rest of the page */}
+        <section className="flex w-full flex-col items-center gap-6">
+          <div className="flex w-full flex-col items-center gap-3">
             <CircadianGauge
-              score={loading || noData || detail == null ? 0 : displayScore}
+              score={
+                circadianState != null
+                  ? circadianState.score
+                  : loading || noData || detail == null
+                    ? 0
+                    : displayScore
+              }
+              trend={circadianState?.trend ?? null}
               centerLabel={
-                loading ? "…" : noData || detail == null ? "—" : String(displayScore)
+                circadianAgentLoading && !circadianState
+                  ? "…"
+                  : circadianState
+                    ? String(Math.round(circadianState.score))
+                    : loading
+                      ? "…"
+                      : noData || detail == null
+                        ? "—"
+                        : String(Math.round(legacyGaugeScore))
               }
             />
-            <div className="mt-3 text-center space-y-2 max-w-[300px]">
-              <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-slate-500">
+            <div className={`text-center space-y-2 max-w-[300px] ${inter.className}`}>
+              <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-[var(--text-muted)]">
                 {t("detail.bodyClock.scoreLabel")}
               </p>
-              {!loading && !noData && detail ? (
-                <p className="text-xs text-slate-400 font-medium">out of 100</p>
+              {circadianState != null || (!loading && !noData && detail) ? (
+                <p className="text-xs text-[var(--text-muted)] font-medium">out of 100</p>
               ) : null}
               <span
                 className={cn(
@@ -218,31 +281,92 @@ export default function BodyClockPage() {
               >
                 {headingText}
               </span>
-              <p className="text-sm text-slate-600 leading-snug pt-1">{subText}</p>
+              <p className="text-sm text-[var(--text-soft)] leading-snug pt-1">{subText}</p>
             </div>
           </div>
 
-          {coachLine ? (
-            <div className="w-full max-w-[320px] pt-5 mt-1 text-center">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 mb-1">
-                {t("detail.bodyClock.coachLineIntro")}
+          {circadianState ? (
+            <section className={cn("w-full text-left", dashboardCardClassName)}>
+              <h2 className={`text-sm font-semibold text-[var(--text-main)] ${inter.className}`}>
+                Today&apos;s takeaway
+              </h2>
+              <p className={`mt-2 text-sm leading-relaxed text-[var(--text-soft)] ${inter.className}`}>
+                {todaysTakeaway}
               </p>
-              <p className="text-sm text-slate-800 leading-snug">{coachLine}</p>
-            </div>
+            </section>
+          ) : coachLine ? (
+            <section className={cn("w-full text-left", dashboardCardClassName)}>
+              <h2 className={`text-sm font-semibold text-[var(--text-main)] ${inter.className}`}>
+                {t("detail.bodyClock.coachLineIntro")}
+              </h2>
+              <p className={`mt-2 text-sm leading-relaxed text-[var(--text-soft)] ${inter.className}`}>
+                {coachLine}
+              </p>
+            </section>
           ) : null}
+
+          {circadianState ? (
+            <section className={cn("w-full text-left", dashboardCardClassName)}>
+              <h2 className={`text-sm font-semibold text-[var(--text-main)] ${inter.className}`}>
+                Score forecast
+              </h2>
+              <p className={`text-[11px] text-[var(--text-muted)] mt-1 leading-relaxed ${inter.className}`}>
+                Projected circadian alignment if your recent sleep pattern continues (model estimate).
+              </p>
+              <ul className={`mt-3 space-y-2 text-sm text-[var(--text-main)] ${inter.className}`}>
+                <li className="flex justify-between gap-3">
+                  <span className="text-[var(--text-soft)]">Tomorrow</span>
+                  <span className="font-semibold tabular-nums">
+                    ~{Math.round(Math.min(100, Math.max(0, circadianState.forecast.tomorrow)))}
+                  </span>
+                </li>
+                <li className="flex justify-between gap-3">
+                  <span className="text-[var(--text-soft)]">In 3 days</span>
+                  <span className="font-semibold tabular-nums">
+                    ~{Math.round(Math.min(100, Math.max(0, circadianState.forecast.threeDays)))}
+                  </span>
+                </li>
+              </ul>
+              <p className={`mt-4 text-sm leading-snug text-[var(--text-soft)] ${inter.className}`}>
+                {forecastRecoveryLine}
+              </p>
+              {transitionForecastNote ? (
+                <p
+                  className={`mt-3 text-sm text-amber-900 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 leading-snug dark:bg-amber-950/40 dark:text-amber-100 dark:border-amber-900/50 ${inter.className}`}
+                >
+                  {transitionForecastNote}
+                </p>
+              ) : null}
+            </section>
+          ) : (
+            <section
+              className={cn(
+                "w-full rounded-3xl border border-dashed border-[var(--border-subtle)] bg-[var(--card-subtle)] px-5 py-4 text-left shadow-[0_1px_3px_rgba(15,23,42,0.06)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.2)]",
+              )}
+            >
+              <h2 className={`text-sm font-semibold text-[var(--text-main)] ${inter.className}`}>
+                Score forecast
+              </h2>
+              <p className={`text-xs text-[var(--text-muted)] mt-2 leading-relaxed ${inter.className}`}>
+                {circadianAgentLoading
+                  ? "Loading circadian projections…"
+                  : "Forecast appears once your circadian score is calculated."}
+              </p>
+            </section>
+          )}
         </section>
 
         {/* Why this score — full breakdown from API */}
         {detail != null && !noData ? (
-          <section className="rounded-2xl border border-slate-200/80 bg-white shadow-sm px-5 py-4">
-            <h2 className="text-sm font-semibold text-slate-900">
+          <section className={dashboardCardClassName}>
+            <h2 className={`text-sm font-semibold text-[var(--text-main)] ${inter.className}`}>
               {t("detail.bodyClock.breakdownTitle")}
             </h2>
-            <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+            <p className={`text-[11px] text-[var(--text-muted)] mt-1 leading-relaxed ${inter.className}`}>
               {t("detail.bodyClock.breakdownSubtitle")}
             </p>
 
-            <div className="mt-3 divide-y divide-slate-100">
+            <div className="mt-3">
               <ScoreBarRow
                 label={t("detail.bodyClock.factorSleepAmount")}
                 hint={t("detail.bodyClock.hintSleepAmount")}
@@ -291,66 +415,71 @@ export default function BodyClockPage() {
         ) : null}
 
         {/* Week snapshot: trend + pattern + timing in one card */}
-        <section className="rounded-2xl border border-slate-200/80 bg-white shadow-sm px-5 py-4 space-y-5">
+        <section className={cn(dashboardCardClassName, "space-y-5")}>
           <div>
-            <h2 className="text-sm font-semibold text-slate-900">
+            <h2 className={`text-sm font-semibold text-[var(--text-main)] ${inter.className}`}>
               {t("detail.bodyClock.weekSnapshot")}
             </h2>
-            <p className="text-[11px] text-slate-500 mt-1">{t("detail.bodyClock.higherBars")}</p>
+            <p className={`text-[11px] text-[var(--text-muted)] mt-1 ${inter.className}`}>
+              {t("detail.bodyClock.higherBars")}
+            </p>
             <div className="mt-3">
               <BodyClockWeeklyStrip trustWeekly={trustWeekly} weekly={weekly} t={t} />
             </div>
           </div>
-          <div className="border-t border-slate-100 pt-4 space-y-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          <div className={`border-t border-[var(--border-subtle)] pt-4 space-y-2 ${inter.className}`}>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
               {t("detail.bodyClock.patternVsRecovery")}
             </p>
-            <p className="text-sm font-semibold text-slate-900">{patternLabel}</p>
-            <p className="text-[11px] text-slate-600 leading-snug">
+            <p className="text-sm font-semibold text-[var(--text-main)]">{patternLabel}</p>
+            <p className="text-[11px] text-[var(--text-soft)] leading-snug">
               {t("detail.bodyClock.patternExplanation")}
             </p>
           </div>
-          <div className="border-t border-slate-100 pt-4 space-y-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          <div className={`border-t border-[var(--border-subtle)] pt-4 space-y-2 ${inter.className}`}>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
               {t("detail.bodyClock.sleepTiming")}
             </p>
-            <p className="text-sm text-slate-800 leading-snug">{timingShort}</p>
-            <p className="text-[11px] text-slate-500 leading-snug">
+            <p className="text-sm text-[var(--text-main)] leading-snug">{timingShort}</p>
+            <p className="text-[11px] text-[var(--text-muted)] leading-snug">
               {t("detail.bodyClock.timingTip")}
             </p>
           </div>
         </section>
 
-        {/* Compact habits */}
-        <section className="rounded-2xl border border-slate-200/80 bg-white shadow-sm px-5 py-4">
-          <h2 className="text-sm font-semibold text-slate-900 mb-3">
+        {/* Circadian-specific habits */}
+        <section className={dashboardCardClassName}>
+          <h2 className={`text-sm font-semibold text-[var(--text-main)] mb-1 ${inter.className}`}>
             {t("detail.bodyClock.quickHabits")}
           </h2>
-          <ul className="text-sm text-slate-600 space-y-2.5 leading-snug">
-            <li className="flex gap-2">
-              <span className="text-slate-300 shrink-0">•</span>
-              <span>{t("detail.bodyClock.lightDay")}</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="text-slate-300 shrink-0">•</span>
-              <span>{t("detail.bodyClock.lightNight")}</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="text-slate-300 shrink-0">•</span>
-              <span>{t("detail.bodyClock.lightEvening")}</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="text-slate-300 shrink-0">•</span>
-              <span>{t("detail.bodyClock.tipRiskShort")}</span>
-            </li>
-          </ul>
+          {circadianHabits && circadianHabits.length > 0 ? (
+            <>
+              <p className={`text-[11px] text-[var(--text-muted)] mb-3 leading-relaxed ${inter.className}`}>
+                Tailored to your current sleep midpoint and pattern.
+              </p>
+              <ul className={`text-sm text-[var(--text-soft)] space-y-2.5 leading-snug ${inter.className}`}>
+                {circadianHabits.map((line, idx) => (
+                  <li key={`${idx}-${line.slice(0, 24)}`} className="flex gap-2">
+                    <span className="text-[var(--text-muted)] shrink-0">•</span>
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className={`text-sm text-[var(--text-muted)] mt-2 leading-relaxed ${inter.className}`}>
+              Personalised habits appear once your circadian score is ready (sleep logs + profile).
+            </p>
+          )}
         </section>
 
         <footer className="pt-2 flex flex-col items-center gap-1 text-center">
-          <span className="text-[10px] font-semibold tracking-[0.2em] uppercase text-slate-400">
+          <span
+            className={`text-[10px] font-semibold tracking-[0.2em] uppercase text-[var(--text-muted)] ${inter.className}`}
+          >
             ShiftCoach
           </span>
-          <p className="text-[10px] text-slate-400 max-w-[280px] leading-relaxed">
+          <p className={`text-[10px] text-[var(--text-muted)] max-w-[280px] leading-relaxed ${inter.className}`}>
             {t("detail.common.disclaimer")}
           </p>
         </footer>
@@ -373,7 +502,7 @@ function BodyClockWeeklyStrip({
 
   if (!trustWeekly || !days.length || !scores.length) {
     return (
-      <p className="text-[11px] text-slate-500">
+      <p className={`text-[11px] text-[var(--text-muted)] ${inter.className}`}>
         {t("detail.bodyClock.waitingData")}
       </p>
     )
@@ -411,8 +540,8 @@ function BodyClockWeeklyStrip({
               />
               <span
                 className={cn(
-                  "text-[9px] uppercase tracking-[0.12em]",
-                  isToday ? "text-slate-900 font-semibold" : "text-slate-500",
+                  `text-[9px] uppercase tracking-[0.12em] ${inter.className}`,
+                  isToday ? "text-[var(--text-main)] font-semibold" : "text-[var(--text-muted)]",
                 )}
               >
                 {label.charAt(0)}
@@ -421,59 +550,193 @@ function BodyClockWeeklyStrip({
           )
         })}
       </div>
-      <p className="text-[11px] text-slate-600 leading-snug">{warning}</p>
+      <p className={`text-[11px] text-[var(--text-soft)] leading-snug ${inter.className}`}>{warning}</p>
     </div>
   )
 }
 
-function CircadianGauge({ score, centerLabel }: { score: number; centerLabel: string }) {
-  const size = 176
-  const radius = 80
-  const stroke = 8
-  const normalizedRadius = radius - stroke / 2
+/** Same ring as dashboard circadian gauge (shift-rhythm card), without the body artwork. */
+function CircadianGauge({
+  score,
+  centerLabel,
+  trend,
+}: {
+  score: number
+  centerLabel: string
+  trend?: "improving" | "stable" | "declining" | null
+}) {
+  const ringPx = 176
+  const stroke = 15
+  const normalizedRadius = 76
+  const vb = 200
+  const cx = vb / 2
+  const cy = vb / 2
   const circumference = normalizedRadius * 2 * Math.PI
   const capped = Math.min(Math.max(score, 0), 100)
   const offset = circumference * (1 - capped / 100)
+  const showNumeric = centerLabel !== "…" && centerLabel !== "—"
+
+  const [nowTs, setNowTs] = useState(() => Date.now())
+  const [isDark, setIsDark] = useState(false)
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNowTs(Date.now())
+    }, 1000)
+    return () => window.clearInterval(intervalId)
+  }, [])
+
+  useEffect(() => {
+    if (typeof document === "undefined") return
+    const root = document.documentElement
+    const syncTheme = () => setIsDark(root.classList.contains("dark"))
+    syncTheme()
+    const observer = new MutationObserver(syncTheme)
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] })
+    return () => observer.disconnect()
+  }, [])
+
+  const now = new Date(nowTs)
+  const minutesOfDay = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60
+  const markerAngleDeg = (minutesOfDay / 1440) * 360 + 90
+  const markerX = cx + normalizedRadius * Math.cos((markerAngleDeg * Math.PI) / 180)
+  const markerY = cy + normalizedRadius * Math.sin((markerAngleDeg * Math.PI) / 180)
+  const alignmentStroke =
+    capped >= 80 ? "#22c55e" : capped >= 65 ? "#f59e0b" : "#ef4444"
+  const nightDash = circumference * 0.22
+  const dayDash = circumference - nightDash
+  const nightOffset = circumference * 0.18
+  const trackStart = isDark ? "#3a3a40" : "#E7E5E4"
+  const trackEnd = isDark ? "#2c2c31" : "#D6D3D1"
+  const centerFill = isDark ? "rgba(23,23,27,0.42)" : "rgba(255,255,255,0.38)"
+  const centerText = isDark ? "#f3f4f6" : "#0f172a"
+  const centerHalo = isDark
+    ? "pointer-events-none absolute h-[7.25rem] w-[7.25rem] rounded-full border border-white/10 bg-black/20 blur-[2px]"
+    : "pointer-events-none absolute h-[7.25rem] w-[7.25rem] rounded-full border border-white/50 bg-white/25 blur-[1px]"
 
   return (
-    <div className="relative flex h-44 w-44 items-center justify-center">
-      <svg height={size} width={size} viewBox={`0 0 ${size} ${size}`} className="block">
+    <div className="relative shrink-0" style={{ width: ringPx, height: ringPx }}>
+      <svg width={ringPx} height={ringPx} viewBox={`0 0 ${vb} ${vb}`} className="block" aria-hidden>
         <defs>
-          <linearGradient id="bodyClockTrackGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#E5E7EB" />
-            <stop offset="100%" stopColor="#E2E8F0" />
+          <linearGradient id="bodyClockHeroTrack" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={trackStart} />
+            <stop offset="100%" stopColor={trackEnd} />
           </linearGradient>
-          <linearGradient id="bodyClockActiveGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#38BDF8" />
-            <stop offset="50%" stopColor="#3B82F6" />
-            <stop offset="100%" stopColor="#6366F1" />
-          </linearGradient>
+          <radialGradient id="bodyClockHeroInnerDial" cx="38%" cy="32%" r="72%">
+            <stop
+              offset="0%"
+              stopColor={isDark ? "rgba(60,60,68,0.65)" : "rgba(255,255,255,0.75)"}
+            />
+            <stop offset="100%" stopColor={centerFill} />
+          </radialGradient>
+          <filter id="bodyClockHeroActiveGlow" x="-22%" y="-22%" width="144%" height="144%">
+            <feGaussianBlur stdDeviation="1.6" result="blur">
+              <animate
+                attributeName="stdDeviation"
+                values="1.45;1.85;1.45"
+                dur="7s"
+                repeatCount="indefinite"
+              />
+            </feGaussianBlur>
+            <feColorMatrix
+              in="blur"
+              type="matrix"
+              values="1 0 0 0 0
+                      0 1 0 0 0
+                      0 0 1 0 0
+                      0 0 0 0.28 0"
+              result="glow"
+            />
+            <feMerge>
+              <feMergeNode in="glow" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="bodyClockHeroNowMarker" x="-120%" y="-120%" width="340%" height="340%">
+            <feDropShadow
+              dx="0"
+              dy="1.1"
+              stdDeviation="1.2"
+              floodColor={isDark ? "#000000" : "#0f172a"}
+              floodOpacity={isDark ? "0.5" : "0.22"}
+            />
+          </filter>
         </defs>
+
         <circle
-          cx={size / 2}
-          cy={size / 2}
+          cx={cx}
+          cy={cy}
           r={normalizedRadius}
-          fill="white"
-          stroke="url(#bodyClockTrackGradient)"
+          fill="url(#bodyClockHeroInnerDial)"
+          stroke="url(#bodyClockHeroTrack)"
           strokeWidth={stroke}
         />
         <circle
-          cx={size / 2}
-          cy={size / 2}
+          cx={cx}
+          cy={cy}
           r={normalizedRadius}
           fill="none"
-          stroke="url(#bodyClockActiveGradient)"
+          stroke="#3b82f6"
+          strokeOpacity={0.45}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={`${nightDash} ${dayDash}`}
+          strokeDashoffset={-nightOffset}
+          transform={`rotate(-90 ${cx} ${cy})`}
+        />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={normalizedRadius}
+          fill="none"
+          stroke={alignmentStroke}
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          filter="url(#bodyClockHeroActiveGlow)"
+          transform={`rotate(-90 ${cx} ${cy})`}
+        />
+        <circle
+          cx={markerX}
+          cy={markerY}
+          r={7.5}
+          fill="#1d4ed8"
+          stroke="white"
+          strokeWidth={2.35}
+          filter="url(#bodyClockHeroNowMarker)"
         />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <p className="text-3xl font-semibold text-slate-900 tabular-nums leading-none">
-          {centerLabel}
-        </p>
+
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+        <div className={centerHalo} aria-hidden />
+        <div className="relative z-[1] flex items-center justify-center gap-1">
+          <p
+            className={`text-[2.125rem] font-semibold tabular-nums leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] dark:drop-shadow-[0_1px_3px_rgba(0,0,0,0.75)] ${inter.className}`}
+            style={{ color: centerText }}
+          >
+            {showNumeric ? Math.round(capped) : centerLabel}
+          </p>
+          {showNumeric && trend === "improving" ? (
+            <ArrowUp
+              className="h-[1.35rem] w-[1.35rem] shrink-0 text-emerald-500 drop-shadow-sm"
+              strokeWidth={2.5}
+              aria-hidden
+            />
+          ) : showNumeric && trend === "declining" ? (
+            <ArrowDown
+              className="h-[1.35rem] w-[1.35rem] shrink-0 text-rose-500 drop-shadow-sm"
+              strokeWidth={2.5}
+              aria-hidden
+            />
+          ) : showNumeric && trend === "stable" ? (
+            <Minus
+              className="h-5 w-5 shrink-0 text-slate-400 drop-shadow-sm"
+              strokeWidth={2.5}
+              aria-hidden
+            />
+          ) : null}
+        </div>
       </div>
     </div>
   )

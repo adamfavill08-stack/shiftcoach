@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { notifyRotaUpdated } from '@/lib/shift-agent/shiftAgent'
 import { MobileShell } from '@/components/MobileShell'
 import { buildPattern } from '@/lib/patterns'
 
@@ -49,7 +50,10 @@ export default function PatternWizard() {
 
     const { error } = await supabase.from('shifts').upsert(rows, { onConflict: 'user_id,date' })
     if (error) setMsg(error.message)
-    else setMsg(`Applied ${rows.length} days`)
+    else {
+      setMsg(`Applied ${rows.length} days`)
+      notifyRotaUpdated()
+    }
     setSaving(false)
   }
 

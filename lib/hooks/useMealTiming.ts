@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useShiftState } from '@/components/providers/shift-state-provider'
+import { applyUserShiftStateToMealTimingJson } from '@/lib/nutrition/applyUserShiftStateToMealTiming'
 
 type CoachStatus = 'onTrack' | 'slightlyLate' | 'veryLate'
 
@@ -35,9 +37,19 @@ type MealTimingData = {
 }
 
 export function useMealTiming() {
-  const [data, setData] = useState<MealTimingData | null>(null)
+  const { userShiftState } = useShiftState()
+  const [apiRaw, setApiRaw] = useState<MealTimingData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const data = useMemo(() => {
+    if (!apiRaw) return null
+    if (error) return apiRaw
+    return applyUserShiftStateToMealTimingJson(
+      apiRaw as unknown as Record<string, unknown>,
+      userShiftState,
+    ) as MealTimingData
+  }, [apiRaw, userShiftState, error])
 
   useEffect(() => {
     const fetchMealTiming = async () => {
@@ -61,12 +73,12 @@ export function useMealTiming() {
           throw new Error(json.error)
         }
 
-        setData(json)
+        setApiRaw(json)
       } catch (err: any) {
         console.error('[useMealTiming] Error fetching meal timing:', err)
         setError(err.message || 'Failed to load meal timing')
         // Set fallback data on error
-        setData({
+        setApiRaw({
           nextMealLabel: 'Next meal',
           nextMealTime: '—',
           nextMealType: 'Balanced meal',

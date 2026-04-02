@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { notifyRotaUpdated } from '@/lib/shift-agent/shiftAgent'
 import { MobileShell } from '@/components/MobileShell'
 
 export default function BulkActions() {
@@ -29,7 +30,10 @@ export default function BulkActions() {
     }))
     const { error } = await supabase.from('shifts').upsert(rows, { onConflict: 'user_id,date' })
     if (error) setMsg(error.message)
-    else setMsg(`Applied ${rows.length} days as ${status.replace('_',' ')}`)
+    else {
+      setMsg(`Applied ${rows.length} days as ${status.replace('_',' ')}`)
+      notifyRotaUpdated()
+    }
     setSaving(false)
   }
 

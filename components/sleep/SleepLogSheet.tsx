@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { notifySleepLogsUpdated } from "@/lib/circadian/circadianAgent"
 
 type Props = {
   type: "sleep" | "nap" | null
@@ -60,7 +61,9 @@ export default function SleepLogSheet({ type, onClose, onSaved }: Props) {
         alert(error.error || "Failed to save sleep")
         return
       }
-      
+
+      notifySleepLogsUpdated()
+
       onSaved()
       onClose()
     } catch (e) {

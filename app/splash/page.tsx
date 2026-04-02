@@ -12,6 +12,14 @@ export default function SplashPage() {
   const [showContent, setShowContent] = useState(false)
 
   useEffect(() => {
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prevOverflow
+    }
+  }, [])
+
+  useEffect(() => {
     if (loading) return
 
     // Trigger entrance animation
@@ -41,7 +49,7 @@ export default function SplashPage() {
   }, [user, loading, router])
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center overflow-x-hidden bg-[var(--bg)] px-4">
+    <div className="flex h-[100dvh] min-h-0 w-full max-h-[100dvh] items-center justify-center overflow-hidden bg-[var(--bg)] px-4">
       <div
         className={`flex justify-center transform transition-all duration-500 ease-out ${
           showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'

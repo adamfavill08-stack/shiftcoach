@@ -145,6 +145,9 @@ export function NextMealWindowCard({
           <div className="min-w-0 flex-1">
             <p className="text-[34px] font-semibold leading-none text-slate-900 tabular-nums">{heroTime}</p>
             <p className="mt-1 text-[15px] font-medium leading-tight text-slate-800">{heroLabel}</p>
+            {data.nextMealSubtitle?.trim() ? (
+              <p className="mt-0.5 text-[12px] leading-snug text-slate-600">{data.nextMealSubtitle.trim()}</p>
+            ) : null}
             <p className="mt-0.5 text-[12px] leading-snug text-slate-500">{supportLine}</p>
           </div>
           <span className="mt-0.5 inline-flex shrink-0 items-center rounded-full border border-slate-300/90 bg-slate-50 px-2.5 py-0.5 text-[10px] font-medium text-slate-800">
@@ -199,10 +202,15 @@ export function NextMealWindowCard({
                   : 'border-slate-200/60'
               }`}
             >
-              <span>
-                {t('dashboard.nextMealWindow.nextPrefix')}{' '}
-                <span className="font-semibold text-slate-900 dark:text-slate-100">{data.nextMealLabel}</span>{' '}
-                {t('dashboard.nextMealWindow.at')} {data.nextMealTime}
+              <span className="flex flex-col gap-0.5">
+                <span>
+                  {t('dashboard.nextMealWindow.nextPrefix')}{' '}
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">{data.nextMealLabel}</span>{' '}
+                  {t('dashboard.nextMealWindow.at')} {data.nextMealTime}
+                </span>
+                {data.nextMealSubtitle?.trim() ? (
+                  <span className="font-normal text-slate-600 dark:text-slate-400">{data.nextMealSubtitle.trim()}</span>
+                ) : null}
               </span>
               <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 bg-slate-100 dark:bg-slate-800/60 text-[10px] text-slate-700 dark:text-slate-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />

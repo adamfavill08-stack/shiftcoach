@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { type Shift } from '@/lib/shifts'
+import { notifyRotaUpdated } from '@/lib/shift-agent/shiftAgent'
 
 type Props = {
   dateISO: string
@@ -83,6 +84,7 @@ export function ShiftSheet({ dateISO, initial, onClose }: Props) {
         throw new Error(json.error || json.detail || 'Save failed')
       }
 
+      notifyRotaUpdated()
       onClose()
     } catch (e:any) {
       setErr(e.message ?? 'Save failed')

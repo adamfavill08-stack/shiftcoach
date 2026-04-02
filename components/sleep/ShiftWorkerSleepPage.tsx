@@ -18,6 +18,7 @@ import {
   type SleepBarPoint,
 } from '@/lib/sleep/utils'
 import { authedFetch } from '@/lib/supabase/authedFetch'
+import { notifySleepLogsUpdated } from '@/lib/circadian/circadianAgent'
 
 type WeekSleepOverview = {
   loading: boolean
@@ -637,6 +638,8 @@ export function ShiftWorkerSleepPage() {
         throw new Error(extractApiErrorMessage(errorData, 'Failed to save sleep'))
       }
 
+      notifySleepLogsUpdated()
+
       setIsLogModalOpen(false)
       setLogModalStart(null)
       setLogModalEnd(null)
@@ -669,6 +672,8 @@ export function ShiftWorkerSleepPage() {
         setDeletingSessionId(null)
         return
       }
+
+      notifySleepLogsUpdated()
 
       setDeletingSessionId(null)
       await refreshSleepPageData()

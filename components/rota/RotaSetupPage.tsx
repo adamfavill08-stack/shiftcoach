@@ -11,7 +11,8 @@ import {
   type ShiftColorConfig,
 } from '@/lib/data/shiftColors'
 import { applyRotaPattern } from '@/lib/rota/applyPattern'
-import { PATTERN_SEQUENCES, getPatternCycle } from '@/lib/rota/patternCatalog'
+import { getPatternSlots as getRotaSlotLetters } from '@/lib/rota/patternSlots'
+import { notifyRotaUpdated } from '@/lib/shift-agent/shiftAgent'
 import ShiftPatternSet, { type ShiftPatternSummary } from '@/components/rota/ShiftPatternSet'
 import {
   PATTERNS_BY_LENGTH as SHARED_PATTERNS_BY_LENGTH,
@@ -116,29 +117,14 @@ function mapSupabaseShift(value: string | null): ShiftSlotType | null {
   }
 }
 
-const patternSlotsMap: Record<string, ShiftSlot[]> = (() => {
-  const entries = Object.entries(PATTERN_SEQUENCES).map(([key, sequence]) => [
-    key,
-    sequence.map((type) => ({ type } as ShiftSlot)),
-  ])
-
-  const hasDefault = entries.some(([key]) => key === 'default')
-  if (!hasDefault) {
-    entries.push([
-      'default',
-      [
-        { type: 'day' },
-        { type: 'night' },
-        { type: 'off' },
-      ],
-    ])
-  }
-
-  return Object.fromEntries(entries)
-})()
-
+/** Aligns with `/api/rota/apply` + `applyRotaPattern` slot cycles (`lib/rota/patternSlots`). */
 const getPatternSlots = (patternId: string): ShiftSlot[] =>
-  (patternSlotsMap[patternId] ?? patternSlotsMap.default).map((slot) => ({ ...slot }))
+  getRotaSlotLetters(patternId).map((letter) => {
+    if (letter === 'O') return { type: 'off' } as ShiftSlot
+    if (letter === 'N') return { type: 'night' } as ShiftSlot
+    if (letter === 'M' || letter === 'A' || letter === 'D') return { type: 'day' } as ShiftSlot
+    return { type: 'other' } as ShiftSlot
+  })
 
 type PresetPattern = PresetBase & {
   length: ShiftLength
@@ -616,8 +602,8 @@ export function RotaSetupPage() {
 
     if (userId && selectedPatternId) {
       const startDateObj = new Date(`${startDate}T00:00:00`)
-      const patternCycle = getPatternCycle(selectedPatternId)
-      const safeStartIndex = patternCycle.length ? startSlotIndex % patternCycle.length : 0
+      const cycleLen = getRotaSlotLetters(selectedPatternId).length
+      const safeStartIndex = cycleLen ? startSlotIndex % cycleLen : 0
 
       try {
         await applyRotaPattern({
@@ -628,6 +614,7 @@ export function RotaSetupPage() {
           startCycleIndex: safeStartIndex,
           daysToGenerate: 365,
         })
+        notifyRotaUpdated()
       } catch (err) {
         console.error('[RotaSetup] failed to persist rota pattern', err)
       }

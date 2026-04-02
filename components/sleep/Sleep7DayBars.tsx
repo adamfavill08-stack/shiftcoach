@@ -6,6 +6,7 @@ import { X, Pencil, Trash2, Clock, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { SleepEditModal } from './SleepEditModal'
 import { DeleteSleepConfirmModal } from './DeleteSleepConfirmModal'
+import { notifySleepLogsUpdated } from '@/lib/circadian/circadianAgent'
 
 type SleepDay = {
   date: string
@@ -288,6 +289,8 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
         alert(data.error || 'Failed to save session')
         return
       }
+
+      notifySleepLogsUpdated()
 
       // Refresh data
       if (selectedDate) {

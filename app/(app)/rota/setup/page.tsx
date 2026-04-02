@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Clock, ChevronDown, Sun, Moon, X, Sparkles, 
 import { getPatternsByLength, type ShiftLength } from '@/lib/rota/comprehensivePatterns'
 import { getPatternSlots } from '@/lib/rota/patternSlots'
 import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus'
+import { notifyRotaUpdated } from '@/lib/shift-agent/shiftAgent'
 
 type ShiftType = 'off' | 'day' | 'night'
 
@@ -528,6 +529,7 @@ export default function RotaSetup() {
       // Dispatch custom event to refresh calendar
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('rota-cleared'))
+        notifyRotaUpdated()
       }
       
       alert('Rota cleared successfully. You can now set up a new shift pattern.')
@@ -632,6 +634,7 @@ export default function RotaSetup() {
       // Dispatch event to refresh calendar
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('rota-saved'))
+        notifyRotaUpdated()
       }
 
       // Success - navigate to calendar
@@ -676,6 +679,7 @@ export default function RotaSetup() {
 
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('rota-saved'))
+        notifyRotaUpdated()
       }
 
       router.push('/rota')

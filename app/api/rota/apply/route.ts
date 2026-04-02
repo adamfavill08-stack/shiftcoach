@@ -3,6 +3,11 @@ import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/sup
 import { supabaseServer } from '@/lib/supabase-server'
 import { getPatternSlots } from '@/lib/rota/patternSlots'
 import { inferShiftPattern } from '@/lib/rota/inferShiftPattern'
+import {
+  buildConcreteShiftsRows,
+  countInclusiveCalendarDays,
+  shiftDateKeyLocal,
+} from '@/lib/rota/buildConcreteShifts'
 import { z } from 'zod'
 import { parseJsonBody } from '@/lib/api/validation'
 import { apiServerError } from '@/lib/api/response'
@@ -49,23 +54,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Convert slots to shift types
-    const slotToType: Record<string, string> = {
-      'M': 'morning',
-      'A': 'afternoon',
-      'D': 'day',
-      'N': 'night',
-      'O': 'off',
-    }
-
-    const slotToLabel: Record<string, string> = {
-      'M': 'MORNING',
-      'A': 'AFTERNOON',
-      'D': 'DAY',
-      'N': 'NIGHT',
-      'O': 'OFF',
-    }
-
     // Generate shifts from today (or pattern start if in the future) forward for 100 years
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -84,109 +72,33 @@ export async function POST(req: NextRequest) {
     const end = endDate ? new Date(Math.max(new Date(endDate).getTime(), hundredYearsFromStart.getTime())) : hundredYearsFromStart
     end.setHours(23, 59, 59, 999)
 
-    const shifts: Array<{
-      user_id: string
-      date: string
-      label: string
-      status: string
-      start_ts: string | null
-      end_ts: string | null
-      notes: string | null
-    }> = []
+    const dayCount = countInclusiveCalendarDays(generateStart, end)
 
-    // Calculate the cycle index for the generation start date
-    const daysFromPatternStart = Math.floor((generateStart.getTime() - patternStart.getTime()) / (1000 * 60 * 60 * 24))
-    const actualStartCycleIndex = (startCycleIndex + daysFromPatternStart + patternSlots.length) % patternSlots.length
-
-    // Generate shifts from generateStart through end date
-    // Optimize: use efficient date arithmetic to avoid repeated Date operations
-    const totalDays = Math.ceil((end.getTime() - generateStart.getTime()) / (1000 * 60 * 60 * 24))
-    const generateStartTime = generateStart.getTime()
-    const dayMs = 1000 * 60 * 60 * 24
-    
     console.log('[api/rota/apply] starting shift generation', {
-      totalDays,
+      dayCount,
       from: generateStart.toISOString().slice(0, 10),
       to: end.toISOString().slice(0, 10),
     })
     const generationStartTime = Date.now()
-    
-    for (let i = 0; i <= totalDays; i++) {
-      const currentDate = new Date(generateStartTime + (i * dayMs))
-      
-      if (currentDate > end) break
 
-      // Calculate cycle index based on today's position
-      const cycleIndex = (actualStartCycleIndex + i + patternSlots.length) % patternSlots.length
-      const slot = patternSlots[cycleIndex]
-      const shiftType = slotToType[slot] || 'off'
-      const label = slotToLabel[slot] || 'OFF'
-      
-      // Pre-format date string once
-      const dateStr = currentDate.toISOString().slice(0, 10)
-      
-      if (shiftType === 'off') {
-        shifts.push({
-          user_id: userId,
-          date: dateStr,
-          label: 'OFF',
-          status: 'PLANNED',
-          start_ts: null,
-          end_ts: null,
-          notes: null,
-        })
-      } else {
-        // Get shift times for this shift type
-        const times = shiftTimes?.[shiftType]
-        let start_ts: string | null = null
-        let end_ts: string | null = null
-
-        if (times?.start && times?.end) {
-          const [startHour, startMin] = times.start.split(':').map(Number)
-          const [endHour, endMin] = times.end.split(':').map(Number)
-          
-          const startDateTime = new Date(currentDate)
-          startDateTime.setHours(startHour, startMin, 0, 0)
-          
-          const endDateTime = new Date(currentDate)
-          endDateTime.setHours(endHour, endMin, 0, 0)
-          
-          // Handle overnight shifts (end time is next day)
-          if (endHour < startHour || (endHour === startHour && endMin < startMin)) {
-            endDateTime.setDate(endDateTime.getDate() + 1)
-          }
-
-          start_ts = startDateTime.toISOString()
-          end_ts = endDateTime.toISOString()
-        }
-
-        shifts.push({
-          user_id: userId,
-          date: dateStr,
-          label: label as any,
-          status: 'PLANNED',
-          start_ts,
-          end_ts,
-          notes: commute ? JSON.stringify(commute) : null,
-        })
-      }
-    }
+    const uniqueShifts = buildConcreteShiftsRows({
+      userId,
+      patternId,
+      patternStart,
+      startCycleIndex,
+      rangeStart: generateStart,
+      dayCount,
+      shiftTimes,
+      commute,
+    })
 
     const generationTime = Date.now() - generationStartTime
     console.log('[api/rota/apply] shift generation completed', {
       timeMs: generationTime,
-      shiftsGenerated: shifts.length,
+      shiftsGenerated: uniqueShifts.length,
     })
-
-    // Deduplicate shifts by date (keep the last one if duplicates exist)
-    const shiftsMap = new Map<string, typeof shifts[0]>()
-    shifts.forEach((shift) => {
-      shiftsMap.set(shift.date, shift)
-    })
-    const uniqueShifts = Array.from(shiftsMap.values())
 
     console.log('[api/rota/apply] generated shifts', {
-      total: shifts.length,
       unique: uniqueShifts.length,
       userId,
       dateRange: {
@@ -198,7 +110,7 @@ export async function POST(req: NextRequest) {
     })
 
     // Delete existing shifts from the generation start date onwards (preserve older historical shifts)
-    const deleteStartIso = generateStart.toISOString().slice(0, 10)
+    const deleteStartIso = shiftDateKeyLocal(generateStart)
     const { error: deleteError } = await supabase
       .from('shifts')
       .delete()
@@ -283,7 +195,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      shiftsCreated: shifts.length,
+      shiftsCreated: uniqueShifts.length,
       shift_pattern_updated: patternSlots && patternSlots.length > 0
     }, { status: 200 })
   } catch (err: any) {

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Calendar, Clock, X } from 'lucide-react'
 import type { SleepHistoryEntry } from '@/lib/hooks/useSleepHistory'
+import { notifySleepLogsUpdated } from '@/lib/circadian/circadianAgent'
 
 type EditSleepModalProps = {
   entry: SleepHistoryEntry
@@ -106,9 +107,11 @@ export function EditSleepModal({ entry, onClose, onUpdated }: EditSleepModalProp
 
       // Update the entry with the response
       if (data.sleep_log) {
+        notifySleepLogsUpdated()
         onUpdated(data.sleep_log)
       } else {
         // Fallback: refetch or update manually
+        notifySleepLogsUpdated()
         onUpdated({
           ...entry,
           start_ts: startISO,
@@ -146,6 +149,8 @@ export function EditSleepModal({ entry, onClose, onUpdated }: EditSleepModalProp
         setDeleting(false)
         return
       }
+
+      notifySleepLogsUpdated()
 
       // Close modal first
       onClose()

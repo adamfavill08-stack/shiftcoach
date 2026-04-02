@@ -9,6 +9,7 @@ import {
   type ShiftLength,
 } from '@/lib/rota/patternPresets'
 import { getPatternSlots, type ShiftSlot } from '@/lib/rota/patternSlots'
+import { notifyRotaUpdated } from '@/lib/shift-agent/shiftAgent'
 
 const SHIFT_LENGTHS: ShiftLength[] = ['8h', '12h', '16h']
 
@@ -258,6 +259,7 @@ export default function NewRotaPatternPage() {
         window.localStorage.setItem('dashboardPage', '4')
         // Dispatch event to refresh settings (shift_pattern may have been auto-updated)
         window.dispatchEvent(new CustomEvent('rota-saved'))
+        notifyRotaUpdated()
       }
 
       // Navigate to dashboard and refresh to ensure calendar refetches
