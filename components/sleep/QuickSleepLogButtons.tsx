@@ -122,9 +122,8 @@ export function QuickSleepLogButtons({ onLogSleep, loading = false }: QuickSleep
             className={`
               relative overflow-hidden rounded-lg p-4 text-left
               bg-white border border-slate-200
-              shadow-[0_1px_3px_rgba(15,23,42,0.08)]
               transition-all duration-200
-              hover:bg-slate-50 hover:shadow-[0_4px_10px_rgba(15,23,42,0.12)]
+              hover:bg-slate-50
               hover:scale-[1.01] active:scale-[0.98]
               disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
               ${hasPrediction ? 'cursor-pointer' : ''}
@@ -135,7 +134,6 @@ export function QuickSleepLogButtons({ onLogSleep, loading = false }: QuickSleep
                 <div className={`
                   flex h-8 w-8 items-center justify-center rounded-lg
                   bg-slate-50
-                  shadow-[0_1px_3px_rgba(15,23,42,0.12)]
                   ${button.iconColor}
                 `}>
                   <Icon className="h-4 w-4" strokeWidth={2.5} />

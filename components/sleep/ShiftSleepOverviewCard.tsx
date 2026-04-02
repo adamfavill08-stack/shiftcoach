@@ -234,7 +234,7 @@ export function ShiftSleepOverviewCard({
     .join('; ')
 
   return (
-    <section className="relative overflow-hidden rounded-[18px] border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_16px_36px_-24px_rgba(15,23,42,0.35)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
+    <section className="relative overflow-hidden rounded-[18px] border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-5">
       <div className="relative z-10 flex flex-col items-center text-center gap-3.5">
         <div className="w-full space-y-2 text-left">
           <div className="flex items-baseline justify-between gap-2">
@@ -270,7 +270,7 @@ export function ShiftSleepOverviewCard({
                   className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1"
                 >
                   <div
-                    className={`w-full max-w-[36px] rounded-t-md shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition-[height] duration-300 dark:shadow-none ${barClasses(day.totalMinutes, targetMinutes)} ${
+                    className={`w-full max-w-[36px] rounded-t-md transition-[height] duration-300 ${barClasses(day.totalMinutes, targetMinutes)} ${
                       isHi
                         ? 'ring-2 ring-sky-500/80 ring-offset-2 ring-offset-[var(--card)] dark:ring-sky-400/70'
                         : ''
@@ -311,9 +311,9 @@ export function ShiftSleepOverviewCard({
           <div
             className={
               priorityBlock.tone === 'error'
-                ? 'w-full rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 text-left shadow-[0_1px_3px_rgba(244,63,94,0.12)]'
+                ? 'w-full rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 text-left'
                 : priorityBlock.tone === 'warn'
-                ? 'w-full rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 text-left shadow-[0_1px_3px_rgba(245,158,11,0.12)]'
+                ? 'w-full rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 text-left'
                 : 'w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] p-3 text-left text-xs leading-relaxed text-[var(--text-soft)]'
             }
           >
@@ -326,7 +326,7 @@ export function ShiftSleepOverviewCard({
             type="button"
             onClick={primaryAction.onClick}
             disabled={primaryAction.disabled}
-            className="flex-1 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_20px_-16px_rgba(15,23,42,0.65)] hover:from-slate-800 hover:to-slate-700 disabled:opacity-60 disabled:cursor-not-allowed transition active:scale-[0.99]"
+            className="flex-1 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 px-4 py-3 text-sm font-semibold text-white hover:from-slate-800 hover:to-slate-700 disabled:opacity-60 disabled:cursor-not-allowed transition active:scale-[0.99]"
           >
             {primaryAction.label}
           </button>
@@ -350,27 +350,27 @@ export function ShiftSleepOverviewCard({
         </div>
 
         <div className="grid w-full grid-cols-2 gap-2 pt-0.5">
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left">
             <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">Primary sleep</div>
             <div className="text-[13px] font-semibold text-[var(--text-main)]">{formatHoursMinutes(primaryMinutes)}</div>
           </div>
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left">
             <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">Naps</div>
             <div className="text-[13px] font-semibold text-[var(--text-main)]">{formatHoursMinutes(napMinutes)}</div>
           </div>
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left">
             <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">Primary type</div>
             <div className="text-[13px] font-semibold text-[var(--text-main)]">
               {dominantType ? getSleepTypeLabel(dominantType) : 'None'}
             </div>
           </div>
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left">
             <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">Last sync</div>
             <div className="text-[13px] font-semibold text-[var(--text-main)]">
               {formatRelativeSyncLabel(lastSyncAt, hasWearableConnection)}
             </div>
           </div>
-          <div className="col-span-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="col-span-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left">
             <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">Recovery need</div>
             <div className="text-sm font-semibold text-[var(--text-main)]">
               {sleepDebtMinutes == null

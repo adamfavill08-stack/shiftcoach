@@ -94,7 +94,7 @@ function SleepMetricsCard({
       : week.consistencyError || 'Log at least two main-sleep sessions to score consistency.'
 
   return (
-    <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+    <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="space-y-1">
           <p className="text-[11px] font-semibold tracking-[0.16em] text-[var(--text-muted)] uppercase">
@@ -167,7 +167,7 @@ function SleepStageGrid() {
       {stages.map((stage) => (
         <div
           key={stage.label}
-          className="rounded-lg border border-[var(--border-subtle)] bg-[var(--card)] px-4 py-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)]"
+          className="rounded-lg border border-[var(--border-subtle)] bg-[var(--card)] px-4 py-3"
         >
           <div className="mb-1 flex items-center justify-between text-xs font-semibold text-[var(--text-soft)]">
             <span className="uppercase tracking-[0.12em]">{stage.label}</span>
@@ -814,7 +814,7 @@ export function ShiftWorkerSleepPage() {
       <div className="flex items-center gap-3">
         <Link
           href="/dashboard"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card)] text-[var(--text-soft)] shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition hover:bg-[var(--card-subtle)] hover:text-[var(--text-main)]"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card)] text-[var(--text-soft)] transition hover:bg-[var(--card-subtle)] hover:text-[var(--text-main)]"
           aria-label="Back to home"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -868,12 +868,12 @@ export function ShiftWorkerSleepPage() {
       />
 
       {/* Weekly sleep debt (Google Fit style) */}
-      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4">
         <SleepDebtCard week={weekSleepOverview} />
       </section>
 
       {/* Quick Sleep Log Buttons */}
-      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4">
         <h2 className="mb-1.5 text-xs font-semibold tracking-[0.16em] uppercase text-[var(--text-muted)]">
           Quick log for shift workers
         </h2>
@@ -885,7 +885,7 @@ export function ShiftWorkerSleepPage() {
 
       {/* Sleep Timeline Bar */}
       {selectedDayData && selectedDayData.sessions.length > 0 && (
-        <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+        <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4">
           <h2 className="mb-3 text-xs font-semibold tracking-[0.16em] uppercase text-[var(--text-muted)]">
             24‑hour sleep timeline
           </h2>
@@ -900,7 +900,7 @@ export function ShiftWorkerSleepPage() {
       )}
 
       {/* 30-day sleep guide */}
-      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4">
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>
             <h2 className="text-sm font-semibold tracking-tight text-[var(--text-main)]">
@@ -935,7 +935,7 @@ export function ShiftWorkerSleepPage() {
             )}
             <Link
               href="/sleep/history"
-              className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card)] px-3 py-1.5 text-[11px] font-medium text-[var(--text-soft)] shadow-sm hover:bg-[var(--card-subtle)]"
+              className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card)] px-3 py-1.5 text-[11px] font-medium text-[var(--text-soft)] hover:bg-[var(--card-subtle)]"
             >
               Edit logs
             </Link>
@@ -996,7 +996,7 @@ export function ShiftWorkerSleepPage() {
       </section>
 
       {/* Sleep stages snapshot (de-emphasized) */}
-      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
+      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-5 py-4">
         <div className="mb-3">
           <h2 className="text-xs font-semibold tracking-[0.14em] uppercase text-[var(--text-muted)]">
             Sleep stages
