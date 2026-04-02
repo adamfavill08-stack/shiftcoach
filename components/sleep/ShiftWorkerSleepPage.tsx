@@ -4,14 +4,12 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { QuickSleepLogButtons } from './QuickSleepLogButtons'
 import { SleepTimelineBar } from './SleepTimelineBar'
 import { LogSleepModal } from './LogSleepModal'
 import { SleepEditModal } from './SleepEditModal'
 import { DeleteSleepConfirmModal } from './DeleteSleepConfirmModal'
 import { ShiftSleepOverviewCard } from './ShiftSleepOverviewCard'
 import { getShiftAwareInsight } from '@/lib/sleep/coaching'
-import type { SleepType as PredictedSleepType } from '@/lib/sleep/predictSleep'
 import type { SleepLogInput, SleepType } from '@/lib/sleep/types'
 import { pickDefaultShiftedDay, buildSevenShiftedDaySleepBars } from '@/lib/sleep/utils'
 import { authedFetch } from '@/lib/supabase/authedFetch'
@@ -309,6 +307,11 @@ export function ShiftWorkerSleepPage() {
     selectedDayRef.current = selectedDay
   }, [selectedDay])
 
+  const userTimeZone = useMemo(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+    [],
+  )
+
   const fetchWeekSleepOverview = useCallback(async () => {
     setWeekSleepOverview((s) => ({ ...s, loading: true, error: null }))
     try {
@@ -353,7 +356,8 @@ export function ShiftWorkerSleepPage() {
   const fetchShiftedDays = useCallback(async (isInitial = false) => {
     try {
       if (isInitial) setLoading(true)
-      const res = await authedFetch('/api/sleep/24h-grouped?days=14', { cache: 'no-store' })
+      const tz = encodeURIComponent(userTimeZone)
+      const res = await authedFetch(`/api/sleep/24h-grouped?days=14&tz=${tz}`, { cache: 'no-store' })
       
       if (!res.ok) {
         console.error('[ShiftWorkerSleepPage] Failed to fetch:', res.status)
@@ -376,7 +380,7 @@ export function ShiftWorkerSleepPage() {
     } finally {
       if (isInitial) setLoading(false)
     }
-  }, [])
+  }, [userTimeZone])
 
   useEffect(() => {
     void fetchShiftedDays(true)
@@ -509,24 +513,9 @@ export function ShiftWorkerSleepPage() {
   }, [fetchWearableStatus])
 
   const sevenDaySleepBars = useMemo(
-    () => buildSevenShiftedDaySleepBars(shiftedDays, selectedDay),
-    [shiftedDays, selectedDay],
+    () => buildSevenShiftedDaySleepBars(shiftedDays, selectedDay, userTimeZone),
+    [shiftedDays, selectedDay, userTimeZone],
   )
-
-  // Handle quick log button click
-  const mapPredictedToCanonicalType = (type: PredictedSleepType): SleepType => {
-    if (type === 'post_shift') return 'post_shift_sleep'
-    if (type === 'recovery') return 'recovery_sleep'
-    if (type === 'nap' || type === 'pre_shift_nap') return 'nap'
-    return 'main_sleep'
-  }
-
-  const handleQuickLog = (type: PredictedSleepType, start: Date, end: Date) => {
-    setLogModalType(mapPredictedToCanonicalType(type))
-    setLogModalStart(start)
-    setLogModalEnd(end)
-    setIsLogModalOpen(true)
-  }
 
   const refreshSleepPageData = useCallback(async () => {
     try {
@@ -870,17 +859,6 @@ export function ShiftWorkerSleepPage() {
       {/* Weekly sleep debt (Google Fit style) */}
       <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4">
         <SleepDebtCard week={weekSleepOverview} />
-      </section>
-
-      {/* Quick Sleep Log Buttons */}
-      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4">
-        <h2 className="mb-1.5 text-xs font-semibold tracking-[0.16em] uppercase text-[var(--text-muted)]">
-          Quick log for shift workers
-        </h2>
-        <p className="mb-3 text-[11px] text-[var(--text-soft)]">
-          Quick log based on your shift pattern.
-        </p>
-        <QuickSleepLogButtons onLogSleep={handleQuickLog} />
       </section>
 
       {/* Sleep Timeline Bar */}

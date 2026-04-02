@@ -1,15 +1,60 @@
 import type { SleepQuality, SleepType } from './types'
 
-export function getShiftedDayKey(dateInput: string | Date, shiftStartHour = 7): string {
-  const date = new Date(dateInput)
-  const shifted = new Date(date)
-  shifted.setHours(shiftStartHour, 0, 0, 0)
-
-  if (date.getHours() < shiftStartHour) {
-    shifted.setDate(shifted.getDate() - 1)
+function getCalendarPartsInTimeZone(d: Date, timeZone: string) {
+  try {
+    const fmt = new Intl.DateTimeFormat('en-GB', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      hourCycle: 'h23',
+    })
+    const parts = fmt.formatToParts(d)
+    const get = (type: Intl.DateTimeFormatPartTypes) => {
+      const p = parts.find((x) => x.type === type)
+      return p ? parseInt(p.value, 10) : NaN
+    }
+    return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour') }
+  } catch {
+    const iso = d.toISOString()
+    const y = parseInt(iso.slice(0, 4), 10)
+    const m = parseInt(iso.slice(5, 7), 10)
+    const day = parseInt(iso.slice(8, 10), 10)
+    const hour = parseInt(iso.slice(11, 13), 10)
+    return { year: y, month: m, day, hour }
   }
+}
 
-  return shifted.toISOString().slice(0, 10)
+function shiftWallDateByDays(year: number, month: number, day: number, deltaDays: number): string {
+  const dt = new Date(Date.UTC(year, month - 1, day))
+  dt.setUTCDate(dt.getUTCDate() + deltaDays)
+  const y = dt.getUTCFullYear()
+  const m = dt.getUTCMonth() + 1
+  const d = dt.getUTCDate()
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+
+/**
+ * Shifted calendar day label (default 07:00→07:00) in `timeZone` (IANA), as YYYY-MM-DD.
+ * Uses the wall-clock date in that zone so server and chart stay aligned when the client passes
+ * the same zone as `/api/sleep/24h-grouped?tz=`.
+ */
+export function getShiftedDayKey(
+  dateInput: string | Date,
+  shiftStartHour = 7,
+  timeZone = 'UTC',
+): string {
+  const instant = new Date(dateInput)
+  if (Number.isNaN(instant.getTime())) return '1970-01-01'
+
+  const { year, month, day, hour } = getCalendarPartsInTimeZone(instant, timeZone)
+  if ([year, month, day, hour].some((n) => !Number.isFinite(n))) return '1970-01-01'
+
+  if (hour < shiftStartHour) {
+    return shiftWallDateByDays(year, month, day, -1)
+  }
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
 /**
@@ -18,14 +63,21 @@ export function getShiftedDayKey(dateInput: string | Date, shiftStartHour = 7): 
  * lands in the previous 07:00→07:00 window while the clock has already crossed into the next).
  */
 export function pickDefaultShiftedDay(
-  days: Array<{ date: string; totalMinutes?: number }>,
+  days: Array<{
+    date: string
+    totalMinutes?: number
+    sessions?: Array<{ durationHours?: number; start_at?: string; end_at?: string }>
+  }>,
   currentShiftedDay: string | undefined,
   previousSelection: string | null,
 ): string | null {
   if (!days.length) return null
 
   const byDate = new Map(days.map((d) => [d.date, d]))
-  const minutesFor = (date: string) => byDate.get(date)?.totalMinutes ?? 0
+  const minutesFor = (date: string) => {
+    const row = byDate.get(date)
+    return row ? aggregateDayMinutes(row) : 0
+  }
 
   if (previousSelection && byDate.has(previousSelection) && minutesFor(previousSelection) > 0) {
     return previousSelection
@@ -47,40 +99,67 @@ export function pickDefaultShiftedDay(
 
 export type SleepBarPoint = { dateKey: string; totalMinutes: number }
 
-/** UTC calendar YYYY-MM-DD plus `deltaDays` (avoids local TZ shifting keys vs server `getShiftedDayKey`). */
-export function addUtcDaysYmd(ymd: string, deltaDays: number): string {
+/** Gregorian calendar YYYY-MM-DD plus `deltaDays` (matches shifted-day labels from `getShiftedDayKey`). */
+export function addCalendarDaysToYmd(ymd: string, deltaDays: number): string {
   const [y, m, d] = ymd.split('-').map(Number)
   if (!y || !m || !d) return ymd
-  const ms = Date.UTC(y, m - 1, d) + deltaDays * 86400000
-  return new Date(ms).toISOString().slice(0, 10)
+  return shiftWallDateByDays(y, m, d, deltaDays)
+}
+
+export function minutesBetween(startAt: string | Date, endAt: string | Date): number {
+  const start = new Date(startAt).getTime()
+  const end = new Date(endAt).getTime()
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0
+  return Math.round((end - start) / 60000)
 }
 
 /**
- * Seven bars ending at `endDateKey`, matched to `shiftedDays[].date`. Uses UTC ladder plus any
- * in-range bucket keys returned by the API so totals are not dropped when keys don't line up.
+ * Seven bars ending at `endDateKey`, matched to `shiftedDays[].date`. Uses the same civil-date
+ * ladder as API keys so filled buckets are not missed.
  */
+function aggregateDayMinutes(d: {
+  date: string
+  totalMinutes?: number
+  sessions?: Array<{ durationHours?: number; start_at?: string; end_at?: string }>
+}): number {
+  let total = Math.max(0, Number(d.totalMinutes) || 0)
+  if (total > 0 || !d.sessions?.length) return total
+  return d.sessions.reduce((sum, s) => {
+    if (typeof s.durationHours === 'number' && Number.isFinite(s.durationHours)) {
+      return sum + Math.max(0, Math.round(s.durationHours * 60))
+    }
+    if (s.start_at && s.end_at) return sum + minutesBetween(s.start_at, s.end_at)
+    return sum
+  }, 0)
+}
+
 export function buildSevenShiftedDaySleepBars(
-  shiftedDays: Array<{ date: string; totalMinutes: number }>,
+  shiftedDays: Array<{
+    date: string
+    totalMinutes?: number
+    sessions?: Array<{ durationHours?: number; start_at?: string; end_at?: string }>
+  }>,
   endDateKey: string | null,
+  timeZone: string = 'UTC',
 ): SleepBarPoint[] {
   const by = new Map(
-    shiftedDays.map((d) => [String(d.date).trim(), Math.max(0, d.totalMinutes ?? 0)]),
+    shiftedDays.map((d) => [String(d.date).trim(), aggregateDayMinutes(d)] as const),
   )
   const end =
     (endDateKey?.trim() || null) ??
     (shiftedDays.length
       ? [...shiftedDays].sort((a, b) => b.date.localeCompare(a.date))[0].date.trim()
-      : getShiftedDayKey(new Date()))
+      : getShiftedDayKey(new Date(), 7, timeZone))
 
   const slots: SleepBarPoint[] = []
   for (let i = 6; i >= 0; i--) {
-    const key = addUtcDaysYmd(end, -i)
+    const key = addCalendarDaysToYmd(end, -i)
     slots.push({ dateKey: key, totalMinutes: by.get(key) ?? 0 })
   }
   const slotKeys = new Set(slots.map((s) => s.dateKey))
   const orphans = [...by.entries()].filter(
     ([k, m]) =>
-      m > 0 && !slotKeys.has(k) && k <= end && k >= addUtcDaysYmd(end, -12),
+      m > 0 && !slotKeys.has(k) && k <= end && k >= addCalendarDaysToYmd(end, -12),
   )
   if (orphans.length === 0) return slots
 
@@ -93,13 +172,6 @@ export function buildSevenShiftedDaySleepBars(
     dateKey,
     totalMinutes: by.get(dateKey) ?? 0,
   }))
-}
-
-export function minutesBetween(startAt: string | Date, endAt: string | Date): number {
-  const start = new Date(startAt).getTime()
-  const end = new Date(endAt).getTime()
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0
-  return Math.round((end - start) / 60000)
 }
 
 export function isPrimarySleepType(type: SleepType): boolean {

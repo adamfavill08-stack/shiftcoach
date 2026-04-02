@@ -44,7 +44,20 @@ function sessionOverlapsWindow(
   return b >= winStart.getTime() && a <= winEnd.getTime()
 }
 
-function groupByShiftedDay(sessions: any[]): Record<string, any[]> {
+function resolveRequestTimeZone(req: NextRequest): string {
+  const raw = req.nextUrl.searchParams.get('tz') ?? req.nextUrl.searchParams.get('timeZone') ?? ''
+  const decoded = raw ? decodeURIComponent(raw.trim()) : ''
+  const zone = decoded.slice(0, 120)
+  if (!zone) return 'UTC'
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: zone })
+    return zone
+  } catch {
+    return 'UTC'
+  }
+}
+
+function groupByShiftedDay(sessions: any[], timeZone: string): Record<string, any[]> {
   const grouped: Record<string, any[]> = {}
 
   for (const session of sessions) {
@@ -61,7 +74,7 @@ function groupByShiftedDay(sessions: any[]): Record<string, any[]> {
         continue
       }
       
-      const dayKey = getShiftedDayKey(startTimeStr)
+      const dayKey = getShiftedDayKey(startTimeStr, 7, timeZone)
       if (!grouped[dayKey]) {
         grouped[dayKey] = []
       }
@@ -83,21 +96,23 @@ export async function GET(req: NextRequest) {
     if (!userId) return buildUnauthorizedResponse()
     const searchParams = req.nextUrl.searchParams
     const days = parseInt(searchParams.get('days') || '3') // Default: last 3 shifted days
+    const timeZone = resolveRequestTimeZone(req)
 
     const now = new Date()
-    const winStart = new Date(now)
-    winStart.setDate(winStart.getDate() - days - 1)
-    winStart.setHours(0, 0, 0, 0)
-    const winEnd = new Date(now)
-    winEnd.setHours(23, 59, 59, 999)
+    // Use UTC calendar bounds so behavior matches hosted servers (often UTC). Extend winEnd to
+    // **tomorrow** UTC: evening sleep in the Americas starts on the next UTC calendar day while
+    // "now" is still the previous UTC date — a same-day winEnd would drop those sessions entirely.
+    const y = now.getUTCFullYear()
+    const mo = now.getUTCMonth()
+    const d = now.getUTCDate()
+    const winStart = new Date(Date.UTC(y, mo, d - days - 1, 0, 0, 0, 0))
+    const winEnd = new Date(Date.UTC(y, mo, d + 1, 23, 59, 59, 999))
 
     // Pull a slightly wider slice from SQL, then filter overlaps in JS (avoids edge cases with PostgREST).
     const sqlLowerBound = new Date(winStart)
-    sqlLowerBound.setDate(sqlLowerBound.getDate() - 3)
-    sqlLowerBound.setHours(0, 0, 0, 0)
+    sqlLowerBound.setUTCDate(sqlLowerBound.getUTCDate() - 3)
     const sqlUpperBound = new Date(winEnd)
-    sqlUpperBound.setDate(sqlUpperBound.getDate() + 2)
-    sqlUpperBound.setHours(23, 59, 59, 999)
+    sqlUpperBound.setUTCDate(sqlUpperBound.getUTCDate() + 2)
 
     const fullSelect =
       'id, start_at, end_at, start_ts, end_ts, type, quality, notes, source, created_at'
@@ -156,7 +171,7 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error('[api/sleep/24h-grouped] Query error:', error)
-      return NextResponse.json({ days: [], currentShiftedDay: getShiftedDayKey(now) }, { status: 200 })
+      return NextResponse.json({ days: [], currentShiftedDay: getShiftedDayKey(now, 7, timeZone) }, { status: 200 })
     }
 
     const normalized = (rows ?? []).map(normalizeTimestamps).filter((s: any) => s.start_at && s.end_at)
@@ -186,9 +201,9 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    const grouped = groupByShiftedDay(sessionsArray)
+    const grouped = groupByShiftedDay(sessionsArray, timeZone)
 
-    const todayKey = getShiftedDayKey(now)
+    const todayKey = getShiftedDayKey(now, 7, timeZone)
     if (!grouped[todayKey]) {
       grouped[todayKey] = []
     }

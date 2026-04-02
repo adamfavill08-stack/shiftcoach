@@ -301,9 +301,11 @@ export function ShiftSleepOverviewCard({
         </div>
 
         <div className="space-y-2.5 max-w-sm">
-          <div className={`inline-flex items-center rounded-full border px-3.5 py-1.5 text-[11px] font-semibold ${chipTone}`}>
-            {headline}
-          </div>
+          {progressState !== 'empty' && (
+            <div className={`inline-flex items-center rounded-full border px-3.5 py-1.5 text-[11px] font-semibold ${chipTone}`}>
+              {headline}
+            </div>
+          )}
           <p className="text-sm leading-relaxed text-[var(--text-soft)]">{subtext}</p>
         </div>
 
