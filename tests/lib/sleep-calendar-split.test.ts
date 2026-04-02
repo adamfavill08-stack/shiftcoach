@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { splitSleepMinutesAcrossLocalDays, formatYmdInTimeZone } from '@/lib/sleep/utils'
+import {
+  splitSleepMinutesAcrossLocalDays,
+  formatYmdInTimeZone,
+  startOfLocalDayUtcMs,
+} from '@/lib/sleep/utils'
 
 describe('splitSleepMinutesAcrossLocalDays', () => {
   it('splits at UTC midnight', () => {
@@ -33,5 +37,11 @@ describe('splitSleepMinutesAcrossLocalDays', () => {
     const jun15 = m.get('2025-06-15')
     const jun16 = m.get('2025-06-16')
     expect((jun15 ?? 0) + (jun16 ?? 0)).toBe(8 * 60)
+  })
+
+  it('startOfLocalDayUtcMs matches UTC midnight for UTC zone', () => {
+    const ms = startOfLocalDayUtcMs('2025-01-15', 'UTC')
+    expect(formatYmdInTimeZone(new Date(ms), 'UTC')).toBe('2025-01-15')
+    expect(ms).toBe(Date.UTC(2025, 0, 15, 0, 0, 0))
   })
 })

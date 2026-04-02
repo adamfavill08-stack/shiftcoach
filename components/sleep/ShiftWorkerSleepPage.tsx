@@ -926,6 +926,7 @@ export function ShiftWorkerSleepPage() {
         editLogsHref="/sleep/history"
         sevenDayBars={sevenDayChartBars}
         highlightDateKey={chartHighlightYmd}
+        chartTimeZone={userTimeZone}
       />
 
       {/* Sleep metrics card */}

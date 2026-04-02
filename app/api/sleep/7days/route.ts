@@ -4,9 +4,11 @@ import { supabaseServer } from '@/lib/supabase-server'
 import { predictSleepStages } from '@/lib/sleep/predictSleepStages'
 import {
   addCalendarDaysToYmd,
+  endOfLocalDayUtcMs,
   formatYmdInTimeZone,
   isPrimarySleepType,
   splitSleepMinutesAcrossLocalDays,
+  startOfLocalDayUtcMs,
 } from '@/lib/sleep/utils'
 
 export const dynamic = 'force-dynamic'
@@ -80,10 +82,18 @@ export async function GET(req: NextRequest) {
     }
     const dayKeySet = new Set(dayKeysAsc)
 
-    // Wide overlap fetch: any session intersecting this wall-clock window could contribute
-    // minutes to the 7-day chart after split-by-midnight (avoid missing long overnight spans).
-    const fetchFrom = new Date(now.getTime() - 40 * 86400000).toISOString()
-    const fetchThrough = new Date(now.getTime() + 48 * 3600000).toISOString()
+    // Bound the DB query to the chart's anchor calendar (not server "now") so sessions are not
+    // dropped when device date ≠ server date; pad so overnight spans still overlap the window.
+    const padFirstYmd = addCalendarDaysToYmd(dayKeysAsc[0], -2)
+    const padLastYmd = addCalendarDaysToYmd(dayKeysAsc[6], 2)
+    let fetchFromMs = startOfLocalDayUtcMs(padFirstYmd, timeZone)
+    let fetchThroughMs = endOfLocalDayUtcMs(padLastYmd, timeZone)
+    if (!Number.isFinite(fetchFromMs) || !Number.isFinite(fetchThroughMs)) {
+      fetchFromMs = now.getTime() - 40 * 86400000
+      fetchThroughMs = now.getTime() + 48 * 3600000
+    }
+    const fetchFrom = new Date(fetchFromMs).toISOString()
+    const fetchThrough = new Date(fetchThroughMs).toISOString()
 
     async function fetchWeek(opts: { withDeletedNull: boolean }) {
       let q = supabase

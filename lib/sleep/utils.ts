@@ -54,6 +54,66 @@ export function formatYmdInTimeZone(instant: Date, timeZone: string): string {
   }
 }
 
+/**
+ * First UTC instant where civil date in `timeZone` equals `ymd` (local midnight).
+ * Used to align fetch windows and chart axis labels with /api/sleep/7days bucketing.
+ */
+export function startOfLocalDayUtcMs(ymd: string, timeZone: string): number {
+  const parts = ymd.split('-').map(Number)
+  const y = parts[0]
+  const m = parts[1]
+  const d = parts[2]
+  if (!y || !m || !d) return NaN
+
+  let lo = Date.UTC(y, m - 1, d, 0, 0, 0) - 48 * 3600000
+  let hi = Date.UTC(y, m - 1, d, 0, 0, 0) + 48 * 3600000
+  let found = -1
+  for (let t = lo; t <= hi; t += 3600000) {
+    if (formatYmdInTimeZone(new Date(t), timeZone) === ymd) {
+      found = t
+      break
+    }
+  }
+  if (found < 0) {
+    lo -= 168 * 3600000
+    hi += 168 * 3600000
+    for (let t = lo; t <= hi; t += 3600000) {
+      if (formatYmdInTimeZone(new Date(t), timeZone) === ymd) {
+        found = t
+        break
+      }
+    }
+  }
+  if (found < 0) return Date.UTC(y, m - 1, d, 0, 0, 0)
+
+  let lo2 = found - 36 * 3600000
+  let hi2 = found
+  while (lo2 < hi2 - 1) {
+    const mid = Math.floor((lo2 + hi2) / 2)
+    if (formatYmdInTimeZone(new Date(mid), timeZone) === ymd) hi2 = mid
+    else lo2 = mid
+  }
+  return hi2
+}
+
+/** Weekday + month/day for chart ticks; must use the same IANA zone as the 7-day API. */
+export function formatSleepChartAxisLabel(ymd: string, timeZone: string): string {
+  if (!ymd?.trim() || !timeZone) return ymd
+  const start = startOfLocalDayUtcMs(ymd, timeZone)
+  if (!Number.isFinite(start)) return ymd
+  const inst = new Date(start + 12 * 3600000)
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      weekday: 'short',
+      month: 'numeric',
+      day: 'numeric',
+      timeZone,
+    }).format(inst)
+  } catch {
+    return ymd
+  }
+}
+
 /** Smallest t > anchorMs whose calendar date in `timeZone` differs from the anchor's date. */
 function startOfNextLocalDayMs(anchorMs: number, timeZone: string): number {
   const y0 = formatYmdInTimeZone(new Date(anchorMs), timeZone)
@@ -162,6 +222,11 @@ export function addCalendarDaysToYmd(ymd: string, deltaDays: number): string {
   const [y, m, d] = ymd.split('-').map(Number)
   if (!y || !m || !d) return ymd
   return shiftWallDateByDays(y, m, d, deltaDays)
+}
+
+/** Last millisecond of civil `ymd` in `timeZone`. */
+export function endOfLocalDayUtcMs(ymd: string, timeZone: string): number {
+  return startOfLocalDayUtcMs(addCalendarDaysToYmd(ymd, 1), timeZone) - 1
 }
 
 export function minutesBetween(startAt: string | Date, endAt: string | Date): number {

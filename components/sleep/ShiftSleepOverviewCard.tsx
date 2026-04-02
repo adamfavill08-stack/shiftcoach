@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { getSleepTypeLabel, type SleepBarPoint } from '@/lib/sleep/utils'
+import { formatSleepChartAxisLabel, getSleepTypeLabel, type SleepBarPoint } from '@/lib/sleep/utils'
 import type { SleepType } from '@/lib/sleep/types'
 
 type SourceSummary = 'none' | 'manual' | 'wearable' | 'mixed'
@@ -26,6 +26,8 @@ type ShiftSleepOverviewCardProps = {
   editLogsHref: string
   sevenDayBars: SleepBarPoint[]
   highlightDateKey?: string | null
+  /** IANA zone used by /api/sleep/7days; axis labels must match bucket math. */
+  chartTimeZone?: string | null
 }
 
 const WEARABLE_STALE_MS = 4 * 60 * 60 * 1000 // 4h
@@ -189,6 +191,7 @@ export function ShiftSleepOverviewCard({
   editLogsHref,
   sevenDayBars,
   highlightDateKey = null,
+  chartTimeZone = null,
 }: ShiftSleepOverviewCardProps) {
   const headline = getHeadline(totalMinutes, targetMinutes, shiftLabel)
   const subtext = getSubtext(totalMinutes, primaryMinutes, napMinutes, dominantType, sleepDebtMinutes, shiftLabel)
@@ -240,7 +243,7 @@ export function ShiftSleepOverviewCard({
               Last 7 days
             </p>
             <p className="text-[11px] text-[var(--text-muted)]">
-              Logged sleep (local days) · {(targetMinutes / 60).toFixed(1)}h target
+              Last 7 local days ending today · {(targetMinutes / 60).toFixed(1)}h target
             </p>
           </div>
           <div
@@ -254,9 +257,14 @@ export function ShiftSleepOverviewCard({
                   ? 3
                   : Math.max(8, Math.round((day.totalMinutes / maxBarMinutes) * CHART_H))
               const isHi = highlightDateKey != null && day.dateKey === highlightDateKey
-              const label = new Date(`${day.dateKey}T12:00:00`).toLocaleDateString(undefined, {
-                weekday: 'short',
-              })
+              const label =
+                chartTimeZone && chartTimeZone.trim()
+                  ? formatSleepChartAxisLabel(day.dateKey, chartTimeZone)
+                  : new Date(`${day.dateKey}T12:00:00`).toLocaleDateString(undefined, {
+                      weekday: 'short',
+                      month: 'numeric',
+                      day: 'numeric',
+                    })
               return (
                 <div
                   key={day.dateKey}
