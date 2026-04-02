@@ -66,11 +66,11 @@ function getHeadline(totalMinutes: number, targetMinutes: number, shiftLabel?: s
     case 'empty':
       return 'Log your sleep'
     case 'behind':
-      return 'Below target for this shifted day'
+      return 'Below target for today'
     case 'progress':
       return 'Progressing toward target'
     case 'on_track':
-      return 'On track for this shifted day'
+      return 'On track for today'
     case 'recovery':
       return 'Recovery needs covered'
     default:
@@ -88,7 +88,7 @@ function getSubtext(
 ) {
   const shift = (shiftLabel || '').toUpperCase()
   if (totalMinutes <= 0) {
-    return 'No sleep logged yet for this shifted day. Log main sleep or naps to keep your body clock accurate.'
+    return 'No sleep logged yet for this day. Log main sleep or naps to keep your body clock accurate.'
   }
   if (shift === 'NIGHT' && totalMinutes > 0) {
     return `Post-shift sleep logged. You've recorded ${formatHoursMinutes(primaryMinutes)} primary sleep and ${formatHoursMinutes(napMinutes)} naps.`
@@ -97,7 +97,7 @@ function getSubtext(
     return `You've logged ${formatHoursMinutes(primaryMinutes)} of primary sleep and ${formatHoursMinutes(napMinutes)} of naps. Recovery sleep is recommended to close your debt.`
   }
   if (primaryMinutes <= 0 && napMinutes > 0) {
-    return `Only naps are logged so far. You've logged ${formatHoursMinutes(napMinutes)} of naps this shifted day.`
+    return `Only naps are logged so far. You've logged ${formatHoursMinutes(napMinutes)} of naps today.`
   }
   if (dominantType === 'post_shift_sleep') {
     return `Post-shift sleep is the main contributor today. You've logged ${formatHoursMinutes(primaryMinutes)} of primary sleep and ${formatHoursMinutes(napMinutes)} of naps.`
@@ -106,9 +106,9 @@ function getSubtext(
     return `Recovery sleep is leading today. You've logged ${formatHoursMinutes(primaryMinutes)} of primary sleep and ${formatHoursMinutes(napMinutes)} of naps.`
   }
   if (dominantType === 'main_sleep') {
-    return `Primary sleep is logged. You've logged ${formatHoursMinutes(primaryMinutes)} of primary sleep and ${formatHoursMinutes(napMinutes)} of naps this shifted day.`
+    return `Primary sleep is logged. You've logged ${formatHoursMinutes(primaryMinutes)} of primary sleep and ${formatHoursMinutes(napMinutes)} of naps today.`
   }
-  return `You've logged ${formatHoursMinutes(primaryMinutes)} of primary sleep and ${formatHoursMinutes(napMinutes)} of naps this shifted day.`
+  return `You've logged ${formatHoursMinutes(primaryMinutes)} of primary sleep and ${formatHoursMinutes(napMinutes)} of naps today.`
 }
 
 function getSourceLabel(sourceSummary: SourceSummary, totalMinutes: number) {
@@ -200,7 +200,7 @@ export function ShiftSleepOverviewCard({
   const priorityBlock = actionError
     ? { tone: 'error' as const, text: actionError }
     : wearableStale
-    ? { tone: 'warn' as const, text: 'Wearable sync delayed. Sync now to keep this shifted day accurate.' }
+    ? { tone: 'warn' as const, text: "Wearable sync delayed. Sync now to keep today's totals accurate." }
     : conciseInsight
     ? { tone: 'info' as const, text: conciseInsight }
     : null

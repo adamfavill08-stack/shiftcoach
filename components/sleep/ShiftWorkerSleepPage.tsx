@@ -288,6 +288,9 @@ export function ShiftWorkerSleepPage() {
   const [weekSleepOverview, setWeekSleepOverview] = useState<WeekSleepOverview>(initialWeekOverview)
   const [shiftedDays, setShiftedDays] = useState<ShiftedDay[]>([])
   const [sevenDayChartBars, setSevenDayChartBars] = useState<SleepBarPoint[]>([])
+  const [sevenDayCalendarDays, setSevenDayCalendarDays] = useState<
+    Array<{ date: string; totalMinutes: number; sessions?: SleepSession[] }>
+  >([])
   const [loading, setLoading] = useState(true)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [isLogModalOpen, setIsLogModalOpen] = useState(false)
@@ -391,13 +394,38 @@ export function ShiftWorkerSleepPage() {
   const fetchSevenDayChart = useCallback(async () => {
     try {
       const tz = encodeURIComponent(userTimeZone)
-      const res = await authedFetch(`/api/sleep/7days?tz=${tz}`, { cache: 'no-store' })
+      const anchorDate = encodeURIComponent(formatYmdInTimeZone(new Date(), userTimeZone))
+      const res = await authedFetch(
+        `/api/sleep/7days?tz=${tz}&anchorDate=${anchorDate}`,
+        { cache: 'no-store' },
+      )
       if (!res.ok) {
         console.error('[ShiftWorkerSleepPage] 7days chart:', res.status)
         return
       }
       const json = await res.json()
-      const rows: Array<{ date?: string; totalMinutes?: number }> = json.days || []
+      const rows: Array<{
+        date?: string
+        totalMinutes?: number
+        sessions?: SleepSession[]
+      }> = json.days || []
+      setSevenDayCalendarDays(
+        rows.map((r) => ({
+          date: String(r.date ?? '').slice(0, 10),
+          totalMinutes: Math.max(0, r.totalMinutes ?? 0),
+          sessions: Array.isArray(r.sessions) ? r.sessions : [],
+        })),
+      )
+      const fromApi = json.chartBars as SleepBarPoint[] | undefined
+      if (Array.isArray(fromApi) && fromApi.length === 7) {
+        setSevenDayChartBars(
+          fromApi.map((b) => ({
+            dateKey: String(b.dateKey ?? '').slice(0, 10),
+            totalMinutes: Math.max(0, Number(b.totalMinutes) || 0),
+          })),
+        )
+        return
+      }
       const by = new Map(
         rows.map((r) => [String(r.date ?? '').slice(0, 10), Math.max(0, r.totalMinutes ?? 0)]),
       )
@@ -657,13 +685,23 @@ export function ShiftWorkerSleepPage() {
     setIsDeleting(false)
   }
 
-  // Get selected day data
   const selectedDayData = selectedDay
     ? (shiftedDays.find((d) => d.date === selectedDay) ?? shiftedDays[0])
-    : shiftedDays[0] // Default to most recent
-  const shiftForDay = selectedDayData?.date ? shiftByDate.get(selectedDayData.date) || 'OFF' : 'OFF'
+    : shiftedDays[0]
 
-  const sessions = selectedDayData?.sessions ?? []
+  const calendarFocusYmd = chartHighlightYmd
+  const useCalendarOverview = sevenDayCalendarDays.length > 0
+  const calendarOverviewRow = sevenDayCalendarDays.find((d) => d.date === calendarFocusYmd)
+
+  const shiftForDay = useCalendarOverview
+    ? shiftByDate.get(calendarFocusYmd) || 'OFF'
+    : selectedDayData?.date
+      ? shiftByDate.get(selectedDayData.date) || 'OFF'
+      : 'OFF'
+
+  const sessions = useCalendarOverview
+    ? (calendarOverviewRow?.sessions ?? [])
+    : (selectedDayData?.sessions ?? [])
   const baseTargetMinutes = sleepGoalHours ? Math.round(sleepGoalHours * 60) : 0
   const adjustedTargetMinutes = getShiftAdjustedTargetMinutes(baseTargetMinutes, shiftForDay)
 
@@ -773,10 +811,18 @@ export function ShiftWorkerSleepPage() {
     sleepDebtMinutes,
     circadianAlignment,
   })
-  // Calculate shifted day end
-  const shiftedDayEnd = selectedDayData 
+  const shiftedDayEnd = selectedDayData
     ? new Date(new Date(selectedDayData.shiftedDayStart).getTime() + 24 * 60 * 60 * 1000).toISOString()
     : ''
+
+  const calendarTimelineStart = `${calendarFocusYmd}T00:00:00`
+  const calendarTimelineEnd = `${calendarFocusYmd}T23:59:59.999`
+  const timelineSessions = useCalendarOverview
+    ? (calendarOverviewRow?.sessions ?? [])
+    : (selectedDayData?.sessions ?? [])
+  const showSleepTimeline =
+    timelineSessions.length > 0 &&
+    (useCalendarOverview ? Boolean(calendarOverviewRow) : Boolean(selectedDayData))
 
   // Show loading state
   if (loading && shiftedDays.length === 0) {
@@ -895,15 +941,15 @@ export function ShiftWorkerSleepPage() {
       </section>
 
       {/* Sleep Timeline Bar */}
-      {selectedDayData && selectedDayData.sessions.length > 0 && (
+      {showSleepTimeline && (
         <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4">
           <h2 className="mb-3 text-xs font-semibold tracking-[0.16em] uppercase text-[var(--text-muted)]">
             24‑hour sleep timeline
           </h2>
           <SleepTimelineBar
-            sessions={selectedDayData.sessions}
-            shiftedDayStart={selectedDayData.shiftedDayStart}
-            shiftedDayEnd={shiftedDayEnd}
+            sessions={timelineSessions}
+            shiftedDayStart={useCalendarOverview ? calendarTimelineStart : selectedDayData!.shiftedDayStart}
+            shiftedDayEnd={useCalendarOverview ? calendarTimelineEnd : shiftedDayEnd}
             shiftLabel={shiftForDay}
             onSessionClick={(session) => setEditingSession(session)}
           />

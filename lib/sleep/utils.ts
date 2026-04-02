@@ -35,11 +35,6 @@ function shiftWallDateByDays(year: number, month: number, day: number, deltaDays
   return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 }
 
-/**
- * Shifted calendar day label (default 07:00→07:00) in `timeZone` (IANA), as YYYY-MM-DD.
- * Uses the wall-clock date in that zone so server and chart stay aligned when the client passes
- * the same zone as `/api/sleep/24h-grouped?tz=`.
- */
 /** Calendar YYYY-MM-DD for an instant in an IANA time zone (used for 7-day charts). */
 export function formatYmdInTimeZone(instant: Date, timeZone: string): string {
   try {
@@ -59,6 +54,50 @@ export function formatYmdInTimeZone(instant: Date, timeZone: string): string {
   }
 }
 
+/** Smallest t > anchorMs whose calendar date in `timeZone` differs from the anchor's date. */
+function startOfNextLocalDayMs(anchorMs: number, timeZone: string): number {
+  const y0 = formatYmdInTimeZone(new Date(anchorMs), timeZone)
+  let lo = anchorMs + 1
+  let hi = anchorMs + 32 * 24 * 3600000
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2)
+    if (formatYmdInTimeZone(new Date(mid), timeZone) !== y0) hi = mid
+    else lo = mid + 1
+  }
+  return lo
+}
+
+/**
+ * Split a sleep interval into minutes per local calendar day in `timeZone` (at local midnights).
+ * Matches how “hours per day” charts should relate to clock-time sleep logs.
+ */
+export function splitSleepMinutesAcrossLocalDays(
+  startAt: string | Date,
+  endAt: string | Date,
+  timeZone: string,
+): Map<string, number> {
+  const chunks = new Map<string, number>()
+  const startMs = new Date(startAt).getTime()
+  const endMs = new Date(endAt).getTime()
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) return chunks
+
+  let cur = startMs
+  while (cur < endMs) {
+    const ymd = formatYmdInTimeZone(new Date(cur), timeZone)
+    const nextBoundary = startOfNextLocalDayMs(cur, timeZone)
+    const segEnd = Math.min(endMs, nextBoundary)
+    const mins = Math.round((segEnd - cur) / 60000)
+    if (mins > 0) chunks.set(ymd, (chunks.get(ymd) ?? 0) + mins)
+    cur = segEnd
+  }
+  return chunks
+}
+
+/**
+ * Shifted calendar day label (default 07:00→07:00) in `timeZone` (IANA), as YYYY-MM-DD.
+ * Uses the wall-clock date in that zone so server and chart stay aligned when the client passes
+ * the same zone as `/api/sleep/24h-grouped?tz=`.
+ */
 export function getShiftedDayKey(
   dateInput: string | Date,
   shiftStartHour = 7,

@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { predictSleepStages } from '@/lib/sleep/predictSleepStages'
-import { addCalendarDaysToYmd, formatYmdInTimeZone, isPrimarySleepType } from '@/lib/sleep/utils'
+import {
+  addCalendarDaysToYmd,
+  formatYmdInTimeZone,
+  isPrimarySleepType,
+  splitSleepMinutesAcrossLocalDays,
+} from '@/lib/sleep/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,14 +67,23 @@ export async function GET(req: NextRequest) {
 
     const now = new Date()
     const timeZone = resolveRequestTimeZone(req)
-    const endYmd = formatYmdInTimeZone(now, timeZone)
+
+    const anchorRaw = (req.nextUrl.searchParams.get('anchorDate') ?? '').trim()
+    const endYmd =
+      /^\d{4}-\d{2}-\d{2}$/.test(anchorRaw) && !Number.isNaN(Date.parse(`${anchorRaw}T12:00:00`))
+        ? anchorRaw
+        : formatYmdInTimeZone(now, timeZone)
+
     const dayKeysAsc: string[] = []
     for (let i = 6; i >= 0; i--) {
       dayKeysAsc.push(addCalendarDaysToYmd(endYmd, -i))
     }
     const dayKeySet = new Set(dayKeysAsc)
 
-    const sqlLower = new Date(now.getTime() - 14 * 86400000).toISOString()
+    // Wide overlap fetch: any session intersecting this wall-clock window could contribute
+    // minutes to the 7-day chart after split-by-midnight (avoid missing long overnight spans).
+    const fetchFrom = new Date(now.getTime() - 40 * 86400000).toISOString()
+    const fetchThrough = new Date(now.getTime() + 48 * 3600000).toISOString()
 
     async function fetchWeek(opts: { withDeletedNull: boolean }) {
       let q = supabase
@@ -78,7 +92,8 @@ export async function GET(req: NextRequest) {
         .eq('user_id', userId)
         .not('start_at', 'is', null)
         .not('end_at', 'is', null)
-        .gte('end_at', sqlLower)
+        .lte('start_at', fetchThrough)
+        .gte('end_at', fetchFrom)
         .order('start_at', { ascending: true })
       if (opts.withDeletedNull) q = q.is('deleted_at', null)
       return q
@@ -119,15 +134,13 @@ export async function GET(req: NextRequest) {
       const startTime = row.start_at || row.start_ts
       if (!endTime || !startTime) continue
 
-      let key: string
-      if (row.date && typeof row.date === 'string') {
-        key = row.date.slice(0, 10)
-      } else {
-        key = formatYmdInTimeZone(new Date(endTime), timeZone)
+      // Ignore row.date: it often reflects import/start metadata and breaks alignment with logs.
+      // Split at local midnights so overnight sleep credits each calendar day correctly.
+      const pieces = splitSleepMinutesAcrossLocalDays(startTime, endTime, timeZone)
+      for (const [ymd, mins] of pieces) {
+        if (!dayKeySet.has(ymd) || !byDay[ymd]) continue
+        byDay[ymd].total += mins
       }
-
-      if (!dayKeySet.has(key)) continue
-      byDay[key].total += minutesBetween(startTime, endTime)
     }
 
     const shiftStartDate = dayKeysAsc[0]
@@ -247,12 +260,10 @@ export async function GET(req: NextRequest) {
             const startTime = row.start_at || row.start_ts
             if (!endTime || !startTime) return false
             if (row.type === 'nap') return false
-            const rowDate = row.date
-              ? String(row.date).slice(0, 10)
-              : formatYmdInTimeZone(new Date(endTime), timeZone)
+            const onDay = splitSleepMinutesAcrossLocalDays(startTime, endTime, timeZone).get(d.date) ?? 0
+            if (onDay <= 0) return false
             return (
-              rowDate === d.date &&
-              (isPrimarySleepType(row.type) || row.type === 'sleep' || row.type === 'main' || row.naps === 0)
+              isPrimarySleepType(row.type) || row.type === 'sleep' || row.type === 'main' || row.naps === 0
             )
           })
           
@@ -293,10 +304,36 @@ export async function GET(req: NextRequest) {
           }
         }
         
+        const sessions = (weekLogs ?? [])
+          .flatMap((row: any) => {
+            const start = row.start_at || row.start_ts
+            const end = row.end_at || row.end_ts
+            if (!start || !end) return []
+            const minsOnDay = splitSleepMinutesAcrossLocalDays(start, end, timeZone).get(d.date) ?? 0
+            if (minsOnDay <= 0) return []
+            return [
+              {
+                id: String(row.id),
+                start_at: start,
+                end_at: end,
+                type: row.type,
+                quality: row.quality ?? null,
+                notes: row.notes ?? null,
+                source: row.source || 'manual',
+                durationHours: minsOnDay / 60,
+              },
+            ]
+          })
+          .sort(
+            (a: { start_at: string }, b: { start_at: string }) =>
+              new Date(a.start_at).getTime() - new Date(b.start_at).getTime(),
+          )
+
         return {
           date: d.date,
           totalMinutes: d.total,
           totalSleepHours: d.total / 60,
+          sessions,
           dataQuality: {
             stages: stages ? 'predicted_from_available_logs' : 'insufficient_data',
             sleepDebt: 'not_applied_in_stage_prediction',
@@ -309,15 +346,28 @@ export async function GET(req: NextRequest) {
         }
       })
 
+    const chartBars = dayKeysAsc.map((dateKey) => ({
+      dateKey,
+      totalMinutes: byDay[dateKey]?.total ?? 0,
+    }))
+
     console.log('[api/sleep/7days] Returning days:', daysArray)
     
-    return NextResponse.json({ days: daysArray }, {
-      headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-      }
-    })
+    return NextResponse.json(
+      {
+        days: daysArray,
+        chartBars,
+        anchorDate: endYmd,
+        timeZone,
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
+        },
+      },
+    )
   } catch (err: any) {
     console.error('[api/sleep/7days] FATAL ERROR:', {
       name: err?.name,
