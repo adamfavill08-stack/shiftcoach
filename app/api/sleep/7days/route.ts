@@ -1,13 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
-import { predictSleepStages, type SleepStageInput } from '@/lib/sleep/predictSleepStages'
+import { predictSleepStages } from '@/lib/sleep/predictSleepStages'
+import { addCalendarDaysToYmd, formatYmdInTimeZone, isPrimarySleepType } from '@/lib/sleep/utils'
 
 export const dynamic = 'force-dynamic'
 
-// Utility function from summary route
 function minutesBetween(a: string | Date, b: string | Date) {
   return Math.max(0, Math.round((+new Date(b) - +new Date(a)) / 60000))
+}
+
+function resolveRequestTimeZone(req: NextRequest): string {
+  const raw = req.nextUrl.searchParams.get('tz') ?? req.nextUrl.searchParams.get('timeZone') ?? ''
+  const decoded = raw ? decodeURIComponent(raw.trim()) : ''
+  const zone = decoded.slice(0, 120)
+  if (!zone) return 'UTC'
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: zone })
+    return zone
+  } catch {
+    return 'UTC'
+  }
 }
 
 /**
@@ -47,103 +60,78 @@ export async function GET(req: NextRequest) {
       userAge = calculatedAge
     }
 
-    // Last 7 days summary (group by date) - use local time
-    // Same logic as /api/sleep/summary
     const now = new Date()
-    const sevenAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0)
-    
-    // Helper to get local date string (YYYY-MM-DD) from a Date
-    const getLocalDateString = (date: Date): string => {
-      const year = date.getFullYear()
-      const month = String(date.getMonth() + 1).padStart(2, '0')
-      const day = String(date.getDate()).padStart(2, '0')
-      return `${year}-${month}-${day}`
+    const timeZone = resolveRequestTimeZone(req)
+    const endYmd = formatYmdInTimeZone(now, timeZone)
+    const dayKeysAsc: string[] = []
+    for (let i = 6; i >= 0; i--) {
+      dayKeysAsc.push(addCalendarDaysToYmd(endYmd, -i))
     }
-    
-    // Helper to get local date from ISO string
-    const getLocalDateFromISO = (isoString: string): string => {
-      const date = new Date(isoString)
-      return getLocalDateString(date)
-    }
+    const dayKeySet = new Set(dayKeysAsc)
 
-    // Try old schema first, fallback to new schema
-    // Include ALL sleep sessions (both main sleep and naps) for total sleep per day
-    let weekLogs, weekErr
-    let weekResult = await supabase
-      .from('sleep_logs')
-      .select('*')
-      .eq('user_id', userId)
-      // Don't filter by naps - include all sleep sessions (main + naps)
-      .gte('start_ts', sevenAgo.toISOString())
-      .order('start_ts', { ascending: true })
-    
-    weekLogs = weekResult.data
-    weekErr = weekResult.error
-    
-    // If old schema fails (column doesn't exist), try new schema
-    if (weekErr && (weekErr.message?.includes("start_ts") || weekErr.message?.includes("naps") || weekErr.code === 'PGRST204')) {
-      console.log('[api/sleep/7days] Trying new schema for week data')
-      weekResult = await supabase
+    const sqlLower = new Date(now.getTime() - 14 * 86400000).toISOString()
+
+    async function fetchWeek(opts: { withDeletedNull: boolean }) {
+      let q = supabase
         .from('sleep_logs')
         .select('*')
         .eq('user_id', userId)
-        // Include both 'sleep' and 'nap' types for total sleep per day
-        .in('type', ['sleep', 'nap'])
-        .gte('start_at', sevenAgo.toISOString())
+        .not('start_at', 'is', null)
+        .not('end_at', 'is', null)
+        .gte('end_at', sqlLower)
         .order('start_at', { ascending: true })
-      weekLogs = weekResult.data
-      weekErr = weekResult.error
+      if (opts.withDeletedNull) q = q.is('deleted_at', null)
+      return q
+    }
+
+    let weekResult = await fetchWeek({ withDeletedNull: true })
+    let weekLogs = weekResult.data
+    let weekErr = weekResult.error
+
+    const deletedBroken =
+      !!weekErr &&
+      (weekErr.code === 'PGRST204' ||
+        weekErr.code === '42703' ||
+        (weekErr.message ?? '').toLowerCase().includes('deleted_at') ||
+        (weekErr.message ?? '').includes('does not exist'))
+
+    if (deletedBroken) {
+      const r2 = await fetchWeek({ withDeletedNull: false })
+      weekLogs = r2.data
+      weekErr = r2.error
     }
 
     if (weekErr) {
       console.error('[api/sleep/7days] week query error:', weekErr)
-      // If table doesn't exist, return empty array
       if (weekErr.message?.includes('relation') || weekErr.message?.includes('does not exist')) {
-        console.log('[api/sleep/7days] Table does not exist, returning empty days array')
         return NextResponse.json({ days: [] }, { status: 200 })
       }
       return NextResponse.json({ error: weekErr.message }, { status: 500 })
     }
 
-    // Map by day (local) - same logic as summary route
-    const byDay: Record<string, {
-      date: string
-      total: number
-    }> = {}
-
-    // Initialize 7 days with empty data
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(sevenAgo.getFullYear(), sevenAgo.getMonth(), sevenAgo.getDate() + i, 12, 0, 0, 0)
-      const key = getLocalDateString(d)
+    const byDay: Record<string, { date: string; total: number }> = {}
+    for (const key of dayKeysAsc) {
       byDay[key] = { date: key, total: 0 }
     }
 
-    // Aggregate sleep by day
     for (const row of weekLogs ?? []) {
-      // Handle both schemas
       const endTime = row.end_at || row.end_ts
       const startTime = row.start_at || row.start_ts
       if (!endTime || !startTime) continue
-      
-      // Use date column if available (old schema), otherwise extract local date from endTime
+
       let key: string
-      if (row.date) {
+      if (row.date && typeof row.date === 'string') {
         key = row.date.slice(0, 10)
       } else {
-        // Extract local date from endTime (sleep ends on the date it's logged for)
-        key = getLocalDateFromISO(endTime)
+        key = formatYmdInTimeZone(new Date(endTime), timeZone)
       }
-      
-      if (!byDay[key]) {
-        // Date might be outside our 7-day window, skip it
-        continue
-      }
+
+      if (!dayKeySet.has(key)) continue
       byDay[key].total += minutesBetween(startTime, endTime)
     }
 
-    // Fetch shift data for the same 7 days
-    const shiftStartDate = getLocalDateString(sevenAgo)
-    const shiftEndDate = getLocalDateString(new Date(sevenAgo.getFullYear(), sevenAgo.getMonth(), sevenAgo.getDate() + 6, 23, 59, 59))
+    const shiftStartDate = dayKeysAsc[0]
+    const shiftEndDate = dayKeysAsc[6]
     
     const shiftsByDate: Record<string, { label: string; type: string | null }> = {}
     
@@ -193,10 +181,8 @@ export async function GET(req: NextRequest) {
         const currentIndex = typeof current_shift_index === 'number' ? current_shift_index : 0
         
         if (patternSlots.length > 0 && startDate) {
-          // Calculate which shift slot applies to each of the 7 days
-          for (let i = 0; i < 7; i++) {
-            const checkDate = new Date(sevenAgo.getFullYear(), sevenAgo.getMonth(), sevenAgo.getDate() + i, 12, 0, 0)
-            const dateStr = getLocalDateString(checkDate)
+          for (const dateStr of dayKeysAsc) {
+            const checkDate = new Date(`${dateStr}T12:00:00`)
             
             // Only fill in if we don't already have a shift for this date
             if (!shiftsByDate[dateStr]) {
@@ -235,9 +221,8 @@ export async function GET(req: NextRequest) {
       // Continue without shift data - it's optional
     }
 
-    // Get shift type for prediction (use today's shift or most recent)
     let currentShiftType: 'morning' | 'day' | 'evening' | 'night' | 'rotating' | null = null
-    const todayStr = getLocalDateString(new Date())
+    const todayStr = endYmd
     if (shiftsByDate[todayStr]) {
       const shiftType = shiftsByDate[todayStr].type
       if (shiftType === 'night') currentShiftType = 'night'
@@ -259,9 +244,16 @@ export async function GET(req: NextRequest) {
           // Find the main sleep session for this day to get timing
           const daySleep = (weekLogs ?? []).find((row: any) => {
             const endTime = row.end_at || row.end_ts
-            if (!endTime) return false
-            const rowDate = row.date ? row.date.slice(0, 10) : getLocalDateFromISO(endTime)
-            return rowDate === d.date && (row.type === 'sleep' || row.naps === 0)
+            const startTime = row.start_at || row.start_ts
+            if (!endTime || !startTime) return false
+            if (row.type === 'nap') return false
+            const rowDate = row.date
+              ? String(row.date).slice(0, 10)
+              : formatYmdInTimeZone(new Date(endTime), timeZone)
+            return (
+              rowDate === d.date &&
+              (isPrimarySleepType(row.type) || row.type === 'sleep' || row.type === 'main' || row.naps === 0)
+            )
           })
           
           if (daySleep) {

@@ -227,8 +227,6 @@ export function ShiftSleepOverviewCard({
     ...sevenDayBars.map((b) => b.totalMinutes),
     60,
   )
-  const targetBarPx =
-    targetMinutes > 0 ? Math.min(CHART_H, Math.round((targetMinutes / maxBarMinutes) * CHART_H)) : 0
   const chartSummary = sevenDayBars
     .map((b) => `${b.dateKey}: ${(b.totalMinutes / 60).toFixed(1)}h`)
     .join('; ')
@@ -239,22 +237,17 @@ export function ShiftSleepOverviewCard({
         <div className="w-full space-y-2 text-left">
           <div className="flex items-baseline justify-between gap-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-              Last 7 shifted days
+              Last 7 days
             </p>
-            <p className="text-[11px] text-[var(--text-muted)]">07:00–07:00 · {(targetMinutes / 60).toFixed(1)}h target</p>
+            <p className="text-[11px] text-[var(--text-muted)]">
+              Logged sleep (local days) · {(targetMinutes / 60).toFixed(1)}h target
+            </p>
           </div>
           <div
             className="relative flex h-[136px] w-full items-end gap-1 sm:gap-1.5"
             role="img"
-            aria-label={`Sleep hours by shifted day. ${chartSummary}`}
+            aria-label={`Sleep hours last seven local days. ${chartSummary}`}
           >
-            {targetMinutes > 0 && targetBarPx > 0 && (
-              <div
-                className="pointer-events-none absolute left-0 right-0 z-10 border-t border-dashed border-emerald-500/55 dark:border-emerald-400/45"
-                style={{ bottom: `${targetBarPx}px` }}
-                aria-hidden
-              />
-            )}
             {sevenDayBars.map((day) => {
               const hPx =
                 day.totalMinutes <= 0

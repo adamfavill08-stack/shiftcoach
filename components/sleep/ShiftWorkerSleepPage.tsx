@@ -11,7 +11,12 @@ import { DeleteSleepConfirmModal } from './DeleteSleepConfirmModal'
 import { ShiftSleepOverviewCard } from './ShiftSleepOverviewCard'
 import { getShiftAwareInsight } from '@/lib/sleep/coaching'
 import type { SleepLogInput, SleepType } from '@/lib/sleep/types'
-import { pickDefaultShiftedDay, buildSevenShiftedDaySleepBars } from '@/lib/sleep/utils'
+import {
+  pickDefaultShiftedDay,
+  formatYmdInTimeZone,
+  addCalendarDaysToYmd,
+  type SleepBarPoint,
+} from '@/lib/sleep/utils'
 import { authedFetch } from '@/lib/supabase/authedFetch'
 
 type WeekSleepOverview = {
@@ -282,6 +287,7 @@ export function ShiftWorkerSleepPage() {
   const router = useRouter()
   const [weekSleepOverview, setWeekSleepOverview] = useState<WeekSleepOverview>(initialWeekOverview)
   const [shiftedDays, setShiftedDays] = useState<ShiftedDay[]>([])
+  const [sevenDayChartBars, setSevenDayChartBars] = useState<SleepBarPoint[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [isLogModalOpen, setIsLogModalOpen] = useState(false)
@@ -382,9 +388,38 @@ export function ShiftWorkerSleepPage() {
     }
   }, [userTimeZone])
 
+  const fetchSevenDayChart = useCallback(async () => {
+    try {
+      const tz = encodeURIComponent(userTimeZone)
+      const res = await authedFetch(`/api/sleep/7days?tz=${tz}`, { cache: 'no-store' })
+      if (!res.ok) {
+        console.error('[ShiftWorkerSleepPage] 7days chart:', res.status)
+        return
+      }
+      const json = await res.json()
+      const rows: Array<{ date?: string; totalMinutes?: number }> = json.days || []
+      const by = new Map(
+        rows.map((r) => [String(r.date ?? '').slice(0, 10), Math.max(0, r.totalMinutes ?? 0)]),
+      )
+      const endYmd = formatYmdInTimeZone(new Date(), userTimeZone)
+      const bars: SleepBarPoint[] = []
+      for (let i = 6; i >= 0; i--) {
+        const key = addCalendarDaysToYmd(endYmd, -i)
+        bars.push({ dateKey: key, totalMinutes: by.get(key) ?? 0 })
+      }
+      setSevenDayChartBars(bars)
+    } catch (err) {
+      console.error('[ShiftWorkerSleepPage] 7days chart error:', err)
+    }
+  }, [userTimeZone])
+
   useEffect(() => {
     void fetchShiftedDays(true)
   }, [fetchShiftedDays])
+
+  useEffect(() => {
+    void fetchSevenDayChart()
+  }, [fetchSevenDayChart])
 
   // Fetch profile-based sleep goal (takes into account age, sex, etc. set in profile)
   useEffect(() => {
@@ -512,15 +547,13 @@ export function ShiftWorkerSleepPage() {
     void fetchWearableStatus()
   }, [fetchWearableStatus])
 
-  const sevenDaySleepBars = useMemo(
-    () => buildSevenShiftedDaySleepBars(shiftedDays, selectedDay, userTimeZone),
-    [shiftedDays, selectedDay, userTimeZone],
-  )
+  const chartHighlightYmd = useMemo(() => formatYmdInTimeZone(new Date(), userTimeZone), [userTimeZone])
 
   const refreshSleepPageData = useCallback(async () => {
     try {
       await Promise.all([
         fetchShiftedDays(false),
+        fetchSevenDayChart(),
         fetchSleepHistory(),
         fetchShifts(),
         fetchWeekSleepOverview(),
@@ -531,7 +564,7 @@ export function ShiftWorkerSleepPage() {
     } catch (err) {
       console.error('[ShiftWorkerSleepPage] refresh error:', err)
     }
-  }, [fetchShiftedDays, fetchSleepHistory, fetchShifts, fetchWeekSleepOverview, router])
+  }, [fetchShiftedDays, fetchSevenDayChart, fetchSleepHistory, fetchShifts, fetchWeekSleepOverview, router])
 
   const handleSyncWearable = useCallback(async () => {
     try {
@@ -845,8 +878,8 @@ export function ShiftWorkerSleepPage() {
         }}
         onSyncWearable={handleSyncWearable}
         editLogsHref="/sleep/history"
-        sevenDayBars={sevenDaySleepBars}
-        highlightDateKey={selectedDay}
+        sevenDayBars={sevenDayChartBars}
+        highlightDateKey={chartHighlightYmd}
       />
 
       {/* Sleep metrics card */}

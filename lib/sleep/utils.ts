@@ -40,6 +40,25 @@ function shiftWallDateByDays(year: number, month: number, day: number, deltaDays
  * Uses the wall-clock date in that zone so server and chart stay aligned when the client passes
  * the same zone as `/api/sleep/24h-grouped?tz=`.
  */
+/** Calendar YYYY-MM-DD for an instant in an IANA time zone (used for 7-day charts). */
+export function formatYmdInTimeZone(instant: Date, timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(instant)
+  } catch {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'UTC',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(instant)
+  }
+}
+
 export function getShiftedDayKey(
   dateInput: string | Date,
   shiftStartHour = 7,
