@@ -7,6 +7,7 @@ import {
   calculateCircadianScore,
   type CircadianState,
   type CircadianUserProfile,
+  type SleepIntervalForGap,
   type SleepLog,
 } from '@/lib/circadian/calculateCircadianScore'
 
@@ -86,13 +87,32 @@ export function normalizeSleepRowsToSleepLogs(rows: unknown[]): SleepLog[] {
   return out
 }
 
+/** All sleep rows (main + nap) for inter-sleep gap scoring; includes main rows filtered out of `normalizeSleepRowsToSleepLogs` when `naps > 0`. */
+export function normalizeSleepRowsToGapIntervals(rows: unknown[]): SleepIntervalForGap[] {
+  const out: SleepIntervalForGap[] = []
+  for (const r of rows) {
+    const row = r as Record<string, unknown>
+    if (row.deleted_at) continue
+    const log = rowToSleepLog(row)
+    if (!log) continue
+    const t = row.type
+    const kind: SleepIntervalForGap['kind'] =
+      t === 'nap' || t === 'pre_shift_nap' ? 'nap' : 'main'
+    out.push({ ...log, kind })
+  }
+  return out
+}
+
 const LOOKBACK_DAYS = 14
 
-export async function fetchSleepLogsForCircadianAgent(
+export type CircadianSleepFetch = { sleepLogs: SleepLog[]; gapIntervals: SleepIntervalForGap[] }
+
+export async function fetchSleepDataForCircadianAgent(
   supabase: SupabaseClient,
   userId: string,
   now: Date,
-): Promise<SleepLog[]> {
+): Promise<CircadianSleepFetch> {
+  const empty: CircadianSleepFetch = { sleepLogs: [], gapIntervals: [] }
   const from = new Date(now.getTime() - (LOOKBACK_DAYS - 1) * 24 * 60 * 60 * 1000)
   const iso = from.toISOString()
 
@@ -105,13 +125,15 @@ export async function fetchSleepLogsForCircadianAgent(
     .limit(100)
 
   if (!q1.error && q1.data && q1.data.length > 0) {
-    const fromNew = normalizeSleepRowsToSleepLogs(q1.data as unknown[])
-    if (fromNew.length > 0) return fromNew
+    const data = q1.data as unknown[]
+    const sleepLogs = normalizeSleepRowsToSleepLogs(data)
+    const gapIntervals = normalizeSleepRowsToGapIntervals(data)
+    if (sleepLogs.length > 0) return { sleepLogs, gapIntervals }
   }
 
   const q2 = await supabase
     .from('sleep_logs')
-    .select('type, start_ts, end_ts, naps')
+    .select('type, start_ts, end_ts, naps, deleted_at')
     .eq('user_id', userId)
     .gte('start_ts', iso)
     .order('start_ts', { ascending: false })
@@ -119,10 +141,24 @@ export async function fetchSleepLogsForCircadianAgent(
 
   if (q2.error) {
     console.warn(LOG_PREFIX, 'fetch sleep_logs error', q2.error.message)
-    return []
+    return empty
   }
 
-  return normalizeSleepRowsToSleepLogs((q2.data ?? []) as unknown[])
+  const data = (q2.data ?? []) as unknown[]
+  return {
+    sleepLogs: normalizeSleepRowsToSleepLogs(data),
+    gapIntervals: normalizeSleepRowsToGapIntervals(data),
+  }
+}
+
+/** @deprecated Prefer fetchSleepDataForCircadianAgent for nap-aware gap scoring. */
+export async function fetchSleepLogsForCircadianAgent(
+  supabase: SupabaseClient,
+  userId: string,
+  now: Date,
+): Promise<SleepLog[]> {
+  const { sleepLogs } = await fetchSleepDataForCircadianAgent(supabase, userId, now)
+  return sleepLogs
 }
 
 export async function fetchCircadianUserProfile(
@@ -179,15 +215,18 @@ export type RunCircadianAgentOptions = {
  */
 export async function runCircadianAgent(opts: RunCircadianAgentOptions): Promise<CircadianState> {
   const now = opts.now ?? new Date()
-  const [sleepLogs, profile] = await Promise.all([
-    fetchSleepLogsForCircadianAgent(opts.supabase, opts.userId, now),
+  const [{ sleepLogs, gapIntervals }, profile] = await Promise.all([
+    fetchSleepDataForCircadianAgent(opts.supabase, opts.userId, now),
     fetchCircadianUserProfile(opts.supabase, opts.userId),
   ])
 
-  const state = calculateCircadianScore(sleepLogs, opts.userShiftState, profile, { now })
+  const state = calculateCircadianScore(sleepLogs, opts.userShiftState, profile, {
+    now,
+    allSleepIntervalsForGap: gapIntervals,
+  })
 
   const notes = [
-    `inputs: sleepLogs=${sleepLogs.length} (main, 14d) tz=${profile.timezone} sleep_goal_h=${profile.sleep_goal_h}`,
+    `inputs: sleepLogs=${sleepLogs.length} main, gapIntervals=${gapIntervals.length} (main+nap, 14d) tz=${profile.timezone} sleep_goal_h=${profile.sleep_goal_h}`,
     `primary sleepMidpointOffset_h=${state.sleepMidpointOffset} score=${state.score} status=${state.status}`,
     `dataQuality=${state.dataQuality} adaptedPattern=${state.adaptedPattern} trend=${state.trend} (${state.trendDays}d)`,
     `timing: peakAlertness=${state.peakAlertnessTime} lowEnergy=${state.lowEnergyTime}`,

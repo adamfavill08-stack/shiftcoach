@@ -8,7 +8,7 @@ export function ProfilePlanSection() {
 
   return (
     <button
-      onClick={() => router.push('/profile')}
+      onClick={() => router.push('/settings/profile')}
       className="group flex items-center justify-between gap-3 rounded-xl px-4 py-3 bg-white border border-slate-100 shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:border-sky-100 hover:shadow-[0_4px_12px_rgba(15,23,42,0.12)] transition-colors w-full"
     >
       <div className="flex items-center gap-3 flex-1">

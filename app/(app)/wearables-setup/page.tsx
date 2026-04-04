@@ -8,6 +8,20 @@ import { useTranslation } from "@/components/providers/language-provider";
 
 type DeviceChoice = "apple" | "samsung" | "other";
 
+const deviceOptionBase =
+  "flex w-full items-center justify-between rounded-lg px-4 py-3.5 text-left text-sm border transition-all shadow-sm [-webkit-tap-highlight-color:transparent] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card)] dark:focus-visible:ring-offset-[var(--card)]";
+
+const deviceOptionIdle =
+  "border-slate-200/80 bg-white hover:shadow-md hover:border-slate-300/80 dark:border-[var(--border-subtle)] dark:bg-[var(--card-subtle)] dark:hover:border-[var(--text-muted)]/50 dark:hover:bg-[var(--card)]";
+
+const deviceOptionActive =
+  "border-emerald-500 bg-emerald-50 shadow-sm dark:border-emerald-500/70 dark:bg-emerald-950/40 dark:shadow-none";
+
+const deviceTitleIdle = "block font-semibold text-slate-900 dark:text-[var(--text-main)]";
+const deviceTitleActive = "block font-semibold text-emerald-900 dark:text-emerald-200";
+const deviceSubIdle = "block text-xs mt-0.5 text-slate-600 dark:text-[var(--text-soft)]";
+const deviceSubActive = "block text-xs mt-0.5 text-emerald-800 dark:text-emerald-300/95";
+
 export default function WearablesSetupPage() {
   const { t } = useTranslation();
   const [choice, setChoice] = useState<DeviceChoice | null>(null);
@@ -85,51 +99,39 @@ export default function WearablesSetupPage() {
 
         {/* Intro */}
         <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
+          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3 [&_p::selection]:bg-indigo-500/25 dark:[&_p::selection]:bg-indigo-400/35 [&_p::selection]:text-[var(--text-main)]"
           style={{
             backgroundColor: "var(--card)",
             borderColor: "var(--border-subtle)",
             boxShadow: "var(--shadow-soft)",
           }}
         >
-          <div className="flex items-center gap-2">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-500">
-              <Watch className="h-4 w-4" />
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-500/15 text-indigo-600 dark:bg-indigo-400/20 dark:text-indigo-300">
+              <Watch className="h-4 w-4" aria-hidden />
             </span>
-            <p className="text-sm font-semibold" style={{ color: "var(--text-main)" }}>
+            <p className="text-sm font-semibold leading-snug text-[var(--text-main)] pt-1">
               {t("detail.wearablesSetup.howReadsData")}
             </p>
           </div>
-          <p className="text-sm leading-relaxed" style={{ color: "var(--text-main)" }}>
+          <p className="text-sm leading-relaxed text-[var(--text-main)]">
             {t("detail.wearablesSetup.intro1")}
           </p>
-          <p className="text-sm leading-relaxed" style={{ color: "var(--text-main)" }}>
+          <p className="text-sm leading-relaxed text-[var(--text-soft)]">
             {t("detail.wearablesSetup.intro2")}
           </p>
 
-          {/* Device choice buttons - Google Fit style: 8px corners, dark text via inline styles so theme cannot override */}
           <div className="mt-2 grid grid-cols-1 gap-3">
             <button
               type="button"
               onClick={() => setChoice("apple")}
-              style={{ borderRadius: 8 }}
-              className={`flex items-center justify-between px-4 py-3.5 text-left text-sm border transition-all shadow-sm ${
-                choice === "apple"
-                  ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-600/60 shadow-sm dark:shadow-none"
-                  : "border-slate-200/80 bg-white dark:bg-white/5 dark:border-white/10 hover:shadow-md hover:border-slate-300/80 dark:hover:border-white/20"
-              }`}
+              className={`${deviceOptionBase} ${choice === "apple" ? deviceOptionActive : deviceOptionIdle}`}
             >
-              <span>
-                <span
-                  className="block font-semibold"
-                  style={choice === "apple" ? { color: "#065f46" } : { color: "#0f172a" }}
-                >
+              <span className="min-w-0 pr-2">
+                <span className={choice === "apple" ? deviceTitleActive : deviceTitleIdle}>
                   {t("detail.wearablesSetup.appleWatch")}
                 </span>
-                <span
-                  className="block text-xs mt-0.5"
-                  style={choice === "apple" ? { color: "#047857" } : { color: "#334155" }}
-                >
+                <span className={choice === "apple" ? deviceSubActive : deviceSubIdle}>
                   {t("detail.wearablesSetup.appleWatchDesc")}
                 </span>
               </span>
@@ -138,24 +140,13 @@ export default function WearablesSetupPage() {
             <button
               type="button"
               onClick={() => setChoice("samsung")}
-              style={{ borderRadius: 8 }}
-              className={`flex items-center justify-between px-4 py-3.5 text-left text-sm border transition-all shadow-sm ${
-                choice === "samsung"
-                  ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-600/60 shadow-sm dark:shadow-none"
-                  : "border-slate-200/80 bg-white dark:bg-white/5 dark:border-white/10 hover:shadow-md hover:border-slate-300/80 dark:hover:border-white/20"
-              }`}
+              className={`${deviceOptionBase} ${choice === "samsung" ? deviceOptionActive : deviceOptionIdle}`}
             >
-              <span>
-                <span
-                  className="block font-semibold"
-                  style={choice === "samsung" ? { color: "#065f46" } : { color: "#0f172a" }}
-                >
+              <span className="min-w-0 pr-2">
+                <span className={choice === "samsung" ? deviceTitleActive : deviceTitleIdle}>
                   {t("detail.wearablesSetup.samsungAndroid")}
                 </span>
-                <span
-                  className="block text-xs mt-0.5"
-                  style={choice === "samsung" ? { color: "#047857" } : { color: "#334155" }}
-                >
+                <span className={choice === "samsung" ? deviceSubActive : deviceSubIdle}>
                   {t("detail.wearablesSetup.samsungAndroidDesc")}
                 </span>
               </span>
@@ -164,24 +155,13 @@ export default function WearablesSetupPage() {
             <button
               type="button"
               onClick={() => setChoice("other")}
-              style={{ borderRadius: 8 }}
-              className={`flex items-center justify-between px-4 py-3.5 text-left text-sm border transition-all shadow-sm ${
-                choice === "other"
-                  ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-600/60 shadow-sm dark:shadow-none"
-                  : "border-slate-200/80 bg-white dark:bg-white/5 dark:border-white/10 hover:shadow-md hover:border-slate-300/80 dark:hover:border-white/20"
-              }`}
+              className={`${deviceOptionBase} ${choice === "other" ? deviceOptionActive : deviceOptionIdle}`}
             >
-              <span>
-                <span
-                  className="block font-semibold"
-                  style={choice === "other" ? { color: "#065f46" } : { color: "#0f172a" }}
-                >
+              <span className="min-w-0 pr-2">
+                <span className={choice === "other" ? deviceTitleActive : deviceTitleIdle}>
                   {t("detail.wearablesSetup.otherWearable")}
                 </span>
-                <span
-                  className="block text-xs mt-0.5"
-                  style={choice === "other" ? { color: "#047857" } : { color: "#334155" }}
-                >
+                <span className={choice === "other" ? deviceSubActive : deviceSubIdle}>
                   {t("detail.wearablesSetup.otherWearableDesc")}
                 </span>
               </span>
@@ -299,90 +279,81 @@ export default function WearablesSetupPage() {
 
         {/* Connection status: green if connected (with verified + steps when available), red if not */}
         <section
-          className="border px-5 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-          style={{
-            borderRadius: 8,
-            ...(status?.connected === true
-              ? {
-                  backgroundColor: "rgb(236 253 245)",
-                  borderColor: "rgb(34 197 94)",
-                  boxShadow: "0 1px 3px rgba(34, 197, 94, 0.15)",
-                }
+          className={[
+            "border px-5 py-4 flex flex-col gap-4 rounded-lg",
+            status?.connected === true
+              ? "bg-emerald-50 border-emerald-500 shadow-[0_1px_3px_rgba(34,197,94,0.15)] dark:bg-emerald-950/35 dark:border-emerald-700 dark:shadow-none"
               : status?.connected === false
-                ? {
-                    backgroundColor: "rgb(254 242 242)",
-                    borderColor: "rgb(239 68 68)",
-                    boxShadow: "0 1px 3px rgba(239, 68, 68, 0.15)",
-                  }
-                : {
-                    backgroundColor: "var(--card)",
-                    borderColor: "var(--border-subtle)",
-                    boxShadow: "var(--shadow-soft)",
-                  }),
-          }}
+                ? "bg-red-50 border-red-500 shadow-[0_1px_3px_rgba(239,68,68,0.15)] dark:bg-red-950/40 dark:border-red-800/80 dark:shadow-none"
+                : "bg-[var(--card)] border-[var(--border-subtle)] shadow-[var(--shadow-soft)]",
+          ].join(" ")}
+          style={{ borderRadius: 8 }}
         >
-          <div className="flex flex-col gap-1 min-w-0 flex-1">
+          <div className="w-full min-w-0">
             {status === null ? (
-              <>
-                <p className="text-sm font-semibold" style={{ color: "#0f172a" }}>
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-slate-900 dark:text-[var(--text-main)]">
                   {t("detail.wearablesSetup.readyToSync")}
                 </p>
-                <p className="text-xs" style={{ color: "#475569" }}>
+                <p className="text-sm leading-relaxed text-slate-600 dark:text-[var(--text-soft)]">
                   {t("detail.wearablesSetup.tapBelow")}
                 </p>
-              </>
+              </div>
             ) : status.connected ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-600" aria-hidden />
-                  <p className="text-sm font-semibold" style={{ color: "#065f46" }}>
+              <div className="flex gap-3 items-start">
+                <CheckCircle2
+                  className="h-5 w-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5"
+                  aria-hidden
+                />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <p className="text-sm font-semibold leading-snug text-emerald-900 dark:text-emerald-100">
                     {t("detail.wearablesSetup.statusConnected")}
                   </p>
+                  {status.verified && (
+                    <p className="text-sm leading-relaxed font-medium text-emerald-800 dark:text-emerald-200/90">
+                      {t("detail.wearablesSetup.verifiedWorking")}
+                    </p>
+                  )}
+                  {typeof status.stepsToday === "number" && (
+                    <p className="text-sm leading-relaxed text-emerald-800 dark:text-emerald-200/90">
+                      {t("detail.wearablesSetup.stepsToday").replace("{count}", String(status.stepsToday))}
+                    </p>
+                  )}
+                  {!status.verified && (
+                    <p className="text-sm leading-relaxed text-emerald-800 dark:text-emerald-200/90">
+                      {t("detail.wearablesSetup.statusConnectedDesc")}
+                    </p>
+                  )}
                 </div>
-                {status.verified && (
-                  <p className="text-xs pl-7 font-medium" style={{ color: "#047857" }}>
-                    {t("detail.wearablesSetup.verifiedWorking")}
-                  </p>
-                )}
-                {typeof status.stepsToday === "number" && (
-                  <p className="text-xs pl-7" style={{ color: "#047857" }}>
-                    {t("detail.wearablesSetup.stepsToday").replace("{count}", String(status.stepsToday))}
-                  </p>
-                )}
-                {!status.verified && (
-                  <p className="text-xs pl-7" style={{ color: "#047857" }}>
-                    {t("detail.wearablesSetup.statusConnectedDesc")}
-                  </p>
-                )}
-              </>
+              </div>
             ) : (
-              <>
-                <div className="flex items-center gap-2">
-                  <XCircle className="h-5 w-5 flex-shrink-0 text-red-600" aria-hidden />
-                  <p className="text-sm font-semibold" style={{ color: "#991b1b" }}>
+              <div className="flex gap-3 items-start">
+                <XCircle className="h-5 w-5 flex-shrink-0 text-red-600 dark:text-red-400 mt-0.5" aria-hidden />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <p className="text-sm font-semibold leading-snug text-red-900 dark:text-red-100">
                     {t("detail.wearablesSetup.statusNotConnected")}
                   </p>
+                  <p className="text-sm leading-relaxed text-red-800 dark:text-red-200/90">
+                    {t("detail.wearablesSetup.notConnectedWhy")}
+                  </p>
                 </div>
-                <p className="text-xs pl-7" style={{ color: "#b91c1c" }}>
-                  {t("detail.wearablesSetup.notConnectedWhy")}
-                </p>
-              </>
+              </div>
             )}
           </div>
-          <div className="flex flex-shrink-0 items-center gap-2">
+          <div className="w-full flex flex-col items-stretch sm:items-end pt-2 border-t border-black/5 dark:border-white/10">
             {status?.connected === false ? (
-              <a
-                href="#"
-                onClick={(e) => e.preventDefault()}
-                className="inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium text-white bg-slate-600"
-                style={{ borderRadius: 8, opacity: 0.9, cursor: "default" }}
-                aria-disabled="true"
+              <span
+                className="inline-flex w-full items-center justify-center rounded-lg px-4 py-3 text-sm font-medium text-center text-white bg-slate-700 dark:bg-slate-600 opacity-90 cursor-default sm:max-w-md sm:self-end"
+                style={{ borderRadius: 8 }}
                 title="Use Health Connect on Android or Apple Health on iPhone. Google Fit onboarding is legacy-only."
+                aria-disabled="true"
               >
                 Use Health Connect / Apple Health
-              </a>
+              </span>
             ) : (
-              <SyncWearableButton />
+              <div className="flex justify-end w-full">
+                <SyncWearableButton />
+              </div>
             )}
           </div>
         </section>

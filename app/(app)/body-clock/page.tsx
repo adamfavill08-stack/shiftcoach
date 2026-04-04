@@ -17,6 +17,7 @@ import { useShiftState } from "@/components/providers/shift-state-provider"
 import { ArrowUp, ArrowDown, Minus } from "lucide-react"
 import {
   buildCircadianHabitBullets,
+  buildCircadianScoreFactorRows,
   buildForecastRecoveryLine,
   buildTodaysTakeaway,
   buildTransitionForecastNote,
@@ -145,7 +146,7 @@ export default function BodyClockPage() {
 
   const subText =
     circadianState != null
-      ? "Based on your recent sleep logs (14-day window), shift context, and the 03:00 anchor."
+      ? "Based on your recent sleep logs (14-day window), shift context, the 03:00 timing anchor, and how your average sleep length compares to your sleep goal."
       : noData || detail == null
         ? t("dashboard.bodyClock.unlockHint")
         : t("dashboard.bodyClock.calculatedFrom")
@@ -208,6 +209,11 @@ export default function BodyClockPage() {
 
   const forecastRecoveryLine = useMemo(
     () => (circadianState != null ? buildForecastRecoveryLine(circadianState.forecast) : null),
+    [circadianState],
+  )
+
+  const scoreFactorRows = useMemo(
+    () => (circadianState != null ? buildCircadianScoreFactorRows(circadianState) : null),
     [circadianState],
   )
 
@@ -301,6 +307,35 @@ export default function BodyClockPage() {
               </h2>
               <p className={`mt-2 text-sm leading-relaxed text-[var(--text-soft)] ${inter.className}`}>
                 {coachLine}
+              </p>
+            </section>
+          ) : null}
+
+          {circadianState && scoreFactorRows && scoreFactorRows.length > 0 ? (
+            <section className={cn("w-full text-left", dashboardCardClassName)}>
+              <h2 className={`text-sm font-semibold text-[var(--text-main)] ${inter.className}`}>
+                Score factors
+              </h2>
+              <ul className={`mt-3 space-y-2 text-sm text-[var(--text-soft)] leading-snug ${inter.className}`}>
+                {scoreFactorRows.map((r) => (
+                  <li key={r.key} className="leading-snug">
+                    {r.line}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {circadianState ? (
+            <section className={cn("w-full text-left", dashboardCardClassName)}>
+              <h2 className={`text-sm font-semibold text-[var(--text-main)] ${inter.className}`}>
+                Circadian forecast
+              </h2>
+              <p className={`mt-3 text-sm font-medium text-[var(--text-soft)] leading-snug ${inter.className}`}>
+                Peak alertness — {circadianState.peakAlertnessTime}
+              </p>
+              <p className={`mt-2 text-sm text-[var(--text-soft)] leading-snug ${inter.className}`}>
+                Low energy — {circadianState.lowEnergyTime}
               </p>
             </section>
           ) : null}
@@ -576,15 +611,7 @@ function CircadianGauge({
   const offset = circumference * (1 - capped / 100)
   const showNumeric = centerLabel !== "…" && centerLabel !== "—"
 
-  const [nowTs, setNowTs] = useState(() => Date.now())
   const [isDark, setIsDark] = useState(false)
-
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      setNowTs(Date.now())
-    }, 1000)
-    return () => window.clearInterval(intervalId)
-  }, [])
 
   useEffect(() => {
     if (typeof document === "undefined") return
@@ -596,13 +623,14 @@ function CircadianGauge({
     return () => observer.disconnect()
   }, [])
 
-  const now = new Date(nowTs)
-  const minutesOfDay = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60
-  const markerAngleDeg = (minutesOfDay / 1440) * 360 + 90
-  const markerX = cx + normalizedRadius * Math.cos((markerAngleDeg * Math.PI) / 180)
-  const markerY = cy + normalizedRadius * Math.sin((markerAngleDeg * Math.PI) / 180)
   const alignmentStroke =
     capped >= 80 ? "#22c55e" : capped >= 65 ? "#f59e0b" : "#ef4444"
+  const progress = capped / 100
+  const roundTipDeg =
+    capped > 0 && capped < 100
+      ? ((stroke / 2) / normalizedRadius) * (180 / Math.PI)
+      : 0
+  const markerRotateDeg = progress * 360 + roundTipDeg
   const nightDash = circumference * 0.22
   const dayDash = circumference - nightDash
   const nightOffset = circumference * 0.18
@@ -652,7 +680,7 @@ function CircadianGauge({
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          <filter id="bodyClockHeroNowMarker" x="-120%" y="-120%" width="340%" height="340%">
+          <filter id="bodyClockHeroScoreMarker" x="-120%" y="-120%" width="340%" height="340%">
             <feDropShadow
               dx="0"
               dy="1.1"
@@ -692,19 +720,20 @@ function CircadianGauge({
           stroke={alignmentStroke}
           strokeWidth={stroke}
           strokeLinecap="round"
-          strokeDasharray={circumference}
+          strokeDasharray={`${circumference} ${circumference}`}
           strokeDashoffset={offset}
           filter="url(#bodyClockHeroActiveGlow)"
           transform={`rotate(-90 ${cx} ${cy})`}
         />
         <circle
-          cx={markerX}
-          cy={markerY}
+          cx={cx + normalizedRadius}
+          cy={cy}
           r={7.5}
-          fill="#1d4ed8"
+          fill={alignmentStroke}
           stroke="white"
           strokeWidth={2.35}
-          filter="url(#bodyClockHeroNowMarker)"
+          transform={`rotate(${-90 + markerRotateDeg} ${cx} ${cy})`}
+          filter="url(#bodyClockHeroScoreMarker)"
         />
       </svg>
 

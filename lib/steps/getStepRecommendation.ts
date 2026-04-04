@@ -44,7 +44,7 @@ export function getStepRecommendation(opts: {
     min += 500
     max += 500
     reason =
-      'Off shift – a good chance for a little more movement, as long as you feel rested.'
+      'Day off – a good chance for a little more movement, as long as you feel rested.'
   }
 
   // Adjust for recovery score if available

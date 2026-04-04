@@ -2,22 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Calendar, BookOpen, Compass, User } from 'lucide-react'
+import { Home, Calendar, BookOpen, Settings } from 'lucide-react'
 import { useTranslation } from '@/components/providers/language-provider'
 
-// Google Fit–style bottom nav:
-// - Home
-// - Calendar
-// - Blog
-// - Browse
-// - Profile
+// Bottom nav: Home, Calendar, Blog, Settings (profile lives under Settings → Profile)
 const navItems = [
   { href: '/dashboard', labelKey: 'nav.home', icon: Home },
   { href: '/rota', labelKey: 'nav.calendar', icon: Calendar },
   { href: '/blog', labelKey: 'nav.blog', icon: BookOpen },
-  // Browse maps to progress/insights for now
-  { href: '/progress', labelKey: 'nav.browse', icon: Compass },
-  { href: '/profile', labelKey: 'nav.profile', icon: User },
+  { href: '/settings', labelKey: 'nav.settings', icon: Settings },
 ]
 
 export default function BottomNav() {
@@ -28,6 +21,9 @@ export default function BottomNav() {
   const isActive = (href: string) => {
     if (href === '/dashboard') {
       return pathname === '/dashboard' || pathname === '/'
+    }
+    if (href === '/settings') {
+      return pathname === '/settings' || pathname?.startsWith('/settings/')
     }
     return pathname?.startsWith(href)
   }

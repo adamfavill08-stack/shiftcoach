@@ -1455,7 +1455,7 @@ export default function AdjustedCaloriesPage() {
         
         <div className="relative z-10 space-y-5">
           <h3 className="text-[17px] font-semibold tracking-tight">
-            Quick Rules for {data?.shiftType === 'night' ? 'Night Shift' : data?.shiftType === 'day' ? 'Day Shift' : data?.shiftType === 'off' ? 'Day Off' : 'Your Shift'}
+            Quick Rules for {data?.shiftType === 'night' ? 'Night Shift' : data?.shiftType === 'day' ? 'Day Shift' : data?.shiftType === 'off' ? 'Day off' : 'Your Shift'}
           </h3>
           
           {/* Grouped list container */}

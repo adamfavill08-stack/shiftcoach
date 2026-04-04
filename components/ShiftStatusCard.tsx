@@ -5,7 +5,7 @@ type ShiftStatusCardProps = {
 };
 
 export default function ShiftStatusCard({
-  shiftStatus = 'Off shift',
+  shiftStatus = 'Day off',
   shiftText = 'No shift today',
   rhythm = 100,
 }: ShiftStatusCardProps) {

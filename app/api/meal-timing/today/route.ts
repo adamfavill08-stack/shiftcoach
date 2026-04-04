@@ -278,9 +278,13 @@ export async function GET(req: NextRequest) {
         ? rawShiftLabel.charAt(0).toUpperCase() + rawShiftLabel.slice(1).toLowerCase()
         : 'Off'
 
+    const shiftTimeSuffix =
+      shiftStartTime && shiftEndTime ? ` · ${shiftStartTime}–${shiftEndTime}` : ''
     const shiftLabelFormatted = anchor
-      ? `${shiftLabel} shift${shiftStartTime && shiftEndTime ? ` · ${shiftStartTime}–${shiftEndTime}` : ''}`
-      : 'Day Off'
+      ? shiftType === 'off'
+        ? `Day off${shiftTimeSuffix}`
+        : `${shiftLabel} shift${shiftTimeSuffix}`
+      : 'Day off'
 
     const nextPick = pickNextMealOccurrence(mealSchedule, now)
     const nextMealSlot = nextPick?.slot ?? null

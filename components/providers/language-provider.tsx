@@ -80,6 +80,7 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'nav.blog': 'Blog',
     'nav.browse': 'Browse',
     'nav.profile': 'Profile',
+    'nav.settings': 'Settings',
 
     'browse.title': 'Browse',
     'browse.subtitle': 'Jump straight to the tools you need.',
@@ -98,9 +99,13 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
 
     'settings.title': 'Settings',
     'settings.section.account': 'Account',
+    'settings.section.devices': 'Devices',
     'settings.section.preferences': 'Preferences',
     'settings.section.coaching': 'Coaching',
     'settings.section.support': 'Support',
+
+    'settings.wearables.title': 'Wearables',
+    'settings.wearables.subtitle': 'Connect Apple Watch, Samsung, or other devices',
 
     'settings.language.title': 'Language',
     'settings.language.device': 'Use device language',
@@ -318,7 +323,7 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'dashboard.mealTimes.night': 'Night',
     'dashboard.mealTimes.day': 'Day',
     'dashboard.mealTimes.late': 'Late',
-    'dashboard.mealTimes.off': 'Off',
+    'dashboard.mealTimes.off': 'Day off',
     'dashboard.mealTimes.whyAria': 'Why meal timing matters',
     'dashboard.mealTimes.closeAria': 'Close',
     'dashboard.mealTimes.closeStatus': 'Close',
@@ -444,6 +449,7 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'nav.blog': 'Blog',
     'nav.browse': 'Explorar',
     'nav.profile': 'Perfil',
+    'nav.settings': 'Ajustes',
 
     'browse.title': 'Explorar',
     'browse.subtitle': 'Ve directo a las herramientas que necesitas.',
@@ -462,9 +468,13 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
 
     'settings.title': 'Ajustes',
     'settings.section.account': 'Cuenta',
+    'settings.section.devices': 'Dispositivos',
     'settings.section.preferences': 'Preferencias',
     'settings.section.coaching': 'Entrenamiento',
     'settings.section.support': 'Soporte',
+
+    'settings.wearables.title': 'Wearables',
+    'settings.wearables.subtitle': 'Conecta Apple Watch, Samsung u otros dispositivos',
 
     'settings.language.title': 'Idioma',
     'settings.language.device': 'Usar idioma del dispositivo',
@@ -807,6 +817,7 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'nav.blog': 'Blog',
     'nav.browse': 'Entdecken',
     'nav.profile': 'Profil',
+    'nav.settings': 'Einstellungen',
 
     'browse.title': 'Entdecken',
     'browse.subtitle': 'Schnell zu den wichtigsten Werkzeugen.',
@@ -825,9 +836,13 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
 
     'settings.title': 'Einstellungen',
     'settings.section.account': 'Konto',
+    'settings.section.devices': 'Geräte',
     'settings.section.preferences': 'Präferenzen',
     'settings.section.coaching': 'Coaching',
     'settings.section.support': 'Support',
+
+    'settings.wearables.title': 'Wearables',
+    'settings.wearables.subtitle': 'Apple Watch, Samsung oder andere Geräte verbinden',
 
     'settings.language.title': 'Sprache',
     'settings.language.device': 'Sprache des Geräts verwenden',

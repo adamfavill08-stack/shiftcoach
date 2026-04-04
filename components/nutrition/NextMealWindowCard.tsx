@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ChevronRight, UtensilsCrossed } from 'lucide-react'
+import { UtensilsCrossed } from 'lucide-react'
 import { Inter } from 'next/font/google'
 import { useTranslation } from '@/components/providers/language-provider'
 import type { MealTimingTodayCardData } from '@/lib/hooks/useMealTimingTodayCard'
@@ -134,12 +134,9 @@ export function NextMealWindowCard({
   if (variant === 'compact') {
     return (
       <div className={shell}>
-        <div className="relative">
-          <ChevronRight className="pointer-events-none absolute right-1 top-0.5 h-4 w-4 text-slate-400" aria-hidden />
-          <span className={`block text-sm font-semibold tracking-[0.08em] text-black ${inter.className}`}>
-            {t('dashboard.nextMealWindow.title')}
-          </span>
-        </div>
+        <span className={`block text-sm font-semibold tracking-[0.08em] text-black ${inter.className}`}>
+          {t('dashboard.nextMealWindow.title')}
+        </span>
 
         <div className="mt-2.5 flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">

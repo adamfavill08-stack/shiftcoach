@@ -24,9 +24,9 @@ export function QuickAddSheet() {
 
   const actions: QuickAction[] = [
     { id: "sleep", label: "Log sleep", subtitle: "Main sleep or nap", icon: <Moon className="h-6 w-6" />, onClick: () => go("/sleep") },
-    { id: "water", label: "Water", subtitle: "Add a quick drink", icon: <Droplets className="h-6 w-6" />, onClick: () => go("/progress?section=hydration") },
-    { id: "caffeine", label: "Caffeine", subtitle: "Coffee, tea, energy", icon: <Coffee className="h-6 w-6" />, onClick: () => go("/progress?section=hydration") },
-    { id: "mood", label: "Mood & focus", subtitle: "Today's check-in", icon: <SmilePlus className="h-6 w-6" />, onClick: () => go("/progress?section=mood") },
+    { id: "water", label: "Water", subtitle: "Add a quick drink", icon: <Droplets className="h-6 w-6" />, onClick: () => go("/hydration") },
+    { id: "caffeine", label: "Caffeine", subtitle: "Coffee, tea, energy", icon: <Coffee className="h-6 w-6" />, onClick: () => go("/hydration") },
+    { id: "mood", label: "Mood & focus", subtitle: "Today's check-in", icon: <SmilePlus className="h-6 w-6" />, onClick: () => go("/dashboard") },
     { id: "steps", label: "Steps", subtitle: "Update your activity", icon: <Activity className="h-6 w-6" />, onClick: () => go("/steps") },
     { id: "coach", label: "Ask coach", subtitle: "Chat about anything", icon: <MessageCircle className="h-6 w-6" />, onClick: () => { close(); router.push("/coach"); } },
   ];

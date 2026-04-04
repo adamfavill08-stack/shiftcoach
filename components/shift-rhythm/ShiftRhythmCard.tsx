@@ -31,10 +31,6 @@ import type { HeartRateApiStatus } from '@/lib/wearables/heartRateApi'
 
 const inter = Inter({ subsets: ["latin"] });
 
-/** Same surface as other dashboard tiles (e.g. adjusted calories). */
-const dashboardTileClassName =
-  "w-full rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 text-left shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]";
-
 type ShiftRhythmCardProps = {
   // Dashboard passes score as 0–1000 (totalScore * 10) or undefined
   score?: number;
@@ -316,13 +312,6 @@ function normalizeScore(score?: number) {
   return Math.min(Math.max(scaled, 0), 100);
 }
 
-function formatSleepMidpointOffsetLabel(offsetHours: number): string {
-  const abs = Math.round(Math.abs(offsetHours) * 10) / 10;
-  if (abs < 0.05) return "Near biological anchor (03:00)";
-  if (offsetHours > 0) return `${abs} hour${abs === 1 ? "" : "s"} delayed`;
-  return `${abs} hour${abs === 1 ? "" : "s"} advanced`;
-}
-
 /* -------------------- MAIN BODY CLOCK CARD -------------------- */
 
 function BodyClockCard({
@@ -357,21 +346,6 @@ function BodyClockCard({
     return "Misaligned";
   }, [useAgent, circadianState, noData, capped]);
 
-  const predictive = useMemo(() => {
-    if (useAgent) {
-      return {
-        peak: circadianState!.peakAlertnessTime,
-        low: circadianState!.lowEnergyTime,
-      };
-    }
-    if (noData) {
-      return { peak: "Peak alertness pending", low: "Low energy window pending" };
-    }
-    if (capped >= 80) return { peak: "10:30", low: "02:30" };
-    if (capped >= 65) return { peak: "19:30", low: "03:00" };
-    return { peak: "21:00", low: "04:00" };
-  }, [useAgent, circadianState, noData, capped]);
-
   const trendForGauge = useAgent ? circadianState!.trend : null;
 
   const statusColorClass = useMemo(() => {
@@ -383,40 +357,6 @@ function BodyClockCard({
     if (s >= 55) return "text-amber-600";
     return "text-rose-600";
   }, [useAgent, circadianState, noData, capped]);
-
-  const breakdownRows = useMemo(() => {
-    if (!useAgent || !circadianState) return null;
-    const b = circadianState.scoreBreakdown;
-    const rows: { key: string; line: string }[] = [
-      {
-        key: "mid",
-        line: `Sleep midpoint offset: ${formatSleepMidpointOffsetLabel(circadianState.sleepMidpointOffset)} vs 03:00 anchor`,
-      },
-    ];
-    if (b.driftPenalty > 0 && circadianState.consecutiveMisalignedDays > 0) {
-      rows.push({
-        key: "drift",
-        line: `${circadianState.consecutiveMisalignedDays} consecutive day${
-          circadianState.consecutiveMisalignedDays === 1 ? "" : "s"
-        } misaligned — drift penalty −${b.driftPenalty} pts`,
-      });
-    }
-    if (b.recoveryBonus > 0) {
-      rows.push({
-        key: "rec",
-        line: `Recovery trajectory bonus +${b.recoveryBonus} pts`,
-      });
-    }
-    if (b.shiftFitBonus > 0) {
-      rows.push({
-        key: "fit",
-        line: circadianState.adaptedPattern
-          ? `Adapted pattern (stable timing ≥7d) +${b.shiftFitBonus} pts`
-          : `Shift / timing fit +${b.shiftFitBonus} pts`,
-      });
-    }
-    return rows;
-  }, [useAgent, circadianState]);
 
   return (
     <button
@@ -457,31 +397,6 @@ function BodyClockCard({
             {!useAgent && circadianAgentLoading ? (
               <p className={`text-xs text-[var(--text-muted)] ${inter.className}`}>Updating circadian score…</p>
             ) : null}
-          </div>
-
-          {breakdownRows && breakdownRows.length > 0 ? (
-            <div className={dashboardTileClassName}>
-              <p className={`text-sm font-semibold text-[var(--text-main)] ${inter.className}`}>Score factors</p>
-              <ul className={`mt-3 space-y-2 text-base text-[var(--text-soft)] leading-snug ${inter.className}`}>
-                {breakdownRows.map((r) => (
-                  <li key={r.key} className="leading-snug">
-                    {r.line}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          <div className={dashboardTileClassName}>
-            <p className={`text-sm font-semibold text-[var(--text-main)] ${inter.className}`}>
-              Circadian forecast
-            </p>
-            <p className={`mt-3 text-base font-medium text-[var(--text-soft)] leading-snug ${inter.className}`}>
-              Peak alertness — {predictive.peak}
-            </p>
-            <p className={`mt-2 text-base text-[var(--text-soft)] leading-snug ${inter.className}`}>
-              Low energy — {predictive.low}
-            </p>
           </div>
         </div>
       </section>
@@ -710,7 +625,7 @@ function HomeLogSleepCard() {
     >
       <div className="relative">
         <ChevronRight className="absolute right-0 top-0 h-4 w-4 text-slate-400" aria-hidden />
-        <div className="grid grid-cols-[1fr_126px] items-end gap-4 pr-6">
+        <div className="grid grid-cols-[1fr_104px] items-end gap-4 pr-6">
           <div className="min-w-0">
             <span className={`text-sm font-semibold leading-tight tracking-[0.08em] text-black ${inter.className}`}>Sleep</span>
             <p className={`mt-2 text-[34px] font-semibold leading-none text-slate-900 tabular-nums ${inter.className}`}>
@@ -720,8 +635,8 @@ function HomeLogSleepCard() {
             <p className={`mt-1 text-xs ${loading ? "text-slate-500" : statusTone}`}>{statusLine}</p>
           </div>
           <div className="flex justify-end pb-0.5 -mt-3 pr-2">
-            <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-full bg-blue-900/90 dark:bg-blue-800/80">
-              <span className={`text-[24px] font-semibold tracking-tight text-white ${inter.className}`} aria-hidden>
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-blue-900/90 dark:bg-blue-800/80">
+              <span className={`text-[19px] font-semibold tracking-tight text-white ${inter.className}`} aria-hidden>
                 Zzz
               </span>
             </div>
@@ -875,7 +790,7 @@ function HomeActivityCard() {
         <ChevronRight className="absolute right-0 top-0 h-4 w-4 text-[var(--text-muted)]" aria-hidden />
         <p className={`text-sm font-semibold tracking-[0.08em] text-[var(--text-main)] ${inter.className}`}>Activity</p>
 
-        <div className="mt-3 grid grid-cols-[1fr_92px] items-start gap-4">
+        <div className="mt-3 grid grid-cols-[1fr_76px] items-start gap-4">
           <div className="space-y-3">
             <div className="flex items-start gap-2.5">
               <span className="mt-0.5 inline-flex h-4.5 w-4.5 items-center justify-center rounded-full bg-emerald-400/90 dark:bg-emerald-400/70" aria-hidden>
@@ -914,9 +829,9 @@ function HomeActivityCard() {
             </div>
           </div>
 
-          <div className="flex justify-center pt-1">
-            <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-full bg-emerald-500/90 dark:bg-emerald-500/75">
-              <Footprints className="h-7 w-7 text-white" strokeWidth={2.25} aria-hidden />
+          <div className="flex justify-center pt-6">
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/90 dark:bg-emerald-500/75">
+              <Footprints className="h-6 w-6 text-white" strokeWidth={2.25} aria-hidden />
             </div>
           </div>
         </div>
@@ -1089,7 +1004,7 @@ function HeartRecoveryCard() {
     >
       <div className="relative">
         <ChevronRight className="absolute right-0 top-0 h-4 w-4 text-[var(--text-muted)]" aria-hidden />
-        <div className="grid grid-cols-[1fr_110px] items-end gap-4 pr-6">
+        <div className="grid grid-cols-[1fr_92px] items-end gap-4 pr-6">
           <div className="min-w-0">
             <p className={`text-sm font-semibold tracking-[0.08em] text-[var(--text-main)] ${inter.className}`}>Heart recovery</p>
             <p className={`mt-2 text-[34px] font-semibold leading-none text-[var(--text-main)] tabular-nums ${inter.className}`}>
@@ -1100,8 +1015,8 @@ function HeartRecoveryCard() {
           </div>
 
           <div className="flex justify-end pb-0.5 pr-2">
-            <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-full bg-rose-500/90 dark:bg-rose-500/75">
-              <Heart className="h-8 w-8 text-white" fill="currentColor" aria-hidden />
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-rose-500/90 dark:bg-rose-500/75">
+              <Heart className="h-6 w-6 text-white" fill="currentColor" aria-hidden />
             </div>
           </div>
         </div>
@@ -1203,8 +1118,8 @@ function HydrationCard() {
           aria-hidden
           tabIndex={-1}
         >
-          <span className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-full bg-sky-300/90">
-            <Droplet className="pointer-events-none h-10 w-10 text-white" strokeWidth={2.2} aria-hidden />
+          <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-sky-300/90">
+            <Droplet className="pointer-events-none h-8 w-8 text-white" strokeWidth={2.2} aria-hidden />
           </span>
         </Link>
       </div>
@@ -1599,14 +1514,7 @@ function CircadianGauge({
   const capped = Math.min(Math.max(score, 0), 100);
   const offset = circumference * (1 - capped / 100);
 
-  const [nowTs, setNowTs] = useState(() => Date.now());
   const [isDark, setIsDark] = useState(false);
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      setNowTs(Date.now());
-    }, 1000);
-    return () => window.clearInterval(intervalId);
-  }, []);
   useEffect(() => {
     if (typeof document === "undefined") return;
     const root = document.documentElement;
@@ -1617,13 +1525,16 @@ function CircadianGauge({
     return () => observer.disconnect();
   }, []);
 
-  const now = new Date(nowTs);
-  const minutesOfDay = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
-  const markerAngleDeg = (minutesOfDay / 1440) * 360 + 90;
-  const markerX = cx + normalizedRadius * Math.cos((markerAngleDeg * Math.PI) / 180);
-  const markerY = cy + normalizedRadius * Math.sin((markerAngleDeg * Math.PI) / 180);
   const alignmentStroke =
     capped >= 80 ? "#22c55e" : capped >= 65 ? "#f59e0b" : "#ef4444";
+  // Same transform stack as the score circle: rotate(-90) then clockwise by progress×360° from path start (top).
+  // Trig with cos(-90−θ) was CCW-from-east, which lags the real clockwise stroke. Round cap: small extra CW.
+  const progress = capped / 100;
+  const roundTipDeg =
+    capped > 0 && capped < 100
+      ? ((stroke / 2) / normalizedRadius) * (180 / Math.PI)
+      : 0;
+  const markerRotateDeg = progress * 360 + roundTipDeg;
   const nightDash = circumference * 0.22;
   const dayDash = circumference - nightDash;
   const nightOffset = circumference * 0.18;
@@ -1684,7 +1595,7 @@ function CircadianGauge({
                   <feMergeNode in="SourceGraphic" />
                 </feMerge>
               </filter>
-              <filter id="circadianBodyNowMarker" x="-120%" y="-120%" width="340%" height="340%">
+              <filter id="circadianBodyScoreMarker" x="-120%" y="-120%" width="340%" height="340%">
                 <feDropShadow
                   dx="0"
                   dy="1.1"
@@ -1724,19 +1635,20 @@ function CircadianGauge({
               stroke={alignmentStroke}
               strokeWidth={stroke}
               strokeLinecap="round"
-              strokeDasharray={circumference}
+              strokeDasharray={`${circumference} ${circumference}`}
               strokeDashoffset={offset}
               filter="url(#circadianBodyActiveGlow)"
               transform={`rotate(-90 ${cx} ${cy})`}
             />
             <circle
-              cx={markerX}
-              cy={markerY}
+              cx={cx + normalizedRadius}
+              cy={cy}
               r={7.5}
-              fill="#1d4ed8"
+              fill={alignmentStroke}
               stroke="white"
               strokeWidth={2.35}
-              filter="url(#circadianBodyNowMarker)"
+              transform={`rotate(${-90 + markerRotateDeg} ${cx} ${cy})`}
+              filter="url(#circadianBodyScoreMarker)"
             />
           </svg>
 

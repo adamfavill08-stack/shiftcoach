@@ -129,6 +129,74 @@ export function buildTodaysTakeaway(cs: CircadianState): string {
   return `Your alignment is moderate (${round1(score)}/100). ${keyActionForLowScore(cs)}`
 }
 
+function formatSleepMidpointOffsetLabel(offsetHours: number): string {
+  const abs = Math.round(Math.abs(offsetHours) * 10) / 10
+  if (abs < 0.05) return 'Near biological anchor (03:00)'
+  if (offsetHours > 0) return `${abs} hour${abs === 1 ? '' : 's'} delayed`
+  return `${abs} hour${abs === 1 ? '' : 's'} advanced`
+}
+
+/** Lines for the “Score factors” panel (body-clock page). */
+export function buildCircadianScoreFactorRows(
+  cs: CircadianState,
+): { key: string; line: string }[] {
+  const b = cs.scoreBreakdown
+  const rows: { key: string; line: string }[] = [
+    {
+      key: 'mid',
+      line: `Sleep midpoint offset: ${formatSleepMidpointOffsetLabel(cs.sleepMidpointOffset)} vs 03:00 anchor`,
+    },
+  ]
+  if (b.driftPenalty > 0 && cs.consecutiveMisalignedDays > 0) {
+    rows.push({
+      key: 'drift',
+      line: `${cs.consecutiveMisalignedDays} consecutive day${
+        cs.consecutiveMisalignedDays === 1 ? '' : 's'
+      } misaligned — drift penalty −${b.driftPenalty} pts`,
+    })
+  }
+  if (b.recoveryBonus > 0) {
+    rows.push({
+      key: 'rec',
+      line: `Recovery trajectory bonus +${b.recoveryBonus} pts`,
+    })
+  }
+  if (b.shiftFitBonus > 0) {
+    rows.push({
+      key: 'fit',
+      line: cs.adaptedPattern
+        ? `Adapted pattern (stable timing ≥7d) +${b.shiftFitBonus} pts`
+        : `Shift / timing fit +${b.shiftFitBonus} pts`,
+    })
+  }
+  if (b.durationPenalty > 0) {
+    const avg = cs.recentAvgSleepHours
+    const avgBit =
+      avg != null ? ` Recent main sleep ~${avg.toFixed(1)}h/night avg vs your goal.` : ''
+    rows.push({
+      key: 'dur',
+      line: `Sleep amount vs goal −${b.durationPenalty} pts.${avgBit} Steady bedtimes still count, but short sleep caps how “aligned” we call the rhythm.`,
+    })
+  }
+  if (b.wakeGapPenalty > 0) {
+    const maxGap =
+      b.maxInterSleepGapHours != null
+        ? ` Longest stretch awake between sleeps ~${b.maxInterSleepGapHours}h.`
+        : ''
+    const recover =
+      b.wakeGapDaysUntilClear != null && b.wakeGapDaysUntilClear > 0
+        ? ` Normal awake windows for ${b.wakeGapDaysUntilClear} more consecutive day${
+            b.wakeGapDaysUntilClear === 1 ? '' : 's'
+          } to clear this.`
+        : ''
+    rows.push({
+      key: 'wakegap',
+      line: `Long awake gaps between sleeps −${b.wakeGapPenalty} pts.${maxGap}${recover}`,
+    })
+  }
+  return rows
+}
+
 export function buildCircadianHabitBullets(cs: CircadianState): string[] {
   if (cs.adaptedPattern) {
     return [

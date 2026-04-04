@@ -21,7 +21,7 @@ export function MealTimingPage({ summary }: MealTimingPageProps) {
       <div className="mt-4 rounded-2xl bg-white/10 dark:bg-slate-800/50 border border-white/10 dark:border-slate-700/40 p-4">
         <p className="text-xs uppercase tracking-[0.2em] text-slate-300 dark:text-slate-400">Today&apos;s shift</p>
         <div className="mt-1 text-lg font-semibold capitalize text-slate-50 dark:text-slate-100">
-          {summary.shiftType || 'Off shift'}
+          {summary.shiftType || 'Day off'}
         </div>
       </div>
 

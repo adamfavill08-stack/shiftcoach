@@ -14,7 +14,7 @@ const HOME_DOUBLE_EXIT_PATHS = new Set(['/dashboard'])
  * Bottom-nav roots: back with no history → dashboard (stay in app).
  * Splash / welcome are handled separately — not tab shells.
  */
-const TAB_BAR_ROOTS = new Set(['/rota', '/blog', '/progress', '/profile'])
+const TAB_BAR_ROOTS = new Set(['/rota', '/blog', '/settings'])
 
 /**
  * Android hardware back:
@@ -84,6 +84,11 @@ export function NativeAndroidBackButton() {
             /* ignore */
           }
           router.replace('/dashboard')
+          return
+        }
+
+        if (path.startsWith('/settings/')) {
+          router.replace('/settings')
           return
         }
 

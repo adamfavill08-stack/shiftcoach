@@ -11,6 +11,7 @@ import { LanguageSection } from './components/LanguageSection'
 import { AppearanceSection } from './components/AppearanceSection'
 import { DataPrivacySection } from './components/DataPrivacySection'
 import { TesterFeedbackSection } from './components/TesterFeedbackSection'
+import { WearablesSection } from './components/WearablesSection'
 import { useTranslation } from '@/components/providers/language-provider'
 
 export default function SettingsPage() {
@@ -56,6 +57,16 @@ export default function SettingsPage() {
               </p>
               <div className="space-y-1 px-2 pb-2">
                 <ProfilePlanSection />
+              </div>
+            </section>
+
+            {/* Devices */}
+            <section className="pt-3">
+              <p className="px-4 pb-1 text-[11px] font-semibold tracking-wide text-sky-600 uppercase">
+                {t('settings.section.devices')}
+              </p>
+              <div className="space-y-1 px-2 pb-2">
+                <WearablesSection />
               </div>
             </section>
 

@@ -125,7 +125,7 @@ function SignInContent() {
                   alt="ShiftCoach Logo"
                   width={200}
                   height={60}
-                  className="object-contain h-12"
+                  className="object-contain h-12 dark:brightness-0 dark:invert"
                   priority
                 />
               </div>

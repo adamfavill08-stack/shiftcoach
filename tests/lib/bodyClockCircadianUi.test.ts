@@ -25,10 +25,21 @@ function baseState(over: Partial<CircadianState>): CircadianState {
     lowEnergyTime: '02:00',
     adaptedPattern: false,
     adaptationDays: 0,
-    scoreBreakdown: { baseScore: 78, driftPenalty: 6, recoveryBonus: 0, shiftFitBonus: 0 },
+    scoreBreakdown: {
+      baseScore: 78,
+      driftPenalty: 6,
+      recoveryBonus: 0,
+      shiftFitBonus: 0,
+      durationPenalty: 0,
+      wakeGapPenalty: 0,
+      maxInterSleepGapHours: null,
+      goodGapStreakDays: 0,
+      wakeGapDaysUntilClear: null,
+    },
     forecast: { tomorrow: 52, threeDays: 48, sevenDays: 40, recoveryDays: 5 },
     lastCalculated: new Date(),
     dataQuality: 'good',
+    recentAvgSleepHours: 7.5,
     ...over,
   }
 }
