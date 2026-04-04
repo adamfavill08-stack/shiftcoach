@@ -2,6 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { getMyProfile } from '@/lib/profile'
+import {
+  effectiveEventNotificationStart,
+  findShiftWindowOverlappingNow,
+} from '@/lib/notifications/effectiveEventNotificationStart'
 
 export type Notification = {
   id: string
@@ -82,10 +86,18 @@ export function useNotifications() {
           const now = new Date()
           const currentMonth = now.getMonth() + 1
           const currentYear = now.getFullYear()
-          const res = await fetch(`/api/rota/event?month=${currentMonth}&year=${currentYear}`, { 
-            cache: 'no-store' 
-          }).catch(() => null)
-          
+          const [res, weekRes] = await Promise.all([
+            fetch(`/api/rota/event?month=${currentMonth}&year=${currentYear}`, {
+              cache: 'no-store',
+            }).catch(() => null),
+            fetch(`/api/rota/week`, { cache: 'no-store' }).catch(() => null),
+          ])
+
+          const shiftWindow =
+            weekRes && weekRes.ok
+              ? findShiftWindowOverlappingNow((await weekRes.json()).days || [], now)
+              : null
+
           if (res && res.ok) {
             try {
               const data = await res.json()
@@ -94,7 +106,14 @@ export function useNotifications() {
               events.forEach((event: any) => {
                 if (event.start_at) {
                   const eventStart = new Date(event.start_at)
-                  const hoursUntil = (eventStart.getTime() - now.getTime()) / (1000 * 60 * 60)
+                  const effectiveStart = effectiveEventNotificationStart(
+                    eventStart,
+                    now,
+                    { all_day: event.all_day, type: event.type },
+                    shiftWindow
+                  )
+                  const hoursUntil =
+                    (effectiveStart.getTime() - now.getTime()) / (1000 * 60 * 60)
                   
                   // Show notification for events starting in next 24 hours
                   if (hoursUntil > 0 && hoursUntil <= 24) {
@@ -103,7 +122,7 @@ export function useNotifications() {
                       type: 'event',
                       title: 'Upcoming Shift',
                       message: `${event.title || 'Shift'} starts ${hoursUntil < 1 ? `in ${Math.round(hoursUntil * 60)} minutes` : `in ${Math.round(hoursUntil)} hours`}`,
-                      timestamp: eventStart,
+                      timestamp: effectiveStart,
                       read: false,
                     })
                   }
