@@ -543,7 +543,6 @@ function BodyClockWeeklyStrip({
     )
   }
 
-  const maxScore = Math.max(...scores, 1)
   const todayLabel = new Date().toLocaleDateString("en-GB", { weekday: "short" })
 
   const lowDays = scores.filter((s) => s < 55).length
@@ -560,27 +559,33 @@ function BodyClockWeeklyStrip({
 
   return (
     <div className="space-y-2">
-      <div className="flex items-end justify-between gap-2 min-h-[52px]">
+      <div className={inter.className}>
         {days.map((label, idx) => {
-          const score = scores[idx] ?? 0
-          const heightPct = Math.max(10, Math.round((score / maxScore) * 100))
-          const toneClass =
-            score >= 70 ? "bg-emerald-400" : score >= 55 ? "bg-amber-400" : "bg-rose-400"
+          const raw = scores[idx] ?? 0
+          const v = Math.min(100, Math.max(0, Math.round(raw)))
           const isToday = label === todayLabel
           return (
-            <div key={`${label}-${idx}`} className="flex-1 flex flex-col items-center gap-1">
-              <div
-                className={cn("w-2 rounded-full", toneClass)}
-                style={{ height: `${heightPct}%`, minHeight: "14px" }}
-              />
-              <span
-                className={cn(
-                  `text-[9px] uppercase tracking-[0.12em] ${inter.className}`,
-                  isToday ? "text-[var(--text-main)] font-semibold" : "text-[var(--text-muted)]",
-                )}
-              >
-                {label.charAt(0)}
-              </span>
+            <div
+              key={`${label}-${idx}`}
+              className="space-y-1.5 py-3 border-b border-[var(--border-subtle)] last:border-0"
+            >
+              <div className="flex justify-between items-baseline gap-2">
+                <span
+                  className={cn(
+                    "text-sm font-medium text-[var(--text-soft)]",
+                    isToday && "font-semibold text-[var(--text-main)]",
+                  )}
+                >
+                  {label}
+                </span>
+                <span className="text-sm font-semibold tabular-nums text-[var(--text-main)] shrink-0">{v}</span>
+              </div>
+              <div className="h-2 rounded-full bg-[var(--ring-bg)] overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-[width] duration-300"
+                  style={{ width: `${v}%` }}
+                />
+              </div>
             </div>
           )
         })}

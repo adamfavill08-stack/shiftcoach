@@ -4,64 +4,13 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ChevronRight } from "lucide-react"
 import { Inter } from "next/font/google"
-import type { ShiftLagMetrics, ShiftLagLevel } from "@/lib/shiftlag/calculateShiftLag"
+import type { ShiftLagMetrics } from "@/lib/shiftlag/calculateShiftLag"
 import { useTranslation } from "@/components/providers/language-provider"
 import { apiErrorMessageFromJson } from "@/lib/api/clientErrorMessage"
 import { authedFetch } from "@/lib/supabase/authedFetch"
+import { riskScaleBarMarkerFill } from "@/lib/riskScaleBarMarker"
 
 const inter = Inter({ subsets: ["latin"] })
-
-function MiniRing({
-  value,
-  maxValue = 100,
-  level,
-  size = 64,
-}: {
-  value: number
-  maxValue?: number
-  level: ShiftLagLevel
-  size?: number
-}) {
-  const strokeWidth = Math.max(4, Math.round(size / 16))
-  const radius = (size - strokeWidth) / 2
-  const circumference = 2 * Math.PI * radius
-  const percentage = Math.min(value / maxValue, 1)
-  const offset = circumference - percentage * circumference
-  const color =
-    level === "low" ? "#22c55e" : level === "moderate" ? "#f97316" : "#ef4444"
-
-  return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="absolute inset-0 -rotate-90">
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="#e2e8f0"
-          strokeWidth={strokeWidth}
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={color}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          style={{ transition: "stroke-dashoffset 0.6s ease" }}
-        />
-      </svg>
-      <span
-        className={`absolute inset-0 flex items-center justify-center font-semibold text-slate-900 tabular-nums ${size <= 52 ? "text-sm" : "text-base"}`}
-      >
-        {Math.max(0, Math.min(100, Math.round(value)))}
-      </span>
-    </div>
-  )
-}
 
 function isUnlockPlaceholder(data: ShiftLagMetrics): boolean {
   return (
@@ -155,7 +104,6 @@ export function ShiftLagCard({ compact = false }: ShiftLagCardProps) {
 
   const showScoreRow =
     data && !isUnlockPlaceholder(data) && !isCalcFailure(data)
-  const ringSize = compact ? 50 : 64
   const scorePct = data ? Math.max(0, Math.min(100, data.score)) : 0
   const bubbleTone =
     data?.level === "high"
@@ -163,12 +111,7 @@ export function ShiftLagCard({ compact = false }: ShiftLagCardProps) {
       : data?.level === "moderate"
       ? "bg-amber-100 text-amber-800"
       : "bg-emerald-100 text-emerald-800"
-  const markerTone =
-    data?.level === "high"
-      ? "bg-rose-500"
-      : data?.level === "moderate"
-      ? "bg-amber-500"
-      : "bg-emerald-500"
+  const markerFill = riskScaleBarMarkerFill(scorePct)
 
   return (
     <section
@@ -236,8 +179,8 @@ export function ShiftLagCard({ compact = false }: ShiftLagCardProps) {
                   </div>
                 </div>
                 <span
-                  className={`pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white ${markerTone} shadow-[0_0_0_1px_rgba(15,23,42,0.2)]`}
-                  style={{ left: `${scorePct}%` }}
+                  className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white box-border"
+                  style={{ left: `${scorePct}%`, backgroundColor: markerFill }}
                   aria-hidden
                 />
               </div>
@@ -245,8 +188,19 @@ export function ShiftLagCard({ compact = false }: ShiftLagCardProps) {
           ) : null}
 
           {showScoreRow && data && compact ? (
-            <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center">
-              <MiniRing value={data.score} level={data.level} size={ringSize} />
+            <div className="relative ml-auto w-full max-w-[92px] shrink-0 self-center pb-0.5 pt-1">
+              <div className="h-2.5 w-full overflow-hidden rounded-full">
+                <div className="grid h-full w-full grid-cols-3">
+                  <div className="bg-emerald-300" />
+                  <div className="bg-emerald-400" />
+                  <div className="bg-gradient-to-r from-amber-400 to-orange-500" />
+                </div>
+              </div>
+              <span
+                className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white box-border"
+                style={{ left: `${scorePct}%`, backgroundColor: markerFill }}
+                aria-hidden
+              />
             </div>
           ) : null}
         </div>

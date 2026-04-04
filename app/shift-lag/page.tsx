@@ -7,6 +7,7 @@ import type { ShiftLagMetrics } from "@/lib/shiftlag/calculateShiftLag";
 import { useTranslation } from "@/components/providers/language-provider";
 import { apiErrorMessageFromJson } from "@/lib/api/clientErrorMessage";
 import { authedFetch } from "@/lib/supabase/authedFetch";
+import { riskScaleBarMarkerFill } from "@/lib/riskScaleBarMarker";
 
 export default function ShiftLagInfoPage() {
   const { t } = useTranslation();
@@ -67,41 +68,33 @@ export default function ShiftLagInfoPage() {
     switch (level) {
       case "low":
         return {
-          ringFrom: "#22c55e",
-          ringTo: "#4ade80",
           label: "Low Shift Lag",
-          textClass: "text-emerald-700",
+          textClass: "text-emerald-700 dark:text-emerald-400",
         };
       case "moderate":
         return {
-          ringFrom: "#f97316",
-          ringTo: "#fbbf24",
           label: "Moderate Shift Lag",
-          textClass: "text-amber-700",
+          textClass: "text-amber-700 dark:text-amber-400",
         };
       case "high":
         return {
-          ringFrom: "#ef4444",
-          ringTo: "#f87171",
           label: "High Shift Lag",
-          textClass: "text-rose-700",
+          textClass: "text-rose-700 dark:text-rose-400",
         };
       default:
         return {
-          ringFrom: "#0f172a",
-          ringTo: "#64748b",
           label: "Shift Lag",
-          textClass: "text-slate-700",
+          textClass: "text-slate-700 dark:text-slate-300",
         };
     }
   };
 
-  const { ringFrom, ringTo, label, textClass } = getColors();
+  const { label, textClass } = getColors();
 
-  const radius = 88;
-  const circumference = 2 * Math.PI * radius;
   const clampedScore = Math.max(0, Math.min(100, score));
-  const progress = (clampedScore / 100) * circumference;
+  const markerLeft = `${Math.max(3, Math.min(97, clampedScore))}%`;
+  const markerFill = riskScaleBarMarkerFill(clampedScore);
+  const showHeroBar = !loading && !error && data;
 
   const sleepDebtHours = data?.sleepDebtHours ?? null;
   const avgNightOverlap = data?.avgNightOverlapHours ?? null;
@@ -170,63 +163,57 @@ export default function ShiftLagInfoPage() {
           </h1>
         </header>
 
-        {/* Hero score ring */}
-        <section className="flex flex-col items-center gap-5 rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-6 shadow-[0_14px_36px_rgba(0,0,0,0.38)]">
-          <div className="relative h-52 w-52">
-            <svg viewBox="0 0 220 220" className="h-full w-full">
-              <defs>
-                <linearGradient id="shiftlag-ring" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor={ringFrom} />
-                  <stop offset="100%" stopColor={ringTo} />
-                </linearGradient>
-              </defs>
-              <circle
-                cx="110"
-                cy="110"
-                r={radius}
-                className="stroke-slate-100 dark:stroke-slate-700"
-                strokeWidth="8"
-                fill="none"
-              />
-              <circle
-                cx="110"
-                cy="110"
-                r={radius}
-                stroke="url(#shiftlag-ring)"
-                strokeWidth="8"
-                fill="none"
-                strokeLinecap="round"
-                strokeDasharray={circumference}
-                strokeDashoffset={circumference - progress}
-                transform="rotate(-90 110 110)"
-              />
-            </svg>
-
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
+        {/* Hero score bar (matches dashboard fatigue / binge risk scale) */}
+        <section className="flex flex-col gap-5 rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-6 shadow-[0_14px_36px_rgba(0,0,0,0.38)]">
+          <div className="w-full space-y-3">
+            <div className="flex flex-col gap-1">
               <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-[var(--text-muted)]">
                 Shift Lag
               </p>
               {loading ? (
-                <div className="h-6 w-14 animate-pulse rounded-full bg-[var(--card-subtle)]" />
+                <div className="h-10 w-28 animate-pulse rounded-lg bg-[var(--card-subtle)]" />
               ) : error ? (
                 <span className="text-xs text-[var(--text-muted)]">No data</span>
               ) : (
                 <>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-4xl font-semibold leading-none text-[var(--text-main)]">
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                    <span className="text-3xl font-semibold tabular-nums text-[var(--text-main)]">
                       {clampedScore}
                     </span>
                     <span className="text-sm text-[var(--text-muted)]">/100</span>
                   </div>
-                  <span className={`text-xs font-semibold ${textClass}`}>
-                    {label}
-                  </span>
+                  <span className={`text-sm font-semibold ${textClass}`}>{label}</span>
                 </>
               )}
             </div>
+
+            {loading ? (
+              <div className="h-3 w-full animate-pulse rounded-full bg-[var(--card-subtle)]" />
+            ) : showHeroBar ? (
+              <>
+                <div className="relative w-full pb-0.5 pt-1">
+                  <div className="h-3 w-full overflow-hidden rounded-full">
+                    <div className="grid h-full w-full grid-cols-3">
+                      <div className="bg-emerald-300" />
+                      <div className="bg-emerald-400" />
+                      <div className="bg-gradient-to-r from-amber-400 to-orange-500" />
+                    </div>
+                  </div>
+                  <span
+                    className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white box-border"
+                    style={{ left: markerLeft, backgroundColor: markerFill }}
+                    aria-hidden
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[10px] font-medium text-[var(--text-muted)]">
+                  <span>Low</span>
+                  <span>High</span>
+                </div>
+              </>
+            ) : null}
           </div>
 
-          <p className="max-w-xs text-center text-sm text-[var(--text-soft)]">
+          <p className="text-sm text-[var(--text-soft)]">
             {data?.explanation ??
               "Shift Lag is how out-of-sync your body clock is with your recent shifts. Lower scores mean your sleep and shifts are working together."}
           </p>

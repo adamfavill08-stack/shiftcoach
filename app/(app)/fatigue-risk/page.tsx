@@ -1,9 +1,14 @@
 'use client'
 
 import { useMemo } from 'react'
+import Link from 'next/link'
+import { ChevronLeft } from 'lucide-react'
 import { useShiftRhythm } from '@/lib/hooks/useShiftRhythm'
+import { useTranslation } from '@/components/providers/language-provider'
+import { fatigueWindowBarMarkerFill } from '@/lib/riskScaleBarMarker'
 
 export default function FatigueRiskPage() {
+  const { t } = useTranslation()
   const { fatigueRisk, loading } = useShiftRhythm()
   const score = fatigueRisk?.score ?? 20
   const score10 = Math.max(1, Math.min(10, Math.round(score / 10)))
@@ -52,6 +57,7 @@ export default function FatigueRiskPage() {
   }, [nowHour, timeline])
   const scoreLabel = useMemo(() => (loading ? '...' : String(score10)), [loading, score10])
   const markerLeft = `${Math.max(3, Math.min(97, score))}%`
+  const windowMarkerFill = fatigueWindowBarMarkerFill(score)
   const levelBadgeClass =
     levelRaw === 'high'
       ? 'bg-orange-100 text-orange-800'
@@ -62,12 +68,22 @@ export default function FatigueRiskPage() {
   return (
     <div className="min-h-screen bg-[var(--bg)] p-4 md:p-6">
       <div className="mx-auto max-w-md space-y-4">
+        <header className="flex items-center gap-2">
+          <Link
+            href="/dashboard"
+            className="rounded-full border border-[var(--border-subtle)] bg-[var(--card)] p-2 text-[var(--text-soft)] shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition-colors hover:bg-[var(--card-subtle)]"
+            aria-label={t('detail.common.backToDashboard')}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="text-xl font-semibold tracking-tight text-[var(--text-main)]">Fatigue risk</h1>
+        </header>
+
         <div className="rounded-[28px] border border-[var(--border-subtle)] bg-[var(--card)] p-5 shadow-sm dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">Fatigue Risk</p>
-              <div className="mt-3 flex items-end gap-3">
-                <h1 className="text-5xl font-semibold tracking-tight text-[var(--text-main)]">{scoreLabel}</h1>
+              <div className="flex items-end gap-3">
+                <p className="text-5xl font-semibold tabular-nums tracking-tight text-[var(--text-main)]">{scoreLabel}</p>
                 <span className={`mb-1 rounded-full px-3 py-1 text-sm font-medium ${levelBadgeClass}`}>
                   {level}
                 </span>
@@ -84,14 +100,18 @@ export default function FatigueRiskPage() {
               <span>Current window</span>
               <span>{currentPoint.time}</span>
             </div>
-            <div className="relative h-3 w-full overflow-hidden rounded-full bg-[var(--card-subtle)]">
-              <div className="absolute inset-0 bg-gradient-to-r from-emerald-300 via-lime-300 via-60% to-orange-400" />
+            {/* Marker sits outside overflow-hidden so it is not clipped to the thin track */}
+            <div className="relative w-full pt-2 pb-2">
+              <div className="h-3 w-full overflow-hidden rounded-full bg-[var(--card-subtle)]">
+                <div className="h-full w-full bg-gradient-to-r from-emerald-300 via-lime-300 via-60% to-orange-400" />
+              </div>
               <div
-                className="absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full border-2 border-white bg-slate-900 shadow dark:bg-slate-100"
-                style={{ left: markerLeft, transform: 'translate(-50%, -50%)' }}
+                className="pointer-events-none absolute left-0 z-10 h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white shadow-[0_2px_10px_rgba(0,0,0,0.35)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.55)]"
+                style={{ left: markerLeft, top: "calc(0.5rem + 6px)", backgroundColor: windowMarkerFill }}
+                aria-hidden
               />
             </div>
-            <div className="mt-2 flex items-center justify-between text-xs text-[var(--text-muted)]">
+            <div className="mt-1 flex items-center justify-between text-xs text-[var(--text-muted)]">
               <span>Low</span>
               <span>High</span>
             </div>

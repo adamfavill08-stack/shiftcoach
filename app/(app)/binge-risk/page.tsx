@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { useTranslation } from '@/components/providers/language-provider'
+import { riskScaleBarMarkerFill } from '@/lib/riskScaleBarMarker'
 
 type BingeRisk = {
   score: number
@@ -41,17 +42,9 @@ export default function BingeRiskPage() {
 
   const levelLabel = level === 'low' ? 'Low' : level === 'medium' ? 'Medium' : 'High'
 
-  const ringGradientId = 'bingeGaugeGradient'
-
-  const ringFillFraction =
-    level === 'low' ? Math.min(1, score / 60) : level === 'medium' ? 0.5 + Math.min(0.3, score / 200) : 0.8
-
-  const ringBg =
-    level === 'low'
-      ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/35 dark:text-emerald-300'
-      : level === 'medium'
-      ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/35 dark:text-amber-300'
-      : 'bg-rose-50 text-rose-600 dark:bg-rose-950/35 dark:text-rose-300'
+  const scorePct = Math.max(0, Math.min(100, score))
+  const markerLeft = `${Math.max(3, Math.min(97, scorePct))}%`
+  const markerFill = riskScaleBarMarkerFill(scorePct)
 
   const chipClass =
     level === 'low'
@@ -86,52 +79,35 @@ export default function BingeRiskPage() {
           <h1 className="text-xl font-semibold tracking-tight text-[var(--text-main)]">{t('detail.bingeRisk.title')}</h1>
         </header>
 
-        {/* Hero binge risk ring */}
-        <section className="flex flex-col items-center gap-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-5 shadow-[0_14px_36px_rgba(0,0,0,0.32)]">
-          <div className="flex items-center justify-center">
-            <div className="relative h-40 w-40">
-              <svg viewBox="0 0 132 132" className="h-40 w-40">
-                <defs>
-                  <linearGradient id={ringGradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#22c55e" />
-                    <stop offset="50%" stopColor="#facc15" />
-                    <stop offset="100%" stopColor="#fb7185" />
-                  </linearGradient>
-                </defs>
-                {/* Track */}
-                <circle
-                  cx="66"
-                  cy="66"
-                  r="52"
-                  stroke="var(--border-subtle)"
-                  strokeWidth="8.5"
-                  fill="none"
-                />
-                {/* Progress arc */}
-                <circle
-                  cx="66"
-                  cy="66"
-                  r="52"
-                  stroke={`url(#${ringGradientId})`}
-                  strokeWidth="8.5"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeDasharray={2 * Math.PI * 52}
-                  strokeDashoffset={(2 * Math.PI * 52) * (1 - ringFillFraction)}
-                  transform="rotate(-90 66 66)"
-                />
-              </svg>
-              <div className={`absolute inset-0 flex flex-col items-center justify-center ${ringBg} rounded-full mx-8 my-8`}>
-                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-                  Score
-                </span>
-                <span className="text-2xl font-semibold tabular-nums text-[var(--text-main)]">
-                  {score}
-                </span>
-                <span className="mt-1 text-[11px] font-medium text-[var(--text-soft)]">
-                  {levelLabel} risk
-                </span>
+        {/* Hero binge risk bar (matches dashboard fatigue-style scale) */}
+        <section className="flex flex-col gap-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-5 shadow-[0_14px_36px_rgba(0,0,0,0.32)]">
+          <div className="w-full space-y-3">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                Score
+              </span>
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <span className="text-3xl font-semibold tabular-nums text-[var(--text-main)]">{score}</span>
+                <span className="text-sm font-medium text-[var(--text-soft)]">{levelLabel} risk</span>
               </div>
+            </div>
+            <div className="relative w-full pb-0.5 pt-1">
+              <div className="h-3 w-full overflow-hidden rounded-full">
+                <div className="grid h-full w-full grid-cols-3">
+                  <div className="bg-emerald-300" />
+                  <div className="bg-emerald-400" />
+                  <div className="bg-gradient-to-r from-amber-400 to-orange-500" />
+                </div>
+              </div>
+              <span
+                className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white box-border"
+                style={{ left: markerLeft, backgroundColor: markerFill }}
+                aria-hidden
+              />
+            </div>
+            <div className="flex items-center justify-between text-[10px] font-medium text-[var(--text-muted)]">
+              <span>Low</span>
+              <span>High</span>
             </div>
           </div>
 

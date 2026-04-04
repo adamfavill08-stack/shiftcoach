@@ -23,6 +23,7 @@ import { useShiftState } from "@/components/providers/shift-state-provider";
 import { useCircadianState } from "@/components/providers/circadian-state-provider";
 import { applyUserShiftStateToMealTimingJson } from "@/lib/nutrition/applyUserShiftStateToMealTiming";
 import { useTransitionPlanPanelPresence } from "@/lib/hooks/useTransitionPlanPanelPresence";
+import { riskScaleBarMarkerFill } from "@/lib/riskScaleBarMarker";
 
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import type { CircadianState } from '@/lib/circadian/calculateCircadianScore'
@@ -513,22 +514,7 @@ function HomeFatigueRiskCard({
       : level === "Low"
         ? "bg-emerald-100 text-emerald-800"
         : "bg-emerald-100/80 text-slate-700";
-  const markerColor = (() => {
-    // Match the bar gradient: emerald -> amber -> rose
-    const t = Math.max(0, Math.min(1, score100 / 100));
-    if (t <= 0.5) {
-      const local = t / 0.5;
-      const r = Math.round(52 + (251 - 52) * local);
-      const g = Math.round(211 + (191 - 211) * local);
-      const b = Math.round(153 + (36 - 153) * local);
-      return `rgb(${r} ${g} ${b})`;
-    }
-    const local = (t - 0.5) / 0.5;
-    const r = Math.round(251 + (244 - 251) * local);
-    const g = Math.round(191 + (63 - 191) * local);
-    const b = Math.round(36 + (94 - 36) * local);
-    return `rgb(${r} ${g} ${b})`;
-  })();
+  const markerFill = riskScaleBarMarkerFill(score100);
   const subtitle =
     fatigueRisk?.confidenceLabel === "low"
       ? "Confidence builds as more sleep and shift data syncs."
@@ -566,8 +552,8 @@ function HomeFatigueRiskCard({
             </div>
           </div>
           <div
-            className="pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(15,23,42,0.18)]"
-            style={{ left: markerLeft, backgroundColor: markerColor }}
+            className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white box-border"
+            style={{ left: markerLeft, backgroundColor: markerFill }}
             aria-hidden
           />
         </div>
@@ -1238,6 +1224,7 @@ const BingeRiskCard = memo(function BingeRiskCard({
   const riskLevelLabel =
     riskLevel === "low" ? "Low" : riskLevel === "medium" ? "Medium" : "High";
   const scorePct = Math.max(0, Math.min(100, riskScore));
+  const bingeMarkerFill = riskScaleBarMarkerFill(scorePct);
 
   return (
     <Link
@@ -1294,8 +1281,8 @@ const BingeRiskCard = memo(function BingeRiskCard({
                   </div>
                 </div>
                 <span
-                  className="pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-emerald-500 shadow-[0_0_0_1px_rgba(15,23,42,0.2)]"
-                  style={{ left: `${scorePct}%` }}
+                  className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white box-border"
+                  style={{ left: `${scorePct}%`, backgroundColor: bingeMarkerFill }}
                   aria-hidden
                 />
               </div>
