@@ -140,13 +140,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Also create task record
+    // Mirror row in `tasks` (best-effort — event row is the source of truth)
     if (data.id) {
-      await supabase.from('tasks').insert({
+      const { error: mirrorErr } = await supabase.from('tasks').insert({
         task_id: data.id,
         start_ts: data.start_ts,
         flags: data.flags,
       })
+      if (mirrorErr) {
+        console.error('[calendar/tasks] tasks mirror insert failed:', mirrorErr.message)
+      }
     }
 
     const createdTask = {

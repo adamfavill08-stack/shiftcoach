@@ -7,10 +7,15 @@ import { format, addYears, subYears, startOfYear, eachMonthOfInterval, startOfMo
 import { getEventsInRange } from '@/lib/helpers/calendar/EventsHelper'
 import { Event } from '@/lib/models/calendar/Event'
 import { getDayCodeFromDateTime, getDateTimeFromTS } from '@/lib/helpers/calendar/Formatter'
+import { useWeekStartsOn } from '@/lib/calendar/useWeekStartsOn'
+import { calendarWeekdayLabels } from '@/lib/calendar/reorderRotaWeeks'
+import { useTranslation } from '@/components/providers/language-provider'
 
 function YearViewContent() {
+  const { t } = useTranslation()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const weekStartsOn = useWeekStartsOn()
   const yearParam = searchParams.get('year')
   
   const [currentYear, setCurrentYear] = useState<Date>(() => {
@@ -90,12 +95,14 @@ function YearViewContent() {
     router.push(`/rota?month=${format(month, 'yyyy-MM')}`)
   }
 
+  const weekdayLabels = calendarWeekdayLabels(weekStartsOn)
+
   // Build mini calendar for a month
   function buildMiniMonthDays(month: Date) {
     const firstDay = startOfMonth(month)
     const lastDay = endOfMonth(month)
-    const start = startOfWeek(firstDay, { weekStartsOn: 1 })
-    const end = startOfWeek(addDays(lastDay, 6), { weekStartsOn: 1 })
+    const start = startOfWeek(firstDay, { weekStartsOn })
+    const end = startOfWeek(addDays(lastDay, 6), { weekStartsOn })
     
     const days: Date[] = []
     let current = start
@@ -122,7 +129,9 @@ function YearViewContent() {
       <div className="sticky top-0 z-10 bg-white/80 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-800/60">
         <div className="max-w-md mx-auto px-3 py-3 flex items-center justify-between">
           <button
+            type="button"
             onClick={() => router.back()}
+            aria-label={t('calendar.yearView.backAria')}
             className="h-9 w-9 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-slate-100/70 dark:hover:bg-slate-800/50 hover:text-slate-600 dark:hover:text-slate-300 transition"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -130,6 +139,7 @@ function YearViewContent() {
 
           <div className="flex items-center gap-4">
             <button
+              type="button"
               onClick={handlePreviousYear}
               className="h-9 w-9 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-slate-100/70 dark:hover:bg-slate-800/50 hover:text-slate-600 dark:hover:text-slate-300 transition"
             >
@@ -137,6 +147,7 @@ function YearViewContent() {
             </button>
 
             <button
+              type="button"
               onClick={handleToday}
               className="text-lg font-semibold text-slate-900 dark:text-slate-100 px-4 py-2 rounded-lg hover:bg-slate-100/70 dark:hover:bg-slate-800/50 transition"
             >
@@ -144,6 +155,7 @@ function YearViewContent() {
             </button>
 
             <button
+              type="button"
               onClick={handleNextYear}
               className="h-9 w-9 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-slate-100/70 dark:hover:bg-slate-800/50 hover:text-slate-600 dark:hover:text-slate-300 transition"
             >
@@ -164,6 +176,7 @@ function YearViewContent() {
             
             return (
               <button
+                type="button"
                 key={month.toISOString()}
                 onClick={() => handleMonthClick(month)}
                 className="relative overflow-hidden rounded-2xl bg-white/90 dark:bg-slate-900/85 backdrop-blur-xl border border-slate-200/70 dark:border-slate-800/70 p-4"
@@ -175,14 +188,14 @@ function YearViewContent() {
                   </div>
                   {isCurrentMonth && (
                     <span className="text-[10px] font-medium text-amber-600 dark:text-amber-300 uppercase tracking-wide">
-                      Current
+                      {t('calendar.yearView.currentMonth')}
                     </span>
                   )}
                 </div>
 
                 {/* Weekday labels */}
                 <div className="grid grid-cols-7 gap-1 mb-1">
-                  {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, i) => (
+                  {weekdayLabels.map((label, i) => (
                     <div
                       key={i}
                       className="text-[10px] font-semibold text-slate-400 dark:text-slate-600 text-center"
@@ -242,13 +255,18 @@ function YearViewContent() {
   )
 }
 
+function YearViewSuspenseFallback() {
+  const { t } = useTranslation()
+  return (
+    <main className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
+      <div className="text-slate-500 dark:text-slate-400">{t('calendar.yearView.loading')}</div>
+    </main>
+  )
+}
+
 export default function YearViewPage() {
   return (
-    <Suspense fallback={
-      <main className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
-        <div className="text-slate-500 dark:text-slate-400">Loading...</div>
-      </main>
-    }>
+    <Suspense fallback={<YearViewSuspenseFallback />}>
       <YearViewContent />
     </Suspense>
   )

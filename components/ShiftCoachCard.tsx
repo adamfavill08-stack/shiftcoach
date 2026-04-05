@@ -3,20 +3,24 @@
 import React from "react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
+import { useTranslation } from "@/components/providers/language-provider"
 
 type ShiftCoachCardProps = {
-  title?: string // defaults to "Shift Coach"
-  subtitle?: string // defaults to "Preparing your tip…"
-  className?: string // optional extra styles
-  onClick?: (e?: React.MouseEvent) => void // optional click handler
+  title?: string
+  subtitle?: string
+  className?: string
+  onClick?: (e?: React.MouseEvent) => void
 }
 
 export function ShiftCoachCard({
-  title = "Shift Coach",
-  subtitle = "Preparing your tip…",
+  title,
+  subtitle,
   className,
   onClick,
 }: ShiftCoachCardProps) {
+  const { t } = useTranslation()
+  const displayTitle = title ?? t("coach.cardTitle")
+  const displaySubtitle = subtitle ?? t("coach.cardSubtitle")
   return (
     <div
       onClick={(e) => {
@@ -37,7 +41,7 @@ export function ShiftCoachCard({
       <div className="flex-shrink-0">
         <Image
           src="/shiftcoach-bubble.svg"
-          alt="Shift Coach Icon"
+          alt={t("coach.cardIconAlt")}
           width={44}
           height={44}
           className="rounded-2xl shadow-sm pointer-events-none select-none"
@@ -48,10 +52,10 @@ export function ShiftCoachCard({
       {/* Text content - stacked vertically */}
       <div className="flex-1 min-w-0 flex flex-col">
         <h3 className="text-[17px] font-semibold text-slate-900 tracking-tight">
-          {title}
+          {displayTitle}
         </h3>
         <p className="text-[15px] text-slate-600 leading-relaxed mt-1.5">
-          {subtitle}
+          {displaySubtitle}
         </p>
       </div>
     </div>

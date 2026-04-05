@@ -23,7 +23,7 @@ export default function SettingsPage() {
     return (
       <main className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
         <div className="rounded-3xl bg-white border border-slate-100 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] px-6 py-5">
-          <div className="animate-pulse text-sm text-slate-500">Loading settings...</div>
+          <div className="animate-pulse text-sm text-slate-500">{t('settings.loading')}</div>
         </div>
       </main>
     )
@@ -38,7 +38,7 @@ export default function SettingsPage() {
             <button
               onClick={() => router.back()}
               className="inline-flex items-center justify-center rounded-full w-8 h-8 text-slate-500 hover:bg-sky-50 hover:text-slate-900 transition-colors"
-              aria-label="Back"
+              aria-label={t('settings.backAria')}
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -98,10 +98,13 @@ export default function SettingsPage() {
           {/* Footer */}
           <div className="px-4 pt-3 border-t border-slate-100">
             <p className="text-xs text-center text-slate-500">
-              Version 1.0 ·{' '}
-              <span className="text-sky-600 cursor-pointer hover:text-sky-700 hover:underline transition-colors">
-                Contact support
-              </span>
+              {t('settings.footerVersion', { version: '1.0' })} ·{' '}
+              <a
+                href="mailto:shift-coach@outlook.com"
+                className="text-sky-600 hover:text-sky-700 hover:underline transition-colors"
+              >
+                {t('settings.contactSupport')}
+              </a>
             </p>
           </div>
         </div>

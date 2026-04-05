@@ -5,10 +5,12 @@ import { Droplets, ChevronLeft, ChevronUp, ChevronDown } from "lucide-react"
 import Link from "next/link"
 import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition"
 import { useWeeklyProgress } from "@/lib/hooks/useWeeklyProgress"
-import { useTranslation } from "@/components/providers/language-provider"
+import { useLanguage, useTranslation } from "@/components/providers/language-provider"
+import { intlLocaleForApp, type AppLocaleCode } from "@/lib/i18n/supportedLocales"
 
 export default function HydrationPage() {
   const { t } = useTranslation()
+  const { language } = useLanguage()
   const { data } = useTodayNutrition()
   const weekly = useWeeklyProgress()
 
@@ -67,12 +69,12 @@ export default function HydrationPage() {
     if (targetMl <= 0) return null
     const fraction = selectedMl / targetMl
 
-    if (fraction <= 0) return "Start with a small glass and build from there."
-    if (fraction < 0.35) return "Nice start — every sip helps your energy and focus."
-    if (fraction < 0.7) return "You’re doing well — keep topping up that jug."
-    if (fraction < 0.95) return "Great work — you’re close to today’s goal."
-    return "Goal nearly there — amazing consistency on your hydration."
-  }, [selectedMl, targetMl])
+    if (fraction <= 0) return t("detail.hydration.motivationEmpty")
+    if (fraction < 0.35) return t("detail.hydration.motivationLow")
+    if (fraction < 0.7) return t("detail.hydration.motivationMid")
+    if (fraction < 0.95) return t("detail.hydration.motivationHigh")
+    return t("detail.hydration.motivationFull")
+  }, [selectedMl, targetMl, t])
 
   const handleSave = async () => {
     const delta = Math.max(0, Math.round(selectedMl - baseMl))
@@ -115,6 +117,7 @@ export default function HydrationPage() {
           <Link
             href="/dashboard"
             className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600"
+            aria-label={t("detail.common.backToDashboard")}
           >
             <ChevronLeft className="h-4 w-4" />
           </Link>
@@ -124,7 +127,7 @@ export default function HydrationPage() {
             </div>
             <div>
               <h1 className="text-base font-semibold text-slate-900 tracking-tight">
-                Hydration
+                {t("detail.hydration.title")}
               </h1>
             </div>
           </div>
@@ -135,18 +138,18 @@ export default function HydrationPage() {
           <div className="w-full flex items-center justify-between text-xs text-slate-600">
             <div>
               <p className="font-semibold text-slate-900 text-[11px] uppercase tracking-[0.16em]">
-                Today&apos;s water goal
+                {t("detail.hydration.todaysGoal")}
               </p>
               <p className="mt-1 text-sm">
                 {targetLitres}
-                <span className="ml-1 text-slate-500">L</span>
+                <span className="ml-1 text-slate-500">{t("detail.hydration.litreSuffix")}</span>
               </p>
             </div>
             <div className="text-right">
-              <p className="text-[11px]">Selected</p>
+              <p className="text-[11px]">{t("detail.hydration.selected")}</p>
               <p className="text-sm font-semibold text-slate-900">
                 {selectedLitres}
-                <span className="ml-1 text-slate-500">L</span>
+                <span className="ml-1 text-slate-500">{t("detail.hydration.litreSuffix")}</span>
               </p>
             </div>
           </div>
@@ -158,7 +161,7 @@ export default function HydrationPage() {
                 type="button"
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-600"
                 onClick={() => handleAdjust("up")}
-                aria-label="Increase water"
+                aria-label={t("detail.hydration.ariaIncrease")}
               >
                 <ChevronUp className="h-4 w-4" />
               </button>
@@ -194,7 +197,9 @@ export default function HydrationPage() {
                     type="button"
                     onClick={() => setSelectedMl(level.ml)}
                     className="relative flex-1 w-full"
-                    aria-label={`Log ${(level.ml / 1000).toFixed(2)} litres`}
+                    aria-label={t("detail.hydration.ariaLogLitres", {
+                      n: (level.ml / 1000).toFixed(2),
+                    })}
                   />
                 ))}
               </div>
@@ -206,7 +211,7 @@ export default function HydrationPage() {
                 type="button"
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-600"
                 onClick={() => handleAdjust("down")}
-                aria-label="Decrease water"
+                aria-label={t("detail.hydration.ariaDecrease")}
               >
                 <ChevronDown className="h-4 w-4" />
               </button>
@@ -214,10 +219,7 @@ export default function HydrationPage() {
           </div>
 
           <div className="text-[11px] text-slate-500 text-center max-w-xs space-y-1">
-            <p>
-              Picture this as your water jug. Tap a level or nudge the arrows until it
-              matches how much you&apos;ve had so far today.
-            </p>
+            <p>{t("detail.hydration.jugHelp")}</p>
             {motivation && (
               <p className="font-medium text-slate-700">
                 {motivation}
@@ -229,19 +231,10 @@ export default function HydrationPage() {
         {/* Education card: shift work & hydration */}
         <section className="rounded-xl bg-white px-4 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] space-y-2">
           <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-slate-700">
-            Why this matters on shifts
+            {t("detail.hydration.whyTitle")}
           </p>
-          <p className="text-[11px] text-slate-600 leading-relaxed">
-            Long and overnight shifts, bright lights and caffeine all make it easier to get
-            slightly dehydrated without noticing. That can nudge your energy, focus and
-            recovery in the wrong direction.
-          </p>
-          <p className="text-[11px] text-slate-600 leading-relaxed">
-            Your daily goal here is a{" "}
-            <span className="font-semibold text-slate-800">total across the whole day</span>,
-            not something to drink in one go. Aim to spread it in small drinks before,
-            during and after your shift so your body and digestion can keep up.
-          </p>
+          <p className="text-[11px] text-slate-600 leading-relaxed">{t("detail.hydration.whyP1")}</p>
+          <p className="text-[11px] text-slate-600 leading-relaxed">{t("detail.hydration.whyP2")}</p>
         </section>
 
         {/* Last 7 days hydration card */}
@@ -249,21 +242,19 @@ export default function HydrationPage() {
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-slate-700">
-                Hydration last 7 days
+                {t("detail.hydration.weeklyTitle")}
               </p>
-              <p className="text-[11px] text-slate-500">
-                Bars show what you drank vs your daily goal.
-              </p>
+              <p className="text-[11px] text-slate-500">{t("detail.hydration.weeklySub")}</p>
             </div>
           </div>
 
-          <HydrationWeeklyBarGraph weekly={weekly} />
+          <HydrationWeeklyBarGraph weekly={weekly} language={language} />
         </section>
 
         {/* ShiftCoach logo footer */}
         <div className="pt-4 pb-2 flex flex-col items-center gap-1">
           <div className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-400">
-            ShiftCoach
+            {t("welcome.logoAlt")}
           </div>
           <p className="text-[10px] text-slate-400 text-center max-w-[260px]">
             {t("detail.common.disclaimer")}
@@ -276,9 +267,10 @@ export default function HydrationPage() {
 
 type HydrationWeeklyProps = {
   weekly: ReturnType<typeof useWeeklyProgress>
+  language: AppLocaleCode
 }
 
-function HydrationWeeklyBarGraph({ weekly }: HydrationWeeklyProps) {
+function HydrationWeeklyBarGraph({ weekly, language }: HydrationWeeklyProps) {
   const days = weekly?.days ?? []
   const targets = weekly?.hydrationTargetMl ?? []
   const actuals = weekly?.hydrationActualMl ?? []
@@ -286,6 +278,8 @@ function HydrationWeeklyBarGraph({ weekly }: HydrationWeeklyProps) {
   if (!days.length || !targets.length || !actuals.length) return null
 
   const maxMl = Math.max(...targets, ...actuals, 1)
+  const intlLocale = intlLocaleForApp(language)
+  const todayShort = new Date().toLocaleDateString(intlLocale, { weekday: "short" })
 
   return (
     <div className="mt-1 flex items-end justify-between gap-2 px-1">
@@ -295,8 +289,7 @@ function HydrationWeeklyBarGraph({ weekly }: HydrationWeeklyProps) {
         const pct = Math.min(100, Math.round((actual / maxMl) * 100))
         const targetPct = Math.min(100, Math.round((target / maxMl) * 100))
 
-        const isToday =
-          label === new Date().toLocaleDateString("en-GB", { weekday: "short" })
+        const isToday = label === todayShort
 
         return (
           <div key={`${label}-${idx}`} className="flex-1 flex flex-col items-center gap-1">

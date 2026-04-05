@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { LegalDocumentChrome } from '@/components/legal/LegalDocumentChrome'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy - Shift Coach',
@@ -6,21 +7,11 @@ export const metadata: Metadata = {
 }
 
 export default function PrivacyPolicyPage() {
-  const lastUpdated = new Date().toLocaleDateString()
-
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-10">
-      <div className="max-w-3xl mx-auto">
-        <div className="rounded-3xl bg-white border border-slate-100 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] px-6 py-8">
-          <h1 className="text-2xl font-semibold text-slate-900 mb-4">Privacy Policy</h1>
-
-          <div className="prose prose-slate max-w-none space-y-6 text-slate-700">
-            <p className="text-sm text-slate-500 italic">
-              Last updated: {lastUpdated}
-            </p>
-
+    <LegalDocumentChrome variant="privacy">
+      <div className="prose prose-slate dark:prose-invert max-w-none space-y-6 text-slate-700 dark:text-slate-300">
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">1. Introduction</h2>
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">1. Introduction</h2>
               <p>
                 Shift Coach ("we", "our", or "us") is committed to protecting your privacy. This
                 Privacy Policy explains how we collect, use, disclose, and safeguard your information
@@ -29,7 +20,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">2. Information We Collect</h2>
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">2. Information We Collect</h2>
               <p>We collect information that you provide directly to us, including:</p>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Account information (email address, password)</li>
@@ -49,7 +40,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">3. How We Use Your Information</h2>
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">3. How We Use Your Information</h2>
               <p>We use the information we collect to:</p>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Provide personalized health and wellness recommendations</li>
@@ -68,7 +59,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">4. Third-Party Services</h2>
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">4. Third-Party Services</h2>
               <p>We use the following third-party services to operate our app:</p>
               <ul className="list-disc pl-6 space-y-2">
                 <li><strong>Supabase:</strong> Database and authentication services. Your data is stored securely on Supabase&apos;s servers.</li>
@@ -89,7 +80,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">5. Data Security</h2>
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">5. Data Security</h2>
               <p>
                 We implement appropriate technical and organizational measures to protect your personal
                 information, including encryption in transit and at rest. However, no method of
@@ -103,7 +94,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">6. Data Retention</h2>
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">6. Data Retention</h2>
               <p>
                 We retain your personal information for as long as your account is active or as needed to
                 provide services. If you delete your account, we will delete or anonymize your personal
@@ -112,7 +103,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">7. International Data Transfers</h2>
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">7. International Data Transfers</h2>
               <p>
                 Your information may be transferred to and processed in countries other than your country
                 of residence. These countries may have data protection laws that differ from those in your
@@ -121,7 +112,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section id="delete-specific-data">
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">8. Your Rights</h2>
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">8. Your Rights</h2>
               <p>You have the right to:</p>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Access your personal data</li>
@@ -129,7 +120,7 @@ export default function PrivacyPolicyPage() {
                 <li>Delete your account and data</li>
                 <li>Correct inaccurate information</li>
               </ul>
-              <h3 className="text-lg font-semibold text-slate-900 mt-6 mb-2">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mt-6 mb-2">
                 Deleting some of your data (without closing your account)
               </h3>
               <p className="mb-2">
@@ -159,7 +150,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">9. Cookies and Tracking</h2>
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">9. Cookies and Tracking</h2>
               <p>
                 We use essential cookies and similar technologies to provide our service, authenticate
                 users, and maintain your session. We do not use cookies for advertising or tracking
@@ -168,7 +159,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">10. Children&apos;s Privacy</h2>
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">10. Children&apos;s Privacy</h2>
               <p>
                 Our service is not intended for children under 13 years of age. We do not knowingly
                 collect personal information from children under 13. If you believe we have collected
@@ -177,7 +168,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">11. Changes to This Policy</h2>
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">11. Changes to This Policy</h2>
               <p>
                 We may update this Privacy Policy from time to time. We will notify you of any material
                 changes by posting the new policy on this page and updating the &quot;Last updated&quot;
@@ -187,7 +178,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">12. Contact Us</h2>
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">12. Contact Us</h2>
               <p>
                 If you have questions about this Privacy Policy or wish to exercise your rights, please
                 contact us at:
@@ -197,9 +188,7 @@ export default function PrivacyPolicyPage() {
                 </a>
               </p>
             </section>
-          </div>
-        </div>
       </div>
-    </main>
+    </LegalDocumentChrome>
   )
 }

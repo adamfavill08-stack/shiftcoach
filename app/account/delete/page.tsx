@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { showToast } from '@/components/ui/Toast'
+import { useTranslation } from '@/components/providers/language-provider'
 
 export default function DeleteAccountPage() {
+  const { t } = useTranslation()
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isChecking, setIsChecking] = useState(true)
@@ -28,7 +30,7 @@ export default function DeleteAccountPage() {
 
   const handleDeleteAccount = async () => {
     if (deleteConfirmText !== 'DELETE') {
-      showToast('Please type DELETE to confirm', 'error')
+      showToast(t('account.delete.toastConfirm'), 'error')
       return
     }
 
@@ -37,7 +39,7 @@ export default function DeleteAccountPage() {
       // Get the current session token
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) {
-        showToast('Please sign in to delete your account', 'error')
+        showToast(t('account.delete.toastNeedSignIn'), 'error')
         router.push('/auth/sign-in?redirect=/account/delete')
         return
       }
@@ -53,10 +55,10 @@ export default function DeleteAccountPage() {
 
       const data = await res.json()
       if (!res.ok || !data.ok) {
-        showToast(data.error || 'Failed to delete account', 'error')
+        showToast(data.error || t('account.delete.toastFailed'), 'error')
         setIsDeleting(false)
       } else {
-        showToast('Account deleted successfully', 'success')
+        showToast(t('account.delete.toastSuccess'), 'success')
         // Sign out and redirect
         await supabase.auth.signOut()
         setTimeout(() => {
@@ -65,7 +67,7 @@ export default function DeleteAccountPage() {
       }
     } catch (err) {
       console.error('Delete error:', err)
-      showToast('Failed to delete account. Please try again.', 'error')
+      showToast(t('account.delete.toastRetry'), 'error')
       setIsDeleting(false)
     }
   }
@@ -75,7 +77,7 @@ export default function DeleteAccountPage() {
       <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900 p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600 dark:border-slate-400 mx-auto mb-4"></div>
-          <p className="text-slate-600 dark:text-slate-400">Loading...</p>
+          <p className="text-slate-600 dark:text-slate-400">{t('account.delete.loading')}</p>
         </div>
       </div>
     )
@@ -86,22 +88,22 @@ export default function DeleteAccountPage() {
       <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900 p-4">
         <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-8">
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4">
-            Delete Account
+            {t('account.delete.signInTitle')}
           </h1>
           <p className="text-slate-600 dark:text-slate-400 mb-6">
-            Please sign in to delete your account.
+            {t('account.delete.signInBody')}
           </p>
           <button
             onClick={() => router.push('/auth/sign-in?redirect=/account/delete')}
             className="w-full py-3 px-4 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-xl font-medium hover:bg-slate-800 dark:hover:bg-slate-200 transition-colors"
           >
-            Sign In
+            {t('account.delete.signInCta')}
           </button>
           <button
             onClick={() => router.push('/')}
             className="w-full mt-3 py-3 px-4 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
           >
-            Go to Home
+            {t('account.delete.goHome')}
           </button>
         </div>
       </div>
@@ -115,10 +117,10 @@ export default function DeleteAccountPage() {
           {/* Header */}
           <div className="relative overflow-hidden bg-gradient-to-b from-red-50/30 dark:from-red-950/30 via-white dark:via-slate-800 to-white dark:to-slate-800 p-6 border-b border-red-200/50 dark:border-red-800/40">
             <h1 className="text-2xl font-bold text-red-900 dark:text-red-300 mb-2">
-              Delete Account
+              {t('account.delete.title')}
             </h1>
             <p className="text-sm text-slate-600 dark:text-slate-300">
-              This action cannot be undone. All your data will be permanently deleted.
+              {t('account.delete.subtitleSignedIn')}
             </p>
           </div>
 
@@ -126,29 +128,29 @@ export default function DeleteAccountPage() {
           <div className="p-6 space-y-6">
             <div className="bg-red-50/50 dark:bg-red-950/20 rounded-xl p-4 border border-red-200 dark:border-red-900/40">
               <p className="text-sm text-red-800 dark:text-red-300 font-medium mb-2">
-                What will be deleted:
+                {t('account.delete.listHeading')}
               </p>
               <ul className="text-sm text-red-700 dark:text-red-400 space-y-1 list-disc list-inside">
-                <li>All sleep logs and data</li>
-                <li>All shift patterns and rota</li>
-                <li>All nutrition logs</li>
-                <li>All activity data</li>
-                <li>Your profile and settings</li>
-                <li>All calendar events</li>
-                <li>All subscription and payment information</li>
+                <li>{t('account.delete.bulletSleep')}</li>
+                <li>{t('account.delete.bulletRota')}</li>
+                <li>{t('account.delete.bulletNutrition')}</li>
+                <li>{t('account.delete.bulletActivity')}</li>
+                <li>{t('account.delete.bulletProfile')}</li>
+                <li>{t('account.delete.bulletCalendar')}</li>
+                <li>{t('account.delete.bulletBilling')}</li>
               </ul>
             </div>
 
             <div>
               <label htmlFor="confirm" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Type <span className="font-mono font-bold">DELETE</span> to confirm:
+                {t('account.delete.typeDelete')}
               </label>
               <input
                 id="confirm"
                 type="text"
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
-                placeholder="Type DELETE"
+                placeholder={t('account.delete.placeholderDelete')}
                 className="w-full px-4 py-3 border border-red-300 dark:border-red-800/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-red-500 dark:focus:border-red-400 transition-all bg-white dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                 autoFocus
               />
@@ -160,14 +162,14 @@ export default function DeleteAccountPage() {
                 disabled={isDeleting}
                 className="flex-1 py-3 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Cancel
+                {t('account.delete.cancel')}
               </button>
               <button
                 onClick={handleDeleteAccount}
                 disabled={isDeleting || deleteConfirmText !== 'DELETE'}
                 className="flex-1 py-3 text-sm font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 dark:from-red-500 dark:to-red-600 rounded-xl hover:from-red-700 hover:to-red-800 dark:hover:from-red-600 dark:hover:to-red-700 shadow-[0_4px_12px_rgba(239,68,68,0.3)] dark:shadow-[0_4px_12px_rgba(239,68,68,0.5)] hover:shadow-[0_6px_16px_rgba(239,68,68,0.4)] dark:hover:shadow-[0_6px_16px_rgba(239,68,68,0.6)] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
               >
-                {isDeleting ? 'Deleting...' : 'Confirm Deletion'}
+                {isDeleting ? t('account.delete.deleting') : t('account.delete.confirm')}
               </button>
             </div>
           </div>
@@ -175,7 +177,7 @@ export default function DeleteAccountPage() {
 
         {/* Additional Info */}
         <p className="text-xs text-slate-500 dark:text-slate-400 text-center mt-4">
-          You can also delete your account from the app settings.
+          {t('account.delete.footerNote')}
           <br />
           <a
             href="/account/delete-request"
@@ -183,7 +185,7 @@ export default function DeleteAccountPage() {
             rel="noopener noreferrer"
             className="underline hover:text-slate-700 dark:hover:text-slate-300 mr-2"
           >
-            Web deletion request
+            {t('account.delete.footerWebRequest')}
           </a>
           •
           {' '}
@@ -193,7 +195,7 @@ export default function DeleteAccountPage() {
             rel="noopener noreferrer"
             className="underline hover:text-slate-700 dark:hover:text-slate-300"
           >
-            View Privacy Policy
+            {t('account.delete.footerPrivacy')}
           </a>
         </p>
       </div>

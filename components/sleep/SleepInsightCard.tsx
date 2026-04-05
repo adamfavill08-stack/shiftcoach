@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { Profile } from '@/lib/profile'
 import { computeSleepInsight, type SleepInsight } from '@/lib/sleep-insight'
+import { useTranslation } from '@/components/providers/language-provider'
 
 export function useSleepInsight(profile: Profile | null) {
   const [insight, setInsight] = useState<SleepInsight | null>(null)
@@ -20,9 +21,10 @@ export function useSleepInsight(profile: Profile | null) {
 }
 
 export function SleepInsightCard({ insight }: { insight: SleepInsight }) {
+  const { t } = useTranslation()
   return (
     <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
-      <div className="text-xs text-slate-500 dark:text-slate-400">Sleep Insight</div>
+      <div className="text-xs text-slate-500 dark:text-slate-400">{t('sleepInsightCard.label')}</div>
       <div className="font-semibold text-slate-900 dark:text-slate-100">{insight.title}</div>
       <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">{insight.summary}</div>
       <ul className="mt-2 text-sm list-disc pl-5 space-y-1">
@@ -30,7 +32,7 @@ export function SleepInsightCard({ insight }: { insight: SleepInsight }) {
       </ul>
       {insight.scoreHints.length > 0 && (
         <div className="mt-2 text-sm">
-          <span className="font-medium">How to boost Rhythm/Recovery:</span>
+          <span className="font-medium">{t('sleepInsightCard.boostTitle')}</span>
           <ul className="list-disc pl-5 space-y-1 mt-1">
             {insight.scoreHints.map((b, i) => <li key={i}>{b}</li>)}
           </ul>

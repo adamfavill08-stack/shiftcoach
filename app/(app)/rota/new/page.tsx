@@ -10,58 +10,72 @@ import {
 } from '@/lib/rota/patternPresets'
 import { getPatternSlots, type ShiftSlot } from '@/lib/rota/patternSlots'
 import { notifyRotaUpdated } from '@/lib/shift-agent/shiftAgent'
+import { useTranslation } from '@/components/providers/language-provider'
 
 const SHIFT_LENGTHS: ShiftLength[] = ['8h', '12h', '16h']
 
-// Helper to generate ordinal labels
-const ordinal = (n: number) => {
-  if (n === 1) return '1st'
-  if (n === 2) return '2nd'
-  if (n === 3) return '3rd'
-  return `${n}th`
-}
-
-// Generate shift options dynamically from pattern slots
-function generateShiftOptions(slots: ShiftSlot[], shiftLength: ShiftLength): string[] {
-  const options: string[] = []
-  
-  // Count occurrences of each type
+/** Locale-independent ids for “current shift in pattern” (must match save payload logic). */
+function generateShiftOptionIds(slots: ShiftSlot[], shiftLength: ShiftLength): string[] {
   const counts: Record<string, number> = { M: 0, A: 0, D: 0, N: 0, O: 0 }
-  
   for (const slot of slots) {
     const upper = slot.toUpperCase() as 'M' | 'A' | 'D' | 'N' | 'O'
     counts[upper] = (counts[upper] || 0) + 1
   }
-  
-  // Generate options based on shift length
+  const ids: string[] = []
   if (shiftLength === '8h') {
-    // 8h patterns use M, A, N, O
-    for (let i = 1; i <= counts.M; i++) {
-      options.push(`${ordinal(i)} morning shift`)
-    }
-    for (let i = 1; i <= counts.A; i++) {
-      options.push(`${ordinal(i)} afternoon shift`)
-    }
-    for (let i = 1; i <= counts.N; i++) {
-      options.push(`${ordinal(i)} night shift`)
-    }
-    for (let i = 1; i <= counts.O; i++) {
-      options.push(`${ordinal(i)} off day`)
-    }
+    for (let i = 1; i <= counts.M; i++) ids.push(`M:${i}`)
+    for (let i = 1; i <= counts.A; i++) ids.push(`A:${i}`)
+    for (let i = 1; i <= counts.N; i++) ids.push(`N:${i}`)
+    for (let i = 1; i <= counts.O; i++) ids.push(`O:${i}`)
   } else {
-    // 12h and 16h patterns use D, N, O
-    for (let i = 1; i <= counts.D; i++) {
-      options.push(`${ordinal(i)} day shift`)
-    }
-    for (let i = 1; i <= counts.N; i++) {
-      options.push(`${ordinal(i)} night shift`)
-    }
-    for (let i = 1; i <= counts.O; i++) {
-      options.push(`${ordinal(i)} off day`)
+    for (let i = 1; i <= counts.D; i++) ids.push(`D:${i}`)
+    for (let i = 1; i <= counts.N; i++) ids.push(`N:${i}`)
+    for (let i = 1; i <= counts.O; i++) ids.push(`O:${i}`)
+  }
+  return ids
+}
+
+function parseShiftOptionId(
+  id: string,
+): { target: 'M' | 'A' | 'D' | 'N' | 'O'; occurrence: number } | null {
+  const m = id.match(/^([MADNO]):(\d+)$/i)
+  if (!m) return null
+  const letter = m[1].toUpperCase() as 'M' | 'A' | 'D' | 'N' | 'O'
+  const occurrence = Number.parseInt(m[2], 10)
+  if (!Number.isFinite(occurrence) || occurrence < 1) return null
+  return { target: letter, occurrence }
+}
+
+function resolveCurrentShiftIndexFromId(id: string, slotSequence: string[]): number {
+  const parsed = parseShiftOptionId(id)
+  if (!parsed) return 0
+  let count = 0
+  for (let i = 0; i < slotSequence.length; i += 1) {
+    if (slotSequence[i] === parsed.target) {
+      count += 1
+      if (count === parsed.occurrence) return i
     }
   }
-  
-  return options
+  return 0
+}
+
+function labelForShiftOptionId(
+  id: string,
+  t: (key: string, params?: Record<string, string | number | undefined>) => string,
+): string {
+  const parsed = parseShiftOptionId(id)
+  if (!parsed) return id
+  const typeKey =
+    parsed.target === 'M'
+      ? 'rota.new.slotMorning'
+      : parsed.target === 'A'
+        ? 'rota.new.slotAfternoon'
+        : parsed.target === 'D'
+          ? 'rota.new.slotDay'
+          : parsed.target === 'N'
+            ? 'rota.new.slotNight'
+            : 'rota.new.slotOff'
+  return t('rota.new.shiftSlot', { type: t(typeKey), index: parsed.occurrence })
 }
 
 type ShiftColorConfig = {
@@ -91,21 +105,15 @@ const OFF_COLOR_PRESETS = [
   { id: 'white', label: 'White', value: '#FFFFFF' },
 ]
 
-const PRESET_SLOT_LABELS: Record<string, string[]> = {
-  morning: ['1st morning shift', '2nd morning shift', '3rd morning shift', '4th morning shift'],
-  afternoon: ['1st afternoon shift', '2nd afternoon shift', '3rd afternoon shift', '4th afternoon shift'],
-  night: ['1st night shift', '2nd night shift', '3rd night shift', '4th night shift'],
-  off: ['1st off day', '2nd off day', '3rd off day', '4th off day'],
-}
-
 export default function NewRotaPatternPage() {
+  const { t } = useTranslation()
   const router = useRouter()
 
   const [shiftLength, setShiftLength] = useState<ShiftLength>('12h')
   const [selectedPatternId, setSelectedPatternId] = useState<string>(
     PATTERNS_BY_LENGTH['12h'][0]?.id ?? '',
   )
-  const [currentShift, setCurrentShift] = useState<string>('1st day shift')
+  const [currentShiftId, setCurrentShiftId] = useState('')
   const [startDate, setStartDate] = useState<string>(() => {
     const d = new Date()
     return d.toISOString().slice(0, 10)
@@ -131,9 +139,10 @@ export default function NewRotaPatternPage() {
     [activePattern?.id],
   )
   
-  const currentShiftOptions = useMemo(() => {
-    return generateShiftOptions(previewSlots, shiftLength)
-  }, [previewSlots, shiftLength])
+  const shiftOptionIds = useMemo(
+    () => generateShiftOptionIds(previewSlots, shiftLength),
+    [previewSlots, shiftLength],
+  )
 
   const patternDescription = getPatternDescription(activePattern?.id)
 
@@ -151,11 +160,9 @@ export default function NewRotaPatternPage() {
   }, [shiftLength, shiftColors.day, shiftColors.morning])
 
   useEffect(() => {
-    const options = generateShiftOptions(previewSlots, shiftLength)
-    if (options.length > 0 && !options.includes(currentShift)) {
-      setCurrentShift(options[0])
-    }
-  }, [shiftLength, previewSlots, currentShift])
+    if (shiftOptionIds.length === 0) return
+    setCurrentShiftId((prev) => (prev && shiftOptionIds.includes(prev) ? prev : shiftOptionIds[0]))
+  }, [shiftOptionIds])
 
   const morningColorHex = shiftColors.morning || shiftColors.day || '#2563EB'
   const afternoonColorHex = shiftColors.afternoon || shiftColors.day || '#4F46E5'
@@ -173,40 +180,7 @@ export default function NewRotaPatternPage() {
       return
     }
 
-    const resolveCurrentShiftIndex = () => {
-      const label = currentShift.toLowerCase()
-      const match = currentShift.match(/(\d+)/)
-      const occurrence = match ? Number.parseInt(match[1], 10) || 1 : 1
-
-      let target: 'M' | 'A' | 'D' | 'N' | 'O' = 'O'
-      if (label.includes('off')) {
-        target = 'O'
-      } else if (label.includes('night')) {
-        target = 'N'
-      } else if (shiftLength === '8h') {
-        if (label.includes('afternoon')) {
-          target = 'A'
-        } else {
-          target = 'M'
-        }
-      } else {
-        target = 'D'
-      }
-
-      let count = 0
-      for (let i = 0; i < slotSequence.length; i += 1) {
-        if (slotSequence[i] === target) {
-          count += 1
-          if (count === occurrence) {
-            return i
-          }
-        }
-      }
-
-      return 0
-    }
-
-    const currentShiftIndex = resolveCurrentShiftIndex()
+    const currentShiftIndex = resolveCurrentShiftIndexFromId(currentShiftId, slotSequence)
 
     const normalizedStartDate = (() => {
       const parsed = new Date(startDate)
@@ -248,7 +222,7 @@ export default function NewRotaPatternPage() {
           body: responseText,
         })
         if (typeof window !== 'undefined') {
-          alert('Could not save rota pattern. Check the dev console for details.')
+          alert(t('rota.new.errSavePattern'))
         }
         return
       }
@@ -281,15 +255,19 @@ export default function NewRotaPatternPage() {
     >
       <header className="flex items-center justify-between px-4 pt-4 pb-3">
         <button
+          type="button"
           onClick={() => router.back()}
+          aria-label={t('rota.new.backAria')}
           className="flex h-9 w-9 items-center justify-center rounded-full bg-white/80 shadow-sm"
         >
           <ChevronLeft className="h-5 w-5 text-slate-700" />
         </button>
-        <h1 className="text-base font-semibold text-slate-900">New rota</h1>
+        <h1 className="text-base font-semibold text-slate-900">{t('rota.new.title')}</h1>
         <button
+          type="button"
           onClick={handleSave}
           disabled={saving}
+          aria-label={t('rota.new.saveAria')}
           className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 shadow-md text-white transition disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Check className="h-5 w-5" />
@@ -307,7 +285,7 @@ export default function NewRotaPatternPage() {
           <div className="space-y-3 px-4 pb-3 pt-4">
             <div className="space-y-1.5">
               <label className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">
-                Pattern
+                {t('rota.new.pattern')}
               </label>
               <div className="w-full rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-2 text-sm text-slate-900">
                 {activePattern?.label}
@@ -316,7 +294,7 @@ export default function NewRotaPatternPage() {
 
             <div className="space-y-1.5">
               <label className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">
-                Shift length
+                {t('rota.new.shiftLength')}
               </label>
               <div className="flex gap-2 rounded-2xl bg-slate-50/80 p-1">
                 {SHIFT_LENGTHS.map((len) => (
@@ -344,7 +322,7 @@ export default function NewRotaPatternPage() {
 
             <div className="space-y-1.5">
               <label className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">
-                Pattern presets
+                {t('rota.new.patternPresets')}
               </label>
               <select
                 className="w-full rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-2 text-sm text-slate-900"
@@ -365,7 +343,7 @@ export default function NewRotaPatternPage() {
           <div className="space-y-3 px-4 py-3 text-sm text-slate-900">
             <div className="space-y-1.5">
               <label className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">
-                Start date
+                {t('rota.new.startDate')}
               </label>
               <input
                 type="date"
@@ -377,16 +355,16 @@ export default function NewRotaPatternPage() {
 
             <div className="space-y-1.5">
               <label className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">
-                Current shift in pattern
+                {t('rota.new.currentShift')}
               </label>
               <select
                 className="w-full rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-2 text-sm text-slate-900"
-                value={currentShift}
-                onChange={(e) => setCurrentShift(e.target.value)}
+                value={currentShiftId}
+                onChange={(e) => setCurrentShiftId(e.target.value)}
               >
-                {currentShiftOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
+                {shiftOptionIds.map((id) => (
+                  <option key={id} value={id}>
+                    {labelForShiftOptionId(id, t)}
                   </option>
                 ))}
               </select>
@@ -395,37 +373,37 @@ export default function NewRotaPatternPage() {
 
             <section className="space-y-3">
               <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Shift colours
+                {t('rota.new.shiftColours')}
               </h3>
               <p className="text-xs text-slate-400">
-                These colours will be used on your calendar for this rota.
+                {t('rota.new.shiftColoursHint')}
               </p>
 
               {shiftLength === '8h' ? (
                 <>
                   <ColorRow
-                    label="Morning shifts"
+                    label={t('rota.new.morningShifts')}
                     color={shiftColors.morning}
                     onChange={(value) =>
                       setShiftColors((prev) => ({ ...prev, morning: value }))
                     }
                   />
                   <ColorRow
-                    label="Afternoon shifts"
+                    label={t('rota.new.afternoonShifts')}
                     color={shiftColors.afternoon}
                     onChange={(value) =>
                       setShiftColors((prev) => ({ ...prev, afternoon: value }))
                     }
                   />
                   <ColorRow
-                    label="Night shifts"
+                    label={t('rota.new.nightShifts')}
                     color={shiftColors.night}
                     onChange={(value) =>
                       setShiftColors((prev) => ({ ...prev, night: value }))
                     }
                   />
                   <OffColorRow
-                    label="Days off"
+                    label={t('rota.new.daysOff')}
                     color={shiftColors.off}
                     onChange={(value) =>
                       setShiftColors((prev) => ({ ...prev, off: value }))
@@ -435,21 +413,21 @@ export default function NewRotaPatternPage() {
               ) : (
                 <>
                   <ColorRow
-                    label="Day shifts"
+                    label={t('rota.new.dayShifts')}
                     color={shiftColors.day}
                     onChange={(value) =>
                       setShiftColors((prev) => ({ ...prev, day: value }))
                     }
                   />
                   <ColorRow
-                    label="Night shifts"
+                    label={t('rota.new.nightShifts')}
                     color={shiftColors.night}
                     onChange={(value) =>
                       setShiftColors((prev) => ({ ...prev, night: value }))
                     }
                   />
                   <OffColorRow
-                    label="Days off"
+                    label={t('rota.new.daysOff')}
                     color={shiftColors.off}
                     onChange={(value) =>
                       setShiftColors((prev) => ({ ...prev, off: value }))
@@ -459,16 +437,16 @@ export default function NewRotaPatternPage() {
               )}
 
               <p className="text-[11px] text-slate-400">
-                Select “No colour” if you prefer your off days to appear blank.
+                {t('rota.new.offColourHint')}
               </p>
             </section>
 
             <section className="space-y-1.5">
               <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Pattern preview
+                {t('rota.new.patternPreview')}
               </h3>
               <p className="text-xs text-slate-400">
-                This is how your shift blocks will repeat across the month.
+                {t('rota.new.patternPreviewHint')}
               </p>
 
               <div className="flex gap-2">
@@ -539,12 +517,12 @@ export default function NewRotaPatternPage() {
 
             <div className="space-y-1.5">
               <label className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">
-                Notes (optional)
+                {t('rota.new.notesOptional')}
               </label>
               <textarea
                 className="w-full resize-none rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
                 rows={2}
-                placeholder="Anything special about this rota (e.g. ward, team, contract)?"
+                placeholder={t('rota.new.notesPh')}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
               />
@@ -557,6 +535,7 @@ export default function NewRotaPatternPage() {
 }
 
 function ColorRow({ label, color, onChange }: { label: string; color: string; onChange: (value: string) => void }) {
+  const { t } = useTranslation()
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-sm text-slate-700">{label}</span>
@@ -573,7 +552,7 @@ function ColorRow({ label, color, onChange }: { label: string; color: string; on
           >
             {SHIFT_COLOR_PRESETS.map((preset) => (
               <option key={preset.id} value={preset.value}>
-                {preset.label}
+                {t(`rota.new.preset.${preset.id}` as 'rota.new.preset.blue')}
               </option>
             ))}
           </select>
@@ -595,6 +574,7 @@ function OffColorRow({
   color: string
   onChange: (value: string) => void
 }) {
+  const { t } = useTranslation()
   const swatchColor = color === 'transparent' ? '#E5E7EB' : color
 
   return (
@@ -613,7 +593,9 @@ function OffColorRow({
           >
             {OFF_COLOR_PRESETS.map((preset) => (
               <option key={preset.id} value={preset.value}>
-                {preset.label}
+                {preset.id === 'none'
+                  ? t('rota.new.presetOff.none')
+                  : t(`rota.new.preset.${preset.id}` as 'rota.new.preset.blue')}
               </option>
             ))}
           </select>

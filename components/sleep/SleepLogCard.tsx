@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Pencil } from 'lucide-react'
+import { useLanguage, useTranslation } from '@/components/providers/language-provider'
+import { intlLocaleForApp } from '@/lib/i18n/supportedLocales'
 
 type SleepDay = {
   date: string
@@ -19,8 +21,10 @@ type SleepDay = {
   }
 }
 
+type SleepStageKey = 'awake' | 'rem' | 'light' | 'deep'
+
 type SleepStage = {
-  label: string
+  stage: SleepStageKey
   minutes: number
   color: string
 }
@@ -31,6 +35,10 @@ type SleepLogCardProps = {
 }
 
 export function SleepLogCard({ onEdit, onDayClick }: SleepLogCardProps) {
+  const { t } = useTranslation()
+  const { language } = useLanguage()
+  const intlLocale = useMemo(() => intlLocaleForApp(language), [language])
+
   const [days, setDays] = useState<SleepDay[]>([])
   const [lastNightHours, setLastNightHours] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
@@ -80,10 +88,10 @@ export function SleepLogCard({ onEdit, onDayClick }: SleepLogCardProps) {
           // Set last night's stages for the breakdown
           if (lastNight.stages) {
             setLastNightStages([
-              { label: 'Awake', minutes: lastNight.stages.awake, color: 'bg-blue-100' },
-              { label: 'REM', minutes: lastNight.stages.rem, color: 'bg-blue-300' },
-              { label: 'Light', minutes: lastNight.stages.light, color: 'bg-blue-500' },
-              { label: 'Deep', minutes: lastNight.stages.deep, color: 'bg-blue-700' },
+              { stage: 'awake', minutes: lastNight.stages.awake, color: 'bg-blue-100' },
+              { stage: 'rem', minutes: lastNight.stages.rem, color: 'bg-blue-300' },
+              { stage: 'light', minutes: lastNight.stages.light, color: 'bg-blue-500' },
+              { stage: 'deep', minutes: lastNight.stages.deep, color: 'bg-blue-700' },
             ])
           } else {
             setLastNightStages([])
@@ -119,24 +127,24 @@ export function SleepLogCard({ onEdit, onDayClick }: SleepLogCardProps) {
     }
   }, [])
 
-  const formatDayLabel = (dateStr: string) => {
+  const isTodayYmd = (dateStr: string) => {
     const date = new Date(dateStr + 'T12:00:00')
-    const today = new Date()
-    const isToday = date.toDateString() === today.toDateString()
-    
-    if (isToday) return 'Today'
-    
-    const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
-    return dayNames[date.getDay()]
+    return date.toDateString() === new Date().toDateString()
+  }
+
+  const formatDayLabel = (dateStr: string) => {
+    if (isTodayYmd(dateStr)) return t('sleep7.today')
+    const date = new Date(dateStr + 'T12:00:00')
+    return date.toLocaleDateString(intlLocale, { weekday: 'short' })
   }
 
   const formatDuration = (minutes: number) => {
-    if (minutes === 0) return '—'
+    if (minutes === 0) return t('shiftLag.emDash')
     const hours = Math.floor(minutes / 60)
     const mins = minutes % 60
-    if (hours === 0) return `${mins}m`
-    if (mins === 0) return `${hours}h`
-    return `${hours}h ${mins}m`
+    if (hours === 0) return t('sleepLogCard.durationM', { m: mins })
+    if (mins === 0) return t('sleepLogs.durationH', { h: hours })
+    return t('sleepLogs.durationHM', { h: hours, m: mins })
   }
 
   // Get the last 7 days in order (most recent first, but display oldest to newest)
@@ -158,15 +166,16 @@ export function SleepLogCard({ onEdit, onDayClick }: SleepLogCardProps) {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
-            SLEEP LOG
+            {t('sleepLogCard.kicker')}
           </h2>
           {onEdit && (
             <button
+              type="button"
               onClick={onEdit}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100/80 hover:bg-slate-200/80 text-[11px] font-semibold text-slate-700 transition-all duration-200 hover:scale-105 active:scale-95 border border-slate-200/60 shadow-sm"
             >
               <Pencil className="w-3 h-3" />
-              Edit
+              {t('sleepLogCard.edit')}
             </button>
           )}
         </div>
@@ -174,13 +183,15 @@ export function SleepLogCard({ onEdit, onDayClick }: SleepLogCardProps) {
         {/* Last 7 Days Section */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-[12px] font-semibold text-slate-600">Last 7 Days</p>
+            <p className="text-[12px] font-semibold text-slate-600">{t('sleepLogCard.last7')}</p>
             {lastNightHours !== null && (
               <div className="flex flex-col items-end">
                 <p className="text-[28px] font-bold text-slate-900 leading-none">
                   {lastNightHours.toFixed(1)}
                 </p>
-                <p className="text-[10px] font-medium text-slate-500 mt-0.5">Last night&apos;s sleep/nap</p>
+                <p className="text-[10px] font-medium text-slate-500 mt-0.5">
+                  {t('sleepLogCard.lastNightSub')}
+                </p>
               </div>
             )}
           </div>
@@ -188,7 +199,7 @@ export function SleepLogCard({ onEdit, onDayClick }: SleepLogCardProps) {
           {/* 7-Day Stacked Bar Chart */}
           <div className="flex items-end justify-between gap-1.5 h-24">
             {displayDays.map((day) => {
-              const isToday = formatDayLabel(day.date) === 'Today'
+              const isToday = isTodayYmd(day.date)
               const total = day.stages ? 
                 day.stages.awake + day.stages.rem + day.stages.light + day.stages.deep : 
                 day.totalMinutes
@@ -196,6 +207,7 @@ export function SleepLogCard({ onEdit, onDayClick }: SleepLogCardProps) {
               if (total === 0) {
                 return (
                   <button
+                    type="button"
                     key={day.date}
                     onClick={() => onDayClick?.(day.date)}
                     className="flex-1 flex flex-col items-center gap-1 transition-all hover:scale-105 active:scale-95"
@@ -213,7 +225,9 @@ export function SleepLogCard({ onEdit, onDayClick }: SleepLogCardProps) {
                         : day.shift.type === 'day' ? 'text-sky-600'
                         : 'text-slate-500'
                       }`}>
-                        {day.shift.label === 'OFF' ? 'OFF' : day.shift.type?.charAt(0).toUpperCase() || day.shift.label}
+                        {day.shift.label === 'OFF'
+                          ? t('sleepLogs.shiftOff')
+                          : day.shift.type?.charAt(0).toUpperCase() || day.shift.label}
                       </p>
                     )}
                   </button>
@@ -242,6 +256,7 @@ export function SleepLogCard({ onEdit, onDayClick }: SleepLogCardProps) {
 
               return (
                 <button
+                  type="button"
                   key={day.date}
                   onClick={() => onDayClick?.(day.date)}
                   className="flex-1 flex flex-col items-center gap-1.5 transition-all hover:scale-105 active:scale-95"
@@ -294,7 +309,9 @@ export function SleepLogCard({ onEdit, onDayClick }: SleepLogCardProps) {
                       : day.shift.type === 'day' ? 'text-sky-600'
                       : 'text-slate-500'
                     }`}>
-                      {day.shift.label === 'OFF' ? 'OFF' : day.shift.type?.charAt(0).toUpperCase() || day.shift.label}
+                      {day.shift.label === 'OFF'
+                        ? t('sleepLogs.shiftOff')
+                        : day.shift.type?.charAt(0).toUpperCase() || day.shift.label}
                     </p>
                   )}
                 </button>
@@ -305,7 +322,9 @@ export function SleepLogCard({ onEdit, onDayClick }: SleepLogCardProps) {
 
         {/* Sleep Stages Breakdown */}
         <div className="mb-6">
-          <p className="text-[12px] font-semibold text-slate-600 mb-3">Sleep Stages</p>
+          <p className="text-[12px] font-semibold text-slate-600 mb-3">
+            {t('sleepLogCard.stagesTitle')}
+          </p>
           <div className="space-y-2.5">
             {lastNightStages.length > 0 ? (
               lastNightStages.map((stage) => {
@@ -313,9 +332,11 @@ export function SleepLogCard({ onEdit, onDayClick }: SleepLogCardProps) {
                 const percentage = totalMinutes > 0 ? (stage.minutes / totalMinutes) * 100 : 0
                 
                 return (
-                  <div key={stage.label} className="flex items-center gap-3">
+                  <div key={stage.stage} className="flex items-center gap-3">
                     <div className="w-16">
-                      <p className="text-[11px] font-semibold text-slate-700">{stage.label}</p>
+                      <p className="text-[11px] font-semibold text-slate-700">
+                        {t(`sleepSW.stage.${stage.stage}`)}
+                      </p>
                     </div>
                     <div className="flex-1 h-3 rounded-full bg-slate-100/60 overflow-hidden">
                       <div
@@ -333,7 +354,7 @@ export function SleepLogCard({ onEdit, onDayClick }: SleepLogCardProps) {
               })
             ) : (
               <div className="py-4 text-center">
-                <p className="text-[11px] text-slate-400">No sleep data available</p>
+                <p className="text-[11px] text-slate-400">{t('sleepLogCard.noStageData')}</p>
               </div>
             )}
           </div>
@@ -350,19 +371,25 @@ export function SleepLogCard({ onEdit, onDayClick }: SleepLogCardProps) {
               
               {/* Message */}
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-semibold text-slate-700 mb-1.5">Shift Coach</p>
+                <p className="text-[11px] font-semibold text-slate-700 mb-1.5">
+                  {t('sleepLogCard.shiftCoach')}
+                </p>
                 <p className="text-[12px] text-slate-600 leading-relaxed">
                   {lastNightHours >= 7 ? (
                     <>
-                      <span className="font-semibold text-emerald-700">Well done!</span> You got {lastNightHours.toFixed(1)} hours of sleep last night. Keep maintaining this consistent sleep schedule to support your body clock and recovery.
+                      <span className="font-semibold text-emerald-700">
+                        {t('sleepLogCard.coachGoodLead')}
+                      </span>{' '}
+                      {t('sleepLogCard.coachGoodRest', { h: lastNightHours.toFixed(1) })}
                     </>
                   ) : lastNightHours >= 5 ? (
-                    <>
-                      You slept {lastNightHours.toFixed(1)} hours last night, which is below the recommended 7-9 hours. Try to get to bed earlier tonight or take a short nap today if possible. Consistent sleep timing is key for shift workers.
-                    </>
+                    <>{t('sleepLogCard.coachMid', { h: lastNightHours.toFixed(1) })}</>
                   ) : (
                     <>
-                      <span className="font-semibold text-amber-700">Sleep alert:</span> You only got {lastNightHours.toFixed(1)} hours of sleep last night. This is significantly below the recommended amount. Prioritize getting to bed earlier tonight, and consider a 20-30 minute nap if you feel fatigued. Your body needs adequate rest to function optimally.
+                      <span className="font-semibold text-amber-700">
+                        {t('sleepLogCard.coachLowLead')}
+                      </span>{' '}
+                      {t('sleepLogCard.coachLowRest', { h: lastNightHours.toFixed(1) })}
                     </>
                   )}
                 </p>

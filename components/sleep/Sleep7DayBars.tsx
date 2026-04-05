@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Pencil, Trash2, Clock, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useLanguage, useTranslation } from '@/components/providers/language-provider'
+import { LOCALE_META } from '@/lib/i18n/supportedLocales'
 import { SleepEditModal } from './SleepEditModal'
 import { DeleteSleepConfirmModal } from './DeleteSleepConfirmModal'
 import { notifySleepLogsUpdated } from '@/lib/circadian/circadianAgent'
@@ -33,6 +35,9 @@ type Sleep7DayBarsProps = {
 }
 
 export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
+  const { t } = useTranslation()
+  const { language } = useLanguage()
+  const intlLocale = LOCALE_META[language]?.intl ?? 'en-GB'
   const [days, setDays] = useState<SleepDay[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -214,7 +219,7 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
         console.error('[Sleep7DayBars] Failed to delete session:', res.status, errorData)
         
         // Show error but don't use alert - could use a toast instead
-        alert(errorData.error || 'Failed to delete session')
+        alert(errorData.error || t('sleep7.errDelete'))
         setIsDeleting(false)
         setDeletingSessionId(null)
         return
@@ -245,7 +250,7 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
       router.refresh()
     } catch (err) {
       console.error('[Sleep7DayBars] Delete error:', err)
-      alert('Failed to delete session')
+      alert(t('sleep7.errDelete'))
     } finally {
       setIsDeleting(false)
     }
@@ -286,7 +291,7 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
       const data = await res.json()
 
       if (!res.ok) {
-        alert(data.error || 'Failed to save session')
+        alert(data.error || t('sleep7.errSave'))
         return
       }
 
@@ -315,7 +320,7 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
       setAddingSession(false)
     } catch (err) {
       console.error('[Sleep7DayBars] Save error:', err)
-      alert('Failed to save session')
+      alert(t('sleep7.errSave'))
     }
   }
 
@@ -324,22 +329,22 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
     const today = new Date()
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
-    
+
     const dateLocal = new Date(date.getFullYear(), date.getMonth(), date.getDate())
     const todayLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate())
     const yesterdayLocal = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate())
-    
+
     if (dateLocal.getTime() === todayLocal.getTime()) {
-      return { day: 'Today', date: '' }
+      return { isToday: true, primaryLine: t('sleep7.today'), secondaryLine: '' }
     }
     if (dateLocal.getTime() === yesterdayLocal.getTime()) {
-      return { day: 'Yesterday', date: '' }
+      return { isToday: false, primaryLine: t('sleep7.yesterday'), secondaryLine: '' }
     }
-    
-    const dayName = date.toLocaleDateString('en-GB', { weekday: 'short' })
+
+    const dayName = date.toLocaleDateString(intlLocale, { weekday: 'short' })
     const dayNum = date.getDate()
-    const monthName = date.toLocaleDateString('en-GB', { month: 'short' })
-    return { day: dayName, date: `${dayNum} ${monthName}` }
+    const monthName = date.toLocaleDateString(intlLocale, { month: 'short' })
+    return { isToday: false, primaryLine: dayName, secondaryLine: `${dayNum} ${monthName}` }
   }
 
   const getBarColor = (hours: number) => {
@@ -362,18 +367,13 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
     return `${h}h ${m}m`
   }
 
-  const formatTime = (isoString: string) => {
-    const date = new Date(isoString)
-    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  }
-
   // Check if there's any sleep data
   const hasAnySleep = days.some((d) => d.totalSleepHours > 0)
 
   if (loading && days.length === 0) {
     return (
       <section className="relative overflow-hidden rounded-[24px] bg-white/95 backdrop-blur-xl border border-slate-100/80 shadow-[0_8px_24px_rgba(15,23,42,0.08)] px-5 py-4">
-        <div className="py-12 text-center text-sm text-slate-500">Loading sleep data...</div>
+        <div className="py-12 text-center text-sm text-slate-500">{t('sleep7.loading')}</div>
       </section>
     )
   }
@@ -385,23 +385,22 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
           {/* Header */}
           <div>
             <p className="text-[10px] font-bold tracking-[0.15em] text-slate-400 uppercase">
-              Last 7 days
+              {t('sleep7.header')}
             </p>
             <p className="mt-0.5 text-[11px] text-slate-500">
-              Sleep duration and quality
+              {t('sleep7.sub')}
             </p>
           </div>
 
           {/* 7-Day Bars */}
           {!hasAnySleep ? (
             <div className="py-12 text-center text-sm text-slate-500">
-              No sleep data yet. Log your sleep to see it here.
+              {t('sleep7.empty')}
             </div>
           ) : (
             <div className="grid grid-cols-7 gap-2">
               {days.map((day) => {
-                const { day: dayLabel, date: dateLabel } = formatDayLabel(day.date)
-                const isToday = dayLabel === 'Today'
+                const { isToday: isTodayCell, primaryLine, secondaryLine } = formatDayLabel(day.date)
                 const barWidth = getBarWidth(day.totalSleepHours)
                 const hasSleep = day.totalSleepHours > 0
 
@@ -413,12 +412,16 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
                   >
                     {/* Date */}
                     <div className="flex flex-col items-center gap-0 w-full">
-                      <p className={`text-[9px] font-bold uppercase tracking-wide ${isToday ? 'text-blue-600' : 'text-slate-500'}`}>
-                        {dayLabel}
+                      <p
+                        className={`text-[9px] font-bold uppercase tracking-wide ${isTodayCell ? 'text-blue-600' : 'text-slate-500'}`}
+                      >
+                        {primaryLine}
                       </p>
-                      {dateLabel && (
-                        <p className={`text-[10px] font-semibold ${isToday ? 'text-blue-600' : 'text-slate-600'}`}>
-                          {dateLabel}
+                      {secondaryLine && (
+                        <p
+                          className={`text-[10px] font-semibold ${isTodayCell ? 'text-blue-600' : 'text-slate-600'}`}
+                        >
+                          {secondaryLine}
                         </p>
                       )}
                     </div>
@@ -561,17 +564,21 @@ function DayEditModal({
   onAdd: () => void
   onRefresh: () => void
 }) {
+  const { t } = useTranslation()
+  const { language } = useLanguage()
+  const intlLocale = LOCALE_META[language]?.intl ?? 'en-GB'
+
   const formatDayLabel = (dateStr: string) => {
-    const date = new Date(dateStr + 'T12:00:00')
-    const dayName = date.toLocaleDateString('en-GB', { weekday: 'long' })
-    const dayNum = date.getDate()
-    const monthName = date.toLocaleDateString('en-GB', { month: 'short' })
+    const d = new Date(dateStr + 'T12:00:00')
+    const dayName = d.toLocaleDateString(intlLocale, { weekday: 'long' })
+    const dayNum = d.getDate()
+    const monthName = d.toLocaleDateString(intlLocale, { month: 'short' })
     return `${dayName} ${dayNum} ${monthName}`
   }
 
   const formatTime = (isoString: string) => {
-    const date = new Date(isoString)
-    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+    const d = new Date(isoString)
+    return d.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' })
   }
 
   const formatDuration = (hours: number) => {
@@ -597,7 +604,7 @@ function DayEditModal({
               {formatDayLabel(date)}
             </h2>
             <p className="mt-0.5 text-[12px] text-slate-500">
-              Edit sleep for this day
+              {t('sleep7.editSub')}
             </p>
           </div>
           <button
@@ -611,10 +618,12 @@ function DayEditModal({
         {/* Sessions List */}
         <div className="relative z-10 flex-1 overflow-y-auto px-7 py-6">
           {loadingSessions ? (
-            <div className="py-12 text-center text-sm text-slate-500">Loading sessions...</div>
+            <div className="py-12 text-center text-sm text-slate-500">
+              {t('sleep7.loadingSessions')}
+            </div>
           ) : sessions.length === 0 ? (
             <div className="py-12 text-center text-sm text-slate-500">
-              No sleep sessions logged for this day.
+              {t('sleep7.noSessions')}
             </div>
           ) : (
             <div className="space-y-3">
@@ -626,22 +635,22 @@ function DayEditModal({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className={`h-2 w-2 rounded-full ${session.session_type === 'main' ? 'bg-blue-500' : 'bg-amber-500'}`} />
-                      <span className="text-[13px] font-semibold text-slate-900 capitalize">
-                        {session.session_type}
+                      <span className="text-[13px] font-semibold text-slate-900">
+                        {session.session_type === 'main' ? t('sleepForm.typeMain') : t('sleepForm.typeNap')}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => onEdit(session)}
                         className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50/80 border border-blue-200/60 text-blue-600 hover:bg-blue-100/80 transition-all hover:scale-105 active:scale-95"
-                        aria-label="Edit"
+                        aria-label={t('sleep7.editAria')}
                       >
                         <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
                       </button>
                       <button
                         onClick={() => onDelete(session.id)}
                         className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50/80 border border-rose-200/60 text-rose-600 hover:bg-rose-100/80 transition-all hover:scale-105 active:scale-95"
-                        aria-label="Delete"
+                        aria-label={t('sleep7.deleteAria')}
                       >
                         <Trash2 className="h-3.5 w-3.5" strokeWidth={2.5} />
                       </button>
@@ -668,7 +677,7 @@ function DayEditModal({
             className="w-full h-12 rounded-xl bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 text-[13px] font-bold text-white shadow-[0_4px_12px_rgba(59,130,246,0.3)] transition-all hover:shadow-[0_6px_16px_rgba(59,130,246,0.4)] hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
           >
             <Plus className="h-4 w-4" />
-            Add sleep for this day
+            {t('sleep7.addSleep')}
           </button>
         </div>
       </div>
@@ -689,6 +698,7 @@ function SessionFormModal({
   onClose: () => void
   onSave: (data: { start_time: string; end_time: string; session_type: 'main' | 'nap' }) => void
 }) {
+  const { t } = useTranslation()
   const [startDate, setStartDate] = useState('')
   const [startTime, setStartTime] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -739,7 +749,7 @@ function SessionFormModal({
 
   const handleSave = async () => {
     if (!startDate || !startTime || !endDate || !endTime) {
-      setError('Please provide both start and end dates and times.')
+      setError(t('sleepForm.errStartEnd'))
       return
     }
 
@@ -751,7 +761,7 @@ function SessionFormModal({
       const endISO = new Date(`${endDate}T${endTime}`).toISOString()
 
       if (new Date(endISO) <= new Date(startISO)) {
-        setError('End time must be after start time.')
+        setError(t('sleepForm.errEndAfter'))
         setLoading(false)
         return
       }
@@ -763,7 +773,7 @@ function SessionFormModal({
       })
     } catch (err: any) {
       console.error('Save error:', err)
-      setError(err?.message || 'Failed to save session')
+      setError(err?.message || t('sleepForm.errSave'))
     } finally {
       setLoading(false)
     }
@@ -780,7 +790,7 @@ function SessionFormModal({
         {/* Header */}
         <div className="relative z-10 flex items-center justify-between px-7 pt-6 pb-4 border-b border-slate-100/80">
           <h2 className="text-[19px] font-bold tracking-tight text-slate-900">
-            {session ? 'Edit Sleep Session' : 'Add Sleep Session'}
+            {session ? t('sleepForm.editTitle') : t('sleepForm.addTitle')}
           </h2>
           <button
             onClick={onClose}
@@ -795,7 +805,7 @@ function SessionFormModal({
           {/* Start Date & Time */}
           <div className="space-y-2.5">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.15em]">
-              START
+              {t('sleepForm.startLabel')}
             </label>
             <div className="grid grid-cols-2 gap-3">
               <input
@@ -816,7 +826,7 @@ function SessionFormModal({
           {/* End Date & Time */}
           <div className="space-y-2.5">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.15em]">
-              END
+              {t('sleepForm.endLabel')}
             </label>
             <div className="grid grid-cols-2 gap-3">
               <input
@@ -837,15 +847,15 @@ function SessionFormModal({
           {/* Type Selector */}
           <div className="space-y-2.5">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.15em]">
-              TYPE
+              {t('sleepForm.typeLabel')}
             </label>
             <select
               value={sessionType}
               onChange={(e) => setSessionType(e.target.value as 'main' | 'nap')}
               className="w-full h-12 rounded-xl border border-slate-200/80 bg-white/90 backdrop-blur-sm px-4 text-[13px] font-semibold text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.08)] focus:outline-none focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400/60 transition-all"
             >
-              <option value="main">Main Sleep</option>
-              <option value="nap">Nap</option>
+              <option value="main">{t('sleepForm.typeMain')}</option>
+              <option value="nap">{t('sleepForm.typeNap')}</option>
             </select>
           </div>
 
@@ -862,14 +872,14 @@ function SessionFormModal({
             onClick={onClose}
             className="flex-1 h-12 rounded-xl border border-slate-200/80 bg-white/90 backdrop-blur-sm text-[13px] font-semibold text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-all hover:shadow-[0_2px_6px_rgba(15,23,42,0.12)] hover:bg-slate-50/80 active:scale-95"
           >
-            Cancel
+            {t('sleepForm.cancel')}
           </button>
           <button
             onClick={handleSave}
             disabled={loading}
             className="flex-1 h-12 rounded-xl bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 text-[13px] font-bold text-white shadow-[0_4px_12px_rgba(59,130,246,0.3)] transition-all hover:shadow-[0_6px_16px_rgba(59,130,246,0.4)] hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
-            {loading ? 'Saving...' : 'Save'}
+            {loading ? t('sleepForm.saving') : t('sleepForm.save')}
           </button>
         </div>
       </div>

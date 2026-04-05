@@ -1,49 +1,87 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { CheckCircle2, Circle, Plus, Trash2, Loader2 } from 'lucide-react'
-import { Event, TYPE_TASK, FLAG_TASK_COMPLETED, isTask, isTaskCompleted } from '@/lib/models/calendar/Event'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { CheckCircle2, Circle, Trash2, Loader2 } from 'lucide-react'
+import { Event, FLAG_TASK_COMPLETED, isTask, isTaskCompleted } from '@/lib/models/calendar/Event'
 import { format } from 'date-fns'
+import { de, enUS, es, fr, pl, ptBR } from 'date-fns/locale'
+import type { Locale } from 'date-fns'
+import { authedFetch } from '@/lib/supabase/authedFetch'
+import { normalizeCalendarEvent } from '@/lib/helpers/calendar/normalizeCalendarEvent'
+import { cancelTaskReminders } from '@/lib/notifications/taskLocalNotifications'
+import { explainCalendarApiError } from '@/lib/helpers/calendar/calendarApiErrorCopy'
+import { useLanguage, useTranslation } from '@/components/providers/language-provider'
+import type { AppLocaleCode } from '@/lib/i18n/supportedLocales'
+
+function dateFnsLocaleFor(code: AppLocaleCode): Locale {
+  switch (code) {
+    case 'es':
+      return es
+    case 'de':
+      return de
+    case 'fr':
+      return fr
+    case 'pl':
+      return pl
+    case 'pt-BR':
+      return ptBR
+    case 'pt':
+      return ptBR
+    default:
+      return enUS
+  }
+}
 
 interface TasksListProps {
   date?: Date // Filter tasks for a specific date
+  /** Increment to refetch after creating/updating a task elsewhere */
+  reloadToken?: number
   onTaskClick?: (task: Event) => void
   onTaskComplete?: (task: Event) => void
   onTaskDelete?: (task: Event) => void
 }
 
-export function TasksList({ date, onTaskClick, onTaskComplete, onTaskDelete }: TasksListProps) {
+export function TasksList({
+  date,
+  reloadToken = 0,
+  onTaskClick,
+  onTaskComplete,
+  onTaskDelete,
+}: TasksListProps) {
+  const { language } = useLanguage()
+  const { t } = useTranslation()
+  const dfLocale = useMemo(() => dateFnsLocaleFor(language), [language])
   const [tasks, setTasks] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadTasks()
-  }, [date])
-
-  async function loadTasks() {
+  const loadTasks = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
 
       const now = Math.floor(Date.now() / 1000)
-      const fromTS = date 
+      const fromTS = date
         ? Math.floor(new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() / 1000)
         : now
       const toTS = date
         ? Math.floor(new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59).getTime() / 1000)
         : now + 86400 * 7 // Next 7 days
 
-      const response = await fetch(`/api/calendar/events?fromTS=${fromTS}&toTS=${toTS}&type=task`)
+      const params = new URLSearchParams({
+        fromTS: String(fromTS),
+        toTS: String(toTS),
+        type: 'task',
+      })
+      const response = await authedFetch(`/api/calendar/events?${params}`)
       if (!response.ok) {
-        // Try to surface a more helpful message, but don't break the UI
-        let message = 'Tasks are temporarily unavailable.'
+        let message = t('calendar.tasksList.unavailable')
         try {
           const details = await response.json()
           if (details?.error) {
             message = details.error
           } else if (response.status === 401) {
-            message = 'Sign in to see your tasks.'
+            message = t('calendar.tasksList.signInRequired')
           }
         } catch {
           // ignore JSON parse errors
@@ -54,7 +92,9 @@ export function TasksList({ date, onTaskClick, onTaskComplete, onTaskDelete }: T
       }
 
       const data = await response.json()
-      const taskEvents = (data.events || []).filter((e: Event) => isTask(e))
+      const taskEvents = (data.events as Record<string, unknown>[] | undefined)
+        ?.map((e) => normalizeCalendarEvent(e))
+        .filter((e): e is Event => e != null && isTask(e)) ?? []
       
       // Sort by start time, incomplete tasks first
       taskEvents.sort((a: Event, b: Event) => {
@@ -67,13 +107,18 @@ export function TasksList({ date, onTaskClick, onTaskComplete, onTaskDelete }: T
       })
 
       setTasks(taskEvents)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : t('calendar.tasksList.somethingWrong')
+      setError(msg)
       console.error('Error loading tasks:', err)
     } finally {
       setLoading(false)
     }
-  }
+  }, [date, t])
+
+  useEffect(() => {
+    void loadTasks()
+  }, [loadTasks, reloadToken])
 
   async function handleToggleComplete(task: Event) {
     try {
@@ -81,7 +126,7 @@ export function TasksList({ date, onTaskClick, onTaskComplete, onTaskDelete }: T
         ? task.flags & ~FLAG_TASK_COMPLETED
         : task.flags | FLAG_TASK_COMPLETED
 
-      const response = await fetch(`/api/calendar/events/${task.id}`, {
+      const response = await authedFetch(`/api/calendar/events/${task.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -91,36 +136,39 @@ export function TasksList({ date, onTaskClick, onTaskComplete, onTaskDelete }: T
       })
 
       if (!response.ok) {
-        throw new Error('Failed to update task')
+        throw new Error(t('calendar.tasksList.updateFailed'))
       }
 
       await loadTasks()
       onTaskComplete?.(task)
     } catch (err: any) {
       console.error('Error updating task:', err)
-      alert('Failed to update task')
+      alert(t('calendar.tasksList.updateFailed'))
     }
   }
 
   async function handleDelete(task: Event) {
-    if (!confirm('Delete this task?')) {
+    if (!confirm(t('calendar.tasksList.deleteConfirm'))) {
       return
     }
 
     try {
-      const response = await fetch(`/api/calendar/events/${task.id}`, {
+      if (task.id != null) {
+        await cancelTaskReminders(task.id)
+      }
+      const response = await authedFetch(`/api/calendar/events/${task.id}`, {
         method: 'DELETE',
       })
 
       if (!response.ok) {
-        throw new Error('Failed to delete task')
+        throw new Error(t('calendar.tasksList.deleteFailed'))
       }
 
       await loadTasks()
       onTaskDelete?.(task)
     } catch (err: any) {
       console.error('Error deleting task:', err)
-      alert('Failed to delete task')
+      alert(t('calendar.tasksList.deleteFailed'))
     }
   }
 
@@ -133,13 +181,12 @@ export function TasksList({ date, onTaskClick, onTaskComplete, onTaskDelete }: T
   }
 
   if (error) {
+    const { summary, steps } = explainCalendarApiError(error, t)
     return (
       <div className="rounded-2xl bg-gradient-to-r from-red-50/80 via-rose-50/80 to-red-50/80 dark:from-red-950/30 dark:via-rose-950/25 dark:to-red-950/30 border border-red-200/80 dark:border-red-800/60 px-4 py-3 shadow-sm">
-        <p className="text-xs font-medium text-red-600 dark:text-red-300">
-          {error}
-        </p>
-        <p className="mt-1 text-[11px] text-red-500/80 dark:text-red-400/80">
-          Check your connection and try again in a moment.
+        <p className="text-xs font-medium text-red-600 dark:text-red-300">{summary}</p>
+        <p className="mt-2 text-[11px] leading-relaxed whitespace-pre-line text-red-600/90 dark:text-red-300/85">
+          {steps}
         </p>
       </div>
     )
@@ -149,14 +196,18 @@ export function TasksList({ date, onTaskClick, onTaskComplete, onTaskDelete }: T
     return (
       <div className="rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/40 p-6 text-center">
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          No tasks {date ? `for ${format(date, 'MMMM d, yyyy')}` : 'yet'}
+          {date
+            ? t('calendar.tasksList.emptyForDate', {
+                date: format(date, 'PPP', { locale: dfLocale }),
+              })
+            : t('calendar.tasksList.emptyYet')}
         </p>
       </div>
     )
   }
 
-  const incompleteTasks = tasks.filter(t => !isTaskCompleted(t))
-  const completedTasks = tasks.filter(t => isTaskCompleted(t))
+  const incompleteTasks = tasks.filter((task) => !isTaskCompleted(task))
+  const completedTasks = tasks.filter((task) => isTaskCompleted(task))
 
   return (
     <div className="space-y-3">
@@ -200,13 +251,13 @@ export function TasksList({ date, onTaskClick, onTaskComplete, onTaskDelete }: T
                       </p>
                     )}
                     <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
-                      {format(taskDate, 'MMM d, h:mm a')}
+                      {format(taskDate, 'PPp', { locale: dfLocale })}
                     </p>
                   </div>
                   <button
                     onClick={() => handleDelete(task)}
                     className="flex-shrink-0 h-7 w-7 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-500 dark:hover:text-red-400 transition"
-                    aria-label="Delete task"
+                    aria-label={t('calendar.tasksList.deleteAria')}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -221,7 +272,7 @@ export function TasksList({ date, onTaskClick, onTaskComplete, onTaskDelete }: T
       {completedTasks.length > 0 && (
         <div className="space-y-2 pt-2 border-t border-slate-200/50 dark:border-slate-700/40">
           <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide px-1">
-            Completed ({completedTasks.length})
+            {t('calendar.tasksList.completed', { count: completedTasks.length })}
           </p>
           {completedTasks.map((task) => {
             const taskDate = new Date(task.startTS * 1000)
@@ -250,13 +301,13 @@ export function TasksList({ date, onTaskClick, onTaskComplete, onTaskDelete }: T
                       </p>
                     )}
                     <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
-                      {format(taskDate, 'MMM d, h:mm a')}
+                      {format(taskDate, 'PPp', { locale: dfLocale })}
                     </p>
                   </div>
                   <button
                     onClick={() => handleDelete(task)}
                     className="flex-shrink-0 h-7 w-7 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-500 dark:hover:text-red-400 transition"
-                    aria-label="Delete task"
+                    aria-label={t('calendar.tasksList.deleteAria')}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

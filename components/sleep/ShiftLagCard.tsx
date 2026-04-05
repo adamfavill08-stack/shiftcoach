@@ -1,15 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Info, Moon, Clock, RefreshCw } from 'lucide-react'
 import type { ShiftLagMetrics } from '@/lib/circadian/calculateShiftLag'
+import { useTranslation } from '@/components/providers/language-provider'
 
 export function ShiftLagCard() {
+  const { t } = useTranslation()
   const [data, setData] = useState<ShiftLagMetrics | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -31,15 +33,15 @@ export function ShiftLagCard() {
       if (json.shiftLag) {
         setData(json.shiftLag)
       } else {
-        setError('ShiftLag data not available')
+        setError(t('shiftLag.errNoData'))
       }
     } catch (err: any) {
       console.error('[ShiftLagCard] Error:', err)
-      setError('Unable to load ShiftLag data')
+      setError(t('shiftLag.errLoad'))
     } finally {
       setLoading(false)
     }
-  }
+  }, [t])
 
   useEffect(() => {
     fetchData()
@@ -59,20 +61,47 @@ export function ShiftLagCard() {
       window.removeEventListener('rota-saved', handleRefresh)
       window.removeEventListener('rota-cleared', handleRefresh)
     }
-  }, [])
+  }, [fetchData])
 
   const getCategoryColor = () => {
-    if (!data) return { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200", badge: "—" }
-    
+    if (!data) {
+      return {
+        bg: 'bg-slate-50',
+        text: 'text-slate-700',
+        border: 'border-slate-200',
+        badge: t('shiftLag.emDash'),
+      }
+    }
+
     switch (data.category) {
-      case "low":
-        return { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", badge: "Low" }
-      case "moderate":
-        return { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", badge: "Moderate" }
-      case "high":
-        return { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", badge: "High" }
+      case 'low':
+        return {
+          bg: 'bg-emerald-50',
+          text: 'text-emerald-700',
+          border: 'border-emerald-200',
+          badge: t('sleepJetlag.category.low'),
+        }
+      case 'moderate':
+        return {
+          bg: 'bg-amber-50',
+          text: 'text-amber-700',
+          border: 'border-amber-200',
+          badge: t('sleepJetlag.category.moderate'),
+        }
+      case 'high':
+        return {
+          bg: 'bg-rose-50',
+          text: 'text-rose-700',
+          border: 'border-rose-200',
+          badge: t('sleepJetlag.category.high'),
+        }
       default:
-        return { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200", badge: "—" }
+        return {
+          bg: 'bg-slate-50',
+          text: 'text-slate-700',
+          border: 'border-slate-200',
+          badge: t('shiftLag.emDash'),
+        }
     }
   }
 
@@ -91,17 +120,18 @@ export function ShiftLagCard() {
         <div className="flex items-start justify-between mb-5">
           <div className="flex-1">
             <p className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase mb-1">
-              ShiftLag
+              {t('shiftLag.kicker')}
             </p>
             <h2 className="text-[17px] font-bold tracking-[-0.01em] text-slate-900">
-              Jet lag from your shifts
+              {t('shiftLag.title')}
             </h2>
           </div>
           <button
+            type="button"
             onClick={fetchData}
             disabled={loading}
             className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-xl bg-slate-50/80 hover:bg-slate-100/80 border border-slate-200/60 text-slate-600 hover:text-slate-900 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
-            aria-label="Refresh ShiftLag"
+            aria-label={t('shiftLag.refreshAria')}
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} strokeWidth={2.5} />
           </button>
@@ -124,7 +154,9 @@ export function ShiftLagCard() {
                 </div>
               </div>
               <div className="flex-1">
-                <p className="text-[13px] font-semibold text-amber-900 mb-1">ShiftLag</p>
+                <p className="text-[13px] font-semibold text-amber-900 mb-1">
+                  {t('shiftLag.errBannerTitle')}
+                </p>
                 <p className="text-[12px] text-amber-700 leading-relaxed">{error}</p>
               </div>
             </div>
@@ -152,7 +184,7 @@ export function ShiftLagCard() {
             {/* Drivers */}
             <div className="space-y-2 pt-2 border-t border-slate-100">
               <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">
-                Contributing Factors
+                {t('shiftLag.contributingFactors')}
               </p>
               <div className="space-y-2">
                 <div className="flex items-center gap-2.5 text-[11px] text-slate-700">
@@ -174,7 +206,7 @@ export function ShiftLagCard() {
             {data.recommendations.length > 0 && (
               <div className="pt-3 border-t border-slate-100">
                 <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">
-                  Recommendations
+                  {t('shiftLag.recommendations')}
                 </p>
                 <ul className="space-y-1.5">
                   {data.recommendations.map((rec, idx) => (
@@ -190,13 +222,15 @@ export function ShiftLagCard() {
             {/* Score Breakdown (Visual) */}
             <div className="pt-3 border-t border-slate-100">
               <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                Score Breakdown
+                {t('shiftLag.scoreBreakdown')}
               </p>
               <div className="space-y-2.5">
                 {/* Sleep Debt */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] font-medium text-slate-600">Sleep Debt</span>
+                    <span className="text-[10px] font-medium text-slate-600">
+                      {t('shiftLag.labelSleepDebt')}
+                    </span>
                     <span className="text-[10px] font-semibold text-slate-900">{data.sleepDebtScore}/40</span>
                   </div>
                   <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -210,7 +244,9 @@ export function ShiftLagCard() {
                 {/* Misalignment */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] font-medium text-slate-600">Circadian Misalignment</span>
+                    <span className="text-[10px] font-medium text-slate-600">
+                      {t('shiftLag.labelMisalignment')}
+                    </span>
                     <span className="text-[10px] font-semibold text-slate-900">{data.misalignmentScore}/40</span>
                   </div>
                   <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -224,7 +260,9 @@ export function ShiftLagCard() {
                 {/* Instability */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] font-medium text-slate-600">Schedule Instability</span>
+                    <span className="text-[10px] font-medium text-slate-600">
+                      {t('shiftLag.labelInstability')}
+                    </span>
                     <span className="text-[10px] font-semibold text-slate-900">{data.instabilityScore}/20</span>
                   </div>
                   <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -239,7 +277,7 @@ export function ShiftLagCard() {
           </div>
         ) : (
           <div className="h-[200px] flex items-center justify-center">
-            <p className="text-[13px] text-slate-500">No data available</p>
+            <p className="text-[13px] text-slate-500">{t('shiftLag.noData')}</p>
           </div>
         )}
       </div>

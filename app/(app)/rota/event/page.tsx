@@ -5,24 +5,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { Check, ChevronLeft, Plus, X, Bell } from 'lucide-react'
 import { useEventNotifications } from '@/lib/hooks/useEventNotifications'
 import { requestNotificationPermission } from '@/lib/notifications/eventNotifications'
-
-const TYPE_OPTIONS = [
-  { value: 'holiday', label: 'Holiday' },
-  { value: 'overtime', label: 'Overtime' },
-  { value: 'training', label: 'Training' },
-  { value: 'personal', label: 'Personal' },
-  { value: 'other', label: 'Other' },
-] as const
-
-const COLOR_PRESETS = [
-  { id: 'amber', label: 'Amber', value: '#FCD34D' },   // default – yellow
-  { id: 'sky', label: 'Sky', value: '#0EA5E9' },
-  { id: 'indigo', label: 'Indigo', value: '#4F46E5' },
-  { id: 'violet', label: 'Violet', value: '#8B5CF6' },
-  { id: 'emerald', label: 'Emerald', value: '#22C55E' },
-  { id: 'rose', label: 'Rose', value: '#F97373' },
-  { id: 'slate', label: 'Slate', value: '#64748B' },
-] as const
+import { useTranslation } from '@/components/providers/language-provider'
 
 type FormState = {
   startDate: string
@@ -37,15 +20,42 @@ type FormState = {
 }
 
 export default function NewRotaEventPage() {
+  const { t } = useTranslation()
   const router = useRouter()
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), [])
+
+  const typeOptions = useMemo(
+    () =>
+      [
+        { value: 'holiday', label: t('rota.event.type.holiday') },
+        { value: 'overtime', label: t('rota.event.type.overtime') },
+        { value: 'training', label: t('rota.event.type.training') },
+        { value: 'personal', label: t('rota.event.type.personal') },
+        { value: 'other', label: t('rota.event.type.other') },
+      ] as const,
+    [t],
+  )
+
+  const colorPresets = useMemo(
+    () =>
+      [
+        { id: 'amber', label: t('rota.event.color.amber'), value: '#FCD34D' },
+        { id: 'sky', label: t('rota.event.color.sky'), value: '#0EA5E9' },
+        { id: 'indigo', label: t('rota.event.color.indigo'), value: '#4F46E5' },
+        { id: 'violet', label: t('rota.event.color.violet'), value: '#8B5CF6' },
+        { id: 'emerald', label: t('rota.event.color.emerald'), value: '#22C55E' },
+        { id: 'rose', label: t('rota.event.color.rose'), value: '#F97373' },
+        { id: 'slate', label: t('rota.event.color.slate'), value: '#64748B' },
+      ] as const,
+    [t],
+  )
 
   const [form, setForm] = useState<FormState>({
     startDate: todayIso,
     endDate: todayIso,
     title: '',
-    eventType: TYPE_OPTIONS[0].value,
-    color: COLOR_PRESETS[0].value,
+    eventType: 'holiday',
+    color: '#FCD34D',
     description: '',
     allDay: true,
     startTime: '',
@@ -73,7 +83,7 @@ export default function NewRotaEventPage() {
       const granted = await requestNotificationPermission()
       setNotificationPermission(granted ? 'granted' : 'denied')
       if (!granted) {
-        setError('Please allow notifications to receive event reminders.')
+        setError(t('rota.event.errNotifPermission'))
         return
       }
     }
@@ -90,12 +100,12 @@ export default function NewRotaEventPage() {
 
     // If event type is "other", require a custom title
     if (form.eventType === 'other' && !form.title.trim()) {
-      setError('Please enter a name for your custom event.')
+      setError(t('rota.event.errOtherTitle'))
       return
     }
 
     if (new Date(form.endDate) < new Date(form.startDate)) {
-      setError('End date must be on or after start date.')
+      setError(t('rota.event.errEndDate'))
       return
     }
 
@@ -104,7 +114,7 @@ export default function NewRotaEventPage() {
     // Use custom title if "other", otherwise use event type label
     const eventTitle = form.eventType === 'other' 
       ? form.title.trim() 
-      : (TYPE_OPTIONS.find(opt => opt.value === form.eventType)?.label || form.eventType)
+      : (typeOptions.find(opt => opt.value === form.eventType)?.label || form.eventType)
 
     const payload = {
       title: eventTitle,
@@ -143,9 +153,9 @@ export default function NewRotaEventPage() {
 
       if (!res.ok) {
         const message =
-          (responseJson && (responseJson.error || responseJson.message)) || responseText || 'Could not save this event. Check your connection and try again.'
+          (responseJson && (responseJson.error || responseJson.message)) || responseText || t('rota.event.errSave')
         console.error('[rota/event/new] save error', res.status, responseText)
-        setError(typeof message === 'string' ? message : 'Could not save this event. Check your connection and try again.')
+        setError(typeof message === 'string' ? message : t('rota.event.errSave'))
         return
       }
 
@@ -173,13 +183,11 @@ export default function NewRotaEventPage() {
       router.refresh()
     } catch (err: any) {
       console.error('[rota/event/new] fatal error', err)
-      setError(err?.message ?? 'Unexpected error while saving.')
+      setError(err?.message ?? t('rota.event.errUnexpected'))
     } finally {
       setSaving(false)
     }
   }
-
-  const selectedType = TYPE_OPTIONS.find((option) => option.value === form.eventType) ?? TYPE_OPTIONS[0]
 
   return (
     <div className="flex flex-1 justify-center bg-slate-100">
@@ -190,16 +198,16 @@ export default function NewRotaEventPage() {
             <button
               onClick={() => router.back()}
               className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/95 backdrop-blur-sm shadow-[0_4px_12px_rgba(15,23,42,0.08)] border border-slate-200/60 hover:bg-white transition-all hover:scale-105 active:scale-95 hover:shadow-[0_6px_16px_rgba(15,23,42,0.12)]"
-              aria-label="Back"
+              aria-label={t('rota.event.backAria')}
             >
               <ChevronLeft className="h-5 w-5 text-slate-700" strokeWidth={2.5} />
             </button>
-            <h1 className="text-lg font-bold tracking-tight text-slate-900 antialiased">Log rota event</h1>
+            <h1 className="text-lg font-bold tracking-tight text-slate-900 antialiased">{t('rota.event.title')}</h1>
             <button
               onClick={handleSubmit}
               disabled={saving}
               className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-500 text-white shadow-[0_4px_12px_rgba(15,23,42,0.08)] transition-all hover:scale-105 active:scale-95 hover:shadow-[0_6px_16px_rgba(15,23,42,0.12)] disabled:opacity-50 disabled:cursor-not-allowed"
-              aria-label="Save event"
+              aria-label={t('rota.event.saveAria')}
             >
               <Check className="h-5 w-5" strokeWidth={2.5} />
             </button>
@@ -211,7 +219,7 @@ export default function NewRotaEventPage() {
               {form.eventType === 'holiday' ? (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Start date</label>
+                    <label className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">{t('rota.event.startDate')}</label>
                     <input
                       type="date"
                       className="w-full rounded-xl border border-slate-200/60 bg-white/95 backdrop-blur-sm px-4 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400/50 shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition-all"
@@ -226,7 +234,7 @@ export default function NewRotaEventPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">End date</label>
+                    <label className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">{t('rota.event.endDate')}</label>
                     <input
                       type="date"
                       className="w-full rounded-xl border border-slate-200/60 bg-white/95 backdrop-blur-sm px-4 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400/50 shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition-all"
@@ -238,7 +246,7 @@ export default function NewRotaEventPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Date</label>
+                  <label className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">{t('rota.event.date')}</label>
                   <input
                     type="date"
                     className="w-full rounded-xl border border-slate-200/60 bg-white/95 backdrop-blur-sm px-4 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400/50 shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition-all"
@@ -252,7 +260,7 @@ export default function NewRotaEventPage() {
               )}
 
               <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Event type</label>
+                <label className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">{t('rota.event.eventType')}</label>
                 <div className="space-y-3">
                   <select
                     className="w-full rounded-xl border border-slate-200/60 bg-white/95 backdrop-blur-sm px-4 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400/50 shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition-all"
@@ -270,7 +278,7 @@ export default function NewRotaEventPage() {
                       }
                     }}
                   >
-                    {TYPE_OPTIONS.map((option) => (
+                    {typeOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -278,9 +286,9 @@ export default function NewRotaEventPage() {
                   </select>
 
                   <div className="space-y-1.5">
-                    <p className="text-[11px] font-semibold text-slate-600">Event colour</p>
+                    <p className="text-[11px] font-semibold text-slate-600">{t('rota.event.colour')}</p>
                     <div className="grid grid-cols-7 gap-2">
-                      {COLOR_PRESETS.map((preset) => {
+                      {colorPresets.map((preset) => {
                         const isActive = form.color === preset.value
                         return (
                           <button
@@ -306,10 +314,10 @@ export default function NewRotaEventPage() {
                 </div>
                 {form.eventType === 'other' ? (
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Event name</label>
+                    <label className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">{t('rota.event.eventName')}</label>
                     <input
                       className="w-full rounded-xl border border-slate-200/60 bg-white/95 backdrop-blur-sm px-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400/50 shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition-all"
-                      placeholder="Enter event name..."
+                      placeholder={t('rota.event.eventNamePh')}
                       value={form.title}
                       onChange={(e) => handleChange('title', e.target.value)}
                     />
@@ -318,7 +326,7 @@ export default function NewRotaEventPage() {
               </div>
 
               <div className="flex items-center justify-between rounded-xl border border-slate-200/60 bg-white/95 backdrop-blur-sm px-4 py-3 shadow-[0_2px_8px_rgba(15,23,42,0.06)]">
-                <span className="text-sm font-semibold text-slate-700">All day</span>
+                <span className="text-sm font-semibold text-slate-700">{t('rota.event.allDay')}</span>
                 <button
                   type="button"
                   onClick={() => handleChange('allDay', !form.allDay)}
@@ -336,7 +344,7 @@ export default function NewRotaEventPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Start time</label>
+                  <label className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">{t('rota.event.startTime')}</label>
                   <input
                     type="time"
                     value={form.startTime}
@@ -346,7 +354,7 @@ export default function NewRotaEventPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">End time</label>
+                  <label className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">{t('rota.event.endTime')}</label>
                   <input
                     type="time"
                     value={form.endTime}
@@ -363,13 +371,13 @@ export default function NewRotaEventPage() {
                   <div className="flex items-center gap-2">
                     <label className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500 flex items-center gap-2">
                       <Bell className="h-3.5 w-3.5" />
-                      Notifications
+                      {t('rota.event.notifications')}
                     </label>
                     {notificationPermission === 'granted' && (
-                      <span className="text-[10px] text-green-600 font-medium">✓ Enabled</span>
+                      <span className="text-[10px] text-green-600 font-medium">{t('rota.event.notifEnabled')}</span>
                     )}
                     {notificationPermission === 'denied' && (
-                      <span className="text-[10px] text-red-600 font-medium">✗ Blocked</span>
+                      <span className="text-[10px] text-red-600 font-medium">{t('rota.event.notifBlocked')}</span>
                     )}
                   </div>
                   {notifications.length < 3 && (
@@ -379,14 +387,14 @@ export default function NewRotaEventPage() {
                       className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-sky-600 hover:bg-sky-50 transition-colors border border-sky-200/60"
                     >
                       <Plus className="h-3.5 w-3.5" />
-                      Add
+                      {t('rota.event.addNotif')}
                     </button>
                   )}
                 </div>
                 
                 {notifications.length === 0 ? (
                   <div className="rounded-xl border border-slate-200/60 bg-slate-50/50 px-4 py-3 text-center">
-                    <p className="text-xs text-slate-500">No notifications set</p>
+                    <p className="text-xs text-slate-500">{t('rota.event.noNotifs')}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -410,8 +418,8 @@ export default function NewRotaEventPage() {
                           }}
                           className="flex-1 rounded-lg border border-slate-200/60 bg-white px-3 py-2 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400/50"
                         >
-                          <option value="before">Before event</option>
-                          <option value="at">At event time</option>
+                          <option value="before">{t('rota.event.notifBefore')}</option>
+                          <option value="at">{t('rota.event.notifAt')}</option>
                         </select>
                         {notification.type === 'before' && (
                           <select
@@ -423,18 +431,18 @@ export default function NewRotaEventPage() {
                             }}
                             className="w-24 rounded-lg border border-slate-200/60 bg-white px-3 py-2 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400/50"
                           >
-                            <option value="5">5 min</option>
-                            <option value="15">15 min</option>
-                            <option value="30">30 min</option>
-                            <option value="60">1 hour</option>
-                            <option value="120">2 hours</option>
-                            <option value="1440">1 day</option>
-                            <option value="10080">1 week</option>
+                            <option value="5">{t('rota.event.notifM5')}</option>
+                            <option value="15">{t('rota.event.notifM15')}</option>
+                            <option value="30">{t('rota.event.notifM30')}</option>
+                            <option value="60">{t('rota.event.notifM60')}</option>
+                            <option value="120">{t('rota.event.notifM120')}</option>
+                            <option value="1440">{t('rota.event.notifM1440')}</option>
+                            <option value="10080">{t('rota.event.notifM10080')}</option>
                           </select>
                         )}
                         {notification.type === 'at' && (
                           <div className="w-24 rounded-lg border border-slate-200/60 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600 text-center">
-                            Event start
+                            {t('rota.event.notifEventStart')}
                           </div>
                         )}
                         <button
@@ -451,10 +459,10 @@ export default function NewRotaEventPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Description (optional)</label>
+                <label className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">{t('rota.event.descOptional')}</label>
                 <textarea
                   className="h-24 w-full resize-none rounded-xl border border-slate-200/60 bg-white/95 backdrop-blur-sm px-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400/50 shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition-all"
-                  placeholder="Any detail you want to remember"
+                  placeholder={t('rota.event.descPh')}
                   value={form.description}
                   onChange={(e) => handleChange('description', e.target.value)}
                 />

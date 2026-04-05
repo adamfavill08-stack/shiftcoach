@@ -7,8 +7,17 @@ import { buildMonthFromPattern } from '@/lib/data/buildRotaMonth'
 import { useRotaMonth } from '@/lib/hooks/useRotaMonth'
 import { FilterMenu } from '@/components/calendar/FilterMenu'
 import { CalendarSettingsMenu } from '@/components/calendar/CalendarSettingsMenu'
+import {
+  CALENDAR_SETTINGS_CHANGED_EVENT,
+  readCalendarSettings,
+  getWeekStartsOn,
+  getDefaultCalendarView,
+} from '@/lib/calendar/calendarSettingsStorage'
+import { reorderRotaWeeksForDisplay, calendarWeekdayLabels } from '@/lib/calendar/reorderRotaWeeks'
 import { format as formatDate, startOfWeek } from 'date-fns'
 import { ViewSwitcherMenu } from '@/components/calendar/ViewSwitcherMenu'
+import { useTranslation, useLanguage } from '@/components/providers/language-provider'
+import { intlLocaleForApp } from '@/lib/i18n/supportedLocales'
 
 // TypeScript types for Speech Recognition
 interface SpeechRecognition extends EventTarget {
@@ -54,14 +63,13 @@ declare global {
   }
 }
 
-const weekdayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-
-const SLOT_LABELS: Record<string, string> = {
-  M: 'Morning',
-  A: 'Afternoon',
-  D: 'Day',
-  N: 'Night',
-  O: 'Off',
+/** Rota slot letter → i18n key under `calendar.rota.slot.*` */
+const SLOT_LABEL_KEYS: Record<string, string> = {
+  M: 'calendar.rota.slot.morning',
+  A: 'calendar.rota.slot.afternoon',
+  D: 'calendar.rota.slot.day',
+  N: 'calendar.rota.slot.night',
+  O: 'calendar.rota.slot.off',
 }
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
@@ -80,6 +88,9 @@ type RotaOverviewPageProps = {
 export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { t } = useTranslation()
+  const { language } = useLanguage()
+  const dateLocaleTag = intlLocaleForApp(language)
 
   // Start at "now" by default; we'll align to monthParam via effect below
   const [cursorDate, setCursorDate] = useState(() => {
@@ -112,6 +123,9 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
   const [showTasks, setShowTasks] = useState(false)
   const [showSettingsMenu, setShowSettingsMenu] = useState(false)
   const [showShiftBars, setShowShiftBars] = useState(true)
+  const [weekStartsOn, setWeekStartsOn] = useState<0 | 1>(() =>
+    typeof window !== 'undefined' ? getWeekStartsOn() : 1,
+  )
 
   // Sync cursorDate with ?month=YYYY-MM (from URL or prop), so year view clicks open that month
   const monthParam = searchParams.get('month') ?? initialYearMonth ?? null
@@ -271,6 +285,13 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
       })),
     )
   }, [eventsByDate, weeks])
+
+  const reorderedWeeks = useMemo(
+    () => reorderRotaWeeksForDisplay(decoratedWeeks, weekStartsOn),
+    [decoratedWeeks, weekStartsOn],
+  )
+
+  const weekdayLabels = useMemo(() => calendarWeekdayLabels(weekStartsOn), [weekStartsOn])
 
   const goToPrevMonth = () => {
     setMenuOpen(false)
@@ -510,7 +531,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
   // Filter weeks based on search query
   const allWeeksForDisplay = useMemo(() => {
     if (!searchQuery.trim()) {
-      return decoratedWeeks.map((week) => {
+      return reorderedWeeks.map((week) => {
         return week.map((day) => ({
           ...day,
           events: eventsByDate.get(day.date) ?? [],
@@ -520,12 +541,16 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
 
     const query = searchQuery.toLowerCase().trim()
     
-    return decoratedWeeks.map((week) => {
+    return reorderedWeeks.map((week) => {
       return week.map((day) => {
         const dayEvents = eventsByDate.get(day.date) ?? []
         
         // Check if day matches search (shift label or event title)
-        const shiftLabel = day.label ? SLOT_LABELS[day.label] ?? day.label : null
+        const shiftLabel = day.label
+          ? SLOT_LABEL_KEYS[day.label]
+            ? t(SLOT_LABEL_KEYS[day.label])
+            : day.label
+          : null
         const shiftMatches = shiftLabel && shiftLabel.toLowerCase().includes(query)
         
         const eventMatches = dayEvents.some(ev => {
@@ -545,22 +570,52 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
         return null
       }).filter(day => day !== null) as typeof week
     }).filter(week => week.length > 0)
-  }, [decoratedWeeks, eventsByDate, searchQuery])
+  }, [reorderedWeeks, eventsByDate, searchQuery, t])
 
-  // Load calendar settings (for coloured bars toggle)
+  // Load / live-sync calendar settings (from settings sheet)
   useEffect(() => {
-    try {
-      const saved = typeof window !== 'undefined' ? localStorage.getItem('calendarSettings') : null
-      if (saved) {
-        const parsed = JSON.parse(saved)
+    function syncCalendarSettingsFromStorage() {
+      try {
+        const parsed = readCalendarSettings()
         if (typeof parsed.showShiftBars === 'boolean') {
           setShowShiftBars(parsed.showShiftBars)
         }
+        setWeekStartsOn(getWeekStartsOn())
+      } catch (err) {
+        console.error('[RotaOverviewPage] Failed to load calendarSettings:', err)
       }
-    } catch (err) {
-      console.error('[RotaOverviewPage] Failed to load calendarSettings for showShiftBars:', err)
     }
+    syncCalendarSettingsFromStorage()
+    window.addEventListener(CALENDAR_SETTINGS_CHANGED_EVENT, syncCalendarSettingsFromStorage)
+    return () => window.removeEventListener(CALENDAR_SETTINGS_CHANGED_EVENT, syncCalendarSettingsFromStorage)
   }, [])
+
+  // Optional default view: redirect away from /rota when user did not open a specific month
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (monthParam) {
+      setCurrentView('month')
+      return
+    }
+    const view = getDefaultCalendarView()
+    setCurrentView(view)
+    if (view === 'month') return
+
+    const baseDate = new Date()
+    if (view === 'day') {
+      router.replace(`/calendar/day?day=${formatDate(baseDate, 'yyyyMMdd')}`)
+      return
+    }
+    if (view === 'week') {
+      const ws = getWeekStartsOn()
+      const wk = startOfWeek(baseDate, { weekStartsOn: ws })
+      router.replace(`/calendar/week?week=${formatDate(wk, 'yyyyMMdd')}`)
+      return
+    }
+    if (view === 'year') {
+      router.replace(`/calendar/year?year=${formatDate(baseDate, 'yyyy')}`)
+    }
+  }, [monthParam, router])
 
   const handleViewChange = (view: 'month' | 'week' | 'day' | 'year') => {
     setCurrentView(view)
@@ -572,13 +627,14 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
     }
 
     if (view === 'day') {
-      const dayCode = formatDate(baseDate, 'yyyyMMdd')
+      // Always open day view on today (not the month cursor), so tasks “today” match what users expect.
+      const dayCode = formatDate(todayDate, 'yyyyMMdd')
       router.push(`/calendar/day?day=${dayCode}`)
       return
     }
 
     if (view === 'week') {
-      const weekStart = startOfWeek(baseDate, { weekStartsOn: 1 })
+      const weekStart = startOfWeek(baseDate, { weekStartsOn })
       const weekCode = formatDate(weekStart, 'yyyyMMdd')
       router.push(`/calendar/week?week=${weekCode}`)
       return
@@ -623,7 +679,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                 <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
                 <input
                   type="text"
-                  placeholder="Search shifts and events..."
+                  placeholder={t('calendar.rota.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="flex-1 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
@@ -633,7 +689,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                     type="button"
                     onClick={() => setShowViewSwitcher(true)}
                     className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 active:scale-95 transition"
-                    aria-label="Change calendar view"
+                    aria-label={t('calendar.rota.changeViewAria')}
                   >
                     <Grid3x3 className="w-3.5 h-3.5" />
                   </button>
@@ -641,7 +697,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                     type="button"
                     onClick={() => setShowTasks(true)}
                     className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-100/80 active:scale-95 transition"
-                    aria-label="Open tasks"
+                    aria-label={t('calendar.rota.openTasksAria')}
                   >
                     {/* CalAI-style task icon (stacked filter lines) */}
                     <span className="h-3.5 w-3.5 inline-flex flex-col items-center justify-center gap-[2px]">
@@ -654,7 +710,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                     type="button"
                     onClick={() => setShowSettingsMenu(true)}
                     className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 active:scale-95 transition"
-                    aria-label="Calendar settings"
+                    aria-label={t('calendar.rota.settingsAria')}
                   >
                     <MoreVertical className="w-3.5 h-3.5" />
                   </button>
@@ -669,7 +725,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
               type="button"
               onClick={goToPrevMonth}
               className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-all duration-200 hover:bg-slate-100 active:scale-95"
-              aria-label="Previous month"
+              aria-label={t('calendar.rota.prevMonthAria')}
             >
               <span className="text-lg font-light leading-none">‹</span>
             </button>
@@ -680,7 +736,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
               type="button"
               onClick={goToNextMonth}
               className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-all duration-200 hover:bg-slate-100 active:scale-95"
-              aria-label="Next month"
+              aria-label={t('calendar.rota.nextMonthAria')}
             >
               <span className="text-lg font-light leading-none">›</span>
             </button>
@@ -705,7 +761,11 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                 const getDayItems = (day: typeof week[0]) => {
                   const shiftColor = getColorForType(day.type)
                   const hasShift = shiftColor !== 'transparent'
-                  const shiftLabel = day.label ? SLOT_LABELS[day.label] ?? day.label : null
+                  const shiftLabel = day.label
+                    ? SLOT_LABEL_KEYS[day.label]
+                      ? t(SLOT_LABEL_KEYS[day.label])
+                      : day.label
+                    : null
                   const dayEvents = day.events ?? []
                   const daySleep = sleepByDate.get(day.date) || []
                   
@@ -958,7 +1018,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                            bg-slate-900 text-white border border-slate-800/70
                            transition-all duration-300
                            hover:bg-slate-900/95 active:scale-[0.97]"
-                aria-label="Add holiday or task"
+                aria-label={t('calendar.rota.addHolidayOrTaskAria')}
               >
                 {/* Subtle CalAI glow */}
                 <span className="pointer-events-none absolute inset-0 rounded-[1.1rem] bg-gradient-to-br from-sky-500/35 via-indigo-500/25 to-purple-500/35 blur-xl opacity-70" />
@@ -1000,7 +1060,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
             >
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-slate-900">Event Options</h3>
+                  <h3 className="text-lg font-semibold text-slate-900">{t('calendar.rota.eventOptions')}</h3>
                   <button
                     onClick={() => {
                       setSelectedBlock(null)
@@ -1015,7 +1075,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                 <div className="mb-4 p-3 rounded-lg bg-slate-50 border border-slate-200">
                   <p className="text-sm font-medium text-slate-700">{selectedBlock.label}</p>
                   <p className="text-xs text-slate-500 mt-1">
-                    {new Date(selectedBlock.date).toLocaleDateString('en-GB', {
+                    {new Date(selectedBlock.date).toLocaleDateString(dateLocaleTag, {
                       weekday: 'long',
                       day: 'numeric',
                       month: 'long',
@@ -1036,7 +1096,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                                  border border-slate-800/70 transition-all"
                     >
                       <Edit2 className="w-4 h-4 text-sky-300" />
-                      Edit Event
+                      {t('calendar.rota.editEvent')}
                     </button>
                     <button
                       onClick={handleDelete}
@@ -1048,27 +1108,27 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                                  border border-red-500/80 transition-all"
                     >
                       <Trash2 className="w-4 h-4 text-white" />
-                      Delete Event
+                      {t('calendar.rota.deleteEvent')}
                     </button>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <p className="text-sm text-slate-700 text-center">
-                      Are you sure you want to delete this event?
+                      {t('calendar.rota.deleteConfirmQuestion')}
                     </p>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setDeleteConfirm(false)}
                         className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium transition-colors"
                       >
-                        Cancel
+                        {t('calendar.rota.cancel')}
                       </button>
                       <button
                         onClick={handleDelete}
                         disabled={deleting}
                         className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
                       >
-                        {deleting ? 'Deleting...' : 'Delete'}
+                        {deleting ? t('calendar.rota.deleting') : t('calendar.rota.delete')}
                       </button>
                     </div>
                   </div>

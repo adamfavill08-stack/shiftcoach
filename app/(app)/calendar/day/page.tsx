@@ -2,14 +2,16 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Plus, Calendar } from 'lucide-react'
-import { format, addDays, subDays, isToday, startOfDay, endOfDay } from 'date-fns'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { format, addDays, subDays, isToday } from 'date-fns'
 import { getEventsForDay } from '@/lib/helpers/calendar/EventsHelper'
 import { Event } from '@/lib/models/calendar/Event'
 import { getDayCodeFromDateTime } from '@/lib/helpers/calendar/Formatter'
 import { EventFormModal } from '@/components/calendar/EventFormModal'
+import { useTranslation } from '@/components/providers/language-provider'
 
 function DayViewContent() {
+  const { t } = useTranslation()
   const router = useRouter()
   const searchParams = useSearchParams()
   const dayParam = searchParams.get('day') // YYYYMMdd format
@@ -79,7 +81,9 @@ function DayViewContent() {
       <div className="sticky top-0 z-10 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-700/40">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <button
+            type="button"
             onClick={() => router.back()}
+            aria-label={t('calendar.dayView.backAria')}
             className="h-9 w-9 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-slate-100/70 dark:hover:bg-slate-800/50 hover:text-slate-600 dark:hover:text-slate-300 transition"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -87,6 +91,7 @@ function DayViewContent() {
 
           <div className="flex items-center gap-4">
             <button
+              type="button"
               onClick={handlePreviousDay}
               className="h-9 w-9 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-slate-100/70 dark:hover:bg-slate-800/50 hover:text-slate-600 dark:hover:text-slate-300 transition"
             >
@@ -95,6 +100,7 @@ function DayViewContent() {
 
             <div className="text-center">
               <button
+                type="button"
                 onClick={handleToday}
                 className={`text-sm font-semibold px-3 py-1.5 rounded-lg transition ${
                   isCurrentDay
@@ -107,6 +113,7 @@ function DayViewContent() {
             </div>
 
             <button
+              type="button"
               onClick={handleNextDay}
               className="h-9 w-9 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-slate-100/70 dark:hover:bg-slate-800/50 hover:text-slate-600 dark:hover:text-slate-300 transition"
             >
@@ -115,7 +122,9 @@ function DayViewContent() {
           </div>
 
           <button
+            type="button"
             onClick={handleNewEvent}
+            aria-label={t('calendar.dayView.newEventAria')}
             className="h-9 w-9 rounded-full flex items-center justify-center bg-gradient-to-r from-sky-600 to-indigo-700 text-white hover:from-sky-700 hover:to-indigo-800 active:scale-95 transition shadow-lg"
           >
             <Plus className="w-4 h-4" />
@@ -159,7 +168,7 @@ function DayViewContent() {
                   <div className="flex-1 space-y-2">
                     {hourEvents.length === 0 ? (
                       <div className="text-xs text-slate-400 dark:text-slate-600">
-                        No events
+                        {t('calendar.dayView.noEvents')}
                       </div>
                     ) : (
                       hourEvents.map((event) => (
@@ -192,7 +201,7 @@ function DayViewContent() {
           {events.some(e => (e.flags & 1) !== 0) && (
             <div className="border-t border-slate-200/50 dark:border-slate-700/40 p-4">
               <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">
-                All Day
+                {t('calendar.dayView.allDay')}
               </div>
               <div className="space-y-2">
                 {events
@@ -236,13 +245,18 @@ function DayViewContent() {
   )
 }
 
+function DayViewSuspenseFallback() {
+  const { t } = useTranslation()
+  return (
+    <main className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
+      <div className="text-slate-500 dark:text-slate-400">{t('calendar.dayView.loading')}</div>
+    </main>
+  )
+}
+
 export default function DayViewPage() {
   return (
-    <Suspense fallback={
-      <main className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
-        <div className="text-slate-500 dark:text-slate-400">Loading...</div>
-      </main>
-    }>
+    <Suspense fallback={<DayViewSuspenseFallback />}>
       <DayViewContent />
     </Suspense>
   )

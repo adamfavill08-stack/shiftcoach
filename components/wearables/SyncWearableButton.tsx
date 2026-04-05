@@ -2,6 +2,7 @@
 
 import { Capacitor } from '@capacitor/core'
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from '@/components/providers/language-provider'
 
 async function runAndroidHealthConnectPipeline(): Promise<{
   ran: boolean
@@ -45,6 +46,7 @@ type SyncState = 'idle' | 'syncing' | 'synced' | 'error'
 const FRESH_MS = 6 * 60 * 60 * 1000 // 6h
 
 export default function SyncWearableButton() {
+  const { t } = useTranslation()
   const [state, setState] = useState<SyncState>('idle')
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null)
 
@@ -59,12 +61,16 @@ export default function SyncWearableButton() {
 
   const label = useMemo(() => {
     switch (state) {
-      case 'syncing': return 'Syncing…'
-      case 'synced':  return 'Wearables synced'
-      case 'error':   return 'Sync failed'
-      default:        return 'Sync wearables'
+      case 'syncing':
+        return t('detail.wearablesSync.syncing')
+      case 'synced':
+        return t('detail.wearablesSync.wearablesSynced')
+      case 'error':
+        return t('detail.wearablesSync.syncFailed')
+      default:
+        return t('detail.wearablesSync.syncWearables')
     }
-  }, [state])
+  }, [state, t])
 
   async function handleClick() {
     try {
@@ -106,7 +112,7 @@ export default function SyncWearableButton() {
       }
 
       if (!res.ok) {
-        throw new Error(data.error || 'Sync failed')
+        throw new Error(data.error || t('detail.wearablesSync.syncFailed'))
       }
 
       const { lastSyncedAt: serverTs } = data

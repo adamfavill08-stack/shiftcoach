@@ -8,40 +8,221 @@ import {
   useMemo,
   useState,
 } from 'react'
+import {
+  calendarMessagesDe,
+  calendarMessagesEn,
+  calendarMessagesEs,
+  calendarMessagesFr,
+  calendarMessagesPl,
+  calendarMessagesPtBR,
+} from '@/lib/i18n/calendar'
+import {
+  mealTimingCoachDe,
+  mealTimingCoachEn,
+  mealTimingCoachEs,
+  mealTimingCoachFr,
+  mealTimingCoachPl,
+  mealTimingCoachPtBR,
+} from '@/lib/i18n/mealTimingCoach'
+import {
+  moodFocusMessagesDe,
+  moodFocusMessagesEn,
+  moodFocusMessagesEs,
+  moodFocusMessagesFr,
+  moodFocusMessagesPl,
+  moodFocusMessagesPtBR,
+} from '@/lib/i18n/moodFocus'
+import {
+  nutritionSettingsDe,
+  nutritionSettingsEn,
+  nutritionSettingsEs,
+  nutritionSettingsFr,
+  nutritionSettingsPl,
+  nutritionSettingsPtBR,
+} from '@/lib/i18n/nutritionSettings'
+import {
+  blogArticleOverridesDe,
+  blogArticleOverridesEs,
+  blogArticleOverridesFr,
+  blogArticleOverridesPl,
+  blogArticleOverridesPtBR,
+} from '@/lib/i18n/blog/articleOverrides'
+import {
+  dataPrivacySettingsDe,
+  dataPrivacySettingsEn,
+  dataPrivacySettingsEs,
+  dataPrivacySettingsFr,
+  dataPrivacySettingsPl,
+  dataPrivacySettingsPtBR,
+} from '@/lib/i18n/dataPrivacySettings'
+import {
+  settingsAppearanceDe,
+  settingsAppearanceEn,
+  settingsAppearanceEs,
+  settingsAppearanceFr,
+  settingsAppearancePl,
+  settingsAppearancePtBR,
+} from '@/lib/i18n/settingsAppearance'
+import {
+  settingsSubscriptionDe,
+  settingsSubscriptionEn,
+  settingsSubscriptionEs,
+  settingsSubscriptionFr,
+  settingsSubscriptionPl,
+  settingsSubscriptionPtBR,
+} from '@/lib/i18n/settingsSubscription'
+import {
+  profileSettingsPageDe,
+  profileSettingsPageEn,
+  profileSettingsPageEs,
+  profileSettingsPageFr,
+  profileSettingsPagePl,
+  profileSettingsPagePtBR,
+} from '@/lib/i18n/profileSettingsPage'
+import {
+  settingsSupportUiDe,
+  settingsSupportUiEn,
+  settingsSupportUiEs,
+  settingsSupportUiFr,
+  settingsSupportUiPl,
+  settingsSupportUiPtBR,
+} from '@/lib/i18n/settingsSupportUi'
+import {
+  wearablesSetupPageExtraDe,
+  wearablesSetupPageExtraEn,
+  wearablesSetupPageExtraEs,
+  wearablesSetupPageExtraFr,
+  wearablesSetupPageExtraPl,
+  wearablesSetupPageExtraPtBR,
+} from '@/lib/i18n/wearablesSetupPageExtra'
+import {
+  dashboardBannerMessagesDe,
+  dashboardBannerMessagesEn,
+  dashboardBannerMessagesEs,
+  dashboardBannerMessagesFr,
+  dashboardBannerMessagesPl,
+  dashboardBannerMessagesPtBR,
+} from '@/lib/i18n/dashboardBannerMessages'
+import {
+  dashboardHomeUiMessagesDe,
+  dashboardHomeUiMessagesEn,
+  dashboardHomeUiMessagesEs,
+  dashboardHomeUiMessagesFr,
+  dashboardHomeUiMessagesPl,
+  dashboardHomeUiMessagesPtBR,
+} from '@/lib/i18n/dashboardHomeUiMessages'
+import {
+  appShellMessagesDe,
+  appShellMessagesEn,
+  appShellMessagesEs,
+  appShellMessagesFr,
+  appShellMessagesPl,
+  appShellMessagesPtBR,
+} from '@/lib/i18n/appShellMessages'
+import {
+  activityLogPageDe,
+  activityLogPageEn,
+  activityLogPageEs,
+  activityLogPageFr,
+  activityLogPagePl,
+  activityLogPagePtBR,
+} from '@/lib/i18n/activityLogPage'
+import {
+  stepsPageDe,
+  stepsPageEn,
+  stepsPageEs,
+  stepsPageFr,
+  stepsPagePl,
+  stepsPagePtBR,
+} from '@/lib/i18n/stepsPage'
+import {
+  heartHealthUiMessagesDe,
+  heartHealthUiMessagesEn,
+  heartHealthUiMessagesEs,
+  heartHealthUiMessagesFr,
+  heartHealthUiMessagesPl,
+  heartHealthUiMessagesPtBR,
+} from '@/lib/i18n/heartHealthUiMessages'
+import {
+  rotaUploadPageDe,
+  rotaUploadPageEn,
+  rotaUploadPageEs,
+  rotaUploadPageFr,
+  rotaUploadPagePl,
+  rotaUploadPagePtBR,
+} from '@/lib/i18n/rotaUploadPage'
+import {
+  sleepUiMessagesDe,
+  sleepUiMessagesEn,
+  sleepUiMessagesEs,
+  sleepUiMessagesFr,
+  sleepUiMessagesPl,
+  sleepUiMessagesPtBR,
+} from '@/lib/i18n/sleepUiMessages'
+import {
+  rotaFlowPagesDe,
+  rotaFlowPagesEn,
+  rotaFlowPagesEs,
+  rotaFlowPagesFr,
+  rotaFlowPagesPl,
+  rotaFlowPagesPtBR,
+} from '@/lib/i18n/rotaFlowPages'
+import {
+  accountLegalShellDe,
+  accountLegalShellEn,
+  accountLegalShellEs,
+  accountLegalShellFr,
+  accountLegalShellPl,
+  accountLegalShellPtBR,
+} from '@/lib/i18n/accountLegalShellMessages'
+import {
+  type AppLocaleCode,
+  LOCALE_META,
+  normalizeStoredLanguagePreference,
+  resolveBrowserLocale,
+  resolveEffectiveAppLocale,
+} from '@/lib/i18n/supportedLocales'
+import { batch1Fr } from '@/lib/i18n/batches/batch1-fr'
+import { batch1PtBR } from '@/lib/i18n/batches/batch1-pt-br'
+import { batch1Pl } from '@/lib/i18n/batches/batch1-pl'
 
-type SupportedLanguage = 'en' | 'es' | 'de'
-type LanguagePreference = 'device' | SupportedLanguage
+export type { AppLocaleCode, SupportedLanguage } from '@/lib/i18n/supportedLocales'
+
+type LanguagePreference = 'device' | AppLocaleCode
 
 type LanguageContextValue = {
   preference: LanguagePreference
-  language: SupportedLanguage
+  language: AppLocaleCode
   setPreference: (pref: LanguagePreference) => void
 }
 
 const LanguageContext = createContext<LanguageContextValue | undefined>(undefined)
 
-function resolveDeviceLanguage(): SupportedLanguage {
-  if (typeof navigator === 'undefined') return 'en'
-  const lang = navigator.language.toLowerCase()
-  if (lang.startsWith('es')) return 'es'
-  if (lang.startsWith('de')) return 'de'
-  if (lang.startsWith('en')) return 'en'
-  return 'en'
+function LanguageDocumentAttributes() {
+  const { language } = useLanguage()
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const meta = LOCALE_META[language]
+    document.documentElement.lang = meta.intl
+    document.documentElement.dir = meta.rtl ? 'rtl' : 'ltr'
+  }, [language])
+  return null
 }
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [preference, setPreferenceState] = useState<LanguagePreference>('device')
-  const [language, setLanguage] = useState<SupportedLanguage>('en')
+  const [language, setLanguage] = useState<AppLocaleCode>('en')
 
   useEffect(() => {
     if (typeof window === 'undefined') return
     const stored = window.localStorage.getItem('shiftcoach:language')
-    const pref: LanguagePreference =
-      stored === 'device' || stored === 'en' || stored === 'es' || stored === 'de'
-        ? (stored as LanguagePreference)
-        : 'device'
+    const pref = normalizeStoredLanguagePreference(stored)
+    if (stored != null && stored !== pref) {
+      window.localStorage.setItem('shiftcoach:language', pref)
+    }
     setPreferenceState(pref)
-    setLanguage(pref === 'device' ? resolveDeviceLanguage() : pref)
+    const raw = pref === 'device' ? resolveBrowserLocale() : pref
+    setLanguage(resolveEffectiveAppLocale(raw))
   }, [])
 
   const setPreference = useCallback((pref: LanguagePreference) => {
@@ -49,7 +230,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== 'undefined') {
       window.localStorage.setItem('shiftcoach:language', pref)
     }
-    setLanguage(pref === 'device' ? resolveDeviceLanguage() : pref)
+    const raw = pref === 'device' ? resolveBrowserLocale() : pref
+    setLanguage(resolveEffectiveAppLocale(raw))
   }, [])
 
   const value = useMemo(
@@ -61,7 +243,12 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     [preference, language, setPreference],
   )
 
-  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>
+  return (
+    <LanguageContext.Provider value={value}>
+      <LanguageDocumentAttributes />
+      {children}
+    </LanguageContext.Provider>
+  )
 }
 
 export function useLanguage() {
@@ -72,9 +259,31 @@ export function useLanguage() {
   return ctx
 }
 
-// Simple in-memory translation table for core UI strings.
-const messages: Record<SupportedLanguage, Record<string, string>> = {
+// Full translations: add more locales here as they are completed. Others fall back to English.
+const messageBundles: Partial<Record<AppLocaleCode, Record<string, string>>> & {
+  en: Record<string, string>
+} = {
   en: {
+    ...calendarMessagesEn,
+    ...mealTimingCoachEn,
+    ...nutritionSettingsEn,
+    ...moodFocusMessagesEn,
+    ...dataPrivacySettingsEn,
+    ...settingsAppearanceEn,
+    ...settingsSubscriptionEn,
+    ...profileSettingsPageEn,
+    ...settingsSupportUiEn,
+    ...wearablesSetupPageExtraEn,
+    ...dashboardBannerMessagesEn,
+    ...dashboardHomeUiMessagesEn,
+    ...appShellMessagesEn,
+    ...activityLogPageEn,
+    ...stepsPageEn,
+    ...heartHealthUiMessagesEn,
+    ...rotaUploadPageEn,
+    ...sleepUiMessagesEn,
+    ...rotaFlowPagesEn,
+    ...accountLegalShellEn,
     'nav.home': 'Home',
     'nav.calendar': 'Calendar',
     'nav.blog': 'Blog',
@@ -103,6 +312,10 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'settings.section.preferences': 'Preferences',
     'settings.section.coaching': 'Coaching',
     'settings.section.support': 'Support',
+    'settings.loading': 'Loading settings…',
+    'settings.backAria': 'Back',
+    'settings.contactSupport': 'Contact support',
+    'settings.footerVersion': 'Version {version}',
 
     'settings.wearables.title': 'Wearables',
     'settings.wearables.subtitle': 'Connect Apple Watch, Samsung, or other devices',
@@ -112,6 +325,13 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'settings.language.en': 'English',
     'settings.language.es': 'Spanish',
     'settings.language.de': 'German',
+    'settings.language.chooseTitle': 'Choose app language',
+    'settings.language.closePicker': 'Done',
+    'settings.language.fallbackProgress': 'Some languages are still in progress.',
+    'settings.language.fallbackEnglish':
+      'If a translation isn’t available, English will be shown.',
+    'settings.language.fallbackHint':
+      'Spanish and German are the most complete. French, Portuguese (Brazil) and Polish use translation batches; legal policy bodies and some long-form pages may stay in English until localized. Other picker languages use English UI.',
 
     'splash.tagline': "The only app dedicated to shift workers' health and wellbeing",
     'splash.audience': 'Built with nurses, paramedics, guards, chefs and operators in mind.',
@@ -153,6 +373,20 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'auth.signUp.tryAgain': 'try again',
     'auth.signUp.alreadyConfirmed': 'Already confirmed? Sign in',
     'auth.signUp.loading': 'Preparing sign-up…',
+    'auth.language.label': 'App language',
+    'auth.language.hint': 'You can change this anytime in Settings.',
+
+    'auth.reset.title': 'Reset password',
+    'auth.reset.emailPlaceholder': 'Email',
+    'auth.reset.submit': 'Send reset link',
+    'auth.reset.sending': 'Sending…',
+    'auth.reset.success': 'Check your email for the reset link.',
+    'auth.updatePassword.title': 'Set a new password',
+    'auth.updatePassword.passwordPlaceholder': 'New password',
+    'auth.updatePassword.hint': 'At least 6 characters',
+    'auth.updatePassword.submit': 'Update password',
+    'auth.updatePassword.updating': 'Updating…',
+    'auth.updatePassword.success': 'Password updated. Redirecting…',
 
     'onboarding.title': 'Welcome to ShiftCoach',
     'onboarding.subtitle': "Let's set up your profile",
@@ -232,6 +466,8 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'welcome.todayOff': 'Today (Day Off)',
     'welcome.todayDay': "Today's day shift",
     'welcome.today': 'Today',
+    'welcome.logoAlt': 'ShiftCoach',
+    'welcome.kcalUnit': 'kcal',
 
     'dashboard.loading': 'Preparing your ShiftCoach dashboard…',
     'dashboard.homeLabel': 'Home',
@@ -253,6 +489,10 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'dashboard.bodyClock.unlockHint': 'Log a few nights of sleep and add your shifts to unlock your Body Clock score.',
     'dashboard.bodyClock.calculatedFrom': 'Calculated from your recent sleep, rota pattern and light timing over the last few days.',
     'dashboard.bodyClock.openAria': 'Open Body Clock page',
+    'dashboard.bodyClock.statusShortLearning': 'Learning your rhythm',
+    'dashboard.bodyClock.statusShortWellAligned': 'Well aligned',
+    'dashboard.bodyClock.statusShortSlightlyOut': 'Slightly out of sync',
+    'dashboard.bodyClock.statusShortMisaligned': 'Misaligned',
     'dashboard.lastSync.notYet': 'Last sync: not yet',
     'dashboard.lastSync.justNow': 'Last sync: just now',
     'dashboard.lastSync.minAgo': 'Last sync: {n} min ago',
@@ -396,14 +636,160 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'detail.bodyClock.warningOutOfSync': "Your body clock has been out of sync on most days – treat upcoming days as recovery where you can and check your rota pattern.",
     'detail.bodyClock.warningQuiteFew': 'Quite a few days out of rhythm – watch stretches of nights, early starts and broken sleep.',
 
+    'detail.fatigueRisk.title': 'Fatigue risk',
+    'detail.fatigueRisk.fallbackExplanation':
+      'Fatigue risk updates as your sleep, shift and rhythm data sync.',
+    'detail.fatigueRisk.fallbackDriver':
+      'Keep logging sleep and shift data to unlock personalized fatigue drivers.',
+    'detail.fatigueRisk.confidenceSuffix': 'confidence',
+    'detail.fatigueRisk.currentWindow': 'Current window',
+    'detail.fatigueRisk.axisLow': 'Low',
+    'detail.fatigueRisk.axisHigh': 'High',
+    'detail.fatigueRisk.todayCurve': "Today's fatigue curve",
+    'detail.fatigueRisk.liveEstimate': 'Live estimate',
+    'detail.fatigueRisk.curveFootnote':
+      'Risk is lowest after aligned recovery sleep and rises into late biological-night hours.',
+    'detail.fatigueRisk.driversTitle': "What's driving your risk",
+    'detail.fatigueRisk.howToLowerTitle': 'How to lower fatigue risk',
+    'detail.fatigueRisk.tip1Title': 'Protect post-shift sleep',
+    'detail.fatigueRisk.tip1Body':
+      'Aim for an immediate recovery sleep block after your shift to reduce the next risk peak.',
+    'detail.fatigueRisk.tip2Title': 'Use a pre-shift nap if needed',
+    'detail.fatigueRisk.tip2Body':
+      'A short nap before the next duty window can reduce strain from consecutive shifts.',
+    'detail.fatigueRisk.tip3Title': 'Watch the 02:00–06:00 window',
+    'detail.fatigueRisk.tip3Body':
+      'This is your highest-risk period, so use extra caution with driving, decisions, and workload.',
+    'detail.fatigueRisk.levelLow': 'Low',
+    'detail.fatigueRisk.levelModerate': 'Moderate',
+    'detail.fatigueRisk.levelHigh': 'High',
+    'detail.fatigueRisk.confidenceLow': 'Low',
+    'detail.fatigueRisk.confidenceMedium': 'Medium',
+    'detail.fatigueRisk.confidenceHigh': 'High',
+
     'detail.shiftRhythm.title': 'Shift Rhythm',
     'detail.adjustedCalories.title': 'Adjusted Calories',
     'detail.heartHealth.title': 'Heart Health',
     'detail.hydration.title': 'Hydration',
+    'detail.hydration.todaysGoal': "Today's water goal",
+    'detail.hydration.selected': 'Selected',
+    'detail.hydration.litreSuffix': 'L',
+    'detail.hydration.ariaIncrease': 'Increase water',
+    'detail.hydration.ariaDecrease': 'Decrease water',
+    'detail.hydration.ariaLogLitres': 'Log {n} litres',
+    'detail.hydration.jugHelp':
+      "Picture this as your water jug. Tap a level or nudge the arrows until it matches how much you've had so far today.",
+    'detail.hydration.motivationEmpty': 'Start with a small glass and build from there.',
+    'detail.hydration.motivationLow': 'Nice start — every sip helps your energy and focus.',
+    'detail.hydration.motivationMid': "You're doing well — keep topping up that jug.",
+    'detail.hydration.motivationHigh': "Great work — you're close to today's goal.",
+    'detail.hydration.motivationFull': 'Goal nearly there — amazing consistency on your hydration.',
+    'detail.hydration.whyTitle': 'Why this matters on shifts',
+    'detail.hydration.whyP1':
+      'Long and overnight shifts, bright lights and caffeine all make it easier to get slightly dehydrated without noticing. That can nudge your energy, focus and recovery in the wrong direction.',
+    'detail.hydration.whyP2':
+      'Your daily goal here is a total across the whole day, not something to drink in one go. Aim to spread it in small drinks before, during and after your shift so your body and digestion can keep up.',
+    'detail.hydration.weeklyTitle': 'Hydration last 7 days',
+    'detail.hydration.weeklySub': 'Bars show what you drank vs your daily goal.',
+
     'detail.bingeRisk.title': 'Binge Risk',
+    'detail.bingeRisk.scoreLabel': 'Score',
+    'detail.bingeRisk.bandLow': 'Low risk',
+    'detail.bingeRisk.bandMedium': 'Medium risk',
+    'detail.bingeRisk.bandHigh': 'High risk',
+    'detail.bingeRisk.levelLow': 'Low',
+    'detail.bingeRisk.levelMedium': 'Medium',
+    'detail.bingeRisk.levelHigh': 'High',
+    'detail.bingeRisk.headlineLow': 'Cravings in a steady place',
+    'detail.bingeRisk.headlineMedium': 'Cravings more likely on tired shifts',
+    'detail.bingeRisk.headlineHigh': 'High risk of big cravings and binges',
+    'detail.bingeRisk.explainerDefault':
+      'Based on your recent sleep, shifts and habits, this estimates how likely strong cravings or binges are in the next day or two.',
+    'detail.bingeRisk.sectionKicker': 'Binge risk on shifts',
+    'detail.bingeRisk.noRecentData': 'No recent data',
+    'detail.bingeRisk.driversTitle': 'Main drivers this week',
+    'detail.bingeRisk.factsLine1':
+      'Binge Risk estimates how likely you are to overeat based on sleep, shifts and recent habits.',
+    'detail.bingeRisk.factsLine2':
+      'Low = stable. Medium = watch your triggers. High = extra support & planning.',
+    'detail.bingeRisk.colorsTitle': 'What the colours mean',
+    'detail.bingeRisk.colorLow': 'Low',
+    'detail.bingeRisk.colorLowDesc': 'Balanced, stable pattern.',
+    'detail.bingeRisk.colorMedium': 'Medium',
+    'detail.bingeRisk.colorMediumDesc':
+      'Some red flags – be extra intentional with meals, sleep and caffeine.',
+    'detail.bingeRisk.colorHigh': 'High',
+    'detail.bingeRisk.colorHighDesc':
+      'Your body is running on fumes – plan support and recovery now.',
+    'detail.bingeRisk.axisLow': 'Low',
+    'detail.bingeRisk.axisHigh': 'High',
+    'detail.bingeRisk.whyTitle': 'Why shift workers binge more',
+    'detail.bingeRisk.whyLi1':
+      'Sleep debt: less sleep = more hunger hormone (ghrelin) and less "I\'m full" signal (leptin).',
+    'detail.bingeRisk.whyLi2':
+      'Circadian mismatch: eating at 3–4am when your body expects sleep makes you crave junk and store more fat.',
+    'detail.bingeRisk.whyLi3':
+      'Stress & emotion: long, busy shifts with no breaks make food the easiest reward.',
+    'detail.bingeRisk.whyLi4':
+      'Environment: vending machines, takeaways and energy drinks are always available on nights.',
+    'detail.bingeRisk.helpsTitle': 'How ShiftCoach helps you combat it',
+    'detail.bingeRisk.helpsLi1':
+      'Keeps sleep on track: nudges you towards enough sleep and better timing for your shifts.',
+    'detail.bingeRisk.helpsLi2':
+      'Times meals for your rota: plans protein‑focused meals when you\'re most alert, not when your body expects sleep.',
+    'detail.bingeRisk.helpsLi3':
+      'Flags danger windows: high‑risk nights show up on your dashboard so you can plan ahead.',
+    'detail.bingeRisk.helpsLi4':
+      'Encourages steady fuel: instead of starving then binging, you get small, regular meal suggestions.',
+    'detail.bingeRisk.tipsTitle': 'Quick actions when risk is Medium or High',
+    'detail.bingeRisk.tipsLi1':
+      'Eat a planned snack (protein + fibre) before you get home from a long or night shift.',
+    'detail.bingeRisk.tipsLi2':
+      'Set a "kitchen closed" time so you don\'t default to grazing late at night.',
+    'detail.bingeRisk.tipsLi3':
+      'Use a non‑food reward after work: shower, music, short walk, call someone, game, etc.',
+    'detail.bingeRisk.tipsLi4':
+      'On days off, prioritise one solid sleep instead of lots of tiny naps.',
+    'detail.bingeRisk.tipsFooter':
+      'The goal isn\'t to be perfect – it\'s to stack the odds in your favour so binges become rare slips, not your normal pattern.',
+
     'detail.shiftLag.title': 'Shift Lag',
     'detail.recovery.title': 'Recovery Score',
     'detail.recovery.subtitle': 'How ready your body and mind are for your next shift',
+    'detail.recovery.fact1':
+      'Recovery Score shows how ready you are to handle stress, work, and training.',
+    'detail.recovery.fact2':
+      "It's based on your sleep, shift pattern, activity, and how consistent your schedule is.",
+    'detail.recovery.fact3':
+      'Higher score = better energy, mood, and resilience on shift.',
+    'detail.recovery.bandHigh': 'Recovered',
+    'detail.recovery.bandMedium': 'OK',
+    'detail.recovery.bandLow': 'Strained',
+    'detail.recovery.whatTitle': 'What is Recovery Score?',
+    'detail.recovery.whatBody':
+      'Your Recovery Score is a combined view of your sleep, shift pattern, activity and circadian alignment. It tells you how prepared your body and mind are to handle stress, work and training today.',
+    'detail.recovery.whyTitle': 'Why it matters for shift workers',
+    'detail.recovery.whyLi1': 'Irregular shifts make full recovery harder between days and nights.',
+    'detail.recovery.whyLi2':
+      'Low recovery often shows up as higher fatigue, cravings and lower focus.',
+    'detail.recovery.whyLi3':
+      'Tracking recovery helps you choose when to push, hold back, or prioritise rest.',
+    'detail.recovery.howTitle': 'How Shift Coach calculates your score',
+    'detail.recovery.howLi1': 'Sleep: hours, quality and how your sleep aligns to your schedule.',
+    'detail.recovery.howLi2': 'Shifts: number in a row, intensity of times and rotation.',
+    'detail.recovery.howLi3': 'Activity: daily movement and avoiding overreaching when fatigued.',
+    'detail.recovery.howLi4': 'Rhythm: how closely your day matches your body clock.',
+    'detail.recovery.howDisclaimer': 'This is guidance only and not medical advice.',
+    'detail.recovery.improveTitle': 'How to improve your Recovery Score',
+    'detail.recovery.improveLi1': 'Protect one main sleep block whenever you can, even on nights.',
+    'detail.recovery.improveLi2':
+      'Follow meal‑timing nudges to avoid heavy meals during biological night.',
+    'detail.recovery.improveLi3':
+      'On low‑recovery days, opt for lighter movement and more recovery.',
+    'detail.recovery.ctaTitle': 'See your live Recovery Score',
+    'detail.recovery.ctaBody':
+      "Check today's score and guidance on your main dashboard.",
+
     'detail.wearablesSetup.title': 'Connect your wearable',
     'detail.wearablesSetup.howReadsData': 'How ShiftCoach reads your data',
     'detail.wearablesSetup.intro1': "ShiftCoach doesn't talk directly to your watch. Instead it reads steps, sleep and activity from the health app on your phone that your watch is already syncing to.",
@@ -444,6 +830,27 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'detail.wearablesSetup.connectGoogleFit': 'Open wearable setup',
   },
   es: {
+    ...calendarMessagesEs,
+    ...mealTimingCoachEs,
+    ...nutritionSettingsEs,
+    ...moodFocusMessagesEs,
+    ...blogArticleOverridesEs,
+    ...dataPrivacySettingsEs,
+    ...settingsAppearanceEs,
+    ...settingsSubscriptionEs,
+    ...profileSettingsPageEs,
+    ...settingsSupportUiEs,
+    ...wearablesSetupPageExtraEs,
+    ...dashboardBannerMessagesEs,
+    ...dashboardHomeUiMessagesEs,
+    ...appShellMessagesEs,
+    ...activityLogPageEs,
+    ...stepsPageEs,
+    ...heartHealthUiMessagesEs,
+    ...rotaUploadPageEs,
+    ...sleepUiMessagesEs,
+    ...rotaFlowPagesEs,
+    ...accountLegalShellEs,
     'nav.home': 'Inicio',
     'nav.calendar': 'Calendario',
     'nav.blog': 'Blog',
@@ -472,6 +879,10 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'settings.section.preferences': 'Preferencias',
     'settings.section.coaching': 'Entrenamiento',
     'settings.section.support': 'Soporte',
+    'settings.loading': 'Cargando ajustes…',
+    'settings.backAria': 'Atrás',
+    'settings.contactSupport': 'Contactar soporte',
+    'settings.footerVersion': 'Versión {version}',
 
     'settings.wearables.title': 'Wearables',
     'settings.wearables.subtitle': 'Conecta Apple Watch, Samsung u otros dispositivos',
@@ -481,6 +892,13 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'settings.language.en': 'Inglés',
     'settings.language.es': 'Español',
     'settings.language.de': 'Alemán',
+    'settings.language.chooseTitle': 'Elegir idioma de la app',
+    'settings.language.closePicker': 'Listo',
+    'settings.language.fallbackProgress': 'Algunos idiomas siguen en desarrollo.',
+    'settings.language.fallbackEnglish':
+      'Si falta una traducción, se mostrará inglés.',
+    'settings.language.fallbackHint':
+      'Español y alemán son los más completos. Francés, portugués (Brasil) y polaco van por lotes; textos legales y algunas páginas largas pueden seguir en inglés. El resto de idiomas del selector usan la interfaz en inglés.',
 
     'splash.tagline': 'La única app dedicada a la salud y el bienestar de los trabajadores por turnos',
     'splash.audience': 'Pensada para enfermeras, paramédicos, guardias, chefs y operarios.',
@@ -522,6 +940,19 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'auth.signUp.tryAgain': 'inténtalo de nuevo',
     'auth.signUp.alreadyConfirmed': '¿Ya confirmaste? Iniciar sesión',
     'auth.signUp.loading': 'Preparando registro…',
+    'auth.language.label': 'Idioma de la app',
+    'auth.language.hint': 'Puedes cambiarlo cuando quieras en Ajustes.',
+    'auth.reset.title': 'Restablecer contraseña',
+    'auth.reset.emailPlaceholder': 'Correo electrónico',
+    'auth.reset.submit': 'Enviar enlace',
+    'auth.reset.sending': 'Enviando…',
+    'auth.reset.success': 'Revisa tu correo para el enlace de restablecimiento.',
+    'auth.updatePassword.title': 'Nueva contraseña',
+    'auth.updatePassword.passwordPlaceholder': 'Nueva contraseña',
+    'auth.updatePassword.hint': 'Mínimo 6 caracteres',
+    'auth.updatePassword.submit': 'Actualizar contraseña',
+    'auth.updatePassword.updating': 'Actualizando…',
+    'auth.updatePassword.success': 'Contraseña actualizada. Redirigiendo…',
 
     'onboarding.title': 'Bienvenido a ShiftCoach',
     'onboarding.subtitle': 'Configura tu perfil',
@@ -601,6 +1032,8 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'welcome.todayOff': 'Hoy (día libre)',
     'welcome.todayDay': 'Turno de día de hoy',
     'welcome.today': 'Hoy',
+    'welcome.logoAlt': 'ShiftCoach',
+    'welcome.kcalUnit': 'kcal',
 
     'dashboard.loading': 'Preparando tu panel de ShiftCoach…',
     'dashboard.homeLabel': 'Inicio',
@@ -622,6 +1055,10 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'dashboard.bodyClock.unlockHint': 'Registra algunas noches de sueño y añade tus turnos para desbloquear la puntuación del reloj corporal.',
     'dashboard.bodyClock.calculatedFrom': 'Calculado según tu sueño reciente, patrón de turnos y luz en los últimos días.',
     'dashboard.bodyClock.openAria': 'Abrir página Reloj corporal',
+    'dashboard.bodyClock.statusShortLearning': 'Aprendiendo tu ritmo',
+    'dashboard.bodyClock.statusShortWellAligned': 'Bien alineado',
+    'dashboard.bodyClock.statusShortSlightlyOut': 'Ligeramente desincronizado',
+    'dashboard.bodyClock.statusShortMisaligned': 'Desalineado',
     'dashboard.lastSync.notYet': 'Última sincronización: aún no',
     'dashboard.lastSync.justNow': 'Última sincronización: hace un momento',
     'dashboard.lastSync.minAgo': 'Última sincronización: hace {n} min',
@@ -764,14 +1201,162 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'detail.bodyClock.warningOutOfSync': 'Tu reloj corporal ha estado desincronizado la mayoría de los días; trata los próximos días como recuperación y revisa tu patrón de turnos.',
     'detail.bodyClock.warningQuiteFew': 'Varios días fuera de ritmo; vigila rachas de noches, madrugadas y sueño fragmentado.',
 
+    'detail.fatigueRisk.title': 'Riesgo de fatiga',
+    'detail.fatigueRisk.fallbackExplanation':
+      'El riesgo de fatiga se actualiza cuando se sincronizan tus datos de sueño, turnos y ritmo.',
+    'detail.fatigueRisk.fallbackDriver':
+      'Sigue registrando sueño y turnos para desbloquear factores de fatiga personalizados.',
+    'detail.fatigueRisk.confidenceSuffix': 'confianza',
+    'detail.fatigueRisk.currentWindow': 'Ventana actual',
+    'detail.fatigueRisk.axisLow': 'Bajo',
+    'detail.fatigueRisk.axisHigh': 'Alto',
+    'detail.fatigueRisk.todayCurve': 'Curva de fatiga de hoy',
+    'detail.fatigueRisk.liveEstimate': 'Estimación en vivo',
+    'detail.fatigueRisk.curveFootnote':
+      'El riesgo es menor tras un sueño de recuperación alineado y sube en la noche biológica tardía.',
+    'detail.fatigueRisk.driversTitle': 'Qué impulsa tu riesgo',
+    'detail.fatigueRisk.howToLowerTitle': 'Cómo reducir el riesgo de fatiga',
+    'detail.fatigueRisk.tip1Title': 'Protege el sueño tras el turno',
+    'detail.fatigueRisk.tip1Body':
+      'Busca un bloque inmediato de sueño de recuperación tras el turno para reducir el siguiente pico de riesgo.',
+    'detail.fatigueRisk.tip2Title': 'Usa una siesta previa al turno si hace falta',
+    'detail.fatigueRisk.tip2Body':
+      'Una siesta corta antes de la siguiente ventana de servicio puede aliviar la tensión de turnos consecutivos.',
+    'detail.fatigueRisk.tip3Title': 'Vigila la ventana 02:00–06:00',
+    'detail.fatigueRisk.tip3Body':
+      'Es tu periodo de mayor riesgo; ten más cuidado conduciendo, decidiendo y con la carga de trabajo.',
+    'detail.fatigueRisk.levelLow': 'Bajo',
+    'detail.fatigueRisk.levelModerate': 'Moderado',
+    'detail.fatigueRisk.levelHigh': 'Alto',
+    'detail.fatigueRisk.confidenceLow': 'Baja',
+    'detail.fatigueRisk.confidenceMedium': 'Media',
+    'detail.fatigueRisk.confidenceHigh': 'Alta',
+
     'detail.shiftRhythm.title': 'Ritmo de turnos',
     'detail.adjustedCalories.title': 'Calorías ajustadas',
     'detail.heartHealth.title': 'Salud cardíaca',
     'detail.hydration.title': 'Hidratación',
+    'detail.hydration.todaysGoal': 'Objetivo de agua de hoy',
+    'detail.hydration.selected': 'Seleccionado',
+    'detail.hydration.litreSuffix': 'L',
+    'detail.hydration.ariaIncrease': 'Aumentar agua',
+    'detail.hydration.ariaDecrease': 'Reducir agua',
+    'detail.hydration.ariaLogLitres': 'Registrar {n} litros',
+    'detail.hydration.jugHelp':
+      'Imagina tu jarra de agua. Toca un nivel o usa las flechas hasta que coincida con lo que has bebido hoy.',
+    'detail.hydration.motivationEmpty': 'Empieza con un vaso pequeño y ve sumando.',
+    'detail.hydration.motivationLow': 'Buen comienzo: cada sorbo ayuda a energía y concentración.',
+    'detail.hydration.motivationMid': 'Vas bien: sigue rellenando la jarra.',
+    'detail.hydration.motivationHigh': 'Genial: casi alcanzas el objetivo de hoy.',
+    'detail.hydration.motivationFull': 'Casi lo tienes: constancia excelente con la hidratación.',
+    'detail.hydration.whyTitle': 'Por qué importa en turnos',
+    'detail.hydration.whyP1':
+      'Turnos largos y nocturnos, luces fuertes y cafeína facilitan deshidratarte sin notarlo. Eso puede empeorar energía, foco y recuperación.',
+    'detail.hydration.whyP2':
+      'El objetivo diario es el total del día, no beberlo de una vez. Reparte pequeñas cantidades antes, durante y después del turno.',
+    'detail.hydration.weeklyTitle': 'Hidratación últimos 7 días',
+    'detail.hydration.weeklySub': 'Las barras muestran lo bebido frente a tu objetivo diario.',
+
     'detail.bingeRisk.title': 'Riesgo de atracón',
+    'detail.bingeRisk.scoreLabel': 'Puntuación',
+    'detail.bingeRisk.bandLow': 'Riesgo bajo',
+    'detail.bingeRisk.bandMedium': 'Riesgo medio',
+    'detail.bingeRisk.bandHigh': 'Riesgo alto',
+    'detail.bingeRisk.levelLow': 'Bajo',
+    'detail.bingeRisk.levelMedium': 'Medio',
+    'detail.bingeRisk.levelHigh': 'Alto',
+    'detail.bingeRisk.headlineLow': 'Antojos en un punto estable',
+    'detail.bingeRisk.headlineMedium': 'Antojos más probables en turnos con cansancio',
+    'detail.bingeRisk.headlineHigh': 'Alto riesgo de atracones y antojos fuertes',
+    'detail.bingeRisk.explainerDefault':
+      'Según tu sueño reciente, turnos y hábitos, esto estima la probabilidad de antojos fuertes o atracones en el próximo día o dos.',
+    'detail.bingeRisk.sectionKicker': 'Riesgo de atracón en turnos',
+    'detail.bingeRisk.noRecentData': 'Sin datos recientes',
+    'detail.bingeRisk.driversTitle': 'Factores principales esta semana',
+    'detail.bingeRisk.factsLine1':
+      'El riesgo de atracón estima la probabilidad de comer en exceso según sueño, turnos y hábitos recientes.',
+    'detail.bingeRisk.factsLine2':
+      'Bajo = estable. Medio = vigila los detonantes. Alto = más apoyo y planificación.',
+    'detail.bingeRisk.colorsTitle': 'Qué significan los colores',
+    'detail.bingeRisk.colorLow': 'Bajo',
+    'detail.bingeRisk.colorLowDesc': 'Patrón equilibrado y estable.',
+    'detail.bingeRisk.colorMedium': 'Medio',
+    'detail.bingeRisk.colorMediumDesc':
+      'Algunas señales de alerta: sé más consciente con comidas, sueño y cafeína.',
+    'detail.bingeRisk.colorHigh': 'Alto',
+    'detail.bingeRisk.colorHighDesc':
+      'Tu cuerpo va al límite: planifica apoyo y recuperación ya.',
+    'detail.bingeRisk.axisLow': 'Bajo',
+    'detail.bingeRisk.axisHigh': 'Alto',
+    'detail.bingeRisk.whyTitle': 'Por qué hay más atracones en turnos',
+    'detail.bingeRisk.whyLi1':
+      'Deuda de sueño: menos sueño = más ghrelina (hambre) y menos señal de saciedad (leptina).',
+    'detail.bingeRisk.whyLi2':
+      'Desajuste circadiano: comer a las 3–4 h cuando el cuerpo espera dormir aumenta antojos de ultraprocesados y almacenamiento de grasa.',
+    'detail.bingeRisk.whyLi3':
+      'Estrés y emoción: turnos largos y sin pausas hacen que la comida sea el premio más fácil.',
+    'detail.bingeRisk.whyLi4':
+      'Entorno: máquinas expendedoras, comida para llevar y bebidas energéticas siempre disponibles de noche.',
+    'detail.bingeRisk.helpsTitle': 'Cómo te ayuda ShiftCoach',
+    'detail.bingeRisk.helpsLi1':
+      'Mantiene el sueño a rumbo: te orienta a dormir lo suficiente y a mejores horarios para tus turnos.',
+    'detail.bingeRisk.helpsLi2':
+      'Ajusta comidas a tu escala: planifica comidas con proteína cuando estás más alerta, no cuando el cuerpo espera dormir.',
+    'detail.bingeRisk.helpsLi3':
+      'Señala ventanas de riesgo: las noches de alto riesgo aparecen en el panel para planificar.',
+    'detail.bingeRisk.helpsLi4':
+      'Fomenta combustible estable: en lugar de ayunar y luego atracar, sugiere comidas pequeñas y regulares.',
+    'detail.bingeRisk.tipsTitle': 'Acciones rápidas si el riesgo es medio o alto',
+    'detail.bingeRisk.tipsLi1':
+      'Come un tentempié planificado (proteína + fibra) antes de llegar a casa tras un turno largo o nocturno.',
+    'detail.bingeRisk.tipsLi2':
+      'Define una hora de "cocina cerrada" para no picar sin fin a altas horas.',
+    'detail.bingeRisk.tipsLi3':
+      'Usa un premio que no sea comida tras el trabajo: ducha, música, paseo, llamada, juego, etc.',
+    'detail.bingeRisk.tipsLi4':
+      'En días libres, prioriza un sueño sólido en lugar de muchas siestas cortas.',
+    'detail.bingeRisk.tipsFooter':
+      'El objetivo no es la perfección: es inclinar la balanza para que los atracones sean fallos puntuales, no tu norma.',
+
     'detail.shiftLag.title': 'Desfase de turnos',
     'detail.recovery.title': 'Puntuación de recuperación',
     'detail.recovery.subtitle': 'Qué tan listos están tu cuerpo y mente para tu próximo turno',
+    'detail.recovery.fact1':
+      'La puntuación de recuperación indica qué tan preparado estás para el estrés, el trabajo y el entrenamiento.',
+    'detail.recovery.fact2':
+      'Se basa en tu sueño, patrón de turnos, actividad y la regularidad de tu horario.',
+    'detail.recovery.fact3':
+      'Puntuación más alta = mejor energía, estado de ánimo y resiliencia en el turno.',
+    'detail.recovery.bandHigh': 'Recuperado',
+    'detail.recovery.bandMedium': 'OK',
+    'detail.recovery.bandLow': 'Tensado',
+    'detail.recovery.whatTitle': '¿Qué es la puntuación de recuperación?',
+    'detail.recovery.whatBody':
+      'Es una vista conjunta de tu sueño, turnos, actividad y alineación circadiana. Te dice qué tan preparados están cuerpo y mente para el estrés, el trabajo y el entrenamiento hoy.',
+    'detail.recovery.whyTitle': 'Por qué importa si trabajas por turnos',
+    'detail.recovery.whyLi1':
+      'Los turnos irregulares dificultan recuperarse del todo entre días y noches.',
+    'detail.recovery.whyLi2':
+      'Una recuperación baja suele verse como más fatiga, antojos y menos concentración.',
+    'detail.recovery.whyLi3':
+      'Seguir la recuperación te ayuda a decidir cuándo exigirte, cuándo frenar o priorizar el descanso.',
+    'detail.recovery.howTitle': 'Cómo Shift Coach calcula tu puntuación',
+    'detail.recovery.howLi1': 'Sueño: horas, calidad y alineación con tu horario.',
+    'detail.recovery.howLi2': 'Turnos: seguidos, intensidad y rotación.',
+    'detail.recovery.howLi3': 'Actividad: movimiento diario y evitar exigirte de más cuando estás fatigado.',
+    'detail.recovery.howLi4': 'Ritmo: qué tan cerca va tu día de tu reloj biológico.',
+    'detail.recovery.howDisclaimer': 'Solo orientación, no consejo médico.',
+    'detail.recovery.improveTitle': 'Cómo mejorar tu puntuación de recuperación',
+    'detail.recovery.improveLi1':
+      'Protege un bloque principal de sueño siempre que puedas, también en noches.',
+    'detail.recovery.improveLi2':
+      'Sigue los avisos de horario de comidas para evitar comidas pesadas en la “noche biológica”.',
+    'detail.recovery.improveLi3':
+      'En días de baja recuperación, elige movimiento más ligero y más descanso.',
+    'detail.recovery.ctaTitle': 'Ver tu puntuación de recuperación en vivo',
+    'detail.recovery.ctaBody':
+      'Consulta la puntuación y las recomendaciones de hoy en el panel principal.',
+
     'detail.wearablesSetup.title': 'Conectar tu wearable',
     'detail.wearablesSetup.howReadsData': 'Cómo ShiftCoach lee tus datos',
     'detail.wearablesSetup.intro1': "ShiftCoach no se comunica directamente con tu reloj. Lee pasos, sueño y actividad de la app de salud de tu móvil a la que tu reloj ya se sincroniza.",
@@ -812,6 +1397,27 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'detail.wearablesSetup.connectGoogleFit': 'Abrir configuración de wearable',
   },
   de: {
+    ...calendarMessagesDe,
+    ...mealTimingCoachDe,
+    ...nutritionSettingsDe,
+    ...moodFocusMessagesDe,
+    ...blogArticleOverridesDe,
+    ...dataPrivacySettingsDe,
+    ...settingsAppearanceDe,
+    ...settingsSubscriptionDe,
+    ...profileSettingsPageDe,
+    ...settingsSupportUiDe,
+    ...wearablesSetupPageExtraDe,
+    ...dashboardBannerMessagesDe,
+    ...dashboardHomeUiMessagesDe,
+    ...appShellMessagesDe,
+    ...activityLogPageDe,
+    ...stepsPageDe,
+    ...heartHealthUiMessagesDe,
+    ...rotaUploadPageDe,
+    ...sleepUiMessagesDe,
+    ...rotaFlowPagesDe,
+    ...accountLegalShellDe,
     'nav.home': 'Start',
     'nav.calendar': 'Dienstplan',
     'nav.blog': 'Blog',
@@ -840,6 +1446,10 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'settings.section.preferences': 'Präferenzen',
     'settings.section.coaching': 'Coaching',
     'settings.section.support': 'Support',
+    'settings.loading': 'Einstellungen werden geladen…',
+    'settings.backAria': 'Zurück',
+    'settings.contactSupport': 'Support kontaktieren',
+    'settings.footerVersion': 'Version {version}',
 
     'settings.wearables.title': 'Wearables',
     'settings.wearables.subtitle': 'Apple Watch, Samsung oder andere Geräte verbinden',
@@ -849,6 +1459,13 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'settings.language.en': 'Englisch',
     'settings.language.es': 'Spanisch',
     'settings.language.de': 'Deutsch',
+    'settings.language.chooseTitle': 'App-Sprache wählen',
+    'settings.language.closePicker': 'Fertig',
+    'settings.language.fallbackProgress': 'Einige Sprachen sind noch in Arbeit.',
+    'settings.language.fallbackEnglish':
+      'Wenn eine Übersetzung fehlt, wird Englisch angezeigt.',
+    'settings.language.fallbackHint':
+      'Spanisch und Deutsch sind am ausführlichsten. Französisch, Portugiesisch (Brasilien) und Polnisch werden in Batches ergänzt; Rechtstexte und manche Langseiten können vorerst Englisch bleiben. Andere Listen-Sprachen nutzen englische UI.',
 
     'splash.tagline': 'Die einzige App für Gesundheit und Wohlbefinden von Schichtarbeitern',
     'splash.audience': 'Für Pflegekräfte, Rettungssanitäter, Wachleute, Köche und Operatoren.',
@@ -890,6 +1507,19 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'auth.signUp.tryAgain': 'nochmal versuchen',
     'auth.signUp.alreadyConfirmed': 'Bereits bestätigt? Anmelden',
     'auth.signUp.loading': 'Registrierung wird vorbereitet…',
+    'auth.language.label': 'App-Sprache',
+    'auth.language.hint': 'Du kannst sie jederzeit unter Einstellungen ändern.',
+    'auth.reset.title': 'Passwort zurücksetzen',
+    'auth.reset.emailPlaceholder': 'E-Mail',
+    'auth.reset.submit': 'Link senden',
+    'auth.reset.sending': 'Wird gesendet…',
+    'auth.reset.success': 'Prüfe deine E-Mail für den Link zum Zurücksetzen.',
+    'auth.updatePassword.title': 'Neues Passwort festlegen',
+    'auth.updatePassword.passwordPlaceholder': 'Neues Passwort',
+    'auth.updatePassword.hint': 'Mindestens 6 Zeichen',
+    'auth.updatePassword.submit': 'Passwort aktualisieren',
+    'auth.updatePassword.updating': 'Wird aktualisiert…',
+    'auth.updatePassword.success': 'Passwort aktualisiert. Weiterleitung…',
 
     'onboarding.title': 'Willkommen bei ShiftCoach',
     'onboarding.subtitle': 'Richte dein Profil ein',
@@ -969,6 +1599,8 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'welcome.todayOff': 'Heute (frei)',
     'welcome.todayDay': 'Heutige Tagesschicht',
     'welcome.today': 'Heute',
+    'welcome.logoAlt': 'ShiftCoach',
+    'welcome.kcalUnit': 'kcal',
 
     'dashboard.loading': 'ShiftCoach-Dashboard wird vorbereitet…',
     'dashboard.homeLabel': 'Start',
@@ -990,6 +1622,10 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'dashboard.bodyClock.unlockHint': 'Trage ein paar Nächte Schlaf ein und füge deine Schichten hinzu, um den Body-Clock-Score zu entsperren.',
     'dashboard.bodyClock.calculatedFrom': 'Berechnet aus deinem letzten Schlaf, Schichtmuster und Licht der letzten Tage.',
     'dashboard.bodyClock.openAria': 'Body-Clock-Seite öffnen',
+    'dashboard.bodyClock.statusShortLearning': 'Lernt deinen Rhythmus',
+    'dashboard.bodyClock.statusShortWellAligned': 'Gut im Einklang',
+    'dashboard.bodyClock.statusShortSlightlyOut': 'Leicht aus dem Takt',
+    'dashboard.bodyClock.statusShortMisaligned': 'Aus dem Takt',
     'dashboard.lastSync.notYet': 'Letzte Sync: noch nicht',
     'dashboard.lastSync.justNow': 'Letzte Sync: gerade eben',
     'dashboard.lastSync.minAgo': 'Letzte Sync: vor {n} Min.',
@@ -1132,14 +1768,162 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'detail.bodyClock.warningOutOfSync': 'Deine Körperuhr war an den meisten Tagen aus dem Takt – behandle die nächsten Tage wo möglich als Erholung und prüfe dein Schichtmuster.',
     'detail.bodyClock.warningQuiteFew': 'Einige Tage außer Takt – achte auf Nachtschicht-Blöcke, frühe Starts und fragmentierten Schlaf.',
 
+    'detail.fatigueRisk.title': 'Ermüdungsrisiko',
+    'detail.fatigueRisk.fallbackExplanation':
+      'Das Ermüdungsrisiko aktualisiert sich, wenn Schlaf-, Schicht- und Rhythmusdaten synchronisiert werden.',
+    'detail.fatigueRisk.fallbackDriver':
+      'Trage weiter Schlaf und Schichten ein, um persönliche Ermüdungsfaktoren freizuschalten.',
+    'detail.fatigueRisk.confidenceSuffix': 'Vertrauen',
+    'detail.fatigueRisk.currentWindow': 'Aktuelles Fenster',
+    'detail.fatigueRisk.axisLow': 'Niedrig',
+    'detail.fatigueRisk.axisHigh': 'Hoch',
+    'detail.fatigueRisk.todayCurve': 'Heutige Ermüdungskurve',
+    'detail.fatigueRisk.liveEstimate': 'Live-Schätzung',
+    'detail.fatigueRisk.curveFootnote':
+      'Das Risiko ist nach erholsamem Schlaf am niedrigsten und steigt in späten biologischen Nachtstunden.',
+    'detail.fatigueRisk.driversTitle': 'Was dein Risiko treibt',
+    'detail.fatigueRisk.howToLowerTitle': 'So senkst du das Ermüdungsrisiko',
+    'detail.fatigueRisk.tip1Title': 'Schlaf nach der Schicht schützen',
+    'detail.fatigueRisk.tip1Body':
+      'Plane direkt nach der Schicht einen Erholungsschlaf, um den nächsten Risikogipfel zu dämpfen.',
+    'detail.fatigueRisk.tip2Title': 'Vorschicht-Nickerchen bei Bedarf',
+    'detail.fatigueRisk.tip2Body':
+      'Ein kurzer Schlaf vor dem nächsten Dienst kann die Belastung bei Folgeschichten verringern.',
+    'detail.fatigueRisk.tip3Title': 'Fenster 02:00–06:00 im Blick',
+    'detail.fatigueRisk.tip3Body':
+      'Das ist deine höchstrisikoreiche Zeit – sei vorsichtig beim Fahren, bei Entscheidungen und bei der Belastung.',
+    'detail.fatigueRisk.levelLow': 'Niedrig',
+    'detail.fatigueRisk.levelModerate': 'Mittel',
+    'detail.fatigueRisk.levelHigh': 'Hoch',
+    'detail.fatigueRisk.confidenceLow': 'Niedrig',
+    'detail.fatigueRisk.confidenceMedium': 'Mittel',
+    'detail.fatigueRisk.confidenceHigh': 'Hoch',
+
     'detail.shiftRhythm.title': 'Schichtrhythmus',
     'detail.adjustedCalories.title': 'Angepasste Kalorien',
     'detail.heartHealth.title': 'Herzgesundheit',
-    'detail.hydration.title': 'Hydration',
+    'detail.hydration.title': 'Wasser & Hydration',
+    'detail.hydration.todaysGoal': 'Heutiges Wasserziel',
+    'detail.hydration.selected': 'Ausgewählt',
+    'detail.hydration.litreSuffix': 'L',
+    'detail.hydration.ariaIncrease': 'Wasser erhöhen',
+    'detail.hydration.ariaDecrease': 'Wasser verringern',
+    'detail.hydration.ariaLogLitres': '{n} Liter eintragen',
+    'detail.hydration.jugHelp':
+      'Stell dir deine Wasserkanne vor. Tippe eine Marke oder nutze die Pfeile, bis es zu dem passt, was du heute schon getrunken hast.',
+    'detail.hydration.motivationEmpty': 'Fang mit einem kleinen Glas an und steigere dich.',
+    'detail.hydration.motivationLow': 'Guter Start – jeder Schluck hilft Energie und Fokus.',
+    'detail.hydration.motivationMid': 'Läuft gut – füll die Kanne weiter auf.',
+    'detail.hydration.motivationHigh': 'Super – du bist nah am heutigen Ziel.',
+    'detail.hydration.motivationFull': 'Fast geschafft – starke Routine bei der Hydration.',
+    'detail.hydration.whyTitle': 'Warum das bei Schichten wichtig ist',
+    'detail.hydration.whyP1':
+      'Lange und Nachtschichten, helles Licht und Koffein machen leichte Dehydration leichter unbemerkt. Das kann Energie, Fokus und Erholung beeinträchtigen.',
+    'detail.hydration.whyP2':
+      'Das Tagesziel ist die Summe über den Tag, nicht auf einmal trinken. Verteile kleine Mengen vor, während und nach der Schicht.',
+    'detail.hydration.weeklyTitle': 'Hydration letzte 7 Tage',
+    'detail.hydration.weeklySub': 'Balken: getrunken vs. Tagesziel.',
+
     'detail.bingeRisk.title': 'Binge-Risiko',
+    'detail.bingeRisk.scoreLabel': 'Wert',
+    'detail.bingeRisk.bandLow': 'Niedriges Risiko',
+    'detail.bingeRisk.bandMedium': 'Mittleres Risiko',
+    'detail.bingeRisk.bandHigh': 'Hohes Risiko',
+    'detail.bingeRisk.levelLow': 'Niedrig',
+    'detail.bingeRisk.levelMedium': 'Mittel',
+    'detail.bingeRisk.levelHigh': 'Hoch',
+    'detail.bingeRisk.headlineLow': 'Heißhunger relativ stabil',
+    'detail.bingeRisk.headlineMedium': 'Heißhunger eher bei müden Schichten',
+    'detail.bingeRisk.headlineHigh': 'Hohes Risiko für starke Gelüste und Essattacken',
+    'detail.bingeRisk.explainerDefault':
+      'Basierend auf deinem letzten Schlaf, Schichten und Gewohnheiten schätzt dies, wie wahrscheinlich starke Gelüste oder Essattacken in den nächsten ein bis zwei Tagen sind.',
+    'detail.bingeRisk.sectionKicker': 'Binge-Risiko im Schichtalltag',
+    'detail.bingeRisk.noRecentData': 'Keine aktuellen Daten',
+    'detail.bingeRisk.driversTitle': 'Haupttreiber diese Woche',
+    'detail.bingeRisk.factsLine1':
+      'Das Binge-Risiko schätzt die Wahrscheinlichkeit von Überessen anhand von Schlaf, Schichten und aktuellen Gewohnheiten.',
+    'detail.bingeRisk.factsLine2':
+      'Niedrig = stabil. Mittel = Auslöser im Blick. Hoch = extra Unterstützung und Planung.',
+    'detail.bingeRisk.colorsTitle': 'Was die Farben bedeuten',
+    'detail.bingeRisk.colorLow': 'Niedrig',
+    'detail.bingeRisk.colorLowDesc': 'Ausgewogenes, stabiles Muster.',
+    'detail.bingeRisk.colorMedium': 'Mittel',
+    'detail.bingeRisk.colorMediumDesc':
+      'Einige Warnsignale – sei bei Mahlzeiten, Schlaf und Koffein bewusster.',
+    'detail.bingeRisk.colorHigh': 'Hoch',
+    'detail.bingeRisk.colorHighDesc':
+      'Dein Körper läuft auf Reserve – plane jetzt Unterstützung und Erholung.',
+    'detail.bingeRisk.axisLow': 'Niedrig',
+    'detail.bingeRisk.axisHigh': 'Hoch',
+    'detail.bingeRisk.whyTitle': 'Warum Schichtarbeitende eher „bingen“',
+    'detail.bingeRisk.whyLi1':
+      'Schlafschuld: weniger Schlaf = mehr Hungerhormon (Ghrelin) und weniger „satt“-Signal (Leptin).',
+    'detail.bingeRisk.whyLi2':
+      'Zirkadianer Konflikt: Essen um 3–4 Uhr nachts, wenn der Körper Schlaf erwartet, steigert Junk-Gelüste und Fett speichern.',
+    'detail.bingeRisk.whyLi3':
+      'Stress & Emotion: lange, volle Schichten ohne Pausen machen Essen zur einfachsten Belohnung.',
+    'detail.bingeRisk.whyLi4':
+      'Umgebung: Automaten, Lieferdienste und Energy-Drinks sind nachts immer verfügbar.',
+    'detail.bingeRisk.helpsTitle': 'So hilft dir ShiftCoach',
+    'detail.bingeRisk.helpsLi1':
+      'Hält den Schlaf im Blick: mehr Schlaf und besseres Timing zu deinen Schichten.',
+    'detail.bingeRisk.helpsLi2':
+      'Zeitliche Mahlzeiten zur Rota: proteinreiche Mahlzeiten, wenn du wach bist – nicht, wenn der Körper Schlaf erwartet.',
+    'detail.bingeRisk.helpsLi3':
+      'Markiert Risiko-Fenster: riskante Nächte erscheinen im Dashboard zum Vorplanen.',
+    'detail.bingeRisk.helpsLi4':
+      'Fördert gleichmäßige Energie: statt Hungern und dann Essattacken kleine, regelmäßige Mahlzeiten.',
+    'detail.bingeRisk.tipsTitle': 'Schnelle Maßnahmen bei mittlerem oder hohem Risiko',
+    'detail.bingeRisk.tipsLi1':
+      'Plane einen Snack (Protein + Ballaststoffe), bevor du nach einer langen oder Nachtschicht nach Hause kommst.',
+    'detail.bingeRisk.tipsLi2':
+      'Setze eine „Küche zu“-Zeit, damit du nachts nicht dauernd snackst.',
+    'detail.bingeRisk.tipsLi3':
+      'Belohne dich ohne Essen: Dusche, Musik, kurzer Spaziergang, Anruf, Spiel usw.',
+    'detail.bingeRisk.tipsLi4':
+      'An freien Tagen lieber ein fester Schlafblock als viele Mini-Schläfchen.',
+    'detail.bingeRisk.tipsFooter':
+      'Es geht nicht um Perfektion – sondern die Chancen zu verbessern, damit Essattacken seltene Ausreißer bleiben, nicht die Regel.',
+
     'detail.shiftLag.title': 'Schichtlag',
     'detail.recovery.title': 'Erholungswert',
     'detail.recovery.subtitle': 'Wie bereit Körper und Geist für deine nächste Schicht sind',
+    'detail.recovery.fact1':
+      'Der Erholungswert zeigt, wie gut du Stress, Arbeit und Training verkraften kannst.',
+    'detail.recovery.fact2':
+      'Er basiert auf Schlaf, Schichtmuster, Aktivität und wie regelmäßig dein Tagesablauf ist.',
+    'detail.recovery.fact3':
+      'Höherer Wert = mehr Energie, bessere Stimmung und mehr Widerstandskraft auf der Schicht.',
+    'detail.recovery.bandHigh': 'Erholt',
+    'detail.recovery.bandMedium': 'OK',
+    'detail.recovery.bandLow': 'Angespannt',
+    'detail.recovery.whatTitle': 'Was ist der Erholungswert?',
+    'detail.recovery.whatBody':
+      'Er fasst Schlaf, Schichtmuster, Aktivität und zirkadiane Passung zusammen und zeigt, wie vorbereitet Körper und Geist heute auf Stress, Arbeit und Training sind.',
+    'detail.recovery.whyTitle': 'Warum das für Schichtarbeitende wichtig ist',
+    'detail.recovery.whyLi1':
+      'Unregelmäßige Schichten erschweren volle Erholung zwischen Tag und Nacht.',
+    'detail.recovery.whyLi2':
+      'Geringe Erholung zeigt sich oft als mehr Müdigkeit, Heißhunger und weniger Fokus.',
+    'detail.recovery.whyLi3':
+      'Erholung zu tracken hilft zu entscheiden, wann du pushen, zurücknehmen oder Ruhe priorisierst.',
+    'detail.recovery.howTitle': 'So berechnet Shift Coach deinen Wert',
+    'detail.recovery.howLi1': 'Schlaf: Dauer, Qualität und Passung zum Plan.',
+    'detail.recovery.howLi2': 'Schichten: Anzahl hintereinander, Intensität und Wechsel.',
+    'detail.recovery.howLi3': 'Aktivität: tägliche Bewegung und weniger Überlastung bei Müdigkeit.',
+    'detail.recovery.howLi4': 'Rhythmus: wie nah dein Tag am inneren Takt liegt.',
+    'detail.recovery.howDisclaimer': 'Nur Orientierung, keine medizinische Beratung.',
+    'detail.recovery.improveTitle': 'So verbesserst du deinen Erholungswert',
+    'detail.recovery.improveLi1':
+      'Schütze einen Hauptschlafblock wann immer möglich – auch nach Nächten.',
+    'detail.recovery.improveLi2':
+      'Folge Mahlzeiten-Hinweisen und vermeide schwere Mahlzeiten in der biologischen Nacht.',
+    'detail.recovery.improveLi3':
+      'Bei niedriger Erholung: leichtere Bewegung und mehr Regeneration.',
+    'detail.recovery.ctaTitle': 'Live-Erholungswert ansehen',
+    'detail.recovery.ctaBody':
+      'Sieh dir den Wert und die Hinweise von heute auf dem Haupt-Dashboard an.',
+
     'detail.wearablesSetup.title': 'Wearable verbinden',
     'detail.wearablesSetup.howReadsData': 'Wie ShiftCoach deine Daten liest',
     'detail.wearablesSetup.intro1': "ShiftCoach spricht nicht direkt mit deiner Uhr. Stattdessen liest es Schritte, Schlaf und Aktivität aus der Gesundheits-App auf deinem Handy, mit der deine Uhr bereits synchronisiert.",
@@ -1179,12 +1963,126 @@ const messages: Record<SupportedLanguage, Record<string, string>> = {
     'detail.wearablesSetup.notConnectedWhy': 'ShiftCoach braucht Zugriff auf dein Wearable, um Schritte und Schlaf zu lesen. Verbinde Samsung Health (oder deine Uhren-App) mit Health Connect auf Android oder nutze Apple Health auf dem iPhone.',
     'detail.wearablesSetup.connectGoogleFit': 'Wearable-Einrichtung öffnen',
   },
+
+  fr: {
+    ...batch1Fr,
+    ...calendarMessagesFr,
+    ...mealTimingCoachFr,
+    ...nutritionSettingsFr,
+    ...moodFocusMessagesFr,
+    ...blogArticleOverridesFr,
+    ...dataPrivacySettingsFr,
+    ...settingsAppearanceFr,
+    ...settingsSubscriptionFr,
+    ...profileSettingsPageFr,
+    ...settingsSupportUiFr,
+    ...wearablesSetupPageExtraFr,
+    ...dashboardBannerMessagesFr,
+    ...dashboardHomeUiMessagesFr,
+    ...appShellMessagesFr,
+    ...activityLogPageFr,
+    ...stepsPageFr,
+    ...heartHealthUiMessagesFr,
+    ...rotaUploadPageFr,
+    ...sleepUiMessagesFr,
+    ...rotaFlowPagesFr,
+    ...accountLegalShellFr,
+    'settings.loading': 'Chargement des réglages…',
+    'settings.backAria': 'Retour',
+    'settings.contactSupport': 'Contacter le support',
+    'settings.footerVersion': 'Version {version}',
+    'dashboard.bodyClock.statusShortLearning': 'Apprentissage de votre rythme',
+    'dashboard.bodyClock.statusShortWellAligned': 'Bien aligné',
+    'dashboard.bodyClock.statusShortSlightlyOut': 'Légèrement décalé',
+    'dashboard.bodyClock.statusShortMisaligned': 'Désaligné',
+  },
+  'pt-BR': {
+    ...batch1PtBR,
+    ...calendarMessagesPtBR,
+    ...mealTimingCoachPtBR,
+    ...nutritionSettingsPtBR,
+    ...moodFocusMessagesPtBR,
+    ...blogArticleOverridesPtBR,
+    ...dataPrivacySettingsPtBR,
+    ...settingsAppearancePtBR,
+    ...settingsSubscriptionPtBR,
+    ...profileSettingsPagePtBR,
+    ...settingsSupportUiPtBR,
+    ...wearablesSetupPageExtraPtBR,
+    ...dashboardBannerMessagesPtBR,
+    ...dashboardHomeUiMessagesPtBR,
+    ...appShellMessagesPtBR,
+    ...activityLogPagePtBR,
+    ...stepsPagePtBR,
+    ...heartHealthUiMessagesPtBR,
+    ...rotaUploadPagePtBR,
+    ...sleepUiMessagesPtBR,
+    ...rotaFlowPagesPtBR,
+    ...accountLegalShellPtBR,
+    'settings.loading': 'Carregando configurações…',
+    'settings.backAria': 'Voltar',
+    'settings.contactSupport': 'Falar com o suporte',
+    'settings.footerVersion': 'Versão {version}',
+    'dashboard.bodyClock.statusShortLearning': 'Aprendendo seu ritmo',
+    'dashboard.bodyClock.statusShortWellAligned': 'Bem alinhado',
+    'dashboard.bodyClock.statusShortSlightlyOut': 'Levemente fora de sincronia',
+    'dashboard.bodyClock.statusShortMisaligned': 'Fora de alinhamento',
+  },
+  pl: {
+    ...batch1Pl,
+    ...calendarMessagesPl,
+    ...mealTimingCoachPl,
+    ...nutritionSettingsPl,
+    ...moodFocusMessagesPl,
+    ...blogArticleOverridesPl,
+    ...dataPrivacySettingsPl,
+    ...settingsAppearancePl,
+    ...settingsSubscriptionPl,
+    ...profileSettingsPagePl,
+    ...settingsSupportUiPl,
+    ...wearablesSetupPageExtraPl,
+    ...dashboardBannerMessagesPl,
+    ...dashboardHomeUiMessagesPl,
+    ...appShellMessagesPl,
+    ...activityLogPagePl,
+    ...stepsPagePl,
+    ...heartHealthUiMessagesPl,
+    ...rotaUploadPagePl,
+    ...sleepUiMessagesPl,
+    ...rotaFlowPagesPl,
+    ...accountLegalShellPl,
+    'settings.loading': 'Ładowanie ustawień…',
+    'settings.backAria': 'Wstecz',
+    'settings.contactSupport': 'Kontakt z pomocą',
+    'settings.footerVersion': 'Wersja {version}',
+    'dashboard.bodyClock.statusShortLearning': 'Poznajemy twój rytm',
+    'dashboard.bodyClock.statusShortWellAligned': 'Dobrze zsynchronizowany',
+    'dashboard.bodyClock.statusShortSlightlyOut': 'Lekko rozstrojony',
+    'dashboard.bodyClock.statusShortMisaligned': 'Rozstrojony',
+  },
+}
+
+export type TranslationParams = Record<string, string | number | undefined>
+
+function interpolate(template: string, params?: TranslationParams): string {
+  if (!params) return template
+  let s = template
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined) continue
+    s = s.split(`{${k}}`).join(String(v))
+  }
+  return s
 }
 
 export function useTranslation() {
   const { language } = useLanguage()
   const t = useCallback(
-    (key: string) => messages[language]?.[key] ?? messages.en[key] ?? key,
+    (key: string, params?: TranslationParams) => {
+      const effective = resolveEffectiveAppLocale(language)
+      const raw =
+        messageBundles[effective]?.[key] ?? messageBundles.en[key] ?? key
+      return interpolate(raw, params)
+    },
     [language],
   )
   return useMemo(() => ({ t }), [t])

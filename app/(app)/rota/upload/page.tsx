@@ -2,15 +2,10 @@
 
 import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslation, useLanguage } from '@/components/providers/language-provider'
+import { LOCALE_META } from '@/lib/i18n/supportedLocales'
 
-const shiftLengthOptions = [
-  { id: '8h', label: '8-hour' },
-  { id: '12h', label: '12-hour' },
-  { id: '16h', label: '16-hour / long' },
-  { id: 'other', label: 'Custom' },
-] as const
-
-type ShiftLengthType = (typeof shiftLengthOptions)[number]['id']
+type ShiftLengthType = '8h' | '12h' | '16h' | 'other'
 
 type PresetPatternId =
   | '5on2off_8h'
@@ -47,22 +42,6 @@ type CalendarDay = {
   color: string
 }
 
-const patternLabels: Record<PresetPatternId, string> = {
-  '5on2off_8h': '5 on / 2 off (8h)',
-  '4on3off_8h': '4 on / 3 off (8h)',
-  continental_8h: 'Continental 8h',
-  '3223_8h': '3-2-2-3 (8h)',
-  '4on4off_12h': '4 on / 4 off (12h)',
-  '223_12h': '2-2-3 (Panama)',
-  dupont_12h: 'DuPont 12h',
-  '3on3off_12h': '3 on / 3 off (12h)',
-  '5on5off_12h': '5 on / 5 off (12h)',
-  '16h_2on2off': '2 on / 2 off (16h)',
-  '16h_6on4off': '6 on / 4 off (16h)',
-  '24on48off': '24 on / 48 off',
-  custom: 'Custom pattern',
-}
-
 const patternCatalog: Record<ShiftLengthType, PresetPatternId[]> = {
   '8h': ['5on2off_8h', '4on3off_8h', 'continental_8h', '3223_8h'],
   '12h': ['4on4off_12h', '223_12h', 'dupont_12h', '3on3off_12h', '5on5off_12h'],
@@ -85,8 +64,8 @@ function generateMockRotaMonth(
   primaryColor: string,
   nightColor: string,
   offColor: string,
+  cellLabels: { D: string; N: string; O: string; A: string },
 ): CalendarDay[] {
-  const first = new Date(year, month, 1)
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const pattern: Array<'D' | 'N' | 'O' | 'A'> = (() => {
     switch (patternId) {
@@ -123,16 +102,16 @@ function generateMockRotaMonth(
   for (let i = 0; i < daysInMonth; i++) {
     const date = new Date(year, month, i + 1)
     const code = pattern[i % pattern.length]
-    let label = 'Day'
+    let label = cellLabels.D
     let color = primaryColor
     if (code === 'N') {
-      label = 'Night'
+      label = cellLabels.N
       color = nightColor
     } else if (code === 'O') {
-      label = 'Off'
+      label = cellLabels.O
       color = offColor
     } else if (code === 'A') {
-      label = 'Late'
+      label = cellLabels.A
     }
     days.push({ date, label, code, color })
   }
@@ -141,7 +120,49 @@ function generateMockRotaMonth(
 }
 
 export default function UploadRotaPage() {
+  const { t } = useTranslation()
+  const { language } = useLanguage()
   const router = useRouter()
+
+  const shiftLengthOptions = useMemo(
+    () =>
+      [
+        { id: '8h' as const, label: t('rotaUpload.shiftLen.8h') },
+        { id: '12h' as const, label: t('rotaUpload.shiftLen.12h') },
+        { id: '16h' as const, label: t('rotaUpload.shiftLen.16h') },
+        { id: 'other' as const, label: t('rotaUpload.shiftLen.other') },
+      ] as const,
+    [t],
+  )
+
+  const patternLabels = useMemo(
+    (): Record<PresetPatternId, string> => ({
+      '5on2off_8h': t('rotaUpload.pattern.5on2off_8h'),
+      '4on3off_8h': t('rotaUpload.pattern.4on3off_8h'),
+      continental_8h: t('rotaUpload.pattern.continental_8h'),
+      '3223_8h': t('rotaUpload.pattern.3223_8h'),
+      '4on4off_12h': t('rotaUpload.pattern.4on4off_12h'),
+      '223_12h': t('rotaUpload.pattern.223_12h'),
+      dupont_12h: t('rotaUpload.pattern.dupont_12h'),
+      '3on3off_12h': t('rotaUpload.pattern.3on3off_12h'),
+      '5on5off_12h': t('rotaUpload.pattern.5on5off_12h'),
+      '16h_2on2off': t('rotaUpload.pattern.16h_2on2off'),
+      '16h_6on4off': t('rotaUpload.pattern.16h_6on4off'),
+      '24on48off': t('rotaUpload.pattern.24on48off'),
+      custom: t('rotaUpload.pattern.custom'),
+    }),
+    [t],
+  )
+
+  const cellLabels = useMemo(
+    () => ({
+      D: t('rotaUpload.cell.day'),
+      N: t('rotaUpload.cell.night'),
+      O: t('rotaUpload.cell.off'),
+      A: t('rotaUpload.cell.late'),
+    }),
+    [t],
+  )
 
   const [selectedShiftLength, setSelectedShiftLength] = useState<ShiftLengthType>('12h')
   const [selectedPatternId, setSelectedPatternId] = useState<PresetPatternId>('4on4off_12h')
@@ -182,15 +203,30 @@ export default function UploadRotaPage() {
         primaryShiftColor,
         nightShiftColor,
         offDayColor,
+        cellLabels,
       ),
-    [selectedPatternId, primaryShiftColor, nightShiftColor, offDayColor],
+    [selectedPatternId, primaryShiftColor, nightShiftColor, offDayColor, cellLabels],
   )
 
-  const weekDayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const weekDayLabels = useMemo(
+    () => [
+      t('rotaUpload.calD0'),
+      t('rotaUpload.calD1'),
+      t('rotaUpload.calD2'),
+      t('rotaUpload.calD3'),
+      t('rotaUpload.calD4'),
+      t('rotaUpload.calD5'),
+      t('rotaUpload.calD6'),
+    ],
+    [t],
+  )
 
   const availablePatterns = patternCatalog[selectedShiftLength]
 
-  const monthTitle = today.toLocaleString('default', { month: 'long', year: 'numeric' })
+  const monthTitle = today.toLocaleString(LOCALE_META[language].intl, {
+    month: 'long',
+    year: 'numeric',
+  })
 
   const handleAddTag = () => {
     if (!newTagLabel.trim()) return
@@ -208,19 +244,19 @@ export default function UploadRotaPage() {
 
   const handleUploadClick = () => {
     setPhotoFileName('rota-photo.jpg')
-    alert('Photo upload & AI parsing will be added later.')
+    alert(t('rotaUpload.alert.photoLater'))
   }
 
   const handleImportSelect = (source: 'google' | 'apple' | 'other') => {
     setImportSource(source)
-    alert('Calendar import will be added later.')
+    alert(t('rotaUpload.alert.importLater'))
   }
 
   const handleSave = () => {
     setIsSaving(true)
     setTimeout(() => {
       setIsSaving(false)
-      alert('Rota saved locally. Hook this to Supabase later.')
+      alert(t('rotaUpload.alert.savedLocal'))
       router.push('/dashboard?tab=rota')
     }, 600)
   }
@@ -242,18 +278,21 @@ export default function UploadRotaPage() {
                 : 'border border-[var(--border-subtle)] bg-[var(--card-subtle)] text-[var(--text-soft)]'
             }`}
           >
-            {option} min
+            {t('rotaUpload.minChip', { n: option })}
           </button>
         )
       })}
     </div>
   )
 
-  const steps = [
-    { id: 1, label: 'Upload & pattern' },
-    { id: 2, label: 'Preview & colours' },
-    { id: 3, label: 'Save & sync' },
-  ]
+  const steps = useMemo(
+    () => [
+      { id: 1, label: t('rotaUpload.step1') },
+      { id: 2, label: t('rotaUpload.step2') },
+      { id: 3, label: t('rotaUpload.step3') },
+    ],
+    [t],
+  )
 
   return (
     <main className="min-h-screen bg-[var(--page-bg)] pb-24">
@@ -268,8 +307,8 @@ export default function UploadRotaPage() {
               ←
             </button>
             <div className="text-center">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.34em] text-slate-400">Shift rota setup</p>
-              <h1 className="text-sm font-semibold text-[var(--text-main)]">Upload rota</h1>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.34em] text-slate-400">{t('rotaUpload.headerKicker')}</p>
+              <h1 className="text-sm font-semibold text-[var(--text-main)]">{t('rotaUpload.title')}</h1>
             </div>
             <span className="flex h-9 w-9 items-center justify-center rounded-full border border-transparent text-[18px] text-slate-300">?</span>
           </header>
@@ -301,15 +340,15 @@ export default function UploadRotaPage() {
           >
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-sky-500">Live preview</span>
-                <h2 className="text-sm font-semibold text-[var(--text-main)]">Rota preview</h2>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-sky-500">{t('rotaUpload.livePreview')}</span>
+                <h2 className="text-sm font-semibold text-[var(--text-main)]">{t('rotaUpload.rotaPreview')}</h2>
               </div>
               <span className="rounded-full bg-[var(--card-subtle)] px-2 py-1 text-[10px] font-medium text-[var(--text-soft)]">{monthTitle}</span>
             </div>
             <div className="mb-3 flex gap-3 text-[10px] text-[var(--text-soft)]">
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: primaryShiftColor }} /> Day</span>
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: nightShiftColor }} /> Night</span>
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: offDayColor }} /> Off</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: primaryShiftColor }} /> {t('rotaUpload.legend.day')}</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: nightShiftColor }} /> {t('rotaUpload.legend.night')}</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: offDayColor }} /> {t('rotaUpload.legend.off')}</span>
             </div>
             <div className="grid grid-cols-7 gap-2 text-center text-[10px] text-[var(--text-soft)]">
               {weekDayLabels.map((label) => (
@@ -336,8 +375,8 @@ export default function UploadRotaPage() {
           <section className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] p-5 shadow-[0_20px_48px_rgba(15,23,42,0.09)]">
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-500">For shift workers</span>
-                <h2 className="mt-1 text-sm font-semibold text-[var(--text-main)]">Shift pattern presets</h2>
+                <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-500">{t('rotaUpload.forShiftWorkers')}</span>
+                <h2 className="mt-1 text-sm font-semibold text-[var(--text-main)]">{t('rotaUpload.presetsTitle')}</h2>
               </div>
               <div className="flex items-center gap-2">
                 {shiftLengthOptions.map((option) => {
@@ -379,7 +418,7 @@ export default function UploadRotaPage() {
                   >
                     <span>{patternLabels[patternId]}</span>
                     <p className={`mt-1 text-[10px] ${active ? 'text-white/70' : 'text-[var(--text-soft)]'}`}>
-                      Rotates automatically across the month.
+                      {t('rotaUpload.patternRotates')}
                     </p>
                   </button>
                 )
@@ -390,8 +429,8 @@ export default function UploadRotaPage() {
           <section className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] p-5 shadow-[0_20px_48px_rgba(15,23,42,0.09)]">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 className="text-sm font-semibold text-[var(--text-main)]">Colours & custom days</h2>
-                <p className="text-[11px] text-[var(--text-soft)]">Fine-tune how your shifts appear across ShiftCoach.</p>
+                <h2 className="text-sm font-semibold text-[var(--text-main)]">{t('rotaUpload.coloursTitle')}</h2>
+                <p className="text-[11px] text-[var(--text-soft)]">{t('rotaUpload.coloursSubtitle')}</p>
               </div>
             </div>
             <div className="mb-4 flex flex-wrap gap-2">
@@ -401,7 +440,7 @@ export default function UploadRotaPage() {
                 className="flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-main)]"
               >
                 <span className="h-4 w-4 rounded-full" style={{ backgroundColor: primaryShiftColor }} />
-                Day shift
+                {t('rotaUpload.dayShift')}
               </button>
               <button
                 type="button"
@@ -409,7 +448,7 @@ export default function UploadRotaPage() {
                 className="flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-main)]"
               >
                 <span className="h-4 w-4 rounded-full" style={{ backgroundColor: nightShiftColor }} />
-                Night shift
+                {t('rotaUpload.nightShift')}
               </button>
               <button
                 type="button"
@@ -417,7 +456,7 @@ export default function UploadRotaPage() {
                 className="flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-main)]"
               >
                 <span className="h-4 w-4 rounded-full" style={{ backgroundColor: offDayColor }} />
-                Days Off
+                {t('rotaUpload.daysOff')}
               </button>
               <input
                 ref={dayColorInputRef}
@@ -445,15 +484,15 @@ export default function UploadRotaPage() {
             <div className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--card-subtle)] p-4">
               <div className="mb-3 flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-semibold text-[var(--text-main)]">Custom day tags</p>
-                  <p className="text-[11px] text-[var(--text-soft)]">Add holidays, training blocks or social events.</p>
+                  <p className="text-xs font-semibold text-[var(--text-main)]">{t('rotaUpload.customTagsTitle')}</p>
+                  <p className="text-[11px] text-[var(--text-soft)]">{t('rotaUpload.customTagsSubtitle')}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowAddTag((prev) => !prev)}
                   className="rounded-full border border-[var(--border-subtle)] bg-[var(--card)] px-3 py-1 text-[11px] font-medium text-[var(--text-main)]"
                 >
-                  {showAddTag ? 'Close' : 'Add custom day'}
+                  {showAddTag ? t('rotaUpload.close') : t('rotaUpload.addCustomDay')}
                 </button>
               </div>
 
@@ -483,7 +522,7 @@ export default function UploadRotaPage() {
                     <input
                       value={newTagLabel}
                       onChange={(event) => setNewTagLabel(event.target.value)}
-                      placeholder="Label (e.g. Holiday)"
+                      placeholder={t('rotaUpload.tagLabelPh')}
                       className="flex-1 rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-1.5 text-xs text-[var(--text-main)] focus:outline-none"
                     />
                     <button
@@ -491,7 +530,7 @@ export default function UploadRotaPage() {
                       onClick={() => newTagColorRef.current?.click()}
                       className="flex h-9 w-24 items-center justify-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] text-xs font-medium text-[var(--text-main)]"
                     >
-                      <span className="h-3 w-3 rounded-full" style={{ backgroundColor: newTagColor }} /> Color
+                      <span className="h-3 w-3 rounded-full" style={{ backgroundColor: newTagColor }} /> {t('rotaUpload.color')}
                     </button>
                     <input
                       ref={newTagColorRef}
@@ -504,7 +543,7 @@ export default function UploadRotaPage() {
                   <input
                     value={newTagIcon}
                     onChange={(event) => setNewTagIcon(event.target.value)}
-                    placeholder="Emoji (optional)"
+                    placeholder={t('rotaUpload.emojiPh')}
                     className="mb-3 w-full rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-1.5 text-xs text-[var(--text-main)] focus:outline-none"
                   />
                   <div className="flex justify-end gap-2 text-xs font-medium">
@@ -518,14 +557,14 @@ export default function UploadRotaPage() {
                       }}
                       className="rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-4 py-1.5 text-[var(--text-soft)]"
                     >
-                      Cancel
+                      {t('rotaUpload.cancel')}
                     </button>
                     <button
                       type="button"
                       onClick={handleAddTag}
                       className="rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 px-4 py-1.5 text-white shadow-sm"
                     >
-                      Save tag
+                      {t('rotaUpload.saveTag')}
                     </button>
                   </div>
                 </div>
@@ -534,26 +573,26 @@ export default function UploadRotaPage() {
           </section>
 
           <section className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] p-5 shadow-[0_20px_48px_rgba(15,23,42,0.09)]">
-            <h2 className="text-sm font-semibold text-[var(--text-main)]">Upload rota or import</h2>
-            <p className="mb-4 text-[11px] text-[var(--text-soft)]">We can auto-detect your shifts from a photo or import from your calendar.</p>
+            <h2 className="text-sm font-semibold text-[var(--text-main)]">{t('rotaUpload.uploadSectionTitle')}</h2>
+            <p className="mb-4 text-[11px] text-[var(--text-soft)]">{t('rotaUpload.uploadSectionSubtitle')}</p>
             <button
               type="button"
               onClick={handleUploadClick}
               className="w-full rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--card-subtle)] px-4 py-5 text-center text-xs text-[var(--text-main)] shadow-sm transition hover:border-sky-400/50 hover:text-sky-600"
             >
               <span className="text-2xl">📷</span>
-              <span className="mt-1 block font-semibold">Take photo or upload rota</span>
-              <span className="mt-1 block text-[10px] text-[var(--text-soft)]">We’ll use AI to read your shifts and build the pattern for you.</span>
-              {photoFileName && <span className="mt-2 block text-[10px] text-[var(--text-soft)]">Selected: {photoFileName}</span>}
+              <span className="mt-1 block font-semibold">{t('rotaUpload.uploadCta')}</span>
+              <span className="mt-1 block text-[10px] text-[var(--text-soft)]">{t('rotaUpload.uploadHint')}</span>
+              {photoFileName && <span className="mt-2 block text-[10px] text-[var(--text-soft)]">{t('rotaUpload.selectedFile', { name: photoFileName })}</span>}
             </button>
 
             <div className="mt-5 space-y-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] p-4">
-              <p className="text-[11px] font-semibold text-[var(--text-main)]">Import from calendar</p>
+              <p className="text-[11px] font-semibold text-[var(--text-main)]">{t('rotaUpload.importTitle')}</p>
               <div className="flex flex-col gap-2 text-xs">
                 {[
-                  { id: 'google', label: 'Google Calendar' },
-                  { id: 'apple', label: 'Apple Calendar' },
-                  { id: 'other', label: 'Other (.ics / CSV)' },
+                  { id: 'google', label: t('rotaUpload.cal.google') },
+                  { id: 'apple', label: t('rotaUpload.cal.apple') },
+                  { id: 'other', label: t('rotaUpload.cal.other') },
                 ].map((option) => {
                   const active = importSource === option.id
                   return (
@@ -568,7 +607,7 @@ export default function UploadRotaPage() {
                       }`}
                     >
                       <span>{option.label}</span>
-                      <span className="text-[var(--text-soft)]">Connect →</span>
+                      <span className="text-[var(--text-soft)]">{t('rotaUpload.connectArrow')}</span>
                     </button>
                   )
                 })}
@@ -577,39 +616,40 @@ export default function UploadRotaPage() {
           </section>
 
           <section className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] p-5 shadow-[0_20px_48px_rgba(15,23,42,0.09)]">
-            <h2 className="text-sm font-semibold text-[var(--text-main)]">Reminders & automation</h2>
-            <p className="mb-4 text-[11px] text-[var(--text-soft)]">We’ll keep you on track across shifts, sleep and meals.</p>
+            <h2 className="text-sm font-semibold text-[var(--text-main)]">{t('rotaUpload.remindersTitle')}</h2>
+            <p className="mb-4 text-[11px] text-[var(--text-soft)]">{t('rotaUpload.remindersSubtitle')}</p>
             <div className="space-y-4 text-xs">
               <div>
-                <p className="mb-2 font-semibold text-[var(--text-main)]">Before shift starts</p>
+                <p className="mb-2 font-semibold text-[var(--text-main)]">{t('rotaUpload.remBeforeShift')}</p>
                 {reminderChips(reminderOptions.preShift, reminders.preShiftMinutes, (value) =>
                   setReminders((prev) => ({ ...prev, preShiftMinutes: value })),
                 )}
               </div>
               <div>
-                <p className="mb-2 font-semibold text-[var(--text-main)]">Wind-down before sleep</p>
+                <p className="mb-2 font-semibold text-[var(--text-main)]">{t('rotaUpload.remWindDown')}</p>
                 {reminderChips(reminderOptions.preSleep, reminders.preSleepMinutes, (value) =>
                   setReminders((prev) => ({ ...prev, preSleepMinutes: value })),
                 )}
               </div>
               <div>
-                <p className="mb-2 font-semibold text-[var(--text-main)]">Meal timing reminders</p>
+                <p className="mb-2 font-semibold text-[var(--text-main)]">{t('rotaUpload.remMeals')}</p>
                 {reminderChips(reminderOptions.preMeal, reminders.preMealMinutes, (value) =>
                   setReminders((prev) => ({ ...prev, preMealMinutes: value })),
                 )}
               </div>
             </div>
-            <p className="mt-4 text-[10px] text-[var(--text-soft)]">These reminders sync with your Shift Rhythm, sleep and meal timing coach.</p>
+            <p className="mt-4 text-[10px] text-[var(--text-soft)]">{t('rotaUpload.remindersFoot')}</p>
           </section>
 
-          <p className="pb-28 text-center text-[10px] text-[var(--text-soft)]">Your rota powers your Shift Rhythm, sleep, meals and activity coaching. Update it whenever your pattern changes.</p>
+          <p className="pb-28 text-center text-[10px] text-[var(--text-soft)]">{t('rotaUpload.pageFoot')}</p>
         </div>
 
         <div className="sticky bottom-0 left-0 right-0 mx-auto w-full max-w-md bg-gradient-to-t from-[var(--page-bg)] via-[var(--page-bg)]/95 to-transparent px-4 pb-3 pt-2">
           <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-4 py-3 shadow-[0_16px_32px_rgba(15,23,42,0.12)]">
             <p className="mb-3 text-[11px] text-[var(--text-soft)]">
-              Pattern: {patternSummary} • Starting today • Colours set for <span style={{ color: primaryShiftColor }}>Day</span>,{' '}
-              <span style={{ color: nightShiftColor }}>Night</span>, <span style={{ color: offDayColor }}>Off</span>
+              {t('rotaUpload.summaryPattern')} {patternSummary} • {t('rotaUpload.summaryStarting')} • {t('rotaUpload.summaryColours')}{' '}
+              <span style={{ color: primaryShiftColor }}>{t('rotaUpload.legend.day')}</span>,{' '}
+              <span style={{ color: nightShiftColor }}>{t('rotaUpload.legend.night')}</span>, <span style={{ color: offDayColor }}>{t('rotaUpload.legend.off')}</span>
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -617,7 +657,7 @@ export default function UploadRotaPage() {
                 onClick={() => router.push('/dashboard?tab=rota')}
                 className="flex-1 rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] py-2 text-sm font-semibold text-[var(--text-main)]"
               >
-                Cancel
+                {t('rotaUpload.cancel')}
               </button>
               <button
                 type="button"
@@ -625,7 +665,7 @@ export default function UploadRotaPage() {
                 className="flex-1 rounded-full bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-500 py-2 text-sm font-semibold text-white shadow-lg disabled:opacity-50"
                 disabled={isSaving}
               >
-                {isSaving ? 'Saving…' : 'Save & activate rota'}
+                {isSaving ? t('rotaUpload.saving') : t('rotaUpload.saveCta')}
               </button>
             </div>
           </div>

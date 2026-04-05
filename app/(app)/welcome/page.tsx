@@ -1,15 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Flame, Droplets, Activity } from 'lucide-react'
 import { useTodayNutrition } from '@/lib/hooks/useTodayNutrition'
-import { useTranslation } from '@/components/providers/language-provider'
+import { useLanguage, useTranslation } from '@/components/providers/language-provider'
+import { intlLocaleForApp } from '@/lib/i18n/supportedLocales'
 
 export default function WelcomePage() {
   const router = useRouter()
   const { t } = useTranslation()
+  const { language } = useLanguage()
+  const intlLocale = useMemo(() => intlLocaleForApp(language), [language])
   const [isValid, setIsValid] = useState(false)
   const { data, loading } = useTodayNutrition()
 
@@ -88,7 +91,7 @@ export default function WelcomePage() {
               <div className="flex justify-center mb-6">
                 <Image
                   src="/scnew-logo.svg"
-                  alt="ShiftCoach"
+                  alt={t('welcome.logoAlt')}
                   width={140}
                   height={56}
                   className="h-18 w-auto"
@@ -114,7 +117,7 @@ export default function WelcomePage() {
                   <span className="text-4xl font-bold text-slate-900">
                     {loading || adjustedKcal == null
                       ? '—'
-                      : adjustedKcal.toLocaleString()}
+                      : adjustedKcal.toLocaleString(intlLocale)}
                   </span>
                   <span className="text-sm font-medium text-slate-600">
                     {t('welcome.kcalPerDay')}
@@ -131,7 +134,7 @@ export default function WelcomePage() {
                   <p className="mt-2 text-[11px] text-slate-500">
                     {t('welcome.standardWouldGive')}{' '}
                     <span className="font-semibold text-slate-900">
-                      {baseKcal.toLocaleString()} kcal
+                      {baseKcal.toLocaleString(intlLocale)} {t('welcome.kcalUnit')}
                     </span>
                     . {t('welcome.weAdjusted')}{' '}
                     <span

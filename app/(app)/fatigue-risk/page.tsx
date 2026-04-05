@@ -7,22 +7,32 @@ import { useShiftRhythm } from '@/lib/hooks/useShiftRhythm'
 import { useTranslation } from '@/components/providers/language-provider'
 import { fatigueWindowBarMarkerFill } from '@/lib/riskScaleBarMarker'
 
+function fatigueRiskLevelKey(level: string): string {
+  if (level === 'high') return 'detail.fatigueRisk.levelHigh'
+  if (level === 'moderate') return 'detail.fatigueRisk.levelModerate'
+  return 'detail.fatigueRisk.levelLow'
+}
+
+function fatigueRiskConfidenceKey(label: string | undefined): string {
+  if (label === 'high') return 'detail.fatigueRisk.confidenceHigh'
+  if (label === 'medium') return 'detail.fatigueRisk.confidenceMedium'
+  return 'detail.fatigueRisk.confidenceLow'
+}
+
 export default function FatigueRiskPage() {
   const { t } = useTranslation()
   const { fatigueRisk, loading } = useShiftRhythm()
   const score = fatigueRisk?.score ?? 20
   const score10 = Math.max(1, Math.min(10, Math.round(score / 10)))
   const levelRaw = fatigueRisk?.level ?? 'low'
-  const level = `${levelRaw[0].toUpperCase()}${levelRaw.slice(1)}`
-  const confidenceLabel = fatigueRisk?.confidenceLabel
-    ? `${fatigueRisk.confidenceLabel[0].toUpperCase()}${fatigueRisk.confidenceLabel.slice(1)}`
-    : 'Low'
+  const level = t(fatigueRiskLevelKey(levelRaw))
+  const confidenceChip = `${t(fatigueRiskConfidenceKey(fatigueRisk?.confidenceLabel))} ${t('detail.fatigueRisk.confidenceSuffix')}`
   const explanation =
-    fatigueRisk?.explanation ?? 'Fatigue risk updates as your sleep, shift and rhythm data sync.'
+    fatigueRisk?.explanation ?? t('detail.fatigueRisk.fallbackExplanation')
   const drivers =
     fatigueRisk?.drivers?.length
       ? fatigueRisk.drivers
-      : ['Keep logging sleep and shift data to unlock personalized fatigue drivers.']
+      : [t('detail.fatigueRisk.fallbackDriver')]
 
   const timeline = useMemo(() => {
     const base = Math.max(12, Math.min(92, score))
@@ -76,7 +86,9 @@ export default function FatigueRiskPage() {
           >
             <ChevronLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-xl font-semibold tracking-tight text-[var(--text-main)]">Fatigue risk</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-[var(--text-main)]">
+            {t('detail.fatigueRisk.title')}
+          </h1>
         </header>
 
         <div className="rounded-[28px] border border-[var(--border-subtle)] bg-[var(--card)] p-5 shadow-sm dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]">
@@ -91,13 +103,13 @@ export default function FatigueRiskPage() {
               <p className="mt-3 max-w-[28ch] text-sm leading-6 text-[var(--text-soft)]">{explanation}</p>
             </div>
             <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-soft)]">
-              {confidenceLabel} confidence
+              {confidenceChip}
             </div>
           </div>
 
           <div className="mt-6">
             <div className="mb-3 flex items-center justify-between text-xs text-[var(--text-muted)]">
-              <span>Current window</span>
+              <span>{t('detail.fatigueRisk.currentWindow')}</span>
               <span>{currentPoint.time}</span>
             </div>
             {/* Marker sits outside overflow-hidden so it is not clipped to the thin track */}
@@ -112,16 +124,18 @@ export default function FatigueRiskPage() {
               />
             </div>
             <div className="mt-1 flex items-center justify-between text-xs text-[var(--text-muted)]">
-              <span>Low</span>
-              <span>High</span>
+              <span>{t('detail.fatigueRisk.axisLow')}</span>
+              <span>{t('detail.fatigueRisk.axisHigh')}</span>
             </div>
           </div>
         </div>
 
         <div className="rounded-[28px] border border-[var(--border-subtle)] bg-[var(--card)] p-5 shadow-sm dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-[var(--text-main)]">Today's fatigue curve</h2>
-            <span className="text-xs text-[var(--text-muted)]">Live estimate</span>
+            <h2 className="text-base font-semibold text-[var(--text-main)]">
+              {t('detail.fatigueRisk.todayCurve')}
+            </h2>
+            <span className="text-xs text-[var(--text-muted)]">{t('detail.fatigueRisk.liveEstimate')}</span>
           </div>
 
           <div className="mt-5 flex h-40 items-end gap-3">
@@ -135,13 +149,11 @@ export default function FatigueRiskPage() {
             ))}
           </div>
 
-          <p className="mt-4 text-sm leading-6 text-[var(--text-soft)]">
-            Risk is lowest after aligned recovery sleep and rises into late biological-night hours.
-          </p>
+          <p className="mt-4 text-sm leading-6 text-[var(--text-soft)]">{t('detail.fatigueRisk.curveFootnote')}</p>
         </div>
 
         <div className="rounded-[28px] border border-[var(--border-subtle)] bg-[var(--card)] p-5 shadow-sm dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]">
-          <h2 className="text-base font-semibold text-[var(--text-main)]">What's driving your risk</h2>
+          <h2 className="text-base font-semibold text-[var(--text-main)]">{t('detail.fatigueRisk.driversTitle')}</h2>
           <div className="mt-4 grid gap-3">
             {drivers.map((driver) => (
               <div key={driver} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-4 py-3 text-sm text-[var(--text-soft)]">
@@ -152,19 +164,21 @@ export default function FatigueRiskPage() {
         </div>
 
         <div className="rounded-[28px] border border-[var(--border-subtle)] bg-[var(--card)] p-5 shadow-sm dark:shadow-[0_14px_36px_rgba(0,0,0,0.38)]">
-          <h2 className="text-base font-semibold text-[var(--text-main)]">How to lower fatigue risk</h2>
+          <h2 className="text-base font-semibold text-[var(--text-main)]">
+            {t('detail.fatigueRisk.howToLowerTitle')}
+          </h2>
           <div className="mt-4 space-y-4 text-sm leading-6 text-[var(--text-soft)]">
             <div>
-              <p className="font-medium text-[var(--text-main)]">Protect post-shift sleep</p>
-              <p>Aim for an immediate recovery sleep block after your shift to reduce the next risk peak.</p>
+              <p className="font-medium text-[var(--text-main)]">{t('detail.fatigueRisk.tip1Title')}</p>
+              <p>{t('detail.fatigueRisk.tip1Body')}</p>
             </div>
             <div>
-              <p className="font-medium text-[var(--text-main)]">Use a pre-shift nap if needed</p>
-              <p>A short nap before the next duty window can reduce strain from consecutive shifts.</p>
+              <p className="font-medium text-[var(--text-main)]">{t('detail.fatigueRisk.tip2Title')}</p>
+              <p>{t('detail.fatigueRisk.tip2Body')}</p>
             </div>
             <div>
-              <p className="font-medium text-[var(--text-main)]">Watch the 02:00-06:00 window</p>
-              <p>This is your highest-risk period, so use extra caution with driving, decisions, and workload.</p>
+              <p className="font-medium text-[var(--text-main)]">{t('detail.fatigueRisk.tip3Title')}</p>
+              <p>{t('detail.fatigueRisk.tip3Body')}</p>
             </div>
           </div>
         </div>

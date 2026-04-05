@@ -116,7 +116,9 @@ export function WearableStatusPill() {
         : syncState === "synced"
           ? t("dashboard.wearable.synced")
           : stepsToday != null
-            ? `${t("dashboard.wearable.connected")} • ${stepsToday.toLocaleString()} steps`
+            ? t("dashboard.wearable.connectedWithSteps", {
+                count: stepsToday.toLocaleString(),
+              })
             : t("dashboard.wearable.connected");
     return (
       <button

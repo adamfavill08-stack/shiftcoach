@@ -19,8 +19,8 @@ export type SleepClassification =
 export interface SleepClassificationResult {
   classification: SleepClassification
   confidence: number // 0-100
-  reasoning: string
-  displayLabel: string
+  /** Key for `t()` in UI, e.g. `sleepClassify.reasoning.day_sleep`. */
+  reasoningKey: string
   color: string // For UI display
 }
 
@@ -61,9 +61,8 @@ export function classifySleep(
       return {
         classification: 'day_sleep',
         confidence: 90,
-        reasoning: 'Daytime sleep session (4-8h) typical after night shift',
-        displayLabel: 'Day Sleep',
-        color: 'amber'
+        reasoningKey: 'sleepClassify.reasoning.day_sleep',
+        color: 'amber',
       }
     }
   }
@@ -77,9 +76,8 @@ export function classifySleep(
         return {
           classification: 'post_shift_recovery',
           confidence: 95,
-          reasoning: 'Post-night-shift recovery sleep',
-          displayLabel: 'Post-Shift Recovery',
-          color: 'blue'
+          reasoningKey: 'sleepClassify.reasoning.post_shift_recovery',
+          color: 'blue',
         }
       }
     }
@@ -94,9 +92,8 @@ export function classifySleep(
         return {
           classification: 'pre_shift_nap',
           confidence: 90,
-          reasoning: 'Pre-shift nap to boost alertness',
-          displayLabel: 'Pre-Shift Nap',
-          color: 'indigo'
+          reasoningKey: 'sleepClassify.reasoning.pre_shift_nap',
+          color: 'indigo',
         }
       }
     }
@@ -108,9 +105,8 @@ export function classifySleep(
     return {
       classification: 'micro_nap',
       confidence: 95,
-      reasoning: 'Micro nap for quick energy boost',
-      displayLabel: 'Micro Nap',
-      color: 'purple'
+      reasoningKey: 'sleepClassify.reasoning.micro_nap',
+      color: 'purple',
     }
   }
   
@@ -121,9 +117,8 @@ export function classifySleep(
       return {
         classification: 'main_sleep',
         confidence: 85,
-        reasoning: 'Main sleep session during night hours',
-        displayLabel: 'Main Sleep',
-        color: 'slate'
+        reasoningKey: 'sleepClassify.reasoning.main_sleep',
+        color: 'slate',
       }
     }
   }
@@ -137,9 +132,8 @@ export function classifySleep(
       return {
         classification: 'split_sleep',
         confidence: 60,
-        reasoning: 'Potential split sleep pattern',
-        displayLabel: 'Split Sleep',
-        color: 'teal'
+        reasoningKey: 'sleepClassify.reasoning.split_sleep',
+        color: 'teal',
       }
     }
   }
@@ -149,9 +143,8 @@ export function classifySleep(
   return {
     classification: 'irregular_sleep',
     confidence: 70,
-    reasoning: 'Sleep pattern doesn\'t match standard classifications',
-    displayLabel: 'Sleep',
-    color: 'gray'
+    reasoningKey: 'sleepClassify.reasoning.irregular_sleep',
+    color: 'gray',
   }
 }
 

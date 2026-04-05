@@ -5,6 +5,7 @@ import { Calendar, Clock, X, ChevronDown, Trash2 } from 'lucide-react'
 import type { SleepType } from '@/lib/sleep/types'
 import { qualityLabelToNumber } from '@/lib/sleep/utils'
 import { authedFetch } from '@/lib/supabase/authedFetch'
+import { useTranslation } from '@/components/providers/language-provider'
 
 type SleepSession = {
   id: string
@@ -24,6 +25,7 @@ type SleepEditModalProps = {
 }
 
 export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditModalProps) {
+  const { t } = useTranslation()
   const [form, setForm] = useState({
     startDate: '',
     startTime: '',
@@ -110,7 +112,7 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
     setError(null)
     
     if (!form.startDate || !form.startTime || !form.endDate || !form.endTime) {
-      setError('Please provide both start and end dates and times.')
+      setError(t('sleepForm.errStartEnd'))
       return
     }
 
@@ -122,12 +124,11 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
       
       // Validate dates
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        throw new Error('Invalid date or time')
+        throw new Error(t('sleepLog.errInvalid'))
       }
-      
-      // Ensure end is after start
+
       if (endDate <= startDate) {
-        throw new Error('End time must be after start time')
+        throw new Error(t('sleepLog.errEndAfter'))
       }
 
       // Update session via PATCH
@@ -147,13 +148,13 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
       })
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Failed to update sleep' }))
+        const errorData = await res.json().catch(() => ({ error: t('sleepEdit.errUpdate') }))
         console.error('[SleepEditModal] Update failed:', {
           status: res.status,
           statusText: res.statusText,
           error: errorData,
         })
-        throw new Error(errorData.error || errorData.details || 'Failed to update sleep')
+        throw new Error(errorData.error || errorData.details || t('sleepEdit.errUpdate'))
       }
 
       const responseData = await res.json().catch(() => null)
@@ -166,7 +167,11 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
       }
     } catch (err) {
       console.error('[SleepEditModal] Save error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to save sleep')
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : t('sleepEdit.errUpdate'),
+      )
     } finally {
       setSaving(false)
     }
@@ -187,8 +192,8 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
       })
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Failed to delete sleep' }))
-        throw new Error(errorData.error || 'Failed to delete sleep')
+        const errorData = await res.json().catch(() => ({ error: t('sleepEdit.errDelete') }))
+        throw new Error(errorData.error || t('sleepEdit.errDelete'))
       }
 
       // Call success callback if provided
@@ -198,7 +203,11 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
       }
     } catch (err) {
       console.error('[SleepEditModal] Delete error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to delete sleep')
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : t('sleepEdit.errDelete'),
+      )
       setShowDeleteConfirm(false)
     } finally {
       setDeleting(false)
@@ -229,10 +238,12 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
         {/* Header */}
         <div className="relative z-10 flex items-center justify-between border-b border-[var(--border-subtle)] px-7 pb-4 pt-6">
           <h2 className="text-[19px] font-bold tracking-tight text-slate-900">
-            Edit Sleep Session
+            {t('sleepForm.editTitle')}
           </h2>
           <button
+            type="button"
             onClick={onClose}
+            aria-label={t('sleepDel.closeAria')}
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] text-[var(--text-soft)] transition-all hover:scale-105 hover:bg-[var(--card-subtle)] hover:text-[var(--text-main)] active:scale-95"
           >
             <X className="h-4 w-4" strokeWidth={2.5} />
@@ -244,7 +255,7 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
           {/* Start Date & Time */}
           <div className="space-y-2.5">
             <label className="text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
-              START
+              {t('sleepForm.startLabel')}
             </label>
             <div className="grid grid-cols-2 gap-3">
               <div className="relative group">
@@ -268,7 +279,10 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
             </div>
             {form.startDate && form.startTime && (
               <p className="px-1 text-[12px] font-medium text-[var(--text-muted)]">
-                {formatDisplayDate(form.startDate)} at {formatDisplayTime(form.startTime)}
+                {t('sleepEdit.dateTimePreview', {
+                  date: formatDisplayDate(form.startDate),
+                  time: formatDisplayTime(form.startTime),
+                })}
               </p>
             )}
           </div>
@@ -276,7 +290,7 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
           {/* End Date & Time */}
           <div className="space-y-2.5">
             <label className="text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
-              END
+              {t('sleepForm.endLabel')}
             </label>
             <div className="grid grid-cols-2 gap-3">
               <div className="relative group">
@@ -300,7 +314,10 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
             </div>
             {form.endDate && form.endTime && (
               <p className="px-1 text-[12px] font-medium text-[var(--text-muted)]">
-                {formatDisplayDate(form.endDate)} at {formatDisplayTime(form.endTime)}
+                {t('sleepEdit.dateTimePreview', {
+                  date: formatDisplayDate(form.endDate),
+                  time: formatDisplayTime(form.endTime),
+                })}
               </p>
             )}
           </div>
@@ -308,7 +325,7 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
           {/* Type Selector */}
           <div className="space-y-2.5">
             <label className="text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
-              TYPE
+              {t('sleepForm.typeLabel')}
             </label>
             <div className="relative group">
               <select
@@ -316,10 +333,10 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
                 onChange={(e) => setForm({ ...form, type: e.target.value as SleepType })}
                 className="h-12 w-full appearance-none cursor-pointer rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-4 pr-10 text-[13px] font-semibold text-[var(--text-main)] shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-all hover:shadow-[0_2px_6px_rgba(15,23,42,0.12)] focus:border-blue-400/60 focus:outline-none focus:ring-2 focus:ring-blue-400/40"
               >
-                <option value="main_sleep">Main Sleep</option>
-                <option value="post_shift_sleep">Post-Shift Sleep</option>
-                <option value="recovery_sleep">Recovery Sleep</option>
-                <option value="nap">Nap</option>
+                <option value="main_sleep">{t('sleepType.main_sleep')}</option>
+                <option value="post_shift_sleep">{t('sleepType.post_shift_sleep')}</option>
+                <option value="recovery_sleep">{t('sleepType.recovery_sleep')}</option>
+                <option value="nap">{t('sleepType.nap')}</option>
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)] transition-colors group-hover:text-[var(--text-soft)]" strokeWidth={2.5} />
             </div>
@@ -328,7 +345,7 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
           {/* Quality Selector */}
           <div className="space-y-2.5">
             <label className="text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
-              QUALITY
+              {t('sleepLog.qualityLabel')}
             </label>
             <div className="relative group">
               <select
@@ -336,10 +353,10 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
                 onChange={(e) => setForm({ ...form, quality: e.target.value as 'Excellent' | 'Good' | 'Fair' | 'Poor' })}
                 className="h-12 w-full appearance-none cursor-pointer rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-4 pr-10 text-[13px] font-semibold text-[var(--text-main)] shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-all hover:shadow-[0_2px_6px_rgba(15,23,42,0.12)] focus:border-blue-400/60 focus:outline-none focus:ring-2 focus:ring-blue-400/40"
               >
-                <option value="Excellent">Excellent</option>
-                <option value="Good">Good</option>
-                <option value="Fair">Fair</option>
-                <option value="Poor">Poor</option>
+                <option value="Excellent">{t('sleepQuality.excellent')}</option>
+                <option value="Good">{t('sleepQuality.good')}</option>
+                <option value="Fair">{t('sleepQuality.fair')}</option>
+                <option value="Poor">{t('sleepQuality.poor')}</option>
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)] transition-colors group-hover:text-[var(--text-soft)]" strokeWidth={2.5} />
             </div>
@@ -356,10 +373,10 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
           {showDeleteConfirm && (
             <div className="rounded-xl bg-amber-50/80 border border-amber-200/60 px-4 py-3 space-y-2">
               <p className="text-[13px] font-semibold text-amber-900">
-                Are you sure you want to delete this sleep session?
+                {t('sleepEdit.deleteWarnTitle')}
               </p>
               <p className="text-[12px] text-amber-700">
-                This will update your 7-day bars, sleep summary, and body clock calculations.
+                {t('sleepEdit.deleteWarnBody')}
               </p>
             </div>
           )}
@@ -370,29 +387,38 @@ export function SleepEditModal({ open, onClose, session, onSuccess }: SleepEditM
           <div className="flex flex-col gap-3">
             {/* Delete button */}
             <button
+              type="button"
               onClick={handleDelete}
               disabled={deleting || saving}
                 className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-rose-300/60 bg-rose-50/70 px-4 text-[13px] font-semibold text-rose-700 shadow-[0_2px_8px_rgba(15,23,42,0.08)] transition-all hover:scale-95 hover:border-rose-300/80 hover:bg-rose-100/70 hover:shadow-[0_4px_12px_rgba(15,23,42,0.12)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-800/60 dark:bg-rose-950/30 dark:text-rose-300"
             >
               <Trash2 className="h-4 w-4" strokeWidth={2.5} />
-              {deleting ? 'Deleting...' : showDeleteConfirm ? 'Confirm Delete' : 'Delete Session'}
+              {deleting
+                ? t('sleepDel.deleting')
+                : showDeleteConfirm
+                  ? t('sleepEdit.confirmDelete')
+                  : t('sleepEdit.deleteSession')}
             </button>
 
             {/* Save and Cancel buttons */}
             <div className="flex gap-3">
               <button
+                type="button"
                 onClick={onClose}
                 disabled={saving || deleting}
                 className="h-12 flex-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-4 text-[13px] font-semibold text-[var(--text-soft)] shadow-[0_2px_8px_rgba(15,23,42,0.08)] transition-all hover:bg-[var(--card)] hover:shadow-[0_4px_12px_rgba(15,23,42,0.12)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Cancel
+                {t('sleepForm.cancel')}
               </button>
               <button
+                type="button"
                 disabled={saving || deleting || !form.startDate || !form.startTime || !form.endDate || !form.endTime}
                 onClick={handleSave}
                 className="flex-1 h-12 px-4 rounded-xl bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 text-white text-[13px] font-semibold shadow-[0_4px_12px_rgba(59,130,246,0.3)] transition-all hover:shadow-[0_6px_20px_rgba(59,130,246,0.4)] hover:scale-[1.02] active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 relative overflow-hidden group"
               >
-                <span className="relative z-10">{saving ? 'Saving…' : 'Save Changes'}</span>
+                <span className="relative z-10">
+                  {saving ? t('sleepForm.saving') : t('sleepEdit.saveChanges')}
+                </span>
                 {/* Shine effect on hover */}
                 <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
               </button>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslation } from "@/components/providers/language-provider";
 
 type DebugPayload = {
   raw?: any;
@@ -12,6 +13,7 @@ type DebugPayload = {
 };
 
 export default function WearablesDebugPage() {
+  const { t } = useTranslation();
   const [data, setData] = useState<DebugPayload | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -53,40 +55,40 @@ export default function WearablesDebugPage() {
   return (
     <main className="max-w-[900px] mx-auto px-4 py-4 flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Wearables Data Health</h1>
+        <h1 className="text-xl font-semibold">{t("detail.wearablesDebug.title")}</h1>
         <Link href="/wearables-setup" className="text-sm underline">
-          Back to wearables setup
+          {t("detail.wearablesDebug.backLink")}
         </Link>
       </div>
 
-      {loading && <p className="text-sm opacity-70">Loading data health checks...</p>}
+      {loading && <p className="text-sm opacity-70">{t("detail.wearablesDebug.loading")}</p>}
 
       {!loading && (
         <>
           {data?.errors && Object.keys(data.errors).length > 0 && (
             <section className="rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm">
-              <p className="font-semibold mb-1">Endpoint Errors</p>
+              <p className="font-semibold mb-1">{t("detail.wearablesDebug.endpointErrors")}</p>
               <pre className="whitespace-pre-wrap">{JSON.stringify(data.errors, null, 2)}</pre>
             </section>
           )}
 
           <section className="rounded-lg border p-3">
-            <p className="font-semibold mb-2">Raw Synced Data (DB)</p>
+            <p className="font-semibold mb-2">{t("detail.wearablesDebug.sectionRawDb")}</p>
             <pre className="text-xs overflow-auto">{JSON.stringify(data?.raw, null, 2)}</pre>
           </section>
 
           <section className="rounded-lg border p-3">
-            <p className="font-semibold mb-2">Card API Output: /api/activity/today</p>
+            <p className="font-semibold mb-2">{t("detail.wearablesDebug.sectionActivityToday")}</p>
             <pre className="text-xs overflow-auto">{JSON.stringify(data?.activity, null, 2)}</pre>
           </section>
 
           <section className="rounded-lg border p-3">
-            <p className="font-semibold mb-2">Card API Output: /api/sleep/overview</p>
+            <p className="font-semibold mb-2">{t("detail.wearablesDebug.sectionSleepOverview")}</p>
             <pre className="text-xs overflow-auto">{JSON.stringify(data?.sleepOverview, null, 2)}</pre>
           </section>
 
           <section className="rounded-lg border p-3">
-            <p className="font-semibold mb-2">Card API Output: /api/wearables/heart-rate</p>
+            <p className="font-semibold mb-2">{t("detail.wearablesDebug.sectionHeartRate")}</p>
             <pre className="text-xs overflow-auto">{JSON.stringify(data?.heartRate, null, 2)}</pre>
           </section>
         </>

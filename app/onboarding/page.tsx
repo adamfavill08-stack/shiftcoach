@@ -8,6 +8,7 @@ import { cmToFeetInches, feetInchesToCm, kgToLb, lbToKg, mlToFloz, flozToMl } fr
 import { DEV_USER_ID } from '@/lib/dev-user'
 import { ChevronRight, ChevronLeft } from 'lucide-react'
 import { useTranslation } from '@/components/providers/language-provider'
+import { CompactLanguagePicker } from '@/components/i18n/CompactLanguagePicker'
 
 export default function OnboardingPage() {
   const { t } = useTranslation()
@@ -333,6 +334,9 @@ export default function OnboardingPage() {
               <p className="text-sm leading-relaxed text-slate-600">
                 {t('onboarding.subtitle')}
               </p>
+              <div className="mt-4 text-left max-w-sm mx-auto">
+                <CompactLanguagePicker variant="compact" id="onboarding-language" />
+              </div>
             </div>
 
             {/* Progress Bar */}

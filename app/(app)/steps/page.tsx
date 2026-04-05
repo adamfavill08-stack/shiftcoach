@@ -7,6 +7,7 @@ import { useStepGoal } from '@/lib/hooks/useStepGoal'
 import { getStepRecommendation, type ShiftType } from '@/lib/steps/getStepRecommendation'
 import { getTodayShift } from '@/lib/today'
 import { supabase } from '@/lib/supabase'
+import { useTranslation } from '@/components/providers/language-provider'
 
 type Props = {}
 
@@ -22,6 +23,7 @@ function classifyShift(startIso?: string | null, endIso?: string | null): 'day' 
 }
 
 export default function StepsPage(_props: Props) {
+  const { t } = useTranslation()
   const { stepGoal, updateStepGoal, isLoading } = useStepGoal()
   const [localGoal, setLocalGoal] = useState(stepGoal)
   const [todayShift, setTodayShift] = useState<any | null>(null)
@@ -39,6 +41,16 @@ export default function StepsPage(_props: Props) {
 
   // Load shift, sleep, steps, and recovery data
   useEffect(() => {
+    const keys = [
+      'steps.wd0',
+      'steps.wd1',
+      'steps.wd2',
+      'steps.wd3',
+      'steps.wd4',
+      'steps.wd5',
+      'steps.wd6',
+    ] as const
+    const dayLetter = (dayIndex: number) => t(keys[dayIndex])
     ;(async () => {
       const shift = await getTodayShift()
       setTodayShift(shift)
@@ -113,29 +125,23 @@ export default function StepsPage(_props: Props) {
         })
 
         // Create week array (last 7 days)
-        const weekDays = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
         const week: Array<{ d: string; v: number }> = []
         for (let i = 6; i >= 0; i--) {
           const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000)
           const dateStr = date.toISOString().slice(0, 10)
-          const dayName = weekDays[date.getDay()]
           week.push({
-            d: dayName,
+            d: dayLetter(date.getDay()),
             v: daysMap.get(dateStr) || 0,
           })
         }
         setWeekData(week)
       } else {
-        // Fallback to empty week if no data
-        setWeekData([
-          { d: 'M', v: 0 },
-          { d: 'T', v: 0 },
-          { d: 'W', v: 0 },
-          { d: 'T', v: 0 },
-          { d: 'F', v: 0 },
-          { d: 'S', v: 0 },
-          { d: 'S', v: 0 },
-        ])
+        const week: Array<{ d: string; v: number }> = []
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000)
+          week.push({ d: dayLetter(date.getDay()), v: 0 })
+        }
+        setWeekData(week)
       }
 
       // Load recovery score from shift rhythm
@@ -151,7 +157,7 @@ export default function StepsPage(_props: Props) {
         console.error('[StepsPage] Failed to load recovery score:', err)
       }
     })()
-  }, [])
+  }, [t])
 
   const goal = stepGoal
   const progress = Math.min(todaySteps / goal, 1)
@@ -170,15 +176,24 @@ export default function StepsPage(_props: Props) {
   )
 
   // Use real week data (loaded from API)
-  const week = weekData.length > 0 ? weekData : [
-    { d: 'M', v: 0 },
-    { d: 'T', v: 0 },
-    { d: 'W', v: 0 },
-    { d: 'T', v: 0 },
-    { d: 'F', v: 0 },
-    { d: 'S', v: 0 },
-    { d: 'S', v: 0 },
-  ]
+  const week = useMemo(() => {
+    if (weekData.length > 0) return weekData
+    const keys = [
+      'steps.wd0',
+      'steps.wd1',
+      'steps.wd2',
+      'steps.wd3',
+      'steps.wd4',
+      'steps.wd5',
+      'steps.wd6',
+    ] as const
+    const out: Array<{ d: string; v: number }> = []
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000)
+      out.push({ d: t(keys[date.getDay()]), v: 0 })
+    }
+    return out
+  }, [weekData, t])
 
   const ring = useMemo(() => {
     const size = 80
@@ -310,13 +325,13 @@ export default function StepsPage(_props: Props) {
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'var(--card)'
             }}
-            aria-label="Back to dashboard"
+            aria-label={t('detail.common.backToDashboard')}
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <div className="flex flex-col">
-            <h1 className="text-xl font-semibold" style={{ color: 'var(--text-main)' }}>Steps</h1>
-            <p className="text-sm" style={{ color: 'var(--text-soft)' }}>Your daily movement</p>
+            <h1 className="text-xl font-semibold" style={{ color: 'var(--text-main)' }}>{t('steps.title')}</h1>
+            <p className="text-sm" style={{ color: 'var(--text-soft)' }}>{t('steps.subtitle')}</p>
           </div>
         </header>
 
@@ -335,7 +350,7 @@ export default function StepsPage(_props: Props) {
                 <span className="text-3xl font-semibold" style={{ color: 'var(--text-main)' }}>{todaySteps.toLocaleString()}</span>
                 <span className="text-sm" style={{ color: 'var(--text-soft)' }}>/{goal.toLocaleString()}</span>
               </div>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-soft)' }}>Steps today</p>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-soft)' }}>{t('steps.stepsToday')}</p>
             </div>
             <div className="flex-shrink-0">
               <div
@@ -379,10 +394,10 @@ export default function StepsPage(_props: Props) {
           <div className="mt-2 flex items-center justify-between gap-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
             <div className="flex flex-col">
               <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-                Daily step goal
+                {t('steps.dailyGoal')}
               </p>
               <p className="text-sm" style={{ color: 'var(--text-soft)' }}>
-                Set a target that fits your shifts.
+                {t('steps.goalHint')}
               </p>
             </div>
 
@@ -414,7 +429,7 @@ export default function StepsPage(_props: Props) {
                 disabled={isLoading}
                 className="rounded-full px-3 py-1 text-xs font-medium bg-gradient-to-r from-sky-500 to-violet-500 text-white hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-default"
               >
-                Save
+                {t('steps.save')}
               </button>
             </form>
           </div>
@@ -423,10 +438,10 @@ export default function StepsPage(_props: Props) {
           <div className="mt-3 flex items-center justify-between gap-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
             <div className="flex flex-col">
               <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-                Add manual steps
+                {t('steps.addManual')}
               </p>
               <p className="text-sm" style={{ color: 'var(--text-soft)' }}>
-                Use this if your wearable missed some movement.
+                {t('steps.manualHint')}
               </p>
             </div>
 
@@ -445,7 +460,7 @@ export default function StepsPage(_props: Props) {
                 onChange={(e) => setManualSteps(e.target.value)}
                 disabled={savingManual}
                 className="w-24 rounded-full border px-3 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-sky-500/50"
-                placeholder="e.g. 1500"
+                placeholder={t('steps.phManual')}
                 style={{
                   backgroundColor: 'var(--card-subtle)',
                   borderColor: 'var(--border-subtle)',
@@ -457,7 +472,7 @@ export default function StepsPage(_props: Props) {
                 disabled={savingManual}
                 className="rounded-full px-3 py-1 text-xs font-medium bg-gradient-to-r from-sky-500 to-violet-500 text-white hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-default"
               >
-                {savingManual ? 'Saving…' : 'Add'}
+                {savingManual ? t('steps.saving') : t('steps.add')}
               </button>
             </form>
           </div>
@@ -473,13 +488,13 @@ export default function StepsPage(_props: Props) {
             >
               <div className="flex flex-col gap-0.5">
                 <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-                  Suggested for today
+                  {t('steps.suggestedForToday')}
                 </p>
                 <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
-                  {rec.min.toLocaleString()}–{rec.max.toLocaleString()} steps
+                  {t('steps.stepsRange', { min: rec.min.toLocaleString(), max: rec.max.toLocaleString() })}
                 </p>
                 <p className="text-[11px] leading-snug" style={{ color: 'var(--text-soft)' }}>
-                  {rec.reason}
+                  {t(rec.reasonKey)}
                 </p>
               </div>
               <button
@@ -487,7 +502,7 @@ export default function StepsPage(_props: Props) {
                 onClick={() => setLocalGoal(rec.suggested)}
                 className="shrink-0 inline-flex items-center justify-center rounded-full px-3 py-1.5 text-[11px] font-medium bg-gradient-to-r from-sky-500 to-violet-500 text-white hover:brightness-110 active:scale-95 transition-all"
               >
-                Use this
+                {t('steps.useThis')}
               </button>
             </div>
           )}
@@ -503,8 +518,8 @@ export default function StepsPage(_props: Props) {
           }}
         >
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>Last 7 days</p>
-            <p className="text-xs" style={{ color: 'var(--text-soft)' }}>Avg: {Math.round(week.reduce((a, b) => a + b.v, 0) / week.length).toLocaleString()}</p>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>{t('steps.last7Days')}</p>
+            <p className="text-xs" style={{ color: 'var(--text-soft)' }}>{t('steps.avg', { n: Math.round(week.reduce((a, b) => a + b.v, 0) / week.length).toLocaleString() })}</p>
           </div>
           <div className="grid grid-cols-7 gap-2 items-end h-28">
             {week.map((d, idx) => {
@@ -537,12 +552,12 @@ export default function StepsPage(_props: Props) {
             boxShadow: 'var(--shadow-soft)',
           }}
         >
-          <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>Movement timing</p>
+          <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>{t('steps.movementTiming')}</p>
           <div className="space-y-3 w-full">
             {[
-              { label: 'Morning', v: 0.35 },
-              { label: 'Afternoon', v: 0.45 },
-              { label: 'Evening', v: 0.20 },
+              { label: t('steps.morning'), v: 0.35 },
+              { label: t('steps.afternoon'), v: 0.45 },
+              { label: t('steps.evening'), v: 0.20 },
             ].map((b) => (
               <div key={b.label} className="w-full">
                 <div className="flex items-baseline justify-between mb-1">
@@ -566,13 +581,13 @@ export default function StepsPage(_props: Props) {
             boxShadow: 'var(--shadow-soft)',
           }}
         >
-          <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>Today's insight</p>
+          <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>{t('steps.insightTitle')}</p>
           <div className="flex items-start gap-2 text-sm" style={{ color: 'var(--text-main)' }}>
             <span className="mt-0.5">✨</span>
             <p>
-              You&apos;re at {Math.round(progress * 100)}% of your goal ({goal.toLocaleString()} steps).
-              {progress < 1 && ' A short 10‑minute walk after your shift would get you there.'}
-              {progress >= 1 && ' Great work! You&apos;ve hit your daily goal.'}
+              {t('steps.insightProgress', { pct: Math.round(progress * 100), goal: goal.toLocaleString() })}
+              {progress < 1 && ` ${t('steps.insightWalk')}`}
+              {progress >= 1 && ` ${t('steps.insightDone')}`}
             </p>
           </div>
         </section>

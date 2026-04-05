@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Bell } from 'lucide-react'
 
 import { NotificationModal } from '@/components/notifications/NotificationModal'
+import { useTranslation } from '@/components/providers/language-provider'
 import { useNotifications } from '@/lib/hooks/useNotifications'
 import { authedFetch } from '@/lib/supabase/authedFetch'
 
@@ -24,6 +25,7 @@ type RotaEvent = {
 }
 
 export default function DashboardHeader() {
+  const { t } = useTranslation()
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false)
   const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications()
   
@@ -259,7 +261,7 @@ export default function DashboardHeader() {
       <div className="relative flex items-center justify-center px-4 pt-2 pb-1">
         <p
           className="text-base font-medium tracking-[0.2em] text-black"
-          aria-label="ShiftCoach"
+          aria-label={t('dashboard.header.brandAria')}
         >
           SHIFTCOACH
         </p>
@@ -267,7 +269,7 @@ export default function DashboardHeader() {
           type="button"
           onClick={() => setIsNotificationModalOpen(true)}
           className="absolute right-4 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full text-black transition hover:bg-slate-100/80"
-          aria-label="Notifications"
+          aria-label={t('dashboard.header.notificationsAria')}
         >
           <span className="relative inline-flex">
             <Bell className="h-5 w-5" strokeWidth={1.75} aria-hidden />

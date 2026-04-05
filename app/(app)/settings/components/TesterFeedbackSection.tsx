@@ -4,8 +4,10 @@ import { useState } from 'react'
 import { ChevronRight, ChevronDown, Send } from 'lucide-react'
 import { showToast } from '@/components/ui/Toast'
 import { useAuth } from '@/components/AuthProvider'
+import { useTranslation } from '@/components/providers/language-provider'
 
 export function TesterFeedbackSection() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [subject, setSubject] = useState('')
@@ -16,7 +18,7 @@ export function TesterFeedbackSection() {
     e.preventDefault()
     
     if (!subject.trim() || !message.trim()) {
-      showToast('Please fill in both subject and message', 'error')
+      showToast(t('settings.feedback.toast.fillBoth'), 'error')
       return
     }
 
@@ -40,18 +42,18 @@ export function TesterFeedbackSection() {
 
       if (!res.ok) {
         // Show the actual error message from the API
-        const errorMessage = data.error || 'Failed to send feedback'
+        const errorMessage = data.error || t('settings.feedback.toast.failed')
         console.error('[TesterFeedback] API error:', errorMessage, data)
         throw new Error(errorMessage)
       }
 
-      showToast('Feedback sent successfully! Thank you for your input.', 'success')
+      showToast(t('settings.feedback.toast.success'), 'success')
       setSubject('')
       setMessage('')
       setIsOpen(false)
     } catch (err: any) {
       console.error('Feedback submission error:', err)
-      showToast(err.message || 'Failed to send feedback. Please try again.', 'error')
+      showToast(err.message || t('settings.feedback.toast.failedRetry'), 'error')
     } finally {
       setIsSubmitting(false)
     }
@@ -67,7 +69,7 @@ export function TesterFeedbackSection() {
           <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-sky-500 to-emerald-400 grid place-items-center flex-shrink-0 shadow-sm">
             <Send className="h-4 w-4 text-white" strokeWidth={2} />
           </div>
-          <h3 className="text-sm font-medium text-slate-900">Contact Us</h3>
+          <h3 className="text-sm font-medium text-slate-900">{t('settings.feedback.title')}</h3>
         </div>
         {isOpen ? (
           <ChevronDown className="h-4 w-4 text-slate-300 group-hover:text-sky-400 transition flex-shrink-0" strokeWidth={2} />
@@ -78,19 +80,19 @@ export function TesterFeedbackSection() {
       {isOpen && (
         <div className="mt-2 mx-2 mb-4 rounded-2xl bg-white border border-slate-100 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.35)] p-4 pb-5 space-y-4">
           <p className="text-xs text-slate-700 leading-relaxed">
-            Found a bug or have a suggestion? Send us your feedback directly. We read every message!
+            {t('settings.feedback.intro')}
           </p>
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
               <label htmlFor="feedback-subject" className="block text-xs font-semibold text-slate-900 mb-1.5">
-                Subject
+                {t('settings.feedback.subject')}
               </label>
               <input
                 id="feedback-subject"
                 type="text"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                placeholder="e.g., Bug in sleep tracking"
+                placeholder={t('settings.feedback.subjectPlaceholder')}
                 className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white text-slate-900 placeholder:text-slate-400"
                 required
                 disabled={isSubmitting}
@@ -98,13 +100,13 @@ export function TesterFeedbackSection() {
             </div>
             <div>
               <label htmlFor="feedback-message" className="block text-xs font-semibold text-slate-900 mb-1.5">
-                Message
+                {t('settings.feedback.message')}
               </label>
               <textarea
                 id="feedback-message"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Describe the issue or share your feedback..."
+                placeholder={t('settings.feedback.messagePlaceholder')}
                 rows={5}
                 className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white text-slate-900 placeholder:text-slate-400 resize-none"
                 required
@@ -119,12 +121,12 @@ export function TesterFeedbackSection() {
               {isSubmitting ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Sending...</span>
+                  <span>{t('settings.feedback.sending')}</span>
                 </>
               ) : (
                 <>
                   <Send className="w-4 h-4" />
-                  <span>Send Feedback</span>
+                  <span>{t('settings.feedback.submit')}</span>
                 </>
               )}
             </button>

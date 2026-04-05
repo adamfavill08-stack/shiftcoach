@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import RotaOverviewPage from '@/components/calendar/RotaOverviewPage'
+import { RotaIndexLoadingFallback } from '@/components/rota/RotaIndexLoadingFallback'
 
 type RotaIndexPageProps = {
   searchParams?: Promise<{
@@ -15,11 +16,7 @@ export default async function RotaIndexPage({ searchParams }: RotaIndexPageProps
   const resolvedSearchParams = await searchParams
   const initialYearMonth = resolvedSearchParams?.month
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <div className="text-slate-500">Loading...</div>
-      </div>
-    }>
+    <Suspense fallback={<RotaIndexLoadingFallback />}>
       <RotaContent initialYearMonth={initialYearMonth} />
     </Suspense>
   )

@@ -1,18 +1,18 @@
 'use client'
 
-import { useState } from 'react'
-import { ChevronRight, ChevronDown } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { ToggleSwitch } from '@/components/settings/ToggleSwitch'
 import { useSettings } from '@/lib/hooks/useSettings'
+import { useTranslation } from '@/components/providers/language-provider'
 
 export function NotificationsSection() {
+  const { t } = useTranslation()
   const { settings, saving, saveField, loading } = useSettings()
-  const [isOpen, setIsOpen] = useState(false)
 
   if (loading) {
     return (
       <div>
-        <div className="animate-pulse text-xs text-slate-500">Loading...</div>
+        <div className="animate-pulse text-xs text-slate-500">{t('settings.notifications.loading')}</div>
       </div>
     )
   }
@@ -45,9 +45,9 @@ export function NotificationsSection() {
           </svg>
         </div>
         <div className="flex-1">
-          <h3 className="text-sm font-medium text-slate-900">Notifications</h3>
+          <h3 className="text-sm font-medium text-slate-900">{t('settings.notifications.title')}</h3>
           <p className="mt-0.5 text-xs text-slate-500">
-            In-app alerts and reminders
+            {t('settings.notifications.subtitle')}
           </p>
         </div>
       </div>

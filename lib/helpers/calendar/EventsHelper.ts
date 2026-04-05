@@ -1,6 +1,8 @@
 // EventsHelper - matches Simple Calendar Pro EventsHelper.kt
 // Core event query and manipulation logic
 
+import { authedFetch } from '@/lib/supabase/authedFetch'
+import { normalizeCalendarEvent } from '@/lib/helpers/calendar/normalizeCalendarEvent'
 import { Event } from '@/lib/models/calendar/Event'
 import { getOccurrencesInRange } from './RecurrenceHelper'
 import { EventType } from '@/lib/models/calendar/EventType'
@@ -41,7 +43,7 @@ export async function getEventsInRange(
       params.append('search', searchQuery)
     }
 
-    const response = await fetch(`/api/calendar/events?${params.toString()}`)
+    const response = await authedFetch(`/api/calendar/events?${params.toString()}`)
     if (!response.ok) {
       // In dev or when not signed in we don't want to break the UI – log and return no events.
       let preview: string | undefined
@@ -90,7 +92,10 @@ export async function getEventsInRange(
     }
     
     const data = await response.json().catch(() => null)
-    return (data && Array.isArray(data.events)) ? data.events : []
+    if (!data || !Array.isArray(data.events)) return []
+    return (data.events as Record<string, unknown>[])
+      .map((e) => normalizeCalendarEvent(e))
+      .filter((e): e is Event => e != null)
   } catch (error) {
     // Only log if it's not a network error or auth error (these are expected in some cases)
     if (error instanceof TypeError && error.message?.includes('fetch')) {
@@ -326,9 +331,13 @@ export async function getEventsForDay(
   // Get recurring events and expand them
   const recurringEvents = await getRecurringEventsInRange(dayEnd, eventTypeIds)
   const expandedRecurring = expandRecurringEvents(recurringEvents, dayStart, dayEnd)
+
+  // Tasks (TYPE_TASK) use the same `events` table but were excluded by the helpers above,
+  // which only request type=event. Include them so day/week/month views show saved tasks.
+  const tasksThisDay = await getEventsInRange(dayStart, dayEnd, eventTypeIds, 'task')
   
   // Combine and filter to only events that occur on this day
-  const allEvents = [...oneTimeEvents, ...expandedRecurring]
+  const allEvents = [...oneTimeEvents, ...expandedRecurring, ...tasksThisDay]
   
   return allEvents.filter(event => {
     const eventStart = getDateTimeFromTS(event.startTS)
@@ -363,7 +372,7 @@ function getDayEndTS(dayCode: string): number {
 
 // Create event
 export async function createEvent(event: Partial<Event>): Promise<Event | null> {
-  const response = await fetch('/api/calendar/events', {
+  const response = await authedFetch('/api/calendar/events', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(event),
@@ -381,12 +390,35 @@ export async function createEvent(event: Partial<Event>): Promise<Event | null> 
   }
 
   const data = await response.json()
-  return data.event ?? null
+  return normalizeCalendarEvent(data.event)
+}
+
+/** Create a task (events row + tasks mirror). Prefer this for calendar tasks. */
+export async function createTask(task: Partial<Event>): Promise<Event | null> {
+  const response = await authedFetch('/api/calendar/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...task, type: TYPE_TASK }),
+  })
+
+  if (!response.ok) {
+    let message = 'Failed to create task'
+    try {
+      const payload = await response.json()
+      if (payload?.error) message = payload.error
+    } catch {
+      // keep default message
+    }
+    throw new Error(message)
+  }
+
+  const data = await response.json()
+  return normalizeCalendarEvent(data.task)
 }
 
 // Update event
 export async function updateEvent(eventId: number, event: Partial<Event>): Promise<Event | null> {
-  const response = await fetch(`/api/calendar/events/${eventId}`, {
+  const response = await authedFetch(`/api/calendar/events/${eventId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(event),
@@ -404,13 +436,13 @@ export async function updateEvent(eventId: number, event: Partial<Event>): Promi
   }
 
   const data = await response.json()
-  return data.event ?? null
+  return normalizeCalendarEvent(data.event)
 }
 
 // Delete event
 export async function deleteEvent(eventId: number): Promise<boolean> {
   try {
-    const response = await fetch(`/api/calendar/events/${eventId}`, {
+    const response = await authedFetch(`/api/calendar/events/${eventId}`, {
       method: 'DELETE',
     })
     
@@ -424,7 +456,7 @@ export async function deleteEvent(eventId: number): Promise<boolean> {
 // Get event types
 export async function getEventTypes(): Promise<EventType[]> {
   try {
-    const response = await fetch('/api/calendar/event-types')
+    const response = await authedFetch('/api/calendar/event-types')
     if (!response.ok) {
       throw new Error('Failed to fetch event types')
     }

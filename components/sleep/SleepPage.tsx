@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { Moon, X, Pencil, Trash2, Clock, Plus, Sparkles } from "lucide-react";
 import { LogSleepModal } from "@/components/sleep/LogSleepModal";
@@ -10,6 +10,8 @@ import { DeleteSleepConfirmModal } from "@/components/sleep/DeleteSleepConfirmMo
 import { useRouter } from "next/navigation";
 import type { SleepLogInput } from '@/lib/sleep/types';
 import { notifySleepLogsUpdated } from '@/lib/circadian/circadianAgent';
+import { useLanguage, useTranslation } from "@/components/providers/language-provider";
+import { intlLocaleForApp } from "@/lib/i18n/supportedLocales";
 
 // Lazy-load heavier visual components so the initial Sleep page bundle stays small
 const CombinedSleepMetricsCard = dynamic(
@@ -83,6 +85,7 @@ function MiniCard({
 /* ---------- Top: Sleep summary + gauge ---------- */
 
 function SleepGauge({ totalMinutes, targetMinutes }: { totalMinutes: number | null; targetMinutes: number }) {
+  const { t } = useTranslation();
   const hours = totalMinutes ? Math.floor(totalMinutes / 60) : 0;
   const minutes = totalMinutes ? totalMinutes % 60 : 0;
   const percent = totalMinutes ? Math.round((totalMinutes / targetMinutes) * 100) : 0;
@@ -103,12 +106,12 @@ function SleepGauge({ totalMinutes, targetMinutes }: { totalMinutes: number | nu
         <div className="h-[152px] w-[152px] rounded-full bg-white/60 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[inset_0_1px_0_rgba(0,0,0,0.2)]" />
         <div className="absolute inset-2 rounded-full border border-slate-200/40 dark:border-slate-700/30 bg-white/50 dark:bg-slate-900/40" />
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Sleep</p>
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{t("sleepSW.pageTitle")}</p>
           <p className="text-3xl font-semibold text-slate-900 dark:text-slate-100 tabular-nums leading-none">
             {hours}<span className="text-base font-semibold align-top">h</span> {minutes}
           </p>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            {percent}% of goal
+            {t("sleepPage.percentOfGoal", { pct: percent })}
           </p>
         </div>
       </div>
@@ -125,6 +128,7 @@ function SleepSummaryCard({
   totalMinutes: number | null;
   targetMinutes: number;
 }) {
+  const { t } = useTranslation();
   const [sleepStages, setSleepStages] = useState<{
     deep: number;
     rem: number;
@@ -184,9 +188,10 @@ function SleepSummaryCard({
   const hours = totalMinutes ? Math.floor(totalMinutes / 60) : 0;
   const minutes = totalMinutes ? totalMinutes % 60 : 0;
   const percent = totalMinutes ? Math.round((totalMinutes / targetMinutes) * 100) : 0;
-  const displayText = totalMinutes 
-    ? `${hours}h ${minutes}m – ${percent}% of your goal`
-    : '';
+  const displayText = useMemo(() => {
+    if (!totalMinutes) return "";
+    return t("sleepPage.summaryWithGoal", { h: hours, m: minutes, pct: percent });
+  }, [totalMinutes, hours, minutes, percent, t]);
 
   // Reuse wearable sync status on the main sleep card
   const [lastWearableSync, setLastWearableSync] = useState<number | null>(null);
@@ -212,49 +217,55 @@ function SleepSummaryCard({
     };
   }, []);
 
-  const wearableLastSyncLabel = React.useMemo(() => {
-    if (!lastWearableSync) return "Last sync: not yet";
+  const wearableLastSyncLabel = useMemo(() => {
+    if (!lastWearableSync) return t("sleepPage.syncNotYet");
     const diffMs = Date.now() - lastWearableSync;
     const diffMin = Math.round(diffMs / 60000);
-    if (diffMin < 2) return "Last sync: just now";
-    if (diffMin < 60) return `Last sync: ${diffMin} min ago`;
+    if (diffMin < 2) return t("sleepPage.syncJustNow");
+    if (diffMin < 60) return t("sleepPage.syncMinAgo", { m: diffMin });
     const diffH = Math.round(diffMin / 60);
-    if (diffH < 24) return `Last sync: ${diffH} h ago`;
+    if (diffH < 24) return t("sleepPage.syncHoursAgo", { h: diffH });
     const diffD = Math.round(diffH / 24);
-    return `Last sync: ${diffD} day${diffD > 1 ? "s" : ""} ago`;
-  }, [lastWearableSync]);
+    return diffD > 1
+      ? t("sleepPage.syncDaysAgoPlural", { d: diffD })
+      : t("sleepPage.syncDaysAgo", { d: diffD });
+  }, [lastWearableSync, t]);
 
-  // Calculate percentages for stages
-  const totalStageMinutes = sleepStages 
-    ? (sleepStages.deep + sleepStages.rem + sleepStages.light + sleepStages.awake)
-    : 0;
-  
-  const stages = [
-    { 
-      label: "DEEP", 
-      value: sleepStages?.deep ?? 0,
-      percentage: totalStageMinutes > 0 ? Math.round((sleepStages?.deep ?? 0) / totalStageMinutes * 100) : 0,
-      description: "Restorative sleep for physical recovery"
-    },
-    { 
-      label: "REM", 
-      value: sleepStages?.rem ?? 0,
-      percentage: totalStageMinutes > 0 ? Math.round((sleepStages?.rem ?? 0) / totalStageMinutes * 100) : 0,
-      description: "Dream sleep for memory and learning"
-    },
-    { 
-      label: "LIGHT", 
-      value: sleepStages?.light ?? 0,
-      percentage: totalStageMinutes > 0 ? Math.round((sleepStages?.light ?? 0) / totalStageMinutes * 100) : 0,
-      description: "Transitional sleep between stages"
-    },
-    { 
-      label: "AWAKE", 
-      value: sleepStages?.awake ?? 0,
-      percentage: totalStageMinutes > 0 ? Math.round((sleepStages?.awake ?? 0) / totalStageMinutes * 100) : 0,
-      description: "Brief awakenings during sleep"
-    },
-  ];
+  const stages = useMemo(() => {
+    const deep = sleepStages?.deep ?? 0;
+    const rem = sleepStages?.rem ?? 0;
+    const light = sleepStages?.light ?? 0;
+    const awake = sleepStages?.awake ?? 0;
+    const totalStageMinutes = deep + rem + light + awake;
+    const pct = (v: number) =>
+      totalStageMinutes > 0 ? Math.round((v / totalStageMinutes) * 100) : 0;
+    return [
+      {
+        key: "deep",
+        label: t("sleepSW.stage.deep").toUpperCase(),
+        percentage: pct(deep),
+        description: t("sleepSW.stageDesc.deep"),
+      },
+      {
+        key: "rem",
+        label: t("sleepSW.stage.rem").toUpperCase(),
+        percentage: pct(rem),
+        description: t("sleepSW.stageDesc.rem"),
+      },
+      {
+        key: "light",
+        label: t("sleepSW.stage.light").toUpperCase(),
+        percentage: pct(light),
+        description: t("sleepSW.stageDesc.light"),
+      },
+      {
+        key: "awake",
+        label: t("sleepSW.stage.awake").toUpperCase(),
+        percentage: pct(awake),
+        description: t("sleepSW.stageDesc.awake"),
+      },
+    ];
+  }, [sleepStages, t]);
 
   return (
     <section className="relative overflow-hidden rounded-3xl bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 text-slate-900 dark:text-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-6">
@@ -271,16 +282,16 @@ function SleepSummaryCard({
         {/* Header */}
         <div>
           <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400">
-            SLEEP STAGES
+            {t("sleepPage.stagesKicker").toUpperCase()}
           </p>
           <h3 className="mt-2 text-[18px] font-semibold tracking-tight">
-            {totalMinutes ? 'Last night you slept' : 'Log your sleep'}
+            {totalMinutes ? t("sleepPage.lastNightHeading") : t("sleepPage.logSleepHeading")}
           </h3>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             {totalMinutes ? displayText : wearableLastSyncLabel}
           </p>
           <span className="mt-3 inline-flex items-center rounded-full bg-slate-50/60 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/40 px-2.5 py-1 text-[11px] text-slate-500 dark:text-slate-400">
-            Source: Google Fit & ShiftCoach
+            {t("sleepPage.sourceLine")}
           </span>
         </div>
 
@@ -289,11 +300,12 @@ function SleepSummaryCard({
           {/* Left: Text + CTA */}
           <div className="flex-1 space-y-4">
             <button
+              type="button"
               onClick={onLogSleep}
               className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 bg-white/70 dark:bg-slate-800/50 backdrop-blur border border-slate-200/60 dark:border-slate-700/40 text-sm font-medium text-slate-900 dark:text-slate-100 shadow-[0_10px_26px_-16px_rgba(0,0,0,0.20)] dark:shadow-[0_10px_26px_-16px_rgba(0,0,0,0.3)] hover:bg-white/90 dark:hover:bg-slate-800/70 transition"
             >
               <Moon className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
-              Log sleep
+              {t("sleepCard.btnLogSleep")}
             </button>
           </div>
           
@@ -310,7 +322,7 @@ function SleepSummaryCard({
         <div className="grid grid-cols-2 gap-4">
           {stages.map((stage) => (
             <div
-              key={stage.label}
+              key={stage.key}
               className="rounded-2xl px-4 py-4 bg-slate-50/40 dark:bg-slate-800/30 border border-slate-200/30 dark:border-slate-700/30"
             >
               <div className="flex items-center justify-between">
@@ -334,10 +346,10 @@ function SleepSummaryCard({
         <div className="mt-5 rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 dark:from-slate-800/50 to-white dark:to-slate-900/50 border border-slate-200/50 dark:border-slate-700/40">
           <p className="text-xs font-semibold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
-            What to aim for
+            {t("sleepPage.insightHeading")}
           </p>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-            On shift days, protect your first sleep cycle — that's when deep sleep is most likely.
+            {t("sleepPage.insightBody")}
           </p>
         </div>
       </div>
@@ -353,10 +365,11 @@ type TonightTargetProps = {
 }
 
 function TonightTargetCard({ targetHours, explanation, loading }: TonightTargetProps) {
+  const { t } = useTranslation();
   return (
     <MiniCard>
       <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
-        Tonight&apos;s target
+        {t("sleepSW.tonightTarget")}
       </h2>
       {loading ? (
         <div className="mt-3 space-y-2">
@@ -382,11 +395,9 @@ function TonightTargetCard({ targetHours, explanation, loading }: TonightTargetP
 
 /* ---------- Shift coach (dark band) ---------- */
 
-const SHIFT_COACH_SLEEP_TIP =
-  "Keep your sleep schedule as consistent as you can — it helps anchor your body clock across shift changes."
-
 function ShiftCoachCard() {
-  const router = useRouter()
+  const router = useRouter();
+  const { t } = useTranslation();
 
   return (
     <section
@@ -406,24 +417,25 @@ function ShiftCoachCard() {
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 border border-white/10 flex-shrink-0">
             <img
               src="/bubble-icon.png"
-              alt="Shift Coach"
+              alt={t("sleepPage.shiftCoachAlt")}
               className="w-5 h-5 object-contain brightness-0 invert opacity-80"
             />
           </div>
           <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-300 uppercase">
-            Shift Coach
+            {t("sleepPage.shiftCoachLabel")}
           </p>
         </div>
 
-        <p className="text-sm leading-relaxed text-slate-100/95">{SHIFT_COACH_SLEEP_TIP}</p>
+        <p className="text-sm leading-relaxed text-slate-100/95">{t("sleepPage.shiftCoachTip")}</p>
 
-        <button 
+        <button
+          type="button"
           onClick={() => {
             router.push('/sleep/overview')
           }}
           className="text-xs font-medium text-slate-300/90 hover:text-slate-200 transition-colors underline underline-offset-4 decoration-slate-400/50 hover:decoration-slate-300/70"
         >
-          Sleep overview
+          {t("sleepPage.sleepOverviewCta")}
         </button>
       </div>
     </section>
@@ -443,6 +455,7 @@ type SleepSession = {
 }
 
 export default function SleepPage() {
+  const { t } = useTranslation();
   const [tonightTarget, setTonightTarget] = useState<{ targetHours: number; explanation: string } | null>(null)
   const [loadingTarget, setLoadingTarget] = useState(true)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -506,7 +519,7 @@ export default function SleepPage() {
       setSleepDataError(null)
       const res = await fetch('/api/sleep/summary', { cache: 'no-store' })
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Failed to fetch sleep data' }))
+        const errorData = await res.json().catch(() => ({ error: t("sleepPage.errFetchSummary") }))
         throw new Error(errorData.error || `Failed to fetch sleep summary: ${res.status}`)
       }
       const json = await res.json()
@@ -516,11 +529,11 @@ export default function SleepPage() {
       setSleepData({ totalMinutes, targetMinutes })
     } catch (err: any) {
       console.error('[SleepPage] Error fetching sleep data:', err)
-      setSleepDataError(err.message || 'Failed to load sleep data')
+      setSleepDataError(err.message || t("sleepPage.errLoadSummary"))
     } finally {
       setLoadingSleepData(false)
     }
-  }, [])
+  }, [t])
 
 
   const fetchTarget = useCallback(async () => {
@@ -578,8 +591,8 @@ export default function SleepPage() {
       })
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Failed to save sleep' }))
-        throw new Error(errorData.error || 'Failed to save sleep')
+        const errorData = await res.json().catch(() => ({ error: t("sleepLog.errSave") }))
+        throw new Error(errorData.error || t("sleepLog.errSave"))
       }
 
       notifySleepLogsUpdated()
@@ -683,11 +696,11 @@ export default function SleepPage() {
         method: 'DELETE',
       })
 
-      const responseData = await res.json().catch(() => ({ error: 'Failed to parse response' }))
+      const responseData = await res.json().catch(() => ({ error: t("sleepPage.errParseResponse") }))
 
       if (!res.ok) {
         console.error('[SleepPage] Failed to delete session:', res.status, responseData)
-        alert(responseData.error || 'Failed to delete session')
+        alert(responseData.error || t("sleepPage.errDeleteSession"))
         setIsDeleting(false)
         setDeletingSessionId(null)
         return
@@ -731,7 +744,7 @@ export default function SleepPage() {
       router.refresh()
     } catch (err) {
       console.error('[SleepPage] Delete error:', err)
-      alert('Failed to delete session')
+      alert(t("sleepPage.errDeleteSession"))
       setIsDeleting(false)
       setDeletingSessionId(null)
     }
@@ -789,7 +802,7 @@ export default function SleepPage() {
       {/* Disclaimer */}
       <div className="pt-4 pb-4">
         <p className="text-[11px] leading-relaxed text-slate-500 text-center">
-          Shift Coach is a coaching tool and does not provide medical advice. For medical conditions, pregnancy or complex health issues, please check your plan with a registered professional.
+          {t("sleepPage.disclaimer")}
         </p>
       </div>
 
@@ -884,26 +897,30 @@ function DayDetailModal({
   onDelete: (id: string) => void
   onAdd: () => void
 }) {
+  const { language } = useLanguage();
+  const { t } = useTranslation();
+  const intlLocale = useMemo(() => intlLocaleForApp(language), [language]);
+
   const formatDayLabel = (dateStr: string) => {
-    const date = new Date(dateStr + 'T12:00:00')
-    const dayName = date.toLocaleDateString('en-GB', { weekday: 'long' })
-    const dayNum = date.getDate()
-    const monthName = date.toLocaleDateString('en-GB', { month: 'short' })
-    return `${dayName} ${dayNum} ${monthName}`
-  }
+    const d = new Date(dateStr + "T12:00:00");
+    const dayName = d.toLocaleDateString(intlLocale, { weekday: "long" });
+    const dayNum = d.getDate();
+    const monthName = d.toLocaleDateString(intlLocale, { month: "short" });
+    return `${dayName} ${dayNum} ${monthName}`;
+  };
 
   const formatTime = (isoString: string) => {
-    const date = new Date(isoString)
-    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  }
+    const d = new Date(isoString);
+    return d.toLocaleTimeString(intlLocale, { hour: "2-digit", minute: "2-digit" });
+  };
 
   const formatDuration = (hours: number) => {
-    const h = Math.floor(hours)
-    const m = Math.round((hours - h) * 60)
-    if (h === 0 && m === 0) return '0h'
-    if (m === 0) return `${h}h`
-    return `${h}h ${m}m`
-  }
+    const h = Math.floor(hours);
+    const m = Math.round((hours - h) * 60);
+    if (h === 0 && m === 0) return t("sleepLogs.duration0");
+    if (m === 0) return t("sleepLogs.durationH", { h });
+    return t("sleepLogs.durationHM", { h, m });
+  };
 
   return (
     <div className="fixed inset-0 z-[99999] flex items-end sm:items-center justify-center p-4">
@@ -919,12 +936,12 @@ function DayDetailModal({
             <h2 className="text-[19px] font-bold tracking-tight text-slate-900">
               {formatDayLabel(date)}
             </h2>
-            <p className="mt-0.5 text-[12px] text-slate-500">
-              Edit sleep for this day
-            </p>
+            <p className="mt-0.5 text-[12px] text-slate-500">{t("sleep7.editSub")}</p>
           </div>
           <button
+            type="button"
             onClick={onClose}
+            aria-label={t("sleepDel.closeAria")}
             className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50/80 hover:bg-slate-100/80 border border-slate-200/60 text-slate-600 hover:text-slate-900 transition-all hover:scale-105 active:scale-95"
           >
             <X className="h-4 w-4" strokeWidth={2.5} />
@@ -934,11 +951,9 @@ function DayDetailModal({
         {/* Sessions List */}
         <div className="relative z-10 flex-1 overflow-y-auto px-7 py-6">
           {loadingSessions ? (
-            <div className="py-12 text-center text-sm text-slate-500">Loading sessions...</div>
+            <div className="py-12 text-center text-sm text-slate-500">{t("sleep7.loadingSessions")}</div>
           ) : sessions.length === 0 ? (
-            <div className="py-12 text-center text-sm text-slate-500">
-              No sleep sessions logged for this day.
-            </div>
+            <div className="py-12 text-center text-sm text-slate-500">{t("sleep7.noSessions")}</div>
           ) : (
             <div className="space-y-3">
               {sessions.map((session) => (
@@ -950,21 +965,25 @@ function DayDetailModal({
                     <div className="flex items-center gap-2">
                       <div className={`h-2 w-2 rounded-full ${session.session_type === 'main' ? 'bg-blue-500' : 'bg-amber-500'}`} />
                       <span className="text-[13px] font-semibold text-slate-900 capitalize">
-                        {session.session_type}
+                        {session.session_type === "main"
+                          ? t("sleepForm.typeMain")
+                          : t("sleepForm.typeNap")}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
+                        type="button"
                         onClick={() => onEdit(session)}
                         className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50/80 border border-blue-200/60 text-blue-600 hover:bg-blue-100/80 transition-all hover:scale-105 active:scale-95"
-                        aria-label="Edit"
+                        aria-label={t("sleep7.editAria")}
                       >
                         <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
                       </button>
                       <button
+                        type="button"
                         onClick={() => onDelete(session.id)}
                         className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50/80 border border-rose-200/60 text-rose-600 hover:bg-rose-100/80 transition-all hover:scale-105 active:scale-95"
-                        aria-label="Delete"
+                        aria-label={t("sleep7.deleteAria")}
                       >
                         <Trash2 className="h-3.5 w-3.5" strokeWidth={2.5} />
                       </button>
@@ -974,7 +993,12 @@ function DayDetailModal({
                   <div className="flex items-center gap-4 text-[12px] text-slate-600">
                     <div className="flex items-center gap-1.5">
                       <Clock className="h-3.5 w-3.5" />
-                      <span>{formatTime(session.start_time)} - {formatTime(session.end_time)}</span>
+                      <span>
+                        {t("sleepLogs.timeRange", {
+                          start: formatTime(session.start_time),
+                          end: formatTime(session.end_time),
+                        })}
+                      </span>
                     </div>
                     <span className="font-semibold">{formatDuration(session.durationHours)}</span>
                   </div>
@@ -987,11 +1011,12 @@ function DayDetailModal({
         {/* Footer */}
         <div className="relative z-10 px-7 pb-6 pt-4 border-t border-slate-100/80">
           <button
+            type="button"
             onClick={onAdd}
             className="w-full h-12 rounded-xl bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 text-[13px] font-bold text-white shadow-[0_4px_12px_rgba(59,130,246,0.3)] transition-all hover:shadow-[0_6px_16px_rgba(59,130,246,0.4)] hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
           >
             <Plus className="h-4 w-4" />
-            Add sleep for this day
+            {t("sleep7.addSleep")}
           </button>
         </div>
       </div>

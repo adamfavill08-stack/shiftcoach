@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ChevronRight, Info, X } from "lucide-react";
@@ -13,6 +13,8 @@ import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import type { SleepDeficitResponse } from '@/lib/sleep/calculateSleepDeficit'
 import type { ShiftLagMetrics } from '@/lib/circadian/calculateShiftLag'
 import { authedFetch } from '@/lib/supabase/authedFetch'
+import { useTranslation } from '@/components/providers/language-provider'
+import { localizeBlogPostsEmbed } from '@/lib/i18n/blog'
 
 type ShiftRhythmCardProps = {
   // Dashboard passes score as 0–1000 (totalScore * 10) or undefined
@@ -1357,30 +1359,9 @@ function buildAlignmentFactors(score: number) {
 
 /* -------------------- BLOG SECTION -------------------- */
 
-const blogPosts = [
-  {
-    slug: "manage-fatigue",
-    title: "How to Manage Fatigue as a Shift Worker",
-    description: "Practical strategies to help reduce tiredness at work",
-  },
-  {
-    slug: "impact-of-shift-work",
-    title: "The Impact of Shift Work on Your Health",
-    description: "Understanding the long-term effects and how to mitigate them",
-  },
-  {
-    slug: "meal-timing-tips",
-    title: "Meal Timing Tips for Different Shifts",
-    description: "Optimal eating patterns tailored to various shift schedules",
-  },
-  {
-    slug: "sleep-quality-rotating-shifts",
-    title: "Improving Sleep Quality on Rotating Shifts",
-    description: "Effective methods to enhance sleep during changing shifts",
-  },
-];
-
 function BlogSection() {
+  const { t } = useTranslation()
+  const blogPosts = useMemo(() => localizeBlogPostsEmbed(t), [t])
   return (
     <section
       className={[
@@ -1407,17 +1388,17 @@ function BlogSection() {
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <h2 className="text-[13px] font-bold tracking-[0.15em] text-slate-400 uppercase">
-              ShiftCoach Blog
+              {t('blog.embedTitle')}
             </h2>
             <p className="text-[12px] text-slate-500 dark:text-slate-400 leading-relaxed mt-0.5">
-              Tips and advice for shift workers
+              {t('blog.embedSubtitle')}
             </p>
           </div>
           <div className="relative flex items-center justify-center">
             <div className="relative h-16 w-16">
               <Image
                 src="/blog-icon3.png"
-                alt="Blog"
+                alt={t('blog.pageTitle')}
                 width={64}
                 height={64}
                 className="h-full w-full object-contain"
@@ -1428,7 +1409,7 @@ function BlogSection() {
 
         {/* Blog list */}
         <div className="space-y-0 border-t border-slate-200/70 dark:border-slate-700/50 pt-3">
-          {blogPosts.map((post, index) => (
+          {blogPosts.map((post) => (
             <Link
               key={post.slug}
               href={`/blog/${post.slug}`}

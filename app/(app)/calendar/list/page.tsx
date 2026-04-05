@@ -2,14 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, Plus, Search, Filter } from 'lucide-react'
-import { format, startOfDay, endOfDay, isToday, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns'
+import { ChevronLeft, Plus, Search } from 'lucide-react'
+import { format, isToday, startOfMonth, endOfMonth } from 'date-fns'
 import { getEventsInRange } from '@/lib/helpers/calendar/EventsHelper'
 import { Event } from '@/lib/models/calendar/Event'
-import { getDayCodeFromDateTime, getDateTimeFromTS } from '@/lib/helpers/calendar/Formatter'
+import { getDateTimeFromTS } from '@/lib/helpers/calendar/Formatter'
 import { EventFormModal } from '@/components/calendar/EventFormModal'
+import { useTranslation } from '@/components/providers/language-provider'
 
 export default function ListViewPage() {
+  const { t } = useTranslation()
   const router = useRouter()
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
@@ -26,25 +28,20 @@ export default function ListViewPage() {
     loadEvents()
   }, [viewStart, viewEnd, searchQuery])
 
-  async function loadEvents() {
-    setLoading(true)
-    const fromTS = Math.floor(viewStart.getTime() / 1000)
-    const toTS = Math.floor(endOfDay(viewEnd).getTime() / 1000)
-    
-    const params: any = { fromTS, toTS }
-    if (searchQuery) {
-      params.search = searchQuery
-    }
-    
-    const listEvents = await getEventsInRange(fromTS, toTS, undefined, 'event', searchQuery || undefined)
-    setEvents(listEvents)
-    setLoading(false)
-  }
-
-  function endOfDay(date: Date): Date {
+  function endOfDayLocal(date: Date): Date {
     const result = new Date(date)
     result.setHours(23, 59, 59, 999)
     return result
+  }
+
+  async function loadEvents() {
+    setLoading(true)
+    const fromTS = Math.floor(viewStart.getTime() / 1000)
+    const toTS = Math.floor(endOfDayLocal(viewEnd).getTime() / 1000)
+
+    const listEvents = await getEventsInRange(fromTS, toTS, undefined, 'event', searchQuery || undefined)
+    setEvents(listEvents)
+    setLoading(false)
   }
 
   function handleEventClick(event: Event) {
@@ -84,18 +81,22 @@ export default function ListViewPage() {
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-4">
             <button
+              type="button"
               onClick={() => router.back()}
+              aria-label={t('calendar.listView.backAria')}
               className="h-9 w-9 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-slate-100/70 dark:hover:bg-slate-800/50 hover:text-slate-600 dark:hover:text-slate-300 transition"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
 
             <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              Events List
+              {t('calendar.listView.title')}
             </h1>
 
             <button
+              type="button"
               onClick={handleNewEvent}
+              aria-label={t('calendar.listView.newEventAria')}
               className="h-9 w-9 rounded-full flex items-center justify-center bg-gradient-to-r from-sky-600 to-indigo-700 text-white hover:from-sky-700 hover:to-indigo-800 active:scale-95 transition shadow-lg"
             >
               <Plus className="w-4 h-4" />
@@ -104,12 +105,12 @@ export default function ListViewPage() {
 
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" aria-hidden />
             <input
-              type="text"
+              type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search events..."
+              placeholder={t('calendar.listView.searchPlaceholder')}
               className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white/70 dark:bg-slate-800/50 backdrop-blur border border-slate-200/60 dark:border-slate-700/40 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/50 dark:focus:ring-sky-400/50 transition"
             />
           </div>
@@ -120,16 +121,17 @@ export default function ListViewPage() {
       <div className="max-w-4xl mx-auto px-4 py-6">
         {loading ? (
           <div className="text-center py-12 text-slate-500 dark:text-slate-400">
-            Loading events...
+            {t('calendar.listView.loading')}
           </div>
         ) : sortedDays.length === 0 ? (
           <div className="text-center py-12">
-            <div className="text-slate-400 dark:text-slate-600 mb-2">No events found</div>
+            <div className="text-slate-400 dark:text-slate-600 mb-2">{t('calendar.listView.empty')}</div>
             <button
+              type="button"
               onClick={handleNewEvent}
               className="text-sm text-sky-600 dark:text-sky-400 hover:underline"
             >
-              Create your first event
+              {t('calendar.listView.createFirstCta')}
             </button>
           </div>
         ) : (
@@ -166,7 +168,9 @@ export default function ListViewPage() {
                         </div>
                       </div>
                       <div className="text-sm text-slate-500 dark:text-slate-400">
-                        {dayEvents.length} event{dayEvents.length !== 1 ? 's' : ''}
+                        {dayEvents.length === 1
+                          ? t('calendar.listView.eventCountOne', { count: dayEvents.length })
+                          : t('calendar.listView.eventCountMany', { count: dayEvents.length })}
                       </div>
                     </div>
                   </div>
@@ -177,6 +181,7 @@ export default function ListViewPage() {
                       .sort((a, b) => a.startTS - b.startTS)
                       .map((event) => (
                         <button
+                          type="button"
                           key={event.id || `${event.startTS}-${event.title}`}
                           onClick={() => handleEventClick(event)}
                           className="w-full text-left px-6 py-4 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition"
@@ -237,4 +242,3 @@ export default function ListViewPage() {
     </main>
   )
 }
-

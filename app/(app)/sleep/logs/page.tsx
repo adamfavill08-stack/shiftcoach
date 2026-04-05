@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { ChevronLeft, Clock, Moon, Coffee, Calendar as CalendarIcon, Pencil, Trash2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useLanguage, useTranslation } from '@/components/providers/language-provider'
+import { intlLocaleForApp } from '@/lib/i18n/supportedLocales'
 import { EditSleepModal } from '@/components/sleep/EditSleepModal'
 import { DeleteSleepConfirmModal } from '@/components/sleep/DeleteSleepConfirmModal'
 
@@ -25,8 +27,6 @@ type ShiftInfo = {
 
 type DayGroup = {
   date: string
-  dateLabel: string
-  dayLabel: string
   logs: SleepLogEntry[]
   shift: ShiftInfo
   totalHours: number
@@ -34,6 +34,9 @@ type DayGroup = {
 
 export default function SleepLogsPage() {
   const router = useRouter()
+  const { language } = useLanguage()
+  const { t } = useTranslation()
+  const locale = useMemo(() => intlLocaleForApp(language), [language])
   const [days, setDays] = useState<DayGroup[]>([])
   const [loading, setLoading] = useState(true)
   const [editingLog, setEditingLog] = useState<SleepLogEntry | null>(null)
@@ -100,7 +103,7 @@ export default function SleepLogsPage() {
         ;(shiftsData.shifts || []).forEach((shift: any) => {
           shiftsByDate.set(shift.date, {
             date: shift.date,
-            label: shift.label || 'OFF',
+            label: shift.label || 'OFF', // sentinel; display via shiftDisplayLabel()
             start_ts: shift.start_ts,
             end_ts: shift.end_ts,
           })
@@ -135,8 +138,6 @@ export default function SleepLogsPage() {
           
           dayGroups.push({
             date: dateStr,
-            dateLabel: date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-            dayLabel: date.toLocaleDateString('en-GB', { weekday: 'short' }),
             // Sort logs within each day from newest to oldest (by start time descending)
             logs: dayLogs.sort((a, b) => new Date(b.start_at).getTime() - new Date(a.start_at).getTime()),
             shift,
@@ -166,6 +167,37 @@ export default function SleepLogsPage() {
     }
   }, [])
 
+  const shiftDisplayLabel = useCallback(
+    (label: string) => {
+      const trimmed = (label || '').trim()
+      if (!trimmed || trimmed.toUpperCase() === 'OFF') return t('sleepLogs.shiftOff')
+      return label
+    },
+    [t],
+  )
+
+  const formatDayHeading = useCallback(
+    (dateStr: string) => {
+      const d = new Date(`${dateStr}T12:00:00`)
+      const dayLabel = d.toLocaleDateString(locale, { weekday: 'short' })
+      const dateLabel = d.toLocaleDateString(locale, { day: 'numeric', month: 'short' })
+      return `${dayLabel}, ${dateLabel}`
+    },
+    [locale],
+  )
+
+  const qualityLabel = useCallback(
+    (raw: string) => {
+      const n = raw.trim().toLowerCase()
+      if (n === 'excellent') return t('sleepQuality.excellent')
+      if (n === 'good') return t('sleepQuality.good')
+      if (n === 'fair') return t('sleepQuality.fair')
+      if (n === 'poor') return t('sleepQuality.poor')
+      return raw
+    },
+    [t],
+  )
+
   const handleEdit = (log: SleepLogEntry) => {
     setEditingLog(log)
   }
@@ -188,12 +220,15 @@ export default function SleepLogsPage() {
         },
       })
 
-      const responseData = await res.json().catch(() => ({ error: 'Failed to parse response' }))
+      const responseData = await res.json().catch(() => ({ error: t('sleepLogs.errParseResponse') }))
       
       console.log('[SleepLogsPage] Delete response:', { status: res.status, data: responseData })
 
       if (!res.ok) {
-        const errorMessage = responseData.error || responseData.details || `Failed to delete (${res.status})`
+        const errorMessage =
+          responseData.error ||
+          responseData.details ||
+          t('sleepLogs.errDeleteWithStatus', { status: res.status })
         console.error('[SleepLogsPage] Delete failed:', errorMessage)
         throw new Error(errorMessage)
       }
@@ -226,7 +261,7 @@ export default function SleepLogsPage() {
       console.log('[SleepLogsPage] Successfully deleted and refreshed')
     } catch (err: any) {
       console.error('[SleepLogsPage] Delete error:', err)
-      alert(err.message || 'Failed to delete sleep log. Please try again.')
+      alert(err.message || t('sleepLogs.errDeleteAlert'))
       setIsDeleting(false)
     }
   }
@@ -278,18 +313,24 @@ export default function SleepLogsPage() {
     router.refresh()
   }
 
-  const formatTime = (isoString: string) => {
-    const date = new Date(isoString)
-    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  }
+  const formatTime = useCallback(
+    (isoString: string) => {
+      const date = new Date(isoString)
+      return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+    },
+    [locale],
+  )
 
-  const formatDuration = (hours: number) => {
-    const h = Math.floor(hours)
-    const m = Math.round((hours - h) * 60)
-    if (h === 0 && m === 0) return '0h'
-    if (m === 0) return `${h}h`
-    return `${h}h ${m}m`
-  }
+  const formatDuration = useCallback(
+    (hours: number) => {
+      const h = Math.floor(hours)
+      const m = Math.round((hours - h) * 60)
+      if (h === 0 && m === 0) return t('sleepLogs.duration0')
+      if (m === 0) return t('sleepLogs.durationH', { h })
+      return t('sleepLogs.durationHM', { h, m })
+    },
+    [t],
+  )
 
   const getShiftColor = (label: string) => {
     const normalized = label.toLowerCase()
@@ -305,17 +346,19 @@ export default function SleepLogsPage() {
       <div className="sticky top-0 z-10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-700/40 shadow-sm">
         <div className="flex items-center gap-4 px-4 py-4">
           <button
+            type="button"
             onClick={() => router.back()}
+            aria-label={t('sleepLogs.backAria')}
             className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50/80 dark:bg-slate-800/50 hover:bg-slate-100/80 dark:hover:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/40 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-all hover:scale-105 active:scale-95"
           >
             <ChevronLeft className="h-5 w-5" strokeWidth={2.5} />
           </button>
           <div className="flex-1">
             <h1 className="text-[19px] font-bold tracking-tight text-slate-900 dark:text-slate-100">
-              Sleep History
+              {t('sleepLogs.pageTitle')}
             </h1>
             <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">
-              Last 30 days
+              {t('sleepSW.last30Title')}
             </p>
           </div>
         </div>
@@ -334,8 +377,10 @@ export default function SleepLogsPage() {
             <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-slate-100/80 dark:bg-slate-800/50 mb-4">
               <Moon className="h-8 w-8 text-slate-400 dark:text-slate-500" strokeWidth={2} />
             </div>
-            <p className="text-[15px] font-medium text-slate-600 dark:text-slate-300 mb-1">No sleep logs found</p>
-            <p className="text-[12px] text-slate-500 dark:text-slate-400">Start logging your sleep to see it here</p>
+            <p className="text-[15px] font-medium text-slate-600 dark:text-slate-300 mb-1">
+              {t('sleepLogs.emptyTitle')}
+            </p>
+            <p className="text-[12px] text-slate-500 dark:text-slate-400">{t('sleepLogs.emptyBody')}</p>
           </div>
         ) : (
           days.map((day) => (
@@ -355,11 +400,11 @@ export default function SleepLogsPage() {
                     </div>
                     <div>
                       <h3 className="text-[13px] font-bold text-slate-900 dark:text-slate-100">
-                        {day.dayLabel}, {day.dateLabel}
+                        {formatDayHeading(day.date)}
                       </h3>
                       {day.totalHours > 0 && (
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          {formatDuration(day.totalHours)} total
+                          {t('sleepLogs.totalLine', { duration: formatDuration(day.totalHours) })}
                         </p>
                       )}
                     </div>
@@ -367,14 +412,14 @@ export default function SleepLogsPage() {
                   
                   {/* Shift Badge - Always show, defaults to "OFF" if no shift */}
                   <div className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${getShiftColor(day.shift?.label || 'OFF')}`}>
-                    {day.shift?.label || 'OFF'}
+                    {shiftDisplayLabel(day.shift?.label || 'OFF')}
                   </div>
                 </div>
 
                 {/* Sleep Logs */}
                 {day.logs.length === 0 ? (
                   <div className="py-4 text-center">
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">No sleep logged</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">{t('sleepLogs.dayNoSleep')}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -412,18 +457,21 @@ export default function SleepLogsPage() {
                                   text-[11px] font-bold uppercase tracking-wide
                                   ${log.type === 'sleep' ? 'text-blue-600 dark:text-blue-400' : 'text-amber-600 dark:text-amber-400'}
                                 `}>
-                                  {log.type === 'sleep' ? 'Main Sleep' : 'Nap'}
+                                  {log.type === 'sleep' ? t('sleepForm.typeMain') : t('sleepForm.typeNap')}
                                 </span>
                                 {log.quality && (
                                   <span className="text-[9px] text-slate-500 dark:text-slate-400 capitalize px-1 py-0.5 rounded bg-slate-100/60 dark:bg-slate-800/50">
-                                    {log.quality}
+                                    {qualityLabel(String(log.quality))}
                                   </span>
                                 )}
                               </div>
                               <div className="flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400">
                                 <Clock className="h-3 w-3 text-slate-400 dark:text-slate-500" strokeWidth={2} />
                                 <span className="font-medium">
-                                  {formatTime(log.start_at)} → {formatTime(log.end_at)}
+                                  {t('sleepLogs.timeRange', {
+                                    start: formatTime(log.start_at),
+                                    end: formatTime(log.end_at),
+                                  })}
                                 </span>
                               </div>
                             </div>
@@ -439,22 +487,24 @@ export default function SleepLogsPage() {
                             {/* Action buttons - visible on hover */}
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
+                                type="button"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   handleEdit(log)
                                 }}
                                 className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50 border border-blue-200/60 dark:border-blue-800/40 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-all hover:scale-110 active:scale-95"
-                                aria-label="Edit sleep entry"
+                                aria-label={t('sleepLogs.editAria')}
                               >
                                 <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
                               </button>
                               <button
+                                type="button"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   handleDelete(log.id)
                                 }}
                                 className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/50 border border-red-200/60 dark:border-red-800/40 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-all hover:scale-110 active:scale-95"
-                                aria-label="Delete sleep entry"
+                                aria-label={t('sleepLogs.deleteAria')}
                               >
                                 <Trash2 className="h-3.5 w-3.5" strokeWidth={2.5} />
                               </button>

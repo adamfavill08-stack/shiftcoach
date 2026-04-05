@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { LegalDocumentChrome } from '@/components/legal/LegalDocumentChrome'
 
 export const metadata: Metadata = {
   title: 'Terms of Service - Shift Coach',
@@ -6,21 +7,11 @@ export const metadata: Metadata = {
 }
 
 export default function TermsOfServicePage() {
-  const lastUpdated = new Date().toLocaleDateString()
-
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-10">
-      <div className="max-w-3xl mx-auto">
-        <div className="rounded-3xl bg-white border border-slate-100 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] px-6 py-8">
-          <h1 className="text-2xl font-semibold text-slate-900 mb-4">Terms of Service</h1>
-
-          <div className="prose prose-slate max-w-none space-y-6 text-slate-700">
-            <p className="text-sm text-slate-500 italic">
-              Last updated: {lastUpdated}
-            </p>
-
+    <LegalDocumentChrome variant="terms">
+      <div className="prose prose-slate dark:prose-invert max-w-none space-y-6 text-slate-700 dark:text-slate-300">
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">
                 1. Acceptance of Terms
               </h2>
               <p>
@@ -30,7 +21,7 @@ export default function TermsOfServicePage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">
                 2. Use License
               </h2>
               <p>
@@ -45,7 +36,7 @@ export default function TermsOfServicePage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">
                 3. Medical Disclaimer
               </h2>
               <p>
@@ -61,7 +52,7 @@ export default function TermsOfServicePage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">
                 4. User Responsibilities
               </h2>
               <p>You agree to:</p>
@@ -74,7 +65,7 @@ export default function TermsOfServicePage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">
                 5. Limitation of Liability
               </h2>
               <p>
@@ -84,7 +75,7 @@ export default function TermsOfServicePage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">
                 6. Changes to Terms
               </h2>
               <p>
@@ -94,7 +85,7 @@ export default function TermsOfServicePage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">
                 7. Subscriptions and Payments
               </h2>
               <p>
@@ -115,7 +106,7 @@ export default function TermsOfServicePage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">
                 8. Service Availability
               </h2>
               <p>
@@ -126,7 +117,7 @@ export default function TermsOfServicePage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">
                 9. Refund Policy
               </h2>
               <p>
@@ -137,7 +128,7 @@ export default function TermsOfServicePage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">
                 10. Contact Information
               </h2>
               <p>
@@ -148,9 +139,7 @@ export default function TermsOfServicePage() {
                 </a>
               </p>
             </section>
-          </div>
-        </div>
       </div>
-    </main>
+    </LegalDocumentChrome>
   )
 }

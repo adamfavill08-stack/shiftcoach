@@ -1,10 +1,14 @@
 'use client'
 
 import Link from 'next/link'
+import { useMemo } from 'react'
 import { ChevronLeft } from 'lucide-react'
-import { blogPosts } from './[slug]/page'
+import { useTranslation } from '@/components/providers/language-provider'
+import { localizeBlogPosts } from '@/lib/i18n/blog'
 
 export default function BlogIndexPage() {
+  const { t } = useTranslation()
+  const blogPosts = useMemo(() => localizeBlogPosts(t), [t])
   return (
     <main className="min-h-screen bg-slate-100">
       <div className="max-w-[440px] mx-auto min-h-screen px-4 pb-10 pt-6">
@@ -13,12 +17,12 @@ export default function BlogIndexPage() {
           <Link
             href="/dashboard"
             className="p-2 rounded-full bg-white border border-slate-100 text-slate-700 shadow-[0_2px_6px_rgba(15,23,42,0.08)] transition-all hover:bg-slate-50 active:scale-95"
-            aria-label="Back to dashboard"
+            aria-label={t('blog.backToDashboard')}
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <h1 className="text-lg font-semibold text-slate-900">
-            Shift Worker Help
+            {t('blog.indexTitle')}
           </h1>
         </header>
 

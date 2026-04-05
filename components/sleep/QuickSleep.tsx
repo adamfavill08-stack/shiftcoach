@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { notifySleepLogsUpdated } from '@/lib/circadian/circadianAgent'
+import { useTranslation } from '@/components/providers/language-provider'
 
 function dISO(d: Date){ return d.toISOString().slice(0,10) }
 function toISO(dateISO: string, hhmm: string) {
@@ -12,7 +13,8 @@ function toISO(dateISO: string, hhmm: string) {
   return d.toISOString()
 }
 
-export function QuickSleep({ onSaved }:{ onSaved: ()=>void }) {
+export function QuickSleep({ onSaved }: { onSaved: () => void }) {
+  const { t } = useTranslation()
   const now = new Date()
   const [date, setDate] = useState(dISO(now))
   const [start, setStart] = useState('23:00')
@@ -43,13 +45,16 @@ export function QuickSleep({ onSaved }:{ onSaved: ()=>void }) {
       const e = new Date(endISO); e.setDate(e.getDate()+1); endISO = e.toISOString()
     }
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setMsg('Not signed in'); return }
+    if (!user) {
+      setMsg(t('quickSleep.notSignedIn'))
+      return
+    }
     const { error } = await supabase.from('sleep_logs').insert({
       user_id: user.id, start_ts: startISO, end_ts: endISO, quality, type
     })
     if (error) setMsg(error.message)
     else {
-      setMsg('Saved')
+      setMsg(t('quickSleep.saved'))
       setOpen(false)
       notifySleepLogsUpdated()
       onSaved()
@@ -59,55 +64,88 @@ export function QuickSleep({ onSaved }:{ onSaved: ()=>void }) {
   return (
     <>
       <button
-        onClick={()=>setOpen(true)}
+        type="button"
+        onClick={() => setOpen(true)}
         className="btn-primary"
       >
-        Log sleep
+        {t('sleepLog.title')}
       </button>
 
       {open && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center">
           <div className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl bg-white dark:bg-slate-900 p-4">
             <div className="flex items-center justify-between">
-              <div className="font-semibold">Log sleep</div>
-              <button onClick={()=>setOpen(false)} className="text-slate-500">✕</button>
+              <div className="font-semibold">{t('sleepLog.title')}</div>
+              <button type="button" onClick={() => setOpen(false)} className="text-slate-500">
+                ✕
+              </button>
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-3">
-              <label className="text-sm">Date
+              <label className="text-sm">
+                {t('quickSleep.dateLabel')}
                 <input type="date" value={date} onChange={e=>setDate(e.target.value)}
                   className="mt-1 w-full border rounded-xl px-3 py-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700" />
               </label>
-              <label className="text-sm">Type
-                <select value={type} onChange={e=>setType(e.target.value as any)}
-                  className="mt-1 w-full border rounded-xl px-3 py-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
-                  <option value="main">Main sleep</option>
-                  <option value="nap">Nap</option>
+              <label className="text-sm">
+                {t('quickSleep.typeLabel')}
+                <select
+                  value={type}
+                  onChange={(e) => setType(e.target.value as 'main' | 'nap')}
+                  className="mt-1 w-full border rounded-xl px-3 py-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                >
+                  <option value="main">{t('sleepForm.typeMain')}</option>
+                  <option value="nap">{t('sleepForm.typeNap')}</option>
                 </select>
               </label>
-              <label className="text-sm">Start
+              <label className="text-sm">
+                {t('quickSleep.startLabel')}
                 <input type="time" value={start} onChange={e=>setStart(e.target.value)}
                   className="mt-1 w-full border rounded-xl px-3 py-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700" />
               </label>
-              <label className="text-sm">End
+              <label className="text-sm">
+                {t('quickSleep.endLabel')}
                 <input type="time" value={end} onChange={e=>setEnd(e.target.value)}
                   className="mt-1 w-full border rounded-xl px-3 py-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700" />
               </label>
-              <label className="text-sm col-span-2">Quality: {quality}/5
+              <label className="text-sm col-span-2">
+                {t('quickSleep.qualityLabel', { q: quality })}
                 <input type="range" min={1} max={5} value={quality} onChange={e=>setQuality(Number(e.target.value))}
                   className="w-full mt-1" />
               </label>
             </div>
 
             <div className="flex gap-2 mt-3">
-              <button onClick={()=>preset('lastNight')} className="px-3 py-1.5 rounded-xl border text-xs">Last night</button>
-              <button onClick={()=>preset('postNight')} className="px-3 py-1.5 rounded-xl border text-xs">Post-night</button>
-              <button onClick={()=>preset('nap20')} className="px-3 py-1.5 rounded-xl border text-xs">Nap 20m</button>
+              <button
+                type="button"
+                onClick={() => preset('lastNight')}
+                className="px-3 py-1.5 rounded-xl border text-xs"
+              >
+                {t('quickSleep.presetLastNight')}
+              </button>
+              <button
+                type="button"
+                onClick={() => preset('postNight')}
+                className="px-3 py-1.5 rounded-xl border text-xs"
+              >
+                {t('quickSleep.presetPostNight')}
+              </button>
+              <button
+                type="button"
+                onClick={() => preset('nap20')}
+                className="px-3 py-1.5 rounded-xl border text-xs"
+              >
+                {t('quickSleep.presetNap20')}
+              </button>
             </div>
 
             <div className="flex gap-2 mt-4">
-              <button onClick={save} className="flex-1 btn-primary">Save</button>
-              <button onClick={()=>setOpen(false)} className="flex-1 btn-primary">Cancel</button>
+              <button type="button" onClick={save} className="flex-1 btn-primary">
+                {t('sleepForm.save')}
+              </button>
+              <button type="button" onClick={() => setOpen(false)} className="flex-1 btn-primary">
+                {t('sleepForm.cancel')}
+              </button>
             </div>
 
             {msg && <div className="text-sm text-slate-600 mt-2">{msg}</div>}

@@ -6,7 +6,9 @@ import { useRouter } from 'next/navigation'
 import { ChevronLeft, Pencil, Trash2 } from 'lucide-react'
 import { SleepEditModal } from '@/components/sleep/SleepEditModal'
 import { DeleteSleepConfirmModal } from '@/components/sleep/DeleteSleepConfirmModal'
-import { getShiftedDayKey, getSleepTypeLabel, qualityNumberToLabel } from '@/lib/sleep/utils'
+import { useLanguage, useTranslation } from '@/components/providers/language-provider'
+import { intlLocaleForApp } from '@/lib/i18n/supportedLocales'
+import { getShiftedDayKey } from '@/lib/sleep/utils'
 import type { SleepType } from '@/lib/sleep/types'
 
 type SleepHistoryItem = {
@@ -26,22 +28,68 @@ type GroupedDay = {
   totalMinutes: number
 }
 
-function formatDateTime(value: string) {
-  const d = new Date(value)
-  return d.toLocaleString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-}
-
 function getMinutes(startAt: string, endAt: string) {
   return Math.max(0, Math.round((new Date(endAt).getTime() - new Date(startAt).getTime()) / 60000))
 }
 
 export function SleepHistoryManagerPage() {
   const router = useRouter()
+  const { language } = useLanguage()
+  const { t } = useTranslation()
+  const intlLocale = useMemo(() => intlLocaleForApp(language), [language])
+
+  const formatDateTime = useCallback(
+    (value: string) => {
+      const d = new Date(value)
+      return d.toLocaleString(intlLocale, {
+        day: 'numeric',
+        month: 'short',
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+    },
+    [intlLocale],
+  )
+
+  const typeLabel = useCallback(
+    (type: SleepType) => {
+      switch (type) {
+        case 'main_sleep':
+          return t('sleepType.main_sleep')
+        case 'post_shift_sleep':
+          return t('sleepType.post_shift_sleep')
+        case 'recovery_sleep':
+          return t('sleepType.recovery_sleep')
+        case 'nap':
+          return t('sleepType.nap')
+        default:
+          return t('sleepType.default')
+      }
+    },
+    [t],
+  )
+
+  const qualityLabelFromNum = useCallback(
+    (n: number | null | undefined) => {
+      if (n == null) return ''
+      switch (n) {
+        case 5:
+          return t('sleepQuality.excellent')
+        case 4:
+          return t('sleepQuality.good')
+        case 3:
+          return t('sleepQuality.fair')
+        case 2:
+          return t('sleepQuality.poor')
+        case 1:
+          return t('sleepQuality.veryPoor')
+        default:
+          return t('sleepQuality.fair')
+      }
+    },
+    [t],
+  )
+
   const [items, setItems] = useState<SleepHistoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -60,17 +108,17 @@ export function SleepHistoryManagerPage() {
       const json = await res.json().catch(() => null)
 
       if (!res.ok) {
-        throw new Error(json?.error || 'Failed to load sleep history')
+        throw new Error(json?.error || t('sleepHistMgr.errLoad'))
       }
 
       setItems(json?.items ?? [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load sleep history')
+      setError(err instanceof Error ? err.message : t('sleepHistMgr.errLoad'))
       setItems([])
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void fetchHistory()
@@ -119,13 +167,13 @@ export function SleepHistoryManagerPage() {
       const json = await res.json().catch(() => null)
 
       if (!res.ok) {
-        throw new Error(json?.error || 'Failed to delete sleep log')
+        throw new Error(json?.error || t('sleepHistMgr.errDelete'))
       }
 
       await fetchHistory()
       router.refresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to delete sleep log')
+      setActionError(err instanceof Error ? err.message : t('sleepHistMgr.errDelete'))
     } finally {
       setDeletingId(null)
       setPendingDeleteId(null)
@@ -138,17 +186,15 @@ export function SleepHistoryManagerPage() {
         <Link
           href="/sleep"
           className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
-          aria-label="Back to sleep"
+          aria-label={t('sleepHistMgr.backAria')}
         >
           <ChevronLeft className="h-4 w-4" />
         </Link>
         <div>
           <h1 className="text-sm font-semibold tracking-[0.18em] text-slate-800 uppercase">
-            Edit sleep logs
+            {t('sleepHistMgr.title')}
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Review and correct the last 30 days of logged sleep.
-          </p>
+          <p className="text-xs text-slate-500 mt-1">{t('sleepHistMgr.subtitle')}</p>
         </div>
       </div>
 
@@ -169,7 +215,7 @@ export function SleepHistoryManagerPage() {
         </div>
       ) : groupedDays.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-500">
-          No sleep logs found for the last 30 days.
+          {t('sleepHistMgr.empty')}
         </div>
       ) : (
         <div className="space-y-4">
@@ -181,14 +227,14 @@ export function SleepHistoryManagerPage() {
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <h2 className="text-sm font-semibold text-slate-900">
-                    {new Date(`${day.date}T12:00:00`).toLocaleDateString('en-GB', {
+                    {new Date(`${day.date}T12:00:00`).toLocaleDateString(intlLocale, {
                       weekday: 'short',
                       day: 'numeric',
                       month: 'short',
                     })}
                   </h2>
                   <p className="text-xs text-slate-500">
-                    {(day.totalMinutes / 60).toFixed(1)}h total
+                    {t('sleepHistMgr.dayTotal', { h: (day.totalMinutes / 60).toFixed(1) })}
                   </p>
                 </div>
               </div>
@@ -205,14 +251,17 @@ export function SleepHistoryManagerPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
                           <p className="text-sm font-medium text-slate-900">
-                            {getSleepTypeLabel(session.type)}
+                            {typeLabel(session.type)}
                           </p>
                           <p className="text-xs text-slate-500">
-                            {formatDateTime(session.start_at)} - {formatDateTime(session.end_at)}
+                            {t('sleepLogs.timeRange', {
+                              start: formatDateTime(session.start_at),
+                              end: formatDateTime(session.end_at),
+                            })}
                           </p>
                           <p className="text-xs text-slate-500">
-                            {duration.toFixed(1)}h
-                            {session.quality != null ? ` · ${qualityNumberToLabel(session.quality)}` : ''}
+                            {t('sleepLogs.durationH', { h: duration.toFixed(1) })}
+                            {session.quality != null ? ` · ${qualityLabelFromNum(session.quality)}` : ''}
                             {session.source ? ` · ${session.source}` : ''}
                           </p>
                           {session.notes ? (
@@ -224,21 +273,23 @@ export function SleepHistoryManagerPage() {
 
                         <div className="flex items-center gap-2">
                           <button
+                            type="button"
                             onClick={() => setEditingSession(session)}
                             disabled={deletingId === session.id}
                             className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Pencil className="h-3.5 w-3.5" />
-                            Edit
+                            {t('sleepHistMgr.edit')}
                           </button>
 
                           <button
+                            type="button"
                             onClick={() => setPendingDeleteId(session.id)}
                             disabled={deletingId === session.id}
                             className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-2.5 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
-                            {deletingId === session.id ? 'Deleting...' : 'Delete'}
+                            {deletingId === session.id ? t('sleepDel.deleting') : t('sleepHistMgr.delete')}
                           </button>
                         </div>
                       </div>

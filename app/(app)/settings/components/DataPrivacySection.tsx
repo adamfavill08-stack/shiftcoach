@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation'
 import { ChevronRight, ChevronDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { showToast } from '@/components/ui/Toast'
+import { useTranslation } from '@/components/providers/language-provider'
 
 export function DataPrivacySection() {
+  const { t } = useTranslation()
   const router = useRouter()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
@@ -24,8 +26,8 @@ export function DataPrivacySection() {
       })
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Failed to export data' }))
-        showToast(errorData.error || 'Failed to export data', 'error')
+        const errorData = await res.json().catch(() => ({ error: t('settings.dataPrivacy.toast.exportFailed') }))
+        showToast(errorData.error || t('settings.dataPrivacy.toast.exportFailed'), 'error')
         setIsExporting(false)
         return
       }
@@ -44,10 +46,10 @@ export function DataPrivacySection() {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
 
-      showToast('Data exported successfully', 'success')
+      showToast(t('settings.dataPrivacy.toast.exportSuccess'), 'success')
     } catch (err: any) {
       console.error('Export error:', err)
-      showToast('Failed to export data', 'error')
+      showToast(t('settings.dataPrivacy.toast.exportFailed'), 'error')
     } finally {
       setIsExporting(false)
     }
@@ -61,7 +63,7 @@ export function DataPrivacySection() {
       const { error } = await supabase.auth.signOut()
       if (error) {
         console.error('Logout error:', error)
-        showToast('Failed to log out. Please try again.', 'error')
+        showToast(t('settings.dataPrivacy.toast.logoutFailed'), 'error')
         setIsLoggingOut(false)
       } else {
         router.push('/auth/sign-in')
@@ -69,14 +71,14 @@ export function DataPrivacySection() {
       }
     } catch (err) {
       console.error('Logout error:', err)
-      showToast('Failed to log out. Please try again.', 'error')
+      showToast(t('settings.dataPrivacy.toast.logoutFailed'), 'error')
       setIsLoggingOut(false)
     }
   }
 
   const handleDeleteAccount = async () => {
     if (deleteConfirmText !== 'DELETE') {
-      showToast('Please type DELETE to confirm', 'error')
+      showToast(t('settings.dataPrivacy.toast.typeDelete'), 'error')
       return
     }
 
@@ -84,7 +86,7 @@ export function DataPrivacySection() {
       // Get the current session token
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) {
-        showToast('Failed to delete account: No active session', 'error')
+        showToast(t('settings.dataPrivacy.toast.deleteNoSession'), 'error')
         return
       }
 
@@ -99,16 +101,16 @@ export function DataPrivacySection() {
 
       const data = await res.json()
       if (!res.ok || !data.ok) {
-        showToast('Failed to delete account', 'error')
+        showToast(t('settings.dataPrivacy.toast.deleteFailed'), 'error')
       } else {
-        showToast('Account deleted', 'success')
+        showToast(t('settings.dataPrivacy.toast.deleteSuccess'), 'success')
         // Sign out and redirect
         await supabase.auth.signOut()
         router.push('/auth/sign-in')
       }
     } catch (err) {
       console.error('Delete error:', err)
-      showToast('Failed to delete account', 'error')
+      showToast(t('settings.dataPrivacy.toast.deleteFailed'), 'error')
     }
   }
 
@@ -125,7 +127,7 @@ export function DataPrivacySection() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
-            <h3 className="text-sm font-medium text-slate-900">Data & privacy</h3>
+            <h3 className="text-sm font-medium text-slate-900">{t('settings.dataPrivacy.title')}</h3>
           </div>
           {isOpen ? (
             <ChevronDown className="h-4 w-4 text-slate-300 group-hover:text-sky-400 transition flex-shrink-0" strokeWidth={2} />
@@ -141,7 +143,7 @@ export function DataPrivacySection() {
               rel="noopener noreferrer"
               className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50 transition-colors"
             >
-              <span className="text-sm font-medium text-slate-900">Privacy Policy</span>
+              <span className="text-sm font-medium text-slate-900">{t('settings.dataPrivacy.privacyPolicy')}</span>
               <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition" strokeWidth={2} />
             </a>
             <a
@@ -150,7 +152,7 @@ export function DataPrivacySection() {
               rel="noopener noreferrer"
               className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50 transition-colors"
             >
-              <span className="text-sm font-medium text-slate-900">Terms of Service</span>
+              <span className="text-sm font-medium text-slate-900">{t('settings.dataPrivacy.termsOfService')}</span>
               <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition" strokeWidth={2} />
             </a>
             <a
@@ -159,7 +161,7 @@ export function DataPrivacySection() {
               rel="noopener noreferrer"
               className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50 transition-colors"
             >
-              <span className="text-sm font-medium text-slate-900">Health Data Notice</span>
+              <span className="text-sm font-medium text-slate-900">{t('settings.dataPrivacy.healthDataNotice')}</span>
               <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition" strokeWidth={2} />
             </a>
             <div className="h-px bg-slate-200 my-2" />
@@ -169,7 +171,7 @@ export function DataPrivacySection() {
               className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full"
             >
               <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                {isExporting ? 'Exporting...' : 'Export my data'}
+                {isExporting ? t('settings.dataPrivacy.exporting') : t('settings.dataPrivacy.exportMyData')}
               </span>
               <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition" strokeWidth={2} />
             </button>
@@ -177,7 +179,7 @@ export function DataPrivacySection() {
               onClick={() => setShowDeleteConfirm(true)}
               className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-rose-50 transition-colors w-full"
             >
-              <span className="text-sm font-medium text-rose-700">Delete my account</span>
+              <span className="text-sm font-medium text-rose-700">{t('settings.dataPrivacy.deleteMyAccount')}</span>
               <ChevronRight className="h-4 w-4 text-rose-300 group-hover:text-rose-400 transition" strokeWidth={2} />
             </button>
             <a
@@ -186,7 +188,7 @@ export function DataPrivacySection() {
               rel="noopener noreferrer"
               className="group flex items-center justify-between py-3 px-3 rounded-xl hover:bg-slate-50 transition-colors"
             >
-              <span className="text-xs text-slate-500">Delete account on web</span>
+              <span className="text-xs text-slate-500">{t('settings.dataPrivacy.deleteAccountWeb')}</span>
               <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-400 transition" strokeWidth={2} />
             </a>
           </div>
@@ -200,7 +202,7 @@ export function DataPrivacySection() {
           disabled={isLoggingOut}
           className="w-full rounded-xl px-4 py-3 text-sm text-slate-500 dark:text-slate-400 hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isLoggingOut ? 'Logging out...' : 'Log out'}
+          {isLoggingOut ? t('settings.dataPrivacy.loggingOut') : t('settings.dataPrivacy.logOut')}
         </button>
       </div>
 
@@ -210,13 +212,17 @@ export function DataPrivacySection() {
           <div className="relative overflow-hidden rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-red-200/50 dark:border-red-800/40 shadow-[0_8px_24px_rgba(239,68,68,0.15)] dark:shadow-[0_8px_24px_rgba(239,68,68,0.3)] p-6 w-full max-w-sm">
             <div className="absolute inset-0 bg-gradient-to-b from-red-50/30 dark:from-red-950/30 via-white/90 dark:via-slate-900/70 to-white/85 dark:to-slate-950/60" />
             <div className="relative z-10">
-              <h4 className="text-lg font-bold text-red-900 dark:text-red-300 mb-2">Delete Account</h4>
-              <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">This action cannot be undone. Type DELETE to confirm.</p>
+              <h4 className="text-lg font-bold text-red-900 dark:text-red-300 mb-2">
+                {t('settings.dataPrivacy.deleteAccountTitle')}
+              </h4>
+              <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">
+                {t('settings.dataPrivacy.deleteConfirmInstruction')}
+              </p>
               <input
                 type="text"
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
-                placeholder="Type DELETE"
+                placeholder={t('settings.dataPrivacy.deletePlaceholder')}
                 className="w-full px-4 py-3 border border-red-300 dark:border-red-800/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-red-500 dark:focus:border-red-400 mb-4 transition-all bg-white dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                 autoFocus
               />
@@ -228,13 +234,13 @@ export function DataPrivacySection() {
                   }}
                   className="flex-1 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
                 >
-                  Cancel
+                  {t('settings.dataPrivacy.cancel')}
                 </button>
                 <button
                   onClick={handleDeleteAccount}
                   className="flex-1 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 dark:from-red-500 dark:to-red-600 rounded-xl hover:from-red-700 hover:to-red-800 dark:hover:from-red-600 dark:hover:to-red-700 shadow-[0_4px_12px_rgba(239,68,68,0.3)] dark:shadow-[0_4px_12px_rgba(239,68,68,0.5)] hover:shadow-[0_6px_16px_rgba(239,68,68,0.4)] dark:hover:shadow-[0_6px_16px_rgba(239,68,68,0.6)] transition-all"
                 >
-                  Confirm
+                  {t('settings.dataPrivacy.confirm')}
                 </button>
               </div>
             </div>

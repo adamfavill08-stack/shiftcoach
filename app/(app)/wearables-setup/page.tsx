@@ -213,22 +213,15 @@ export default function WearablesSetupPage() {
               className="text-sm list-decimal list-inside space-y-2"
               style={{ color: "var(--text-main)" }}
             >
-              <li>Join the ShiftCoach closed test using the same Google account on phone and watch.</li>
-              <li>Install ShiftCoach on your phone from Play Store, then install ShiftCoach on your Wear OS watch from Play Store.</li>
-              <li>Open ShiftCoach on both phone and watch once, and keep Bluetooth enabled.</li>
-              <li>On Android, enable Health Connect and allow Samsung Health / watch app data sharing.</li>
-              <li>
-                In ShiftCoach mobile, check the watch status pill. It should show{" "}
-                <span className="font-semibold">“Watch app connected”</span>.
-              </li>
-              <li>
-                Tap{" "}
-                <span className="font-semibold">“Sync wearables”</span>{" "}
-                to refresh steps, sleep, and heart-rate data.
-              </li>
+              <li>{t("detail.wearablesSetup.samsungWearStep1")}</li>
+              <li>{t("detail.wearablesSetup.samsungWearStep2")}</li>
+              <li>{t("detail.wearablesSetup.samsungWearStep3")}</li>
+              <li>{t("detail.wearablesSetup.samsungWearStep4")}</li>
+              <li>{t("detail.wearablesSetup.samsungWearStep5")}</li>
+              <li>{t("detail.wearablesSetup.samsungWearStep6")}</li>
             </ol>
             <p className="text-xs" style={{ color: "var(--text-soft)" }}>
-              If watch status is not connected, open ShiftCoach on the watch and return to this screen.
+              {t("detail.wearablesSetup.samsungWearFooter")}
             </p>
           </section>
         )}
@@ -316,7 +309,7 @@ export default function WearablesSetupPage() {
                   )}
                   {typeof status.stepsToday === "number" && (
                     <p className="text-sm leading-relaxed text-emerald-800 dark:text-emerald-200/90">
-                      {t("detail.wearablesSetup.stepsToday").replace("{count}", String(status.stepsToday))}
+                      {t('detail.wearablesSetup.stepsToday', { count: status.stepsToday })}
                     </p>
                   )}
                   {!status.verified && (
@@ -345,10 +338,10 @@ export default function WearablesSetupPage() {
               <span
                 className="inline-flex w-full items-center justify-center rounded-lg px-4 py-3 text-sm font-medium text-center text-white bg-slate-700 dark:bg-slate-600 opacity-90 cursor-default sm:max-w-md sm:self-end"
                 style={{ borderRadius: 8 }}
-                title="Use Health Connect on Android or Apple Health on iPhone. Google Fit onboarding is legacy-only."
+                title={t("detail.wearablesSetup.healthConnectAppleHealthTitle")}
                 aria-disabled="true"
               >
-                Use Health Connect / Apple Health
+                {t("detail.wearablesSetup.healthConnectAppleHealthCta")}
               </span>
             ) : (
               <div className="flex justify-end w-full">
@@ -359,7 +352,7 @@ export default function WearablesSetupPage() {
         </section>
         {status?.provider === "google_fit" && (
           <p className="text-center text-xs text-amber-700 dark:text-amber-400">
-            Connected via legacy Google Fit. Android should migrate to Health Connect.
+            {t("detail.wearablesSetup.legacyGoogleFitBanner")}
           </p>
         )}
         {status?.connected && status.verified && (
@@ -369,7 +362,7 @@ export default function WearablesSetupPage() {
         )}
         <p className="text-center text-xs">
           <Link href="/wearables-debug" className="underline" style={{ color: "var(--text-soft)" }}>
-            Open wearables data health debug
+            {t("detail.wearablesSetup.debugWearablesLink")}
           </Link>
         </p>
       </div>

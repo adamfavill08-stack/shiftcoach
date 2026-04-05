@@ -1,8 +1,12 @@
 'use client'
 
 import { MobileShell } from '@/components/MobileShell'
+import { useTranslation } from '@/components/providers/language-provider'
 
 export default function CoachPage() {
-  return <MobileShell title="Coach">Coach goes here</MobileShell>
+  const { t } = useTranslation()
+  return (
+    <MobileShell title={t('coach.shellTitle')}>{t('coach.placeholder')}</MobileShell>
+  )
 }
 

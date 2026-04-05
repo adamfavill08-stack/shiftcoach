@@ -5,15 +5,17 @@ import { ChevronRight, ChevronDown } from 'lucide-react'
 import { useSettings } from '@/lib/hooks/useSettings'
 import { SettingsCard, SettingsRow } from '@/components/settings/SettingsCard'
 import { SettingsSelect } from '@/components/settings/SettingsSelect'
+import { useTranslation } from '@/components/providers/language-provider'
 
 export function NutritionSection() {
+  const { t } = useTranslation()
   const { settings, saving, saveField, loading } = useSettings()
   const [isOpen, setIsOpen] = useState(false)
 
   if (loading) {
     return (
       <div>
-        <div className="animate-pulse text-xs text-slate-500">Loading...</div>
+        <div className="animate-pulse text-xs text-slate-500">{t('settings.nutrition.loading')}</div>
       </div>
     )
   }
@@ -23,24 +25,6 @@ export function NutritionSection() {
     calorie_adjustment_aggressiveness: 'balanced' as const,
     macro_split_preset: 'balanced' as const,
   }
-
-  const activityLevelLabel = {
-    low: 'Low',
-    medium: 'Medium',
-    high: 'High',
-  }[safeSettings.default_activity_level || 'medium'] || 'Medium'
-
-  const calorieAdjustmentLabel = {
-    gentle: 'Gentle',
-    balanced: 'Balanced',
-    aggressive: 'Aggressive',
-  }[safeSettings.calorie_adjustment_aggressiveness || 'balanced'] || 'Balanced'
-
-  const macroSplitLabel = {
-    balanced: 'Balanced',
-    high_protein: 'High Protein',
-    custom: 'Custom',
-  }[safeSettings.macro_split_preset || 'balanced'] || 'Balanced'
 
   return (
     <div className="relative">
@@ -54,7 +38,7 @@ export function NutritionSection() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
             </svg>
           </div>
-          <h3 className="text-sm font-medium text-slate-900">Nutrition</h3>
+          <h3 className="text-sm font-medium text-slate-900">{t('settings.nutrition.title')}</h3>
         </div>
         {isOpen ? (
           <ChevronDown className="h-4 w-4 text-slate-300 group-hover:text-sky-400 transition flex-shrink-0" strokeWidth={2} />
@@ -64,74 +48,83 @@ export function NutritionSection() {
       </button>
       {isOpen && (
         <div className="absolute left-0 right-0 top-full mt-2 mx-2 rounded-2xl bg-white border border-slate-100 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.35)] p-4 space-y-3 z-20">
-            <SettingsRow
-              label="Activity Level"
-              description="Your typical shift intensity level."
-              right={
-                <SettingsSelect
-                  value={safeSettings.default_activity_level || 'medium'}
-                  onChange={(value) => {
-                    if (settings) saveField('default_activity_level', value as 'low' | 'medium' | 'high')
-                  }}
-                  onSave={async () => {
-                    if (!settings) return false
-                    return saveField('default_activity_level', safeSettings.default_activity_level || 'medium', false)
-                  }}
-                  options={[
-                    { value: 'low', label: 'Low' },
-                    { value: 'medium', label: 'Medium' },
-                    { value: 'high', label: 'High' },
-                  ]}
-                  saving={saving === 'default_activity_level'}
-                />
-              }
-            />
+          <SettingsRow
+            label={t('settings.nutrition.activityLevel')}
+            description={t('settings.nutrition.activityLevelDesc')}
+            right={
+              <SettingsSelect
+                value={safeSettings.default_activity_level || 'medium'}
+                onChange={(value) => {
+                  if (settings) saveField('default_activity_level', value as 'low' | 'medium' | 'high')
+                }}
+                onSave={async () => {
+                  if (!settings) return false
+                  return saveField('default_activity_level', safeSettings.default_activity_level || 'medium', false)
+                }}
+                options={[
+                  { value: 'low', label: t('settings.nutrition.activity.low') },
+                  { value: 'medium', label: t('settings.nutrition.activity.medium') },
+                  { value: 'high', label: t('settings.nutrition.activity.high') },
+                ]}
+                saving={saving === 'default_activity_level'}
+              />
+            }
+          />
 
-            <SettingsRow
-              label="Calorie Adjustment"
-              description="How aggressively calories adjust to your activity."
-              right={
-                <SettingsSelect
-                  value={safeSettings.calorie_adjustment_aggressiveness || 'balanced'}
-                  onChange={(value) => {
-                    if (settings) saveField('calorie_adjustment_aggressiveness', value as 'gentle' | 'balanced' | 'aggressive')
-                  }}
-                  onSave={async () => {
-                    if (!settings) return false
-                    return saveField('calorie_adjustment_aggressiveness', safeSettings.calorie_adjustment_aggressiveness || 'balanced', false)
-                  }}
-                  options={[
-                    { value: 'gentle', label: 'Gentle' },
-                    { value: 'balanced', label: 'Balanced' },
-                    { value: 'aggressive', label: 'Aggressive' },
-                  ]}
-                  saving={saving === 'calorie_adjustment_aggressiveness'}
-                />
-              }
-            />
+          <SettingsRow
+            label={t('settings.nutrition.calorieAdjustment')}
+            description={t('settings.nutrition.calorieAdjustmentDesc')}
+            right={
+              <SettingsSelect
+                value={safeSettings.calorie_adjustment_aggressiveness || 'balanced'}
+                onChange={(value) => {
+                  if (settings)
+                    saveField(
+                      'calorie_adjustment_aggressiveness',
+                      value as 'gentle' | 'balanced' | 'aggressive',
+                    )
+                }}
+                onSave={async () => {
+                  if (!settings) return false
+                  return saveField(
+                    'calorie_adjustment_aggressiveness',
+                    safeSettings.calorie_adjustment_aggressiveness || 'balanced',
+                    false,
+                  )
+                }}
+                options={[
+                  { value: 'gentle', label: t('settings.nutrition.calorie.gentle') },
+                  { value: 'balanced', label: t('settings.nutrition.calorie.balanced') },
+                  { value: 'aggressive', label: t('settings.nutrition.calorie.aggressive') },
+                ]}
+                saving={saving === 'calorie_adjustment_aggressiveness'}
+              />
+            }
+          />
 
-            <SettingsRow
-              label="Macro Split"
-              description="Your preferred macronutrient distribution."
-              right={
-                <SettingsSelect
-                  value={safeSettings.macro_split_preset || 'balanced'}
-                  onChange={(value) => {
-                    if (settings) saveField('macro_split_preset', value as 'balanced' | 'high_protein' | 'custom')
-                  }}
-                  onSave={async () => {
-                    if (!settings) return false
-                    return saveField('macro_split_preset', safeSettings.macro_split_preset || 'balanced', false)
-                  }}
-                  options={[
-                    { value: 'balanced', label: 'Balanced' },
-                    { value: 'high_protein', label: 'High Protein' },
-                    { value: 'custom', label: 'Custom' },
-                  ]}
-                  saving={saving === 'macro_split_preset'}
-                />
-              }
-            />
+          <SettingsRow
+            label={t('settings.nutrition.macroSplit')}
+            description={t('settings.nutrition.macroSplitDesc')}
+            right={
+              <SettingsSelect
+                value={safeSettings.macro_split_preset || 'balanced'}
+                onChange={(value) => {
+                  if (settings)
+                    saveField('macro_split_preset', value as 'balanced' | 'high_protein' | 'custom')
+                }}
+                onSave={async () => {
+                  if (!settings) return false
+                  return saveField('macro_split_preset', safeSettings.macro_split_preset || 'balanced', false)
+                }}
+                options={[
+                  { value: 'balanced', label: t('settings.nutrition.macro.balanced') },
+                  { value: 'high_protein', label: t('settings.nutrition.macro.highProtein') },
+                  { value: 'custom', label: t('settings.nutrition.macro.custom') },
+                ]}
+                saving={saving === 'macro_split_preset'}
+              />
+            }
+          />
         </div>
       )}
     </div>

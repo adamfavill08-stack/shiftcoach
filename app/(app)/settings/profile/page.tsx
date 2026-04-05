@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, Suspense, Fragment } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
@@ -8,8 +8,23 @@ import { getMyProfile, updateProfile, type Profile } from '@/lib/profile'
 import { ChevronLeft, ChevronRight, User, Target, Scale, Ruler, Calendar } from 'lucide-react'
 import { showToast } from '@/components/ui/Toast'
 import { cmToFeetInches } from '@/lib/units'
+import { useTranslation } from '@/components/providers/language-provider'
+
+function ProfileLoadingFallback() {
+  const { t } = useTranslation()
+  return (
+    <main className="min-h-screen bg-slate-100">
+      <div className="max-w-md mx-auto px-4 py-8">
+        <div className="rounded-3xl bg-white px-6 py-5">
+          <div className="animate-pulse text-sm text-slate-500">{t('settings.profile.loading')}</div>
+        </div>
+      </div>
+    </main>
+  )
+}
 
 function ProfilePageContent() {
+  const { t } = useTranslation()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
@@ -360,7 +375,7 @@ function ProfilePageContent() {
       const { error } = await supabase.auth.signOut()
       if (error) {
         console.error('Logout error:', error)
-        showToast('Failed to log out. Please try again.', 'error')
+        showToast(t('settings.dataPrivacy.toast.logoutFailed'), 'error')
         setIsLoggingOut(false)
       } else {
         router.push('/auth/sign-in')
@@ -368,7 +383,7 @@ function ProfilePageContent() {
       }
     } catch (err) {
       console.error('Logout error:', err)
-      showToast('Failed to log out. Please try again.', 'error')
+      showToast(t('settings.dataPrivacy.toast.logoutFailed'), 'error')
       setIsLoggingOut(false)
     }
   }
@@ -378,7 +393,7 @@ function ProfilePageContent() {
       <main className="min-h-screen bg-slate-100">
         <div className="max-w-md mx-auto px-4 py-8">
           <div className="rounded-3xl bg-white px-6 py-5">
-            <div className="animate-pulse text-sm text-slate-500">Loading profile...</div>
+            <div className="animate-pulse text-sm text-slate-500">{t('settings.profile.loading')}</div>
           </div>
         </div>
       </main>
@@ -392,12 +407,12 @@ function ProfilePageContent() {
         <div className="max-w-md mx-auto px-4 py-8">
           <div className="rounded-3xl bg-white px-6 py-5">
             <div className="text-center">
-              <p className="text-sm text-slate-600 mb-4">No profile found. Please complete onboarding.</p>
+              <p className="text-sm text-slate-600 mb-4">{t('settings.profile.emptyMessage')}</p>
               <button
                 onClick={() => router.push('/onboarding')}
                 className="px-6 py-3 rounded-full bg-slate-900 text-white font-semibold shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] hover:opacity-95 transition-colors"
               >
-                Go to Onboarding
+                {t('settings.profile.goToOnboarding')}
               </button>
               <button
                 onClick={async () => {
@@ -414,7 +429,7 @@ function ProfilePageContent() {
                 }}
                 className="mt-3 px-6 py-3 rounded-full bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200 transition-colors"
               >
-                Refresh Profile
+                {t('settings.profile.refreshProfile')}
               </button>
             </div>
           </div>
@@ -426,18 +441,17 @@ function ProfilePageContent() {
   // Convert weight to display format based on selected unit
   const getDisplayWeight = (weightKg: number | null, unit: 'kg' | 'lb' | 'st+lb'): string => {
     if (!weightKg) return '—'
-    
+
     if (unit === 'kg') {
-      return `${Math.round(weightKg)} kg`
-    } else if (unit === 'lb') {
-      return `${Math.round(weightKg * 2.20462)} lb`
-    } else {
-      // st+lb: 1 stone = 14 pounds, 1 kg = 2.20462 lb
-      const totalPounds = weightKg * 2.20462
-      const stone = Math.floor(totalPounds / 14)
-      const pounds = Math.round(totalPounds % 14)
-      return `${stone} st ${pounds} lb`
+      return `${Math.round(weightKg)} ${t('settings.profile.unit.kg')}`
     }
+    if (unit === 'lb') {
+      return `${Math.round(weightKg * 2.20462)} ${t('settings.profile.unit.lb')}`
+    }
+    const totalPounds = weightKg * 2.20462
+    const stone = Math.floor(totalPounds / 14)
+    const pounds = Math.round(totalPounds % 14)
+    return `${stone} ${t('settings.profile.unit.st')} ${pounds} ${t('settings.profile.unit.lb')}`
   }
 
   // Calculate display values - ensure we handle null/undefined correctly
@@ -449,9 +463,9 @@ function ProfilePageContent() {
     ? profile?.units === 'imperial'
       ? (() => {
           const { ft, inches } = cmToFeetInches(profile.height_cm!)
-          return `${ft} ft ${inches} in`
+          return `${ft} ${t('settings.profile.unit.ft')} ${inches} ${t('settings.profile.unit.in')}`
         })()
-      : `${Math.round(profile.height_cm)} cm`
+      : `${Math.round(profile.height_cm)} ${t('settings.profile.unit.cm')}`
     : '—'
 
   const displayAge =
@@ -464,15 +478,30 @@ function ProfilePageContent() {
         })()
       : '—'
 
-  const goalLabel = profile?.goal === 'lose' ? 'Lose' 
-    : profile?.goal === 'gain' ? 'Gain' 
-    : profile?.goal === 'maintain' ? 'Maintain'
-    : '—'
+  const goalLabel =
+    profile.goal === 'lose'
+      ? t('settings.profile.goal.lose')
+      : profile.goal === 'gain'
+        ? t('settings.profile.goal.gain')
+        : profile.goal === 'maintain'
+          ? t('settings.profile.goal.maintain')
+          : '—'
 
-  const genderLabel = profile?.sex === 'male' ? 'Male'
-    : profile?.sex === 'female' ? 'Female'
-    : profile?.sex === 'other' ? 'Other'
-    : '—'
+  const genderLabel =
+    profile.sex === 'male'
+      ? t('settings.profile.gender.male')
+      : profile.sex === 'female'
+        ? t('settings.profile.gender.female')
+        : profile.sex === 'other'
+          ? t('settings.profile.gender.other')
+          : '—'
+
+  const weightUnitChipLabel = (u: 'kg' | 'lb' | 'st+lb') =>
+    u === 'st+lb'
+      ? t('settings.profile.weightUnitChip.stLb')
+      : u === 'kg'
+        ? t('settings.profile.weightUnitChip.kg')
+        : t('settings.profile.weightUnitChip.lb')
 
   // Debug: Log display values on every render to help diagnose blank display issue
   console.log('[ProfilePage] Render - Profile state:', {
@@ -499,9 +528,9 @@ function ProfilePageContent() {
       window.dispatchEvent(new CustomEvent('goalChanged', { detail: { goal } }))
       // Also dispatch profile-updated for other components
       window.dispatchEvent(new CustomEvent('profile-updated', { detail: { goal } }))
-      showToast('Goal updated. Recalculating your targets...', 'success')
+      showToast(t('settings.profile.toast.goalUpdated'), 'success')
     } else {
-      showToast('Failed to update goal', 'error')
+      showToast(t('settings.profile.toast.goalFailed'), 'error')
     }
     setSaving(null)
     setShowGoalModal(false)
@@ -533,7 +562,7 @@ function ProfilePageContent() {
     }
     
     if (weightInKg === null || isNaN(weightInKg) || weightInKg < 30 || weightInKg > 300) {
-      alert('Please enter a valid weight between 30kg and 300kg.')
+      alert(t('settings.profile.alert.weightRange'))
       setSaving(null)
       return
     }
@@ -545,9 +574,9 @@ function ProfilePageContent() {
       // Weight affects BMR, which affects all calorie and macro calculations
       window.dispatchEvent(new CustomEvent('profile-updated', { detail: { weight_kg: weightInKg } }))
       window.dispatchEvent(new CustomEvent('weightChanged', { detail: { weight_kg: weightInKg } }))
-      showToast('Weight updated. Recalculating your targets...', 'success')
+      showToast(t('settings.profile.toast.weightUpdated'), 'success')
     } else {
-      showToast('Failed to update weight', 'error')
+      showToast(t('settings.profile.toast.weightFailed'), 'error')
     }
     
     setSaving(null)
@@ -563,7 +592,7 @@ function ProfilePageContent() {
     const numValue = parseFloat(heightInput)
     
     if (isNaN(numValue) || numValue < 100 || numValue > 250) {
-      alert('Please enter a valid height between 100cm and 250cm.')
+      alert(t('settings.profile.alert.heightRange'))
       setSaving(null)
       return
     }
@@ -575,9 +604,9 @@ function ProfilePageContent() {
       // Height affects BMR, which affects all calorie and macro calculations
       window.dispatchEvent(new CustomEvent('profile-updated', { detail: { height_cm: numValue } }))
       window.dispatchEvent(new CustomEvent('heightChanged', { detail: { height_cm: numValue } }))
-      showToast('Height updated. Recalculating your targets...', 'success')
+      showToast(t('settings.profile.toast.heightUpdated'), 'success')
     } else {
-      showToast('Failed to update height', 'error')
+      showToast(t('settings.profile.toast.heightFailed'), 'error')
     }
     
     setSaving(null)
@@ -590,7 +619,7 @@ function ProfilePageContent() {
     setSaving('dob')
     
     if (!dobInput || dobInput.trim() === '') {
-      alert('Please enter a date of birth.')
+      alert(t('settings.profile.alert.dobRequired'))
       setSaving(null)
       return
     }
@@ -598,7 +627,7 @@ function ProfilePageContent() {
     // Validate date format (YYYY-MM-DD)
     const dobRegex = /^\d{4}-\d{2}-\d{2}$/
     if (!dobRegex.test(dobInput)) {
-      alert('Please enter a valid date in YYYY-MM-DD format.')
+      alert(t('settings.profile.alert.dobFormat'))
       setSaving(null)
       return
     }
@@ -607,7 +636,7 @@ function ProfilePageContent() {
     const dob = new Date(dobInput)
     const today = new Date()
     if (dob > today) {
-      alert('Date of birth cannot be in the future.')
+      alert(t('settings.profile.alert.dobFuture'))
       setSaving(null)
       return
     }
@@ -615,7 +644,7 @@ function ProfilePageContent() {
     // Validate age is reasonable (13-120 years)
     const age = calculateAge(dobInput)
     if (age === null || age < 13 || age > 120) {
-      alert('Please enter a date of birth that corresponds to an age between 13 and 120 years.')
+      alert(t('settings.profile.alert.dobAgeRange'))
       setSaving(null)
       return
     }
@@ -626,9 +655,9 @@ function ProfilePageContent() {
       await refreshProfile()
       // Dispatch events to trigger recalculation (age affects sleep calculations)
       window.dispatchEvent(new CustomEvent('profile-updated', { detail: { date_of_birth: dobInput, age } }))
-      showToast(`Date of birth updated. Age: ${age} years.`, 'success')
+      showToast(t('settings.profile.toast.dobUpdated', { age }), 'success')
     } else {
-      showToast('Failed to update date of birth', 'error')
+      showToast(t('settings.profile.toast.dobFailed'), 'error')
     }
     
     setSaving(null)
@@ -646,9 +675,9 @@ function ProfilePageContent() {
       // Dispatch profile-updated event - gender affects BMR calculation
       window.dispatchEvent(new CustomEvent('profile-updated', { detail: { sex } }))
       window.dispatchEvent(new CustomEvent('genderChanged', { detail: { sex } }))
-      showToast('Gender updated. Recalculating your targets...', 'success')
+      showToast(t('settings.profile.toast.genderUpdated'), 'success')
     } else {
-      showToast('Failed to update gender', 'error')
+      showToast(t('settings.profile.toast.genderFailed'), 'error')
     }
     setSaving(null)
     setShowGenderModal(false)
@@ -681,7 +710,7 @@ function ProfilePageContent() {
                     onClick={() => router.back()}
                     className="text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors"
                   >
-                    Back
+                    {t('settings.profile.back')}
                   </button>
                   <button
                     onClick={async () => {
@@ -697,40 +726,40 @@ function ProfilePageContent() {
                       setLoading(false)
                     }}
                     className="text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors"
-                    title="Refresh profile data"
+                    title={t('settings.profile.refreshTitle')}
                   >
-                    Refresh
+                    {t('settings.profile.refresh')}
                   </button>
                 </div>
                 <h1 className="px-5 text-[18px] font-semibold tracking-tight text-slate-900">
-                  Profile
+                  {t('settings.profile.title')}
                 </h1>
 
                 {/* Identity Block */}
                 <div className="mt-4 mx-5 flex items-center gap-3 rounded-xl bg-slate-50 border border-slate-100 px-4 py-3">
                   <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-400 grid place-items-center text-white font-semibold flex-shrink-0">
-                    {getInitials(userName || 'User')}
+                    {getInitials(userName || t('settings.profile.fallbackUser'))}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900">{getFirstName(userName) || 'User'}</p>
-                    <p className="text-xs text-slate-500">ShiftCoach profile</p>
+                    <p className="text-sm font-semibold text-slate-900">{getFirstName(userName) || t('settings.profile.fallbackUser')}</p>
+                    <p className="text-xs text-slate-500">{t('settings.profile.subtitle')}</p>
                   </div>
                 </div>
 
                 {/* Quick stats row */}
                 <div className="mt-3 mx-5 grid grid-cols-3 gap-2">
                   <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
-                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Weight</p>
+                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">{t('settings.profile.statWeight')}</p>
                     <p className="mt-1 text-sm font-semibold text-slate-900 truncate">{displayWeight}</p>
                   </div>
                   <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
-                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Height</p>
+                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">{t('settings.profile.statHeight')}</p>
                     <p className="mt-1 text-sm font-semibold text-slate-900 truncate">{displayHeight}</p>
                   </div>
                   <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
-                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Age</p>
+                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">{t('settings.profile.statAge')}</p>
                     <p className="mt-1 text-sm font-semibold text-slate-900 truncate">
-                      {displayAge !== '—' ? `${displayAge} yr` : '—'}
+                      {displayAge !== '—' ? t('settings.profile.ageYr', { age: displayAge }) : '—'}
                     </p>
                   </div>
                 </div>
@@ -746,7 +775,7 @@ function ProfilePageContent() {
                       <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-sky-500 to-emerald-400 grid place-items-center flex-shrink-0 shadow-sm">
                         <User className="h-4 w-4 text-white" strokeWidth={2} />
                       </div>
-                      <p className="text-sm font-medium text-slate-900">Gender</p>
+                      <p className="text-sm font-medium text-slate-900">{t('settings.profile.rowGender')}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <p className="text-sm font-semibold text-slate-900 tabular-nums">{genderLabel}</p>
@@ -763,7 +792,7 @@ function ProfilePageContent() {
                       <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-violet-500 to-sky-500 grid place-items-center flex-shrink-0 shadow-sm">
                         <Target className="h-4 w-4 text-white" strokeWidth={2} />
                       </div>
-                      <p className="text-sm font-medium text-slate-900">Goal</p>
+                      <p className="text-sm font-medium text-slate-900">{t('settings.profile.rowGoal')}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <p className="text-sm font-semibold text-slate-900 tabular-nums">{goalLabel}</p>
@@ -795,7 +824,7 @@ function ProfilePageContent() {
                       <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-400 to-sky-500 grid place-items-center flex-shrink-0 shadow-sm">
                         <Scale className="h-4 w-4 text-white" strokeWidth={2} />
                       </div>
-                      <p className="text-sm font-medium text-slate-900">Body Weight</p>
+                      <p className="text-sm font-medium text-slate-900">{t('settings.profile.rowBodyWeight')}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <p className="text-sm font-semibold text-slate-900 tabular-nums">{displayWeight}</p>
@@ -815,7 +844,7 @@ function ProfilePageContent() {
                       <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-sky-500 to-indigo-500 grid place-items-center flex-shrink-0 shadow-sm">
                         <Ruler className="h-4 w-4 text-white" strokeWidth={2} />
                       </div>
-                      <p className="text-sm font-medium text-slate-900">Height</p>
+                      <p className="text-sm font-medium text-slate-900">{t('settings.profile.rowHeight')}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <p className="text-sm font-semibold text-slate-900 tabular-nums">{displayHeight}</p>
@@ -855,12 +884,12 @@ function ProfilePageContent() {
                       <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-sky-500 to-violet-500 grid place-items-center flex-shrink-0 shadow-sm">
                         <Calendar className="h-4 w-4 text-white" strokeWidth={2} />
                       </div>
-                      <p className="text-sm font-medium text-slate-900">Age / Date of Birth</p>
+                      <p className="text-sm font-medium text-slate-900">{t('settings.profile.rowAgeDob')}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <p className="text-sm font-semibold text-slate-900 tabular-nums">
                         {profile?.age !== null && profile?.age !== undefined && typeof profile.age === 'number' && profile.age > 0
-                          ? `${profile.age} years`
+                          ? t('settings.profile.ageYears', { age: profile.age })
                           : '—'}
                       </p>
                       <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-sky-400 transition" strokeWidth={2} />
@@ -875,7 +904,7 @@ function ProfilePageContent() {
                     disabled={isLoggingOut}
                     className="mt-5 w-full rounded-full px-5 py-3 bg-slate-900 text-white text-sm font-semibold shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] hover:opacity-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isLoggingOut ? 'Logging out...' : 'Log out'}
+                    {isLoggingOut ? t('settings.dataPrivacy.loggingOut') : t('settings.dataPrivacy.logOut')}
                   </button>
 
                   <div className="mt-6 pt-4 border-t border-slate-100 text-center">
@@ -883,8 +912,7 @@ function ProfilePageContent() {
                       SHIFTCOACH
                     </p>
                     <p className="text-[11px] leading-relaxed text-slate-500">
-                      A coaching app only and does not replace medical advice. Please speak to a healthcare
-                      professional about any health concerns.
+                      {t('detail.common.disclaimer')}
                     </p>
                   </div>
                 </div>
@@ -896,7 +924,7 @@ function ProfilePageContent() {
         {showGenderModal && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
             <div className="rounded-2xl bg-white border border-slate-200 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] p-6 w-full max-w-sm">
-              <h4 className="text-lg font-semibold text-slate-900 mb-4">Select gender</h4>
+              <h4 className="text-lg font-semibold text-slate-900 mb-4">{t('settings.profile.modalSelectGender')}</h4>
                 <div className="space-y-2">
                   {(['male', 'female', 'other'] as const).map((sex) => (
                     <button
@@ -909,7 +937,11 @@ function ProfilePageContent() {
                           : 'border-slate-200 text-slate-900 hover:bg-slate-50'
                       } ${saving === 'gender' ? 'opacity-50 cursor-wait' : ''}`}
                     >
-                      {sex === 'male' ? 'Male' : sex === 'female' ? 'Female' : 'Other'}
+                      {sex === 'male'
+                        ? t('settings.profile.gender.male')
+                        : sex === 'female'
+                          ? t('settings.profile.gender.female')
+                          : t('settings.profile.gender.other')}
                     </button>
                   ))}
                 </div>
@@ -918,7 +950,7 @@ function ProfilePageContent() {
                   disabled={saving === 'gender'}
                 className="mt-4 w-full py-2.5 text-sm font-medium text-slate-500 hover:text-slate-900 disabled:opacity-50 transition-colors"
                 >
-                  Cancel
+                  {t('settings.profile.cancel')}
               </button>
             </div>
           </div>
@@ -928,7 +960,7 @@ function ProfilePageContent() {
         {showGoalModal && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
             <div className="rounded-2xl bg-white border border-slate-200 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] p-6 w-full max-w-sm">
-              <h4 className="text-lg font-semibold text-slate-900 mb-4">Select goal</h4>
+              <h4 className="text-lg font-semibold text-slate-900 mb-4">{t('settings.profile.modalSelectGoal')}</h4>
                 <div className="space-y-2">
                   {(['lose', 'maintain', 'gain'] as const).map((goal) => (
                     <button
@@ -941,7 +973,11 @@ function ProfilePageContent() {
                           : 'border-slate-200 text-slate-900 hover:bg-slate-50'
                       } ${saving === 'goal' ? 'opacity-50 cursor-wait' : ''}`}
                     >
-                      {goal === 'lose' ? 'Lose' : goal === 'gain' ? 'Gain' : 'Maintain'}
+                      {goal === 'lose'
+                        ? t('settings.profile.goal.lose')
+                        : goal === 'gain'
+                          ? t('settings.profile.goal.gain')
+                          : t('settings.profile.goal.maintain')}
                     </button>
                   ))}
                 </div>
@@ -950,7 +986,7 @@ function ProfilePageContent() {
                   disabled={saving === 'goal'}
                 className="mt-4 w-full py-2.5 text-sm font-medium text-slate-500 hover:text-slate-900 disabled:opacity-50 transition-colors"
                 >
-                  Cancel
+                  {t('settings.profile.cancel')}
                 </button>
             </div>
           </div>
@@ -960,7 +996,7 @@ function ProfilePageContent() {
         {showWeightModal && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
             <div className="rounded-2xl bg-white border border-slate-200 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] p-6 w-full max-w-sm">
-              <h4 className="text-lg font-semibold text-slate-900 mb-4">Body weight</h4>
+              <h4 className="text-lg font-semibold text-slate-900 mb-4">{t('settings.profile.modalBodyWeight')}</h4>
 
                 {/* Unit Selector */}
                 <div className="mb-4">
@@ -996,7 +1032,7 @@ function ProfilePageContent() {
                             : 'border-slate-200 text-slate-700 hover:bg-slate-50'
                         }`}
                       >
-                        {unit === 'st+lb' ? 'st+lb' : unit.toUpperCase()}
+                        {weightUnitChipLabel(unit)}
                       </button>
                     ))}
                   </div>
@@ -1006,7 +1042,7 @@ function ProfilePageContent() {
                 {weightUnit === 'st+lb' ? (
                   <div className="flex items-center gap-2 mb-4">
                     <div className="flex-1">
-                      <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Stone</label>
+                      <label className="text-xs font-semibold text-slate-600 mb-1.5 block">{t('settings.profile.labelStone')}</label>
                       <input
                         type="number"
                         value={stoneInput}
@@ -1017,7 +1053,7 @@ function ProfilePageContent() {
                       />
                     </div>
                     <div className="flex-1">
-                      <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Pounds</label>
+                      <label className="text-xs font-semibold text-slate-600 mb-1.5 block">{t('settings.profile.labelPounds')}</label>
                       <input
                         type="number"
                         value={poundsInput}
@@ -1033,11 +1069,13 @@ function ProfilePageContent() {
                       type="number"
                       value={weightInput}
                       onChange={(e) => setWeightInput(e.target.value)}
-                      placeholder={`Weight in ${weightUnit}`}
+                      placeholder={t('settings.profile.weightPlaceholder', {
+                        unit: weightUnitChipLabel(weightUnit),
+                      })}
                       className="flex-1 px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white text-slate-900 placeholder:text-slate-400"
                       autoFocus
                     />
-                    <span className="text-sm font-semibold text-slate-600">{weightUnit}</span>
+                    <span className="text-sm font-semibold text-slate-600">{weightUnitChipLabel(weightUnit)}</span>
                   </div>
                 )}
 
@@ -1051,7 +1089,7 @@ function ProfilePageContent() {
                     }}
                     className="flex-1 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
                   >
-                    Cancel
+                    {t('settings.profile.cancel')}
                   </button>
                   <button
                     onClick={handleSaveWeight}
@@ -1061,7 +1099,7 @@ function ProfilePageContent() {
                     }
                     className="flex-1 py-2.5 text-sm font-semibold text-white bg-slate-900 rounded-xl hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] transition-all"
                   >
-                    {saving === 'weight' ? 'Saving...' : 'Save'}
+                    {saving === 'weight' ? t('settings.profile.saving') : t('settings.profile.save')}
                   </button>
                 </div>
             </div>
@@ -1072,17 +1110,17 @@ function ProfilePageContent() {
         {showHeightModal && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
             <div className="rounded-2xl bg-white border border-slate-200 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] p-6 w-full max-w-sm">
-              <h4 className="text-lg font-semibold text-slate-900 mb-4">Height</h4>
+              <h4 className="text-lg font-semibold text-slate-900 mb-4">{t('settings.profile.modalHeight')}</h4>
                 <div className="flex items-center gap-2 mb-4">
                   <input
                     type="number"
                     value={heightInput}
                     onChange={(e) => setHeightInput(e.target.value)}
-                    placeholder="Height in cm"
+                    placeholder={t('settings.profile.heightPlaceholder')}
                     className="flex-1 px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all bg-white text-slate-900 placeholder:text-slate-400"
                     autoFocus
                   />
-                  <span className="text-sm font-semibold text-slate-600">cm</span>
+                  <span className="text-sm font-semibold text-slate-600">{t('settings.profile.cm')}</span>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -1092,14 +1130,14 @@ function ProfilePageContent() {
                     }}
                     className="flex-1 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
                   >
-                    Cancel
+                    {t('settings.profile.cancel')}
                   </button>
                   <button
                     onClick={handleSaveHeight}
                     disabled={saving === 'height' || !heightInput}
                     className="flex-1 py-2.5 text-sm font-semibold text-white bg-slate-900 rounded-xl hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] transition-all"
                   >
-                    {saving === 'height' ? 'Saving...' : 'Save'}
+                    {saving === 'height' ? t('settings.profile.saving') : t('settings.profile.save')}
                   </button>
                 </div>
             </div>
@@ -1110,12 +1148,12 @@ function ProfilePageContent() {
         {showAgeModal && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
             <div className="rounded-2xl bg-white border border-slate-200 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] p-6 w-full max-w-sm">
-              <h4 className="text-lg font-semibold text-slate-900 mb-2">Date of birth</h4>
+              <h4 className="text-lg font-semibold text-slate-900 mb-2">{t('settings.profile.modalDobTitle')}</h4>
               <p className="text-xs text-slate-600 mb-4">
-                  Age will be calculated automatically from your date of birth.
+                  {t('settings.profile.modalDobHint')}
                 </p>
                 <div className="mb-4">
-                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Date of birth</label>
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">{t('settings.profile.modalDobLabel')}</label>
                   <input
                     type="date"
                     value={dobInput}
@@ -1128,7 +1166,7 @@ function ProfilePageContent() {
                 {dobInput && calculateAge(dobInput) !== null && (
                   <div className="mb-4 p-3 rounded-xl bg-sky-50 border border-sky-100">
                     <p className="text-sm text-sky-800">
-                      Age: <span className="font-semibold">{calculateAge(dobInput)} years</span>
+                      {t('settings.profile.agePreview', { age: calculateAge(dobInput) as number })}
                     </p>
                   </div>
                 )}
@@ -1140,14 +1178,14 @@ function ProfilePageContent() {
                     }}
                     className="flex-1 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
                   >
-                    Cancel
+                    {t('settings.profile.cancel')}
                   </button>
                   <button
                     onClick={handleSaveDOB}
                     disabled={saving === 'dob' || !dobInput}
                     className="flex-1 py-2.5 text-sm font-semibold text-white bg-slate-900 rounded-xl hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] transition-all"
                   >
-                    {saving === 'dob' ? 'Saving...' : 'Save'}
+                    {saving === 'dob' ? t('settings.profile.saving') : t('settings.profile.save')}
                   </button>
                 </div>
             </div>
@@ -1160,15 +1198,7 @@ function ProfilePageContent() {
 
 export default function ProfilePage() {
   return (
-    <Suspense fallback={
-      <main className="min-h-screen bg-slate-100">
-        <div className="max-w-md mx-auto px-4 py-8">
-          <div className="rounded-3xl bg-white px-6 py-5">
-            <div className="animate-pulse text-sm text-slate-500">Loading profile...</div>
-          </div>
-        </div>
-      </main>
-    }>
+    <Suspense fallback={<ProfileLoadingFallback />}>
       <ProfilePageContent />
     </Suspense>
   )

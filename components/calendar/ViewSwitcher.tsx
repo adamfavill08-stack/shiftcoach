@@ -1,18 +1,21 @@
 'use client'
 
 import { useRouter, usePathname } from 'next/navigation'
+import { format } from 'date-fns'
 import { Calendar, CalendarDays, List, Grid3x3 } from 'lucide-react'
+import { useTranslation } from '@/components/providers/language-provider'
 
 export function ViewSwitcher() {
   const router = useRouter()
   const pathname = usePathname()
+  const { t } = useTranslation()
 
   const views = [
-    { id: 'month', label: 'Month', icon: Calendar, path: '/rota' },
-    { id: 'week', label: 'Week', icon: CalendarDays, path: '/calendar/week' },
-    { id: 'day', label: 'Day', icon: CalendarDays, path: '/calendar/day' },
-    { id: 'year', label: 'Year', icon: Grid3x3, path: '/calendar/year' },
-    { id: 'list', label: 'List', icon: List, path: '/calendar/list' },
+    { id: 'month', labelKey: 'calendar.view.month', icon: Calendar, path: '/rota' },
+    { id: 'week', labelKey: 'calendar.view.week', icon: CalendarDays, path: '/calendar/week' },
+    { id: 'day', labelKey: 'calendar.view.day', icon: CalendarDays, path: '/calendar/day' },
+    { id: 'year', labelKey: 'calendar.view.year', icon: Grid3x3, path: '/calendar/year' },
+    { id: 'list', labelKey: 'calendar.view.list', icon: List, path: '/calendar/list' },
   ]
 
   const currentView = views.find(v => pathname?.startsWith(v.path)) || views[0]
@@ -26,7 +29,13 @@ export function ViewSwitcher() {
         return (
           <button
             key={view.id}
-            onClick={() => router.push(view.path)}
+            onClick={() => {
+              if (view.id === 'day') {
+                router.push(`/calendar/day?day=${format(new Date(), 'yyyyMMdd')}`)
+              } else {
+                router.push(view.path)
+              }
+            }}
             className={`
               px-3 py-1.5 rounded-full text-xs font-medium transition
               ${isActive
@@ -35,7 +44,7 @@ export function ViewSwitcher() {
               }
             `}
           >
-            <span className="hidden sm:inline">{view.label}</span>
+            <span className="hidden sm:inline">{t(view.labelKey)}</span>
             <Icon className="w-4 h-4 sm:hidden" />
           </button>
         )

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Plus, Moon, Coffee } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTranslation } from '@/components/providers/language-provider'
 
 type Anchor = 'container' | 'viewport'
 
@@ -13,6 +14,7 @@ export default function SleepFab({
   onNew: (type: 'sleep' | 'nap') => void
   anchor?: Anchor
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
 
   const posClass =
@@ -31,26 +33,28 @@ export default function SleepFab({
             className="mb-3 flex flex-col items-end gap-3"
           >
             <button
+              type="button"
               onClick={() => {
                 setOpen(false)
                 onNew('sleep')
               }}
               className="flex items-center gap-3 rounded-2xl px-3 py-2 bg-white shadow-md text-slate-700 hover:shadow-lg ring-1 ring-black/5"
             >
-              <span className="text-sm font-semibold">Log sleep</span>
+              <span className="text-sm font-semibold">{t('sleepLog.title')}</span>
               <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white">
                 <Moon size={18} />
               </span>
             </button>
 
             <button
+              type="button"
               onClick={() => {
                 setOpen(false)
                 onNew('nap')
               }}
               className="flex items-center gap-3 rounded-2xl px-3 py-2 bg-white shadow-md text-slate-700 hover:shadow-lg ring-1 ring-black/5"
             >
-              <span className="text-sm font-semibold">Log nap</span>
+              <span className="text-sm font-semibold">{t('sleepLog.logNap')}</span>
               <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 text-white">
                 <Coffee size={18} />
               </span>
@@ -61,8 +65,9 @@ export default function SleepFab({
 
       {/* Main FAB */}
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label="Add sleep"
+        aria-label={t('sleepFab.ariaAdd')}
         className="grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-xl active:scale-[0.98] transition"
       >
         <Plus size={24} />

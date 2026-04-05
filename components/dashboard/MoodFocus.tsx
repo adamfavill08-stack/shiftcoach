@@ -2,118 +2,96 @@
 
 import { useMemo, useState } from 'react'
 import { Smile, Brain, Info } from 'lucide-react'
+import { useTranslation } from '@/components/providers/language-provider'
+import { parseMoodFocusBody } from '@/lib/i18n/moodFocus'
 
 type InfoKind = 'mood' | 'focus'
 
-function getMoodMessage(score: number) {
-  if (score <= 1) return { title: 'Mood is really low today', body: [
-    'Today looks tough. Be kind to yourself – sleep, food and stress all hit harder on shifts.',
-    'If you can, keep your plan light and simple. Short walks, easy meals, and small wins only.',
-    'Chat with the AI Coach if you’d like support right now.',
-  ]}
-  if (score === 2) return { title: 'Not your best day', body: [
-    'Your mood is a bit low. That’s completely normal, especially around nights and quick turnarounds.',
-    'Focus on basics: regular meals, hydration, and a short break away from bright screens.',
-  ]}
-  if (score === 3) return { title: 'Steady but tired', body: [
-    'You’re doing okay, but there’s room to feel better.',
-    'Try one small upgrade today – a 10 minute daylight walk or a proper meal before shift.',
-  ]}
-  if (score === 4) return { title: 'Good mood, nice work', body: [
-    'You’re in a good place today. Use it to lock in habits that help future shifts too.',
-  ]}
-  return { title: 'Excellent mood', body: [
-    'You’re feeling great – amazing.',
-    'This is a perfect time to bank some healthy routines for the tougher days.',
-  ]}
-}
-
-function getFocusMessage(score: number) {
-  if (score <= 1) return { title: 'Focus is very low', body: [
-    'Concentration is really struggling. That can happen with broken sleep or long runs of shifts.',
-    'Prioritise safety and simple tasks where you can. Avoid big decisions if possible.',
-    'Talking with the AI Coach can help you plan micro-breaks and smarter caffeine timing.',
-  ]}
-  if (score === 2) return { title: 'Focus is below usual', body: [
-    'You’re not as sharp as usual today. That’s your body asking for recovery.',
-    'Use short breaks, movement and steady meals to keep you going.',
-  ]}
-  if (score === 3) return { title: 'Focus is okay', body: [
-    'You’re managing fine, but not at 100%.',
-    'Try to protect your next sleep window – it will help tomorrow’s focus a lot.',
-  ]}
-  if (score === 4) return { title: 'Focused and on it', body: [
-    'You’re concentrating well today. Great time for important tasks or training.',
-  ]}
-  return { title: 'Super sharp', body: [
-    'Your focus is excellent. Just remember not to overdo caffeine late in your body night.',
-  ]}
+function scoreBucket(score: number): 1 | 2 | 3 | 4 | 5 {
+  if (score <= 1) return 1
+  if (score === 2) return 2
+  if (score === 3) return 3
+  if (score === 4) return 4
+  return 5
 }
 
 export function MoodFocus({
-  mood=3, focus=3, onChange
-}:{ mood?:number; focus?:number; onChange?:(m:number,f:number)=>void }) {
+  mood = 3,
+  focus = 3,
+  onChange,
+}: {
+  mood?: number
+  focus?: number
+  onChange?: (m: number, f: number) => void
+}) {
+  const { t } = useTranslation()
   const [activeInfo, setActiveInfo] = useState<InfoKind | null>(null)
   const [hasInteracted, setHasInteracted] = useState({ mood: false, focus: false })
-  const isLow = useMemo(() => (mood <= 2 || focus <= 2), [mood, focus])
-  // Signal header to light bell
-  useMemo(() => { try { localStorage.setItem('mf-low', isLow ? '1' : '0') } catch {} }, [isLow])
-  
+  const isLow = useMemo(() => mood <= 2 || focus <= 2, [mood, focus])
+  useMemo(() => {
+    try {
+      localStorage.setItem('mf-low', isLow ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+  }, [isLow])
+
+  const moodLabel = t('dashboard.moodFocus.moodLabel')
+  const focusLabel = t('dashboard.moodFocus.focusLabel')
+
   const handleMoodChange = (v: number) => {
-    setHasInteracted(prev => ({ ...prev, mood: true }))
+    setHasInteracted((prev) => ({ ...prev, mood: true }))
     onChange?.(v, focus)
   }
-  
+
   const handleFocusChange = (v: number) => {
-    setHasInteracted(prev => ({ ...prev, focus: true }))
+    setHasInteracted((prev) => ({ ...prev, focus: true }))
     onChange?.(mood, v)
   }
-  
+
   return (
     <section
       className={[
-        "relative rounded-3xl",
-        "bg-white/80 dark:bg-slate-900/45 backdrop-blur-xl",
-        "border border-slate-200/50 dark:border-slate-700/40",
-        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-16px_rgba(0,0,0,0.12)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.12)]",
-        "p-6",
-      ].join(" ")}
+        'relative rounded-3xl',
+        'bg-white/80 dark:bg-slate-900/45 backdrop-blur-xl',
+        'border border-slate-200/50 dark:border-slate-700/40',
+        'shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-16px_rgba(0,0,0,0.12)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.12)]',
+        'p-6',
+      ].join(' ')}
     >
-      {/* Optional highlight overlay */}
       <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/60 dark:from-slate-900/50 via-transparent to-transparent" />
-      
+
       <div className="relative z-10 space-y-6">
-        {/* Header */}
         <div>
           <h3 className="text-[17px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-            Mood & Focus
+            {t('dashboard.moodFocus.title')}
           </h3>
           <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-            Today
+            {t('dashboard.moodFocus.today')}
           </p>
           <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300 max-w-prose">
-            Log how you feel right now. Lower scores help ShiftCoach protect your sleep,
-            simplify your day, and adapt your plan around tougher shifts.
+            {t('dashboard.moodFocus.intro')}
           </p>
         </div>
-        
-        {/* Sliders */}
+
         <div className="space-y-4">
-          <SliderRow 
-            label="Mood" 
-            iconType="mood" 
-            value={mood} 
-            onChange={handleMoodChange} 
-            onInfo={()=>setActiveInfo('mood')}
+          <SliderRow
+            label={moodLabel}
+            iconType="mood"
+            value={mood}
+            onChange={handleMoodChange}
+            onInfo={() => setActiveInfo('mood')}
             hasInteracted={hasInteracted.mood}
+            t={t}
           />
-          <SliderRow 
-            label="Focus" 
-            iconType="focus" 
-            value={focus} 
-            onChange={handleFocusChange} 
-            onInfo={()=>setActiveInfo('focus')}
+          <SliderRow
+            label={focusLabel}
+            iconType="focus"
+            value={focus}
+            onChange={handleFocusChange}
+            onInfo={() => setActiveInfo('focus')}
             hasInteracted={hasInteracted.focus}
+            t={t}
           />
         </div>
       </div>
@@ -122,7 +100,7 @@ export function MoodFocus({
         <div
           className="fixed inset-0 z-40 flex items-end justify-center md:items-center backdrop-blur-sm"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-          onClick={()=>setActiveInfo(null)}
+          onClick={() => setActiveInfo(null)}
         >
           <div
             className="w-full max-w-[430px] rounded-t-3xl md:rounded-3xl backdrop-blur-2xl border px-5 pt-4 pb-5 animate-slide-up"
@@ -131,11 +109,15 @@ export function MoodFocus({
               borderColor: 'var(--border-subtle)',
               boxShadow: 'var(--shadow-soft)',
             }}
-            onClick={(e)=>e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
             {(() => {
               const score = activeInfo === 'mood' ? mood : focus
-              const content = activeInfo === 'mood' ? getMoodMessage(score) : getFocusMessage(score)
+              const b = scoreBucket(score)
+              const prefix = activeInfo === 'mood' ? 'dashboard.moodFocus.mood' : 'dashboard.moodFocus.focus'
+              const title = t(`${prefix}.b${b}.title`)
+              const body = parseMoodFocusBody(t(`${prefix}.b${b}.body`))
+              const kindLabel = activeInfo === 'mood' ? moodLabel : focusLabel
               return (
                 <>
                   <div className="flex items-center justify-between mb-2">
@@ -148,28 +130,38 @@ export function MoodFocus({
                         )}
                       </div>
                       <div className="flex flex-col">
-                        <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>{content.title}</p>
-                        <p className="text-xs" style={{ color: 'var(--text-soft)' }}>{activeInfo === 'mood' ? 'Mood' : 'Focus'} · {score}/5 today</p>
+                        <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
+                          {title}
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--text-soft)' }}>
+                          {t('dashboard.moodFocus.scoreCaption', { kind: kindLabel, score })}
+                        </p>
                       </div>
                     </div>
                     <button
                       type="button"
-                      onClick={()=>setActiveInfo(null)}
+                      onClick={() => setActiveInfo(null)}
                       className="text-lg transition-colors"
                       style={{ color: 'var(--text-muted)' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-main)' }}
-                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = 'var(--text-main)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = 'var(--text-muted)'
+                      }}
                     >
                       ✕
                     </button>
                   </div>
                   <div className="space-y-1.5">
-                    {content.body.map((line, idx) => (
-                      <p key={idx} className="text-sm leading-relaxed" style={{ color: 'var(--text-main)' }}>{line}</p>
+                    {body.map((line, idx) => (
+                      <p key={idx} className="text-sm leading-relaxed" style={{ color: 'var(--text-main)' }}>
+                        {line}
+                      </p>
                     ))}
                   </div>
                   <p className="mt-3 text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                    Shift Coach is a coaching tool, not a crisis service. If you feel at risk, please contact local emergency or mental health services.
+                    {t('dashboard.moodFocus.disclaimer')}
                   </p>
                 </>
               )
@@ -181,38 +173,37 @@ export function MoodFocus({
   )
 }
 
-function SliderRow({ 
-  label, 
-  iconType, 
-  value, 
-  onChange, 
+type TFn = (key: string, params?: Record<string, string | number | undefined>) => string
+
+function SliderRow({
+  label,
+  iconType,
+  value,
+  onChange,
   onInfo,
-  hasInteracted 
-}: { 
+  hasInteracted,
+  t,
+}: {
   label: string
   iconType: 'mood' | 'focus'
   value: number
   onChange: (v: number) => void
-  onInfo: ()=>void
+  onInfo: () => void
   hasInteracted: boolean
+  t: TFn
 }) {
-  const percentage = ((value - 1) / 4) * 100 // Scale 1-5 to 0-100%
-  
-  const getContextualMessage = () => {
+  const percentage = ((value - 1) / 4) * 100
+
+  const contextualMessage = (() => {
     if (!hasInteracted) return null
-    if (label === 'Focus' && value <= 2) {
-      return 'Low focus days trigger lighter cognitive loads.'
-    }
-    if (label === 'Mood' && value <= 2) {
-      return 'Lower mood signals the need for gentler planning.'
-    }
+    if (iconType === 'focus' && value <= 2) return t('dashboard.moodFocus.hintFocusLow')
+    if (iconType === 'mood' && value <= 2) return t('dashboard.moodFocus.hintMoodLow')
     return null
-  }
+  })()
 
   return (
     <div className="rounded-2xl bg-slate-50/50 dark:bg-slate-800/35 border border-slate-200/40 dark:border-slate-700/30 px-4 py-4">
       <div className="flex items-center gap-4">
-        {/* Left – icon */}
         <div className="flex-shrink-0">
           <div className="h-9 w-9 rounded-xl bg-white dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/40 flex items-center justify-center">
             {iconType === 'mood' ? (
@@ -223,7 +214,6 @@ function SliderRow({
           </div>
         </div>
 
-        {/* Center – label and slider */}
         <div className="flex-1 min-w-0 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{label}</span>
@@ -235,24 +225,21 @@ function SliderRow({
                 type="button"
                 onClick={onInfo}
                 className="h-8 w-8 rounded-full bg-transparent text-slate-400 dark:text-slate-500 hover:bg-slate-100/60 dark:hover:bg-slate-800/50 transition-colors flex items-center justify-center"
-                aria-label={`${label} help`}
+                aria-label={t('dashboard.moodFocus.helpAria', { label })}
               >
                 <Info className="h-4 w-4" strokeWidth={2} />
               </button>
             </div>
           </div>
-          
-          {/* Slider */}
+
           <div className="relative">
             <div className="relative h-2 rounded-full bg-slate-200/60 dark:bg-slate-700/50">
-              {/* Filled track */}
-              <div 
-                className="h-full rounded-full bg-gradient-to-r from-indigo-400/80 to-violet-500/80 transition-all duration-200" 
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-indigo-400/80 to-violet-500/80 transition-all duration-200"
                 style={{ width: `${percentage}%` }}
               />
             </div>
-            
-            {/* Invisible but functional range input */}
+
             <input
               type="range"
               min={1}
@@ -264,24 +251,19 @@ function SliderRow({
               style={{ WebkitAppearance: 'none', appearance: 'none', background: 'transparent' }}
             />
 
-            {/* Thumb */}
             <div
               className="absolute top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 shadow-[0_2px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all duration-150 pointer-events-none z-20"
               style={{ left: `calc(${percentage}% - 10px)` }}
             />
           </div>
-          
-          {/* Low / High labels */}
+
           <div className="flex justify-between text-[11px] text-slate-500 dark:text-slate-400">
-            <span>Low</span>
-            <span>High</span>
+            <span>{t('dashboard.moodFocus.sliderLow')}</span>
+            <span>{t('dashboard.moodFocus.sliderHigh')}</span>
           </div>
-          
-          {/* Contextual micro-copy */}
-          {getContextualMessage() && (
-            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-              {getContextualMessage()}
-            </p>
+
+          {contextualMessage && (
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{contextualMessage}</p>
           )}
         </div>
       </div>

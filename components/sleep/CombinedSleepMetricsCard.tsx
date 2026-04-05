@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Info, Sparkles } from 'lucide-react'
 import type { SleepDeficitResponse } from '@/lib/sleep/calculateSleepDeficit'
+import { useTranslation } from '@/components/providers/language-provider'
 import { SleepMetricsInfoModal } from './SleepMetricsInfoModal'
 
 type CombinedSleepMetricsCardProps = {
@@ -23,6 +24,7 @@ export function CombinedSleepMetricsCard({
   tonightTarget, 
   loadingTarget = false 
 }: CombinedSleepMetricsCardProps) {
+  const { t } = useTranslation()
   const [sleepDeficit, setSleepDeficit] = useState<SleepDeficitResponse | null>(null)
   const [loadingDeficit, setLoadingDeficit] = useState(true)
   const [consistencyData, setConsistencyData] = useState<ConsistencyData | null>(null)
@@ -134,16 +136,41 @@ export function CombinedSleepMetricsCard({
   }, [])
 
   const getDeficitStatus = () => {
-    if (!sleepDeficit) return { text: 'No data', color: 'slate', bgColor: 'bg-slate-50/70', textColor: 'text-slate-700', borderColor: 'border-slate-200/50' }
-    
+    if (!sleepDeficit)
+      return {
+        text: t('sleepCombo.deficitNoData'),
+        color: 'slate' as const,
+        bgColor: 'bg-slate-50/70',
+        textColor: 'text-slate-700',
+        borderColor: 'border-slate-200/50',
+      }
+
     const { category } = sleepDeficit
-    
+
     if (category === 'surplus' || category === 'low') {
-      return { text: 'On track', color: 'emerald', bgColor: 'bg-emerald-50/70', textColor: 'text-emerald-700', borderColor: 'border-emerald-200/50' }
-    } else if (category === 'medium') {
-      return { text: 'Needs attention', color: 'amber', bgColor: 'bg-amber-50/70', textColor: 'text-amber-700', borderColor: 'border-amber-200/50' }
-    } else {
-      return { text: 'High deficit', color: 'rose', bgColor: 'bg-rose-50/70', textColor: 'text-rose-700', borderColor: 'border-rose-200/50' }
+      return {
+        text: t('sleepCombo.deficitOnTrack'),
+        color: 'emerald' as const,
+        bgColor: 'bg-emerald-50/70',
+        textColor: 'text-emerald-700',
+        borderColor: 'border-emerald-200/50',
+      }
+    }
+    if (category === 'medium') {
+      return {
+        text: t('sleepCombo.deficitNeedsAttention'),
+        color: 'amber' as const,
+        bgColor: 'bg-amber-50/70',
+        textColor: 'text-amber-700',
+        borderColor: 'border-amber-200/50',
+      }
+    }
+    return {
+      text: t('sleepCombo.deficitHigh'),
+      color: 'rose' as const,
+      bgColor: 'bg-rose-50/70',
+      textColor: 'text-rose-700',
+      borderColor: 'border-rose-200/50',
     }
   }
 
@@ -155,45 +182,50 @@ export function CombinedSleepMetricsCard({
   }
 
   const getConsistencyLabel = (score: number | null) => {
-    if (score === null) return 'Not enough data'
-    if (score >= 70) return 'Good consistency'
-    if (score >= 40) return 'Moderate consistency'
-    return 'Low consistency'
+    if (score === null) return t('sleepCombo.consistencyNoData')
+    if (score >= 70) return t('sleepCombo.consistencyGood')
+    if (score >= 40) return t('sleepCombo.consistencyModerate')
+    return t('sleepCombo.consistencyLow')
   }
 
   const getShiftAwareMessage = (score: number | null) => {
     if (score === null) return null
     if (shiftType === 'night' && score >= 50) {
-      return 'Good for night shift'
+      return t('sleepCombo.shiftNightGood')
     }
     if (shiftType === 'day' && score >= 70) {
-      return 'Excellent for day shift'
+      return t('sleepCombo.shiftDayExcellent')
     }
     if (shiftType === 'off' && score >= 60) {
-      return 'Good recovery pattern'
+      return t('sleepCombo.shiftOffRecovery')
     }
     return null
   }
 
   const getQuickTip = () => {
     const tips: string[] = []
-    
+
     if (consistencyData && consistencyData.consistencyScore !== null && consistencyData.consistencyScore < 40) {
-      tips.push('Try to keep bedtime within 1-2 hours of your usual time')
+      tips.push(t('sleepCombo.tipBedtime'))
     }
-    
+
     if (sleepDeficit && sleepDeficit.category === 'high') {
-      tips.push('Focus on getting 7-8 hours of sleep tonight')
+      tips.push(t('sleepCombo.tipDeficitHigh'))
     }
-    
+
     if (consistencyData && consistencyData.avgSleepHours !== null && consistencyData.avgSleepHours < 6.5) {
-      tips.push('Aim for at least 7 hours of sleep per night')
+      tips.push(t('sleepCombo.tipAvgLow'))
     }
-    
-    if (shiftType === 'night' && consistencyData && consistencyData.consistencyScore !== null && consistencyData.consistencyScore < 50) {
-      tips.push('Night shift workers benefit from consistent daytime sleep schedules')
+
+    if (
+      shiftType === 'night' &&
+      consistencyData &&
+      consistencyData.consistencyScore !== null &&
+      consistencyData.consistencyScore < 50
+    ) {
+      tips.push(t('sleepCombo.tipNightShift'))
     }
-    
+
     return tips[0] || null
   }
 
@@ -253,12 +285,14 @@ export function CombinedSleepMetricsCard({
 
   const deficitStatus = getDeficitStatus()
   const weeklyDeficitHours = sleepDeficit?.weeklyDeficit ?? 0
-  const displayDeficit = sleepDeficit ? `${Math.abs(weeklyDeficitHours).toFixed(1)} h` : '— h'
+  const displayDeficit = sleepDeficit
+    ? t('sleepJetlag.hoursUnit', { h: Math.abs(weeklyDeficitHours).toFixed(1) })
+    : t('sleepJetlag.hoursUnit', { h: '—' })
   const deficitLabel = sleepDeficit
-    ? (weeklyDeficitHours > 0 
-        ? 'Behind weekly target' 
-        : 'Ahead of weekly target')
-    : 'Not enough data'
+    ? weeklyDeficitHours > 0
+      ? t('sleepCombo.deficitBehindWeekly')
+      : t('sleepCombo.deficitAheadWeekly')
+    : t('sleepCombo.deficitLabelNoData')
 
   return (
     <section className="relative overflow-hidden rounded-3xl bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 text-slate-900 dark:text-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)] p-6">
@@ -276,16 +310,17 @@ export function CombinedSleepMetricsCard({
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400">
-              SLEEP METRICS
+              {t('sleepSW.metricsTitle').toUpperCase()}
             </p>
             <h3 className="mt-2 text-[18px] font-semibold tracking-tight">
-              Tonight&apos;s Target & Weekly Overview
+              {t('sleepSW.metricsHeading')}
             </h3>
           </div>
           <button
+            type="button"
             onClick={() => setIsInfoModalOpen(true)}
             className="flex-shrink-0 h-8 w-8 rounded-full bg-transparent text-slate-400 dark:text-slate-500 hover:bg-slate-100/60 dark:hover:bg-slate-800/50 transition-colors flex items-center justify-center"
-            aria-label="Learn more about sleep metrics"
+            aria-label={t('sleepCombo.infoAria')}
           >
             <Info className="h-4 w-4" strokeWidth={2} />
           </button>
@@ -296,7 +331,7 @@ export function CombinedSleepMetricsCard({
           {/* Tonight's Target */}
           <div className="flex flex-col">
             <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">
-              Tonight&apos;s Target
+              {t('sleepSW.tonightTarget')}
             </p>
             {loadingTarget ? (
               <div className="space-y-2">
@@ -325,7 +360,7 @@ export function CombinedSleepMetricsCard({
           {/* Sleep Consistency */}
           <div className="flex flex-col">
             <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">
-              Consistency
+              {t('sleepSW.consistency')}
             </p>
             {loadingConsistency ? (
               <div className="space-y-2">
@@ -338,7 +373,7 @@ export function CombinedSleepMetricsCard({
                   <p className={`text-[22px] font-semibold leading-tight tabular-nums ${consistencyColor.textColor}`}>
                     {consistencyScore ?? '—'}
                   </p>
-                  <span className="text-xs font-medium text-slate-500">score</span>
+                  <span className="text-xs font-medium text-slate-500">{t('sleepCombo.scoreWord')}</span>
                 </div>
                 <div className="mt-2">
                   {sparkline ? (
@@ -380,7 +415,7 @@ export function CombinedSleepMetricsCard({
           {/* Sleep Deficit */}
           <div className="flex flex-col">
             <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">
-              Sleep Deficit
+              {t('sleepSW.deficit')}
             </p>
             {loadingDeficit ? (
               <div className="space-y-2">
@@ -397,7 +432,7 @@ export function CombinedSleepMetricsCard({
                 </p>
                 {consistencyData && consistencyData.avgSleepHours !== null && (
                   <p className="mt-0.5 text-[11px] text-slate-400">
-                    Avg: {consistencyData.avgSleepHours.toFixed(1)}h
+                    {t('sleepCombo.avgSleep', { h: consistencyData.avgSleepHours.toFixed(1) })}
                   </p>
                 )}
                 {sleepDeficit && (
@@ -424,7 +459,7 @@ export function CombinedSleepMetricsCard({
             <div className="rounded-2xl p-4 bg-gradient-to-br from-slate-50/70 dark:from-slate-800/50 to-white dark:to-slate-900/50 border border-slate-200/50 dark:border-slate-700/40">
               <p className="text-xs font-semibold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
-                Quick tip
+                {t('sleepCombo.quickTipTitle')}
               </p>
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                 {quickTip}

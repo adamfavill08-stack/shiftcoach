@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Loader2, Sparkles } from 'lucide-react'
+import { useTranslation } from '@/components/providers/language-provider'
 
 interface SleepMetricsInfoModalProps {
   open: boolean
@@ -22,6 +23,7 @@ export function SleepMetricsInfoModal({
   consistencyScore,
   sleepDeficit,
 }: SleepMetricsInfoModalProps) {
+  const { t } = useTranslation()
   const [suggestions, setSuggestions] = useState<string | null>(null)
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const [container, setContainer] = useState<HTMLElement | null>(null)
@@ -60,10 +62,10 @@ export function SleepMetricsInfoModal({
       }
 
       const data = await res.json()
-      setSuggestions(data.suggestions || 'No suggestions available at this time.')
+      setSuggestions(data.suggestions || t('sleepMetricsInfo.suggestionsEmpty'))
     } catch (err) {
       console.error('[SleepMetricsInfoModal] Error fetching suggestions:', err)
-      setSuggestions('Unable to load personalized suggestions. Please try again later.')
+      setSuggestions(t('sleepMetricsInfo.suggestionsLoadError'))
     } finally {
       setLoadingSuggestions(false)
     }
@@ -148,10 +150,10 @@ export function SleepMetricsInfoModal({
         <div className="relative z-10 flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100/80 dark:border-slate-700/50 bg-gradient-to-b from-white dark:from-slate-900/70 to-slate-50/50 dark:to-slate-900/50">
           <div>
             <h2 className="text-[19px] font-bold tracking-tight text-slate-900 dark:text-slate-100">
-              Sleep Metrics Explained
+              {t('sleepMetricsInfo.title')}
             </h2>
             <p className="mt-0.5 text-[12px] text-slate-500 dark:text-slate-400">
-              Understanding your sleep data
+              {t('sleepMetricsInfo.subtitle')}
             </p>
           </div>
           <button
@@ -170,27 +172,27 @@ export function SleepMetricsInfoModal({
               <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-[12px] font-bold">
                 1
               </span>
-              Tonight&apos;s Target
+              {t('sleepSW.tonightTarget')}
             </h3>
             <p className="text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed mb-3">
-              This is your recommended sleep duration for tonight, calculated based on:
+              {t('sleepMetricsInfo.sectionTargetIntro')}
             </p>
             <ul className="space-y-1.5 mb-3 ml-8">
               <li className="text-[12px] text-slate-600 dark:text-slate-300 flex items-start gap-2">
                 <span className="text-slate-400 dark:text-slate-500 mt-1">•</span>
-                <span>Your current sleep deficit (how far behind or ahead you are on weekly sleep)</span>
+                <span>{t('sleepMetricsInfo.sectionTargetBullet1')}</span>
               </li>
               <li className="text-[12px] text-slate-600 dark:text-slate-300 flex items-start gap-2">
                 <span className="text-slate-400 dark:text-slate-500 mt-1">•</span>
-                <span>Your upcoming shift type (night, day, or off)</span>
+                <span>{t('sleepMetricsInfo.sectionTargetBullet2')}</span>
               </li>
               <li className="text-[12px] text-slate-600 dark:text-slate-300 flex items-start gap-2">
                 <span className="text-slate-400 dark:text-slate-500 mt-1">•</span>
-                <span>Your base sleep need (typically 7.5 hours for most shift workers)</span>
+                <span>{t('sleepMetricsInfo.sectionTargetBullet3')}</span>
               </li>
             </ul>
             <p className="text-[12px] text-slate-500 dark:text-slate-400 italic">
-              The target adjusts to help you catch up on sleep debt or maintain your rhythm, tailored to your shift schedule.
+              {t('sleepMetricsInfo.sectionTargetFoot')}
             </p>
           </section>
 
@@ -200,30 +202,43 @@ export function SleepMetricsInfoModal({
               <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 text-[12px] font-bold">
                 2
               </span>
-              Sleep Consistency
+              {t('sleepSW.consistency')}
             </h3>
             <p className="text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed mb-3">
-              This score (0-100) measures how regular your bedtime is across the last 7 days:
+              {t('sleepMetricsInfo.consistencyIntro')}
             </p>
             <ul className="space-y-1.5 mb-3 ml-8">
               <li className="text-[12px] text-slate-600 dark:text-slate-300 flex items-start gap-2">
                 <span className="text-slate-400 dark:text-slate-500 mt-1">•</span>
-                <span><strong>80-100:</strong> Very consistent bedtimes (ideal for shift workers)</span>
+                <span>
+                  {t('sleepMetricsInfo.consistencyB1', {
+                    range: t('sleepMetricsInfo.range80100'),
+                  })}
+                </span>
               </li>
               <li className="text-[12px] text-slate-600 dark:text-slate-300 flex items-start gap-2">
                 <span className="text-slate-400 dark:text-slate-500 mt-1">•</span>
-                <span><strong>60-79:</strong> Moderately consistent (some variation is normal with shift changes)</span>
+                <span>
+                  {t('sleepMetricsInfo.consistencyB2', {
+                    range: t('sleepMetricsInfo.range6079'),
+                  })}
+                </span>
               </li>
               <li className="text-[12px] text-slate-600 dark:text-slate-300 flex items-start gap-2">
                 <span className="text-slate-400 dark:text-slate-500 mt-1">•</span>
-                <span><strong>Below 60:</strong> High variation in bedtimes (may impact recovery)</span>
+                <span>
+                  {t('sleepMetricsInfo.consistencyB3', {
+                    range: t('sleepMetricsInfo.rangeBelow60'),
+                  })}
+                </span>
               </li>
             </ul>
             <p className="text-[12px] text-slate-500 dark:text-slate-400 italic mb-3">
-              Calculated from the standard deviation of your main sleep bedtimes. Lower variation = higher score.
+              {t('sleepMetricsInfo.consistencyFoot')}
             </p>
             <p className="text-[12px] text-slate-600 dark:text-slate-300">
-              <strong>Note:</strong> For shift workers, some variation is expected when switching between day and night shifts. The goal is to maintain consistency within each shift type.
+              <strong>{t('sleepMetricsInfo.notePrefix')}</strong>{' '}
+              {t('sleepMetricsInfo.consistencyShiftNote')}
             </p>
           </section>
 
@@ -233,27 +248,35 @@ export function SleepMetricsInfoModal({
               <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 text-[12px] font-bold">
                 3
               </span>
-              Sleep Deficit
+              {t('sleepSW.deficit')}
             </h3>
             <p className="text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed mb-3">
-              This shows how far behind or ahead you are on your weekly sleep target:
+              {t('sleepMetricsInfo.deficitIntro')}
             </p>
             <ul className="space-y-1.5 mb-3 ml-8">
               <li className="text-[12px] text-slate-600 dark:text-slate-300 flex items-start gap-2">
                 <span className="text-slate-400 dark:text-slate-500 mt-1">•</span>
-                <span><strong>Positive number:</strong> You&apos;re behind your weekly target (need more sleep)</span>
+                <span>
+                  {t('sleepMetricsInfo.deficitB1', {
+                    label: t('sleepMetricsInfo.positiveLabel'),
+                  })}
+                </span>
               </li>
               <li className="text-[12px] text-slate-600 dark:text-slate-300 flex items-start gap-2">
                 <span className="text-slate-400 dark:text-slate-500 mt-1">•</span>
-                <span><strong>Negative number:</strong> You&apos;re ahead of your weekly target (sleep surplus)</span>
+                <span>
+                  {t('sleepMetricsInfo.deficitB2', {
+                    label: t('sleepMetricsInfo.negativeLabel'),
+                  })}
+                </span>
               </li>
               <li className="text-[12px] text-slate-600 dark:text-slate-300 flex items-start gap-2">
                 <span className="text-slate-400 dark:text-slate-500 mt-1">•</span>
-                <span>Calculated from the last 7 days of sleep vs. your weekly target (typically 52.5 hours for 7.5h × 7 days)</span>
+                <span>{t('sleepMetricsInfo.deficitB3')}</span>
               </li>
             </ul>
             <p className="text-[12px] text-slate-500 dark:text-slate-400 italic">
-              Categories: <strong>Surplus/Low</strong> (on track), <strong>Medium</strong> (needs attention), <strong>High</strong> (prioritize recovery).
+              {t('sleepMetricsInfo.deficitFoot')}
             </p>
           </section>
 
@@ -262,13 +285,15 @@ export function SleepMetricsInfoModal({
             <div className="flex items-center gap-2 mb-3">
               <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" strokeWidth={2.5} />
               <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">
-                Personalized Suggestions
+                {t('sleepMetricsInfo.personalizedTitle')}
               </h3>
             </div>
             {loadingSuggestions ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-5 w-5 text-indigo-600 dark:text-indigo-400 animate-spin" />
-                <span className="ml-2 text-[13px] text-slate-600 dark:text-slate-300">Generating suggestions...</span>
+                <span className="ml-2 text-[13px] text-slate-600 dark:text-slate-300">
+                  {t('sleepMetricsInfo.generating')}
+                </span>
               </div>
             ) : suggestions ? (
               <div className="bg-gradient-to-br from-indigo-50/50 dark:from-indigo-950/30 to-blue-50/30 dark:to-blue-950/30 rounded-xl p-4 border border-indigo-100/60 dark:border-indigo-800/40">
@@ -277,7 +302,9 @@ export function SleepMetricsInfoModal({
                 </div>
               </div>
             ) : (
-              <p className="text-[12px] text-slate-500 dark:text-slate-400">Unable to load suggestions at this time.</p>
+              <p className="text-[12px] text-slate-500 dark:text-slate-400">
+                {t('sleepMetricsInfo.suggestionsUnavailable')}
+              </p>
             )}
           </section>
         </div>
@@ -288,7 +315,7 @@ export function SleepMetricsInfoModal({
             onClick={onClose}
             className="w-full h-11 rounded-xl bg-gradient-to-r from-indigo-500 via-blue-500 to-indigo-600 dark:from-indigo-600 dark:via-blue-600 dark:to-indigo-700 text-[13px] font-bold text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)] dark:shadow-[0_4px_12px_rgba(99,102,241,0.5)] transition-all hover:shadow-[0_6px_16px_rgba(99,102,241,0.4)] dark:hover:shadow-[0_6px_16px_rgba(99,102,241,0.6)] hover:scale-[1.02] active:scale-[0.98]"
           >
-            Got it
+            {t('sleepMetricsInfo.gotIt')}
           </button>
         </div>
       </div>

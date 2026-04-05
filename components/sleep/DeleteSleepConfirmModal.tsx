@@ -3,6 +3,7 @@
 import { createPortal } from 'react-dom'
 import { useEffect, useState } from 'react'
 import { X, Trash2, AlertTriangle } from 'lucide-react'
+import { useTranslation } from '@/components/providers/language-provider'
 
 type DeleteSleepConfirmModalProps = {
   open: boolean
@@ -17,6 +18,7 @@ export function DeleteSleepConfirmModal({
   onConfirm,
   loading = false,
 }: DeleteSleepConfirmModalProps) {
+  const { t } = useTranslation()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -74,14 +76,14 @@ export function DeleteSleepConfirmModal({
                   <AlertTriangle className="h-5 w-5 text-rose-600 dark:text-rose-300" strokeWidth={2.5} />
                 </div>
                 <h3 className="text-[17px] font-bold tracking-tight text-slate-900">
-                  Delete sleep entry?
+                  {t('sleepDel.title')}
                 </h3>
               </div>
               <button
                 onClick={onClose}
                 disabled={loading}
                 className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--card-subtle)] text-[var(--text-soft)] transition-all hover:scale-105 hover:bg-[var(--card-subtle)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                aria-label="Close"
+                aria-label={t('sleepDel.closeAria')}
               >
                 <X className="h-4 w-4" strokeWidth={2.5} />
               </button>
@@ -89,7 +91,7 @@ export function DeleteSleepConfirmModal({
 
             {/* Message */}
             <p className="mb-6 text-[13px] leading-relaxed text-[var(--text-soft)]">
-              This will remove this sleep log and update your sleep and Shift Rhythm calculations.
+              {t('sleepDel.body')}
             </p>
 
             {/* Actions */}
@@ -99,7 +101,7 @@ export function DeleteSleepConfirmModal({
                 disabled={loading}
                 className="flex-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-4 py-2.5 text-[13px] font-semibold text-[var(--text-soft)] transition-all hover:scale-[1.02] hover:bg-[var(--card)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Cancel
+                {t('sleepDel.cancel')}
               </button>
               <button
                 onClick={onConfirm}
@@ -109,12 +111,12 @@ export function DeleteSleepConfirmModal({
                 {loading ? (
                   <>
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    <span>Deleting...</span>
+                    <span>{t('sleepDel.deleting')}</span>
                   </>
                 ) : (
                   <>
                     <Trash2 className="h-4 w-4" strokeWidth={2.5} />
-                    <span>Delete</span>
+                    <span>{t('sleepDel.confirm')}</span>
                   </>
                 )}
               </button>

@@ -11,6 +11,13 @@ export default function RecoveryPage() {
   const value = typeof recoveryScore === 'number' ? recoveryScore : 74
   const band = value >= 75 ? 'high' : value >= 50 ? 'medium' : 'low'
 
+  const bandLabel =
+    band === 'high'
+      ? t('detail.recovery.bandHigh')
+      : band === 'medium'
+        ? t('detail.recovery.bandMedium')
+        : t('detail.recovery.bandLow')
+
   return (
     <main
       style={{
@@ -18,7 +25,6 @@ export default function RecoveryPage() {
       }}
     >
       <div className="max-w-[430px] mx-auto min-h-screen px-4 pb-8 pt-4 flex flex-col gap-5">
-        {/* Header */}
         <header className="flex items-center gap-2 mb-1">
           <Link
             href="/dashboard"
@@ -39,12 +45,15 @@ export default function RecoveryPage() {
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <div className="flex flex-col">
-            <h1 className="text-xl font-semibold" style={{ color: 'var(--text-main)' }}>{t('detail.recovery.title')}</h1>
-            <p className="text-sm" style={{ color: 'var(--text-soft)' }}>{t('detail.recovery.subtitle')}</p>
+            <h1 className="text-xl font-semibold" style={{ color: 'var(--text-main)' }}>
+              {t('detail.recovery.title')}
+            </h1>
+            <p className="text-sm" style={{ color: 'var(--text-soft)' }}>
+              {t('detail.recovery.subtitle')}
+            </p>
           </div>
         </header>
 
-        {/* Key facts */}
         <section
           className="rounded-2xl backdrop-blur-xl border px-4 py-3 flex flex-col gap-1 text-xs"
           style={{
@@ -53,12 +62,11 @@ export default function RecoveryPage() {
             color: 'var(--text-soft)',
           }}
         >
-          <span>• Recovery Score shows how ready you are to handle stress, work, and training.</span>
-          <span>• It's based on your sleep, shift pattern, activity, and how consistent your schedule is.</span>
-          <span>• Higher score = better energy, mood, and resilience on shift.</span>
+          <span>• {t('detail.recovery.fact1')}</span>
+          <span>• {t('detail.recovery.fact2')}</span>
+          <span>• {t('detail.recovery.fact3')}</span>
         </section>
 
-        {/* Hero recovery card */}
         <section
           className="rounded-3xl backdrop-blur-2xl border px-6 py-6 flex flex-col items-center gap-3"
           style={{
@@ -67,22 +75,23 @@ export default function RecoveryPage() {
             boxShadow: 'var(--shadow-soft)',
           }}
         >
-          <p className="text-5xl font-semibold" style={{ color: 'var(--text-main)' }}>{value}</p>
+          <p className="text-5xl font-semibold" style={{ color: 'var(--text-main)' }}>
+            {value}
+          </p>
           <span
             className={
               `mt-1 inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ` +
               (band === 'high'
                 ? 'bg-emerald-50 text-emerald-600'
                 : band === 'medium'
-                ? 'bg-amber-50 text-amber-600'
-                : 'bg-rose-50 text-rose-600')
+                  ? 'bg-amber-50 text-amber-600'
+                  : 'bg-rose-50 text-rose-600')
             }
           >
-            {band === 'high' ? 'Recovered' : band === 'medium' ? 'OK' : 'Strained'}
+            {bandLabel}
           </span>
         </section>
 
-        {/* What is */}
         <section
           className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-2"
           style={{
@@ -93,14 +102,15 @@ export default function RecoveryPage() {
         >
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">🧠</span>
-            <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>What is Recovery Score?</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
+              {t('detail.recovery.whatTitle')}
+            </p>
           </div>
           <p className="text-sm leading-relaxed" style={{ color: 'var(--text-main)' }}>
-            Your Recovery Score is a combined view of your sleep, shift pattern, activity and circadian alignment. It tells you how prepared your body and mind are to handle stress, work and training today.
+            {t('detail.recovery.whatBody')}
           </p>
         </section>
 
-        {/* Why it matters */}
         <section
           className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-2"
           style={{
@@ -111,16 +121,17 @@ export default function RecoveryPage() {
         >
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">🌙☀️</span>
-            <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>Why it matters for shift workers</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
+              {t('detail.recovery.whyTitle')}
+            </p>
           </div>
           <ul className="list-disc list-inside text-sm space-y-1.5" style={{ color: 'var(--text-main)' }}>
-            <li>Irregular shifts make full recovery harder between days and nights.</li>
-            <li>Low recovery often shows up as higher fatigue, cravings and lower focus.</li>
-            <li>Tracking recovery helps you choose when to push, hold back, or prioritise rest.</li>
+            <li>{t('detail.recovery.whyLi1')}</li>
+            <li>{t('detail.recovery.whyLi2')}</li>
+            <li>{t('detail.recovery.whyLi3')}</li>
           </ul>
         </section>
 
-        {/* How we calculate */}
         <section
           className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-2"
           style={{
@@ -131,18 +142,21 @@ export default function RecoveryPage() {
         >
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">📊</span>
-            <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>How Shift Coach calculates your score</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
+              {t('detail.recovery.howTitle')}
+            </p>
           </div>
           <ul className="list-disc list-inside text-sm space-y-1.5" style={{ color: 'var(--text-main)' }}>
-            <li>Sleep: hours, quality and how your sleep aligns to your schedule.</li>
-            <li>Shifts: number in a row, intensity of times and rotation.</li>
-            <li>Activity: daily movement and avoiding overreaching when fatigued.</li>
-            <li>Rhythm: how closely your day matches your body clock.</li>
+            <li>{t('detail.recovery.howLi1')}</li>
+            <li>{t('detail.recovery.howLi2')}</li>
+            <li>{t('detail.recovery.howLi3')}</li>
+            <li>{t('detail.recovery.howLi4')}</li>
           </ul>
-          <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>This is guidance only and not medical advice.</p>
+          <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
+            {t('detail.recovery.howDisclaimer')}
+          </p>
         </section>
 
-        {/* Improve */}
         <section
           className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-2"
           style={{
@@ -153,17 +167,17 @@ export default function RecoveryPage() {
         >
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">💡</span>
-            <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>How to improve your Recovery Score</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
+              {t('detail.recovery.improveTitle')}
+            </p>
           </div>
           <ul className="list-disc list-inside text-sm space-y-1.5" style={{ color: 'var(--text-main)' }}>
-            <li>Protect one main sleep block whenever you can, even on nights.</li>
-            <li>Follow meal‑timing nudges to avoid heavy meals during biological night.</li>
-            <li>On low‑recovery days, opt for lighter movement and more recovery.
-            </li>
+            <li>{t('detail.recovery.improveLi1')}</li>
+            <li>{t('detail.recovery.improveLi2')}</li>
+            <li>{t('detail.recovery.improveLi3')}</li>
           </ul>
         </section>
 
-        {/* CTA */}
         <section
           className="rounded-3xl backdrop-blur-2xl border px-5 py-4 flex flex-col gap-2"
           style={{
@@ -172,9 +186,16 @@ export default function RecoveryPage() {
             boxShadow: 'var(--shadow-soft)',
           }}
         >
-          <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>See your live Recovery Score</p>
-          <p className="text-xs" style={{ color: 'var(--text-soft)' }}>Check today's score and guidance on your main dashboard.</p>
-          <Link href="/dashboard" className="mt-1 inline-flex items-center justify-center rounded-full bg-gradient-to-r from-sky-500 to-violet-500 px-4 py-2 text-sm font-medium text-white transition-all duration-200">
+          <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>
+            {t('detail.recovery.ctaTitle')}
+          </p>
+          <p className="text-xs" style={{ color: 'var(--text-soft)' }}>
+            {t('detail.recovery.ctaBody')}
+          </p>
+          <Link
+            href="/dashboard"
+            className="mt-1 inline-flex items-center justify-center rounded-full bg-gradient-to-r from-sky-500 to-violet-500 px-4 py-2 text-sm font-medium text-white transition-all duration-200"
+          >
             {t('detail.common.goToDashboard')}
           </Link>
         </section>

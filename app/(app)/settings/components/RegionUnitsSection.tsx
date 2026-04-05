@@ -1,28 +1,25 @@
 'use client'
 
-import { useState } from 'react'
-import { ChevronRight, ChevronDown } from 'lucide-react'
 import { useSettings } from '@/lib/hooks/useSettings'
-import { SettingsRow } from '@/components/settings/SettingsCard'
-import { SettingsSelect } from '@/components/settings/SettingsSelect'
+import { useTranslation } from '@/components/providers/language-provider'
 
-const REGION_OPTIONS = [
-  { value: 'uk', label: 'UK & Ireland (GBP)' },
-  { value: 'eu', label: 'Europe (EUR)' },
-  { value: 'us', label: 'United States (USD)' },
-  { value: 'aus', label: 'Australia & NZ (AUD)' },
-] as const
-
-const CURRENCY_FOR_REGION: Record<'uk' | 'eu' | 'us' | 'aus', 'GBP' | 'EUR' | 'USD' | 'AUD'> = {
-  uk: 'GBP',
-  eu: 'EUR',
-  us: 'USD',
-  aus: 'AUD',
+function regionTranslationKey(region: string): string {
+  switch (region) {
+    case 'uk':
+      return 'settings.region.uk'
+    case 'eu':
+      return 'settings.region.eu'
+    case 'us':
+      return 'settings.region.us'
+    case 'aus':
+      return 'settings.region.aus'
+    default:
+      return 'settings.region.fallbackLabel'
+  }
 }
 
 export function RegionUnitsSection() {
-  // Region is now set automatically at account creation and treated as read‑only.
-  // We keep this component only to display the locked‑in region if needed in future.
+  const { t } = useTranslation()
   const { settings, loading } = useSettings()
 
   if (loading || !settings?.region) {
@@ -30,7 +27,7 @@ export function RegionUnitsSection() {
   }
 
   const currentRegion = (settings.region as 'uk' | 'eu' | 'us' | 'aus') || 'uk'
-  const regionLabel = REGION_OPTIONS.find((r) => r.value === currentRegion)?.label ?? 'Region'
+  const regionLabel = t(regionTranslationKey(currentRegion))
 
   return (
     <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-sm border border-white/90 shadow-[0_4px_12px_rgba(15,23,42,0.04)] px-5 py-4">
@@ -43,8 +40,8 @@ export function RegionUnitsSection() {
             </svg>
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-slate-900">Region</h3>
-            <p className="text-xs text-slate-500">Set automatically from your location.</p>
+            <h3 className="text-sm font-semibold text-slate-900">{t('settings.region.title')}</h3>
+            <p className="text-xs text-slate-500">{t('settings.region.subtitle')}</p>
           </div>
         </div>
         <span className="text-xs font-semibold text-slate-700 px-3 py-1 rounded-full bg-slate-100 border border-slate-200">
@@ -54,5 +51,3 @@ export function RegionUnitsSection() {
     </div>
   )
 }
-
-

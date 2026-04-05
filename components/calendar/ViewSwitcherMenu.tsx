@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Grid3x3, Calendar, CalendarDays, CalendarClock } from 'lucide-react'
+import { useTranslation } from '@/components/providers/language-provider'
 
 interface ViewSwitcherMenuProps {
   isOpen: boolean
@@ -11,6 +12,7 @@ interface ViewSwitcherMenuProps {
 }
 
 export function ViewSwitcherMenu({ isOpen, onClose, currentView, onViewChange }: ViewSwitcherMenuProps) {
+  const { t } = useTranslation()
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -29,10 +31,10 @@ export function ViewSwitcherMenu({ isOpen, onClose, currentView, onViewChange }:
   if (!isOpen) return null
 
   const views = [
-    { id: 'month' as const, label: 'Month', icon: Calendar },
-    { id: 'week' as const, label: 'Week', icon: CalendarDays },
-    { id: 'day' as const, label: 'Day', icon: CalendarClock },
-    { id: 'year' as const, label: 'Year', icon: Grid3x3 },
+    { id: 'month' as const, labelKey: 'calendar.view.month', icon: Calendar },
+    { id: 'week' as const, labelKey: 'calendar.view.week', icon: CalendarDays },
+    { id: 'day' as const, labelKey: 'calendar.view.day', icon: CalendarClock },
+    { id: 'year' as const, labelKey: 'calendar.view.year', icon: Grid3x3 },
   ]
 
   return (
@@ -83,7 +85,7 @@ export function ViewSwitcherMenu({ isOpen, onClose, currentView, onViewChange }:
                     )}
                   </span>
                   <Icon className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                  <span className="flex-1 text-left">{view.label}</span>
+                  <span className="flex-1 text-left">{t(view.labelKey)}</span>
                 </button>
               )
             })}

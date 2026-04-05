@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { useLanguage, useTranslation } from '@/components/providers/language-provider'
+import { intlLocaleForApp } from '@/lib/i18n/supportedLocales'
 import { ArrowLeft, Loader2, Brain, Lightbulb, AlertTriangle, TrendingUp } from 'lucide-react'
 
 type SleepOverviewData = {
@@ -35,6 +37,33 @@ type SleepOverviewData = {
 
 export default function SleepOverviewPage() {
   const router = useRouter()
+  const { language } = useLanguage()
+  const { t } = useTranslation()
+  const locale = useMemo(() => intlLocaleForApp(language), [language])
+
+  const qualityLabel = useCallback(
+    (raw: string) => {
+      const n = raw.trim().toLowerCase()
+      if (n === 'excellent') return t('sleepQuality.excellent')
+      if (n === 'good') return t('sleepQuality.good')
+      if (n === 'fair') return t('sleepQuality.fair')
+      if (n === 'poor') return t('sleepQuality.poor')
+      return raw
+    },
+    [t],
+  )
+
+  const deficitCategoryLabel = useCallback(
+    (cat: string) => {
+      const k = cat.toLowerCase()
+      if (k === 'high' || k === 'medium' || k === 'low') {
+        return t(`sleepOverview.deficitCategory.${k}`)
+      }
+      return cat.toUpperCase()
+    },
+    [t],
+  )
+
   const [data, setData] = useState<SleepOverviewData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -59,9 +88,15 @@ export default function SleepOverviewPage() {
           try {
             errorData = JSON.parse(errorText)
           } catch {
-            errorData = { error: errorText || `Failed to fetch overview: ${res.status}` }
+            errorData = {
+              error: errorText || t('sleepOverview.errFetch', { status: res.status }),
+            }
           }
-          throw new Error(errorData.error || errorData.details || `Failed to fetch overview: ${res.status}`)
+          throw new Error(
+            errorData.error ||
+              errorData.details ||
+              t('sleepOverview.errFetch', { status: res.status }),
+          )
         }
         
         const json = await res.json()
@@ -73,14 +108,14 @@ export default function SleepOverviewPage() {
         setData(json)
       } catch (err: any) {
         console.error('[SleepOverviewPage] Failed to fetch overview:', err)
-        setError(err.message || 'Failed to load sleep overview')
+        setError(err.message || t('sleepOverview.errLoad'))
       } finally {
         setLoading(false)
       }
     }
 
     fetchOverview()
-  }, [])
+  }, [t])
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -88,17 +123,19 @@ export default function SleepOverviewPage() {
         {/* Header */}
         <div className="flex items-center gap-4">
           <button
+            type="button"
             onClick={() => router.back()}
+            aria-label={t('sleepLogs.backAria')}
             className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/90 backdrop-blur-sm border border-slate-200/80 text-slate-700 hover:bg-white hover:shadow-md transition-all active:scale-95"
           >
             <ArrowLeft className="h-5 w-5" strokeWidth={2.5} />
           </button>
           <div>
             <h1 className="text-[24px] font-bold tracking-tight text-slate-900">
-              Sleep Overview
+              {t('sleepOverview.pageTitle')}
             </h1>
             <p className="text-[13px] text-slate-500 mt-0.5">
-              Comprehensive analysis and AI-powered recommendations
+              {t('sleepOverview.subtitle')}
             </p>
           </div>
         </div>
@@ -107,7 +144,7 @@ export default function SleepOverviewPage() {
           <div className="flex items-center justify-center py-20">
             <div className="text-center space-y-4">
               <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" />
-              <p className="text-[14px] text-slate-600">Analyzing your sleep data...</p>
+              <p className="text-[14px] text-slate-600">{t('sleepOverview.loading')}</p>
             </div>
           </div>
         ) : error ? (
@@ -127,7 +164,7 @@ export default function SleepOverviewPage() {
                   <div className="flex items-center gap-2 mb-4">
                     <TrendingUp className="h-5 w-5 text-blue-500" strokeWidth={2.5} />
                     <h2 className="text-[17px] font-bold tracking-tight text-slate-900">
-                      Overview
+                      {t('sleepOverview.sectionOverview')}
                     </h2>
                   </div>
                   <p className="text-[14px] text-slate-700 leading-relaxed">
@@ -145,7 +182,7 @@ export default function SleepOverviewPage() {
                   <div className="flex items-center gap-2 mb-4">
                     <Brain className="h-5 w-5 text-indigo-500" strokeWidth={2.5} />
                     <h2 className="text-[17px] font-bold tracking-tight text-slate-900">
-                      Key Insights
+                      {t('sleepOverview.sectionInsights')}
                     </h2>
                   </div>
                   <ul className="space-y-3">
@@ -170,7 +207,7 @@ export default function SleepOverviewPage() {
                   <div className="flex items-center gap-2 mb-4">
                     <Lightbulb className="h-5 w-5 text-amber-500" strokeWidth={2.5} />
                     <h2 className="text-[17px] font-bold tracking-tight text-slate-900">
-                      Shift Coach Recommendations
+                      {t('sleepOverview.sectionRecommendations')}
                     </h2>
                   </div>
                   <ul className="space-y-3">
@@ -195,7 +232,7 @@ export default function SleepOverviewPage() {
                   <div className="flex items-center gap-2 mb-4">
                     <AlertTriangle className="h-5 w-5 text-amber-600" strokeWidth={2.5} />
                     <h2 className="text-[17px] font-bold tracking-tight text-amber-900">
-                      Potential Issues
+                      {t('sleepOverview.sectionIssues')}
                     </h2>
                   </div>
                   <ul className="space-y-3">
@@ -218,12 +255,12 @@ export default function SleepOverviewPage() {
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 to-white/55" />
                 <div className="relative z-10">
                   <h2 className="text-[17px] font-bold tracking-tight text-slate-900 mb-5">
-                    Sleep Statistics (Last 7 Days)
+                    {t('sleepOverview.sectionStatsTitle')}
                   </h2>
                   <div className="grid grid-cols-2 gap-4 mb-5">
                     <div className="space-y-1">
                       <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                        Total Sleep
+                        {t('sleepOverview.statTotalSleep')}
                       </p>
                       <p className="text-[20px] font-bold text-slate-900">
                         {(data.statistics.totalSleepLast7Days / 60).toFixed(1)}h
@@ -231,7 +268,7 @@ export default function SleepOverviewPage() {
                     </div>
                     <div className="space-y-1">
                       <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                        Daily Average
+                        {t('sleepOverview.statDailyAvg')}
                       </p>
                       <p className="text-[20px] font-bold text-slate-900">
                         {data.statistics.averageSleepPerDay.toFixed(1)}h
@@ -239,7 +276,7 @@ export default function SleepOverviewPage() {
                     </div>
                     <div className="space-y-1">
                       <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                        Days Logged
+                        {t('sleepOverview.statDaysLogged')}
                       </p>
                       <p className="text-[20px] font-bold text-slate-900">
                         {data.statistics.totalDaysWithSleep}/7
@@ -247,7 +284,7 @@ export default function SleepOverviewPage() {
                     </div>
                     <div className="space-y-1">
                       <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                        Consistency
+                        {t('sleepOverview.statConsistency')}
                       </p>
                       <p className="text-[20px] font-bold text-slate-900">
                         {data.statistics.consistencyScore}%
@@ -257,13 +294,13 @@ export default function SleepOverviewPage() {
                   {data.statistics.bestDay && data.statistics.worstDay && (
                     <div className="pt-4 border-t border-slate-200/60 space-y-3">
                       <div className="flex items-center justify-between">
-                        <p className="text-[12px] font-medium text-slate-600">Best Day</p>
+                        <p className="text-[12px] font-medium text-slate-600">{t('sleepOverview.bestDay')}</p>
                         <p className="text-[13px] font-semibold text-emerald-700">
                           {Math.floor(data.statistics.bestDay.total / 60)}h {data.statistics.bestDay.total % 60}m
                         </p>
                       </div>
                       <div className="flex items-center justify-between">
-                        <p className="text-[12px] font-medium text-slate-600">Worst Day</p>
+                        <p className="text-[12px] font-medium text-slate-600">{t('sleepOverview.worstDay')}</p>
                         <p className="text-[13px] font-semibold text-rose-700">
                           {Math.floor(data.statistics.worstDay.total / 60)}h {data.statistics.worstDay.total % 60}m
                         </p>
@@ -280,12 +317,12 @@ export default function SleepOverviewPage() {
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 to-white/55" />
                 <div className="relative z-10">
                   <h2 className="text-[17px] font-bold tracking-tight text-slate-900 mb-4">
-                    Daily Sleep Breakdown
+                    {t('sleepOverview.sectionDailyBreakdown')}
                   </h2>
                   <div className="space-y-3">
                     {data.sleepData.last7.map((day: any, index: number) => {
                       const date = new Date(day.dateISO)
-                      const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })
+                      const dayName = date.toLocaleDateString(locale, { weekday: 'short' })
                       const dayNum = date.getDate()
                       const hours = Math.floor(day.total / 60)
                       const minutes = day.total % 60
@@ -304,7 +341,7 @@ export default function SleepOverviewPage() {
                               </p>
                               {day.quality && day.quality !== '—' && (
                                 <p className="text-[11px] text-slate-500 mt-0.5">
-                                  Quality: {day.quality}
+                                  {t('sleepOverview.qualityLine', { q: qualityLabel(String(day.quality)) })}
                                 </p>
                               )}
                             </div>
@@ -334,13 +371,13 @@ export default function SleepOverviewPage() {
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 to-white/55" />
                 <div className="relative z-10">
                   <h2 className="text-[17px] font-bold tracking-tight text-slate-900 mb-4">
-                    Overall Metrics
+                    {t('sleepOverview.sectionMetrics')}
                   </h2>
                   <div className="grid grid-cols-2 gap-4">
                     {data.metrics.bodyClockScore !== null && data.metrics.bodyClockScore !== undefined && (
                       <div className="space-y-1">
                         <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                          Body Clock Score
+                          {t('sleepOverview.metricBodyClock')}
                         </p>
                         <p className="text-[20px] font-bold text-slate-900">
                           {Math.round(data.metrics.bodyClockScore)}/100
@@ -350,7 +387,7 @@ export default function SleepOverviewPage() {
                     {data.metrics.recoveryScore !== null && data.metrics.recoveryScore !== undefined && (
                       <div className="space-y-1">
                         <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                          Recovery Score
+                          {t('sleepOverview.metricRecovery')}
                         </p>
                         <p className="text-[20px] font-bold text-slate-900">
                           {Math.round(data.metrics.recoveryScore)}/100
@@ -360,7 +397,7 @@ export default function SleepOverviewPage() {
                     {data.metrics.moodScore !== null && data.metrics.moodScore !== undefined && (
                       <div className="space-y-1">
                         <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                          Mood
+                          {t('sleepOverview.metricMood')}
                         </p>
                         <p className="text-[20px] font-bold text-slate-900">
                           {data.metrics.moodScore}/5
@@ -370,7 +407,7 @@ export default function SleepOverviewPage() {
                     {data.metrics.focusScore !== null && data.metrics.focusScore !== undefined && (
                       <div className="space-y-1">
                         <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                          Focus
+                          {t('sleepOverview.metricFocus')}
                         </p>
                         <p className="text-[20px] font-bold text-slate-900">
                           {data.metrics.focusScore}/5
@@ -380,7 +417,7 @@ export default function SleepOverviewPage() {
                     {data.metrics.shiftType && (
                       <div className="space-y-1">
                         <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                          Current Shift
+                          {t('sleepOverview.metricCurrentShift')}
                         </p>
                         <p className="text-[20px] font-bold text-slate-900 capitalize">
                           {data.metrics.shiftType}
@@ -390,7 +427,7 @@ export default function SleepOverviewPage() {
                     {data.metrics.sleepHoursLast24 !== null && data.metrics.sleepHoursLast24 !== undefined && (
                       <div className="space-y-1">
                         <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                          Sleep (24h)
+                          {t('sleepOverview.metricSleep24h')}
                         </p>
                         <p className="text-[20px] font-bold text-slate-900">
                           {data.metrics.sleepHoursLast24.toFixed(1)}h
@@ -408,13 +445,15 @@ export default function SleepOverviewPage() {
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 to-white/55" />
                 <div className="relative z-10">
                   <h2 className="text-[17px] font-bold tracking-tight text-slate-900 mb-4">
-                    Circadian & Sleep Health
+                    {t('sleepOverview.sectionCircadian')}
                   </h2>
                   <div className="space-y-4">
                     {data.sleepData.circadian && (
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <p className="text-[13px] font-semibold text-slate-700">Circadian Phase</p>
+                          <p className="text-[13px] font-semibold text-slate-700">
+                            {t('sleepOverview.circadianPhase')}
+                          </p>
                           <p className="text-[18px] font-bold text-slate-900">
                             {Math.round(data.sleepData.circadian.circadianPhase * 100)}/100
                           </p>
@@ -423,7 +462,7 @@ export default function SleepOverviewPage() {
                           <div className="mt-3 space-y-2 text-[12px] text-slate-600">
                             {data.sleepData.circadian.factors.sleepDebt !== undefined && (
                               <div className="flex items-center justify-between">
-                                <span>Sleep Debt Impact:</span>
+                                <span>{t('sleepOverview.factorSleepDebt')}</span>
                                 <span className="font-semibold">
                                   {Math.round(data.sleepData.circadian.factors.sleepDebt * 100)}%
                                 </span>
@@ -431,7 +470,7 @@ export default function SleepOverviewPage() {
                             )}
                             {data.sleepData.circadian.factors.timing !== undefined && (
                               <div className="flex items-center justify-between">
-                                <span>Timing Alignment:</span>
+                                <span>{t('sleepOverview.factorTiming')}</span>
                                 <span className="font-semibold">
                                   {Math.round(data.sleepData.circadian.factors.timing * 100)}%
                                 </span>
@@ -439,7 +478,7 @@ export default function SleepOverviewPage() {
                             )}
                             {data.sleepData.circadian.factors.consistency !== undefined && (
                               <div className="flex items-center justify-between">
-                                <span>Consistency:</span>
+                                <span>{t('sleepOverview.factorConsistency')}</span>
                                 <span className="font-semibold">
                                   {Math.round(data.sleepData.circadian.factors.consistency * 100)}%
                                 </span>
@@ -452,7 +491,9 @@ export default function SleepOverviewPage() {
                     {data.sleepData.sleepDeficit && (
                       <div className="pt-4 border-t border-slate-200/60">
                         <div className="flex items-center justify-between mb-2">
-                          <p className="text-[13px] font-semibold text-slate-700">Weekly Sleep Deficit</p>
+                          <p className="text-[13px] font-semibold text-slate-700">
+                            {t('sleepOverview.weeklyDeficit')}
+                          </p>
                           <p className={`text-[18px] font-bold ${
                             data.sleepData.sleepDeficit.weeklyDeficitHours > 0 ? 'text-rose-600' : 'text-emerald-600'
                           }`}>
@@ -467,7 +508,7 @@ export default function SleepOverviewPage() {
                             data.sleepData.sleepDeficit.category === 'low' ? 'bg-emerald-100 text-emerald-700' :
                             'bg-slate-100 text-slate-700'
                           }`}>
-                            {data.sleepData.sleepDeficit.category.toUpperCase()}
+                            {deficitCategoryLabel(String(data.sleepData.sleepDeficit.category))}
                           </span>
                         </div>
                       </div>
@@ -483,12 +524,12 @@ export default function SleepOverviewPage() {
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/85 to-white/55" />
                 <div className="relative z-10">
                   <h2 className="text-[17px] font-bold tracking-tight text-slate-900 mb-4">
-                    Last Night's Sleep
+                    {t('sleepOverview.sectionLastNight')}
                   </h2>
                   {data.sleepData.lastNight ? (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <p className="text-[13px] font-medium text-slate-600">Duration</p>
+                        <p className="text-[13px] font-medium text-slate-600">{t('sleepOverview.duration')}</p>
                         <p className="text-[16px] font-bold text-slate-900">
                           {Math.floor(data.sleepData.lastNight.totalMinutes / 60)}h{' '}
                           {data.sleepData.lastNight.totalMinutes % 60}m
@@ -496,37 +537,37 @@ export default function SleepOverviewPage() {
                       </div>
                       {data.sleepData.lastNight.quality && (
                         <div className="flex items-center justify-between">
-                          <p className="text-[13px] font-medium text-slate-600">Quality</p>
+                          <p className="text-[13px] font-medium text-slate-600">{t('sleepOverview.quality')}</p>
                           <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-                            data.sleepData.lastNight.quality === 'Excellent' ? 'bg-emerald-100 text-emerald-700' :
-                            data.sleepData.lastNight.quality === 'Good' ? 'bg-blue-100 text-blue-700' :
-                            data.sleepData.lastNight.quality === 'Fair' ? 'bg-amber-100 text-amber-700' :
+                            String(data.sleepData.lastNight.quality).toLowerCase() === 'excellent' ? 'bg-emerald-100 text-emerald-700' :
+                            String(data.sleepData.lastNight.quality).toLowerCase() === 'good' ? 'bg-blue-100 text-blue-700' :
+                            String(data.sleepData.lastNight.quality).toLowerCase() === 'fair' ? 'bg-amber-100 text-amber-700' :
                             'bg-rose-100 text-rose-700'
                           }`}>
-                            {data.sleepData.lastNight.quality}
+                            {qualityLabel(String(data.sleepData.lastNight.quality))}
                           </span>
                         </div>
                       )}
                       {data.sleepData.lastNight.deep !== undefined && (
                         <div className="pt-3 border-t border-slate-200/60">
                           <p className="text-[12px] font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                            Sleep Stages
+                            {t('sleepOverview.sleepStages')}
                           </p>
                           <div className="grid grid-cols-4 gap-3">
                             <div className="text-center">
-                              <p className="text-[11px] text-slate-500 mb-1">Deep</p>
+                              <p className="text-[11px] text-slate-500 mb-1">{t('sleepSW.stage.deep')}</p>
                               <p className="text-[14px] font-bold text-slate-900">{data.sleepData.lastNight.deep}%</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-[11px] text-slate-500 mb-1">REM</p>
+                              <p className="text-[11px] text-slate-500 mb-1">{t('sleepSW.stage.rem')}</p>
                               <p className="text-[14px] font-bold text-slate-900">{data.sleepData.lastNight.rem}%</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-[11px] text-slate-500 mb-1">Light</p>
+                              <p className="text-[11px] text-slate-500 mb-1">{t('sleepSW.stage.light')}</p>
                               <p className="text-[14px] font-bold text-slate-900">{data.sleepData.lastNight.light}%</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-[11px] text-slate-500 mb-1">Awake</p>
+                              <p className="text-[11px] text-slate-500 mb-1">{t('sleepSW.stage.awake')}</p>
                               <p className="text-[14px] font-bold text-slate-900">{data.sleepData.lastNight.awake}%</p>
                             </div>
                           </div>
@@ -534,7 +575,7 @@ export default function SleepOverviewPage() {
                       )}
                     </div>
                   ) : (
-                    <p className="text-[13px] text-slate-500">No sleep logged for last night</p>
+                    <p className="text-[13px] text-slate-500">{t('sleepOverview.lastNightEmpty')}</p>
                   )}
                 </div>
               </section>

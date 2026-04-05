@@ -4,12 +4,14 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useLanguage, useTranslation } from '@/components/providers/language-provider'
+import { LOCALE_META } from '@/lib/i18n/supportedLocales'
 import { SleepTimelineBar } from './SleepTimelineBar'
 import { LogSleepModal } from './LogSleepModal'
 import { SleepEditModal } from './SleepEditModal'
 import { DeleteSleepConfirmModal } from './DeleteSleepConfirmModal'
 import { ShiftSleepOverviewCard } from './ShiftSleepOverviewCard'
-import { getShiftAwareInsight } from '@/lib/sleep/coaching'
+import { getShiftAwareInsightKey } from '@/lib/sleep/coaching'
 import type { SleepLogInput, SleepType } from '@/lib/sleep/types'
 import {
   pickDefaultShiftedDay,
@@ -76,36 +78,37 @@ function SleepMetricsCard({
   targetLoading: boolean
   week: WeekSleepOverview
 }) {
+  const { t } = useTranslation()
   const weekLoading = week.loading
   const deficitHours = week.weeklyDeficit
   const deficitLabel =
     deficitHours == null
       ? '—'
       : deficitHours <= 0
-        ? `${Math.abs(deficitHours).toFixed(1)}h ahead`
-        : `${deficitHours.toFixed(1)}h behind`
+        ? t('sleepSW.deficitAhead', { h: Math.abs(deficitHours).toFixed(1) })
+        : t('sleepSW.deficitBehind', { h: deficitHours.toFixed(1) })
   const deficitSub =
     deficitHours == null
-      ? week.error || 'Weekly vs target (7-day).'
+      ? week.error || t('sleepSW.deficitSubError')
       : deficitHours <= 0
-        ? 'Ahead of weekly sleep target.'
-        : 'Behind on weekly sleep target.'
+        ? t('sleepSW.deficitSubAhead')
+        : t('sleepSW.deficitSubBehind')
 
   const consistencyPct = week.consistencyScore
   const consistencySub =
     consistencyPct != null
-      ? 'Bedtime regularity from main sleep (last 7 days).'
-      : week.consistencyError || 'Log at least two main-sleep sessions to score consistency.'
+      ? t('sleepSW.consistencySub')
+      : week.consistencyError || t('sleepSW.consistencyNeedData')
 
   return (
     <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="space-y-1">
           <p className="text-[11px] font-semibold tracking-[0.16em] text-[var(--text-muted)] uppercase">
-            Sleep metrics
+            {t('sleepSW.metricsTitle')}
           </p>
           <h2 className="text-sm font-semibold tracking-tight text-[var(--text-main)]">
-            Tonight&apos;s target &amp; weekly overview
+            {t('sleepSW.metricsHeading')}
           </h2>
         </div>
       </div>
@@ -113,19 +116,19 @@ function SleepMetricsCard({
       <div className="grid grid-cols-3 gap-3 text-xs">
         <div className="space-y-1">
           <p className="font-semibold tracking-[0.14em] uppercase text-[var(--text-muted)]">
-            Tonight&apos;s target
+            {t('sleepSW.tonightTarget')}
           </p>
           <p className="text-lg font-semibold text-[var(--text-main)]">
             {targetLoading ? '—' : `${targetHours.toFixed(1)}h`}
           </p>
           <p className="text-[11px] leading-snug text-[var(--text-soft)]">
-            Goal sleep for tonight based on your profile.
+            {t('sleepSW.tonightHint')}
           </p>
         </div>
 
         <div className="space-y-1">
           <p className="font-semibold tracking-[0.14em] uppercase text-[var(--text-muted)]">
-            Consistency
+            {t('sleepSW.consistency')}
           </p>
           {weekLoading ? (
             <div className="mb-1 h-1.5 w-full rounded-full bg-[var(--card-subtle)] animate-pulse" />
@@ -138,13 +141,17 @@ function SleepMetricsCard({
             </div>
           )}
           <p className="text-[11px] leading-snug text-[var(--text-muted)]">
-            {weekLoading ? '…' : consistencyPct != null ? `${consistencyPct}/100 · main sleep rhythm` : consistencySub}
+            {weekLoading
+              ? '…'
+              : consistencyPct != null
+                ? t('sleepSW.consistencyLine', { pct: consistencyPct })
+                : consistencySub}
           </p>
         </div>
 
         <div className="space-y-1 text-right">
           <p className="font-semibold tracking-[0.14em] uppercase text-[var(--text-muted)]">
-            Sleep deficit
+            {t('sleepSW.deficit')}
           </p>
           <p className="text-lg font-semibold text-[var(--text-main)]">
             {weekLoading ? '—' : deficitLabel}
@@ -159,11 +166,12 @@ function SleepMetricsCard({
 }
 
 function SleepStageGrid() {
+  const { t } = useTranslation()
   const stages = [
-    { label: 'Deep', description: 'Restorative sleep for physical recovery' },
-    { label: 'REM', description: 'Dream sleep for memory and learning' },
-    { label: 'Light', description: 'Transitional sleep between stages' },
-    { label: 'Awake', description: 'Brief awakenings during sleep' },
+    { label: t('sleepSW.stage.deep'), description: t('sleepSW.stageDesc.deep') },
+    { label: t('sleepSW.stage.rem'), description: t('sleepSW.stageDesc.rem') },
+    { label: t('sleepSW.stage.light'), description: t('sleepSW.stageDesc.light') },
+    { label: t('sleepSW.stage.awake'), description: t('sleepSW.stageDesc.awake') },
   ]
 
   return (
@@ -188,6 +196,7 @@ function SleepStageGrid() {
 }
 
 function SleepDebtCard({ week }: { week: WeekSleepOverview }) {
+  const { t } = useTranslation()
   const { loading, error, weeklyDeficit, category } = week
 
   if (loading) {
@@ -202,7 +211,7 @@ function SleepDebtCard({ week }: { week: WeekSleepOverview }) {
   if (error || weeklyDeficit === null || category === null) {
     return (
       <div className="text-xs text-slate-500 dark:text-slate-400">
-        {error || "No sleep debt data yet. Log a few days of main sleep to unlock this view."}
+        {error || t('sleepSW.debtNoData')}
       </div>
     )
   }
@@ -216,20 +225,20 @@ function SleepDebtCard({ week }: { week: WeekSleepOverview }) {
   let toneClasses: string
 
   if (isSurplus) {
-    label = 'Sleep banked'
-    message = 'You are slightly ahead on sleep this week. Protect this buffer on heavy shift runs.'
+    label = t('sleepSW.debtBanked')
+    message = t('sleepSW.debtBankedMsg')
     toneClasses = 'bg-emerald-50/80 text-emerald-700 border-emerald-200'
   } else if (category === 'low') {
-    label = 'Mild sleep debt'
-    message = 'You are only a little behind. One or two early nights or a recovery nap will catch you up.'
+    label = t('sleepSW.debtMild')
+    message = t('sleepSW.debtMildMsg')
     toneClasses = 'bg-sky-50/80 text-sky-700 border-sky-200'
   } else if (category === 'medium') {
-    label = 'Moderate sleep debt'
-    message = 'Plan extra sleep blocks on off days and avoid stacking more night shifts if you can.'
+    label = t('sleepSW.debtModerate')
+    message = t('sleepSW.debtModerateMsg')
     toneClasses = 'bg-amber-50/80 text-amber-700 border-amber-200'
   } else {
-    label = 'High sleep debt'
-    message = 'You are well behind on recovery. Treat this like a high‑risk week for fatigue and mistakes.'
+    label = t('sleepSW.debtHigh')
+    message = t('sleepSW.debtHighMsg')
     toneClasses = 'bg-rose-50/80 text-rose-700 border-rose-200'
   }
 
@@ -238,14 +247,14 @@ function SleepDebtCard({ week }: { week: WeekSleepOverview }) {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
-            Weekly sleep debt
+            {t('sleepSW.debtWeeklyTitle')}
           </p>
           <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-            Based on your last 7 shifted days and ideal nightly target.
+            {t('sleepSW.debtWeeklySub')}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">Behind / ahead</p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">{t('sleepSW.behindAhead')}</p>
           <p className="text-xl font-semibold text-slate-900 dark:text-slate-100">
             {isSurplus ? '-' : '+'}
             {absHours}h
@@ -286,6 +295,9 @@ const initialWeekOverview: WeekSleepOverview = {
 
 export function ShiftWorkerSleepPage() {
   const router = useRouter()
+  const { t } = useTranslation()
+  const { language } = useLanguage()
+  const dateLocale = LOCALE_META[language]?.intl ?? 'en-GB'
   const [weekSleepOverview, setWeekSleepOverview] = useState<WeekSleepOverview>(initialWeekOverview)
   const [shiftedDays, setShiftedDays] = useState<ShiftedDay[]>([])
   const [sevenDayChartBars, setSevenDayChartBars] = useState<SleepBarPoint[]>([])
@@ -312,6 +324,48 @@ export function ShiftWorkerSleepPage() {
   const [lastWearableSyncAt, setLastWearableSyncAt] = useState<number | null>(null)
   const [isWearableSyncing, setIsWearableSyncing] = useState(false)
   const [heroActionError, setHeroActionError] = useState<string | null>(null)
+
+  const getHistoryRating = useCallback(
+    (totalM: number) => {
+      const goal = sleepGoalHours ?? 7.5
+      if (!totalM || totalM <= 0) {
+        return {
+          label: t('sleepSW.rating.noneLabel'),
+          message: t('sleepSW.rating.noneMsg'),
+          tone: 'neutral' as const,
+        }
+      }
+      const hours = totalM / 60
+      if (hours >= goal + 0.5) {
+        return {
+          label: t('sleepSW.rating.greatLabel'),
+          message: t('sleepSW.rating.greatMsg'),
+          tone: 'good' as const,
+        }
+      }
+      if (hours >= goal - 0.5) {
+        return {
+          label: t('sleepSW.rating.okLabel'),
+          message: t('sleepSW.rating.okMsg'),
+          tone: 'ok' as const,
+        }
+      }
+      if (hours >= goal - 2) {
+        return {
+          label: t('sleepSW.rating.warnLabel'),
+          message: t('sleepSW.rating.warnMsg'),
+          tone: 'warn' as const,
+        }
+      }
+      return {
+        label: t('sleepSW.rating.badLabel'),
+        message: t('sleepSW.rating.badMsg'),
+        tone: 'bad' as const,
+      }
+    },
+    [t, sleepGoalHours],
+  )
+
   const selectedDayRef = useRef<string | null>(null)
   useEffect(() => {
     selectedDayRef.current = selectedDay
@@ -348,7 +402,7 @@ export function ShiftWorkerSleepPage() {
       console.error('[ShiftWorkerSleepPage] week metrics:', err)
       setWeekSleepOverview({
         loading: false,
-        error: 'Unable to load weekly sleep metrics.',
+        error: t('sleepSW.weekMetricsError'),
         weeklyDeficit: null,
         requiredDaily: null,
         category: null,
@@ -356,7 +410,7 @@ export function ShiftWorkerSleepPage() {
         consistencyError: null,
       })
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void fetchWeekSleepOverview()
@@ -610,19 +664,19 @@ export function ShiftWorkerSleepPage() {
       })
       const json = await res.json().catch(() => ({}))
       if (json?.error === 'no_wearable_connection') {
-        setHeroActionError('No wearable is connected yet. Connect a provider in Wearables setup.')
+        setHeroActionError(t('sleepSW.noWearable'))
         return
       }
       if (!res.ok) {
-        throw new Error(extractApiErrorMessage(json, 'Failed to sync wearables'))
+        throw new Error(extractApiErrorMessage(json, t('sleepSW.syncFailed')))
       }
       await Promise.all([fetchWearableStatus(), refreshSleepPageData()])
     } catch (err) {
-      setHeroActionError(err instanceof Error ? err.message : 'Failed to sync wearables')
+      setHeroActionError(err instanceof Error ? err.message : t('sleepSW.syncFailed'))
     } finally {
       setIsWearableSyncing(false)
     }
-  }, [fetchWearableStatus, refreshSleepPageData])
+  }, [fetchWearableStatus, refreshSleepPageData, t])
 
   // Handle log sleep submit
   const handleLogSleep = async (data: SleepLogInput) => {
@@ -634,8 +688,8 @@ export function ShiftWorkerSleepPage() {
       })
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Failed to save sleep' }))
-        throw new Error(extractApiErrorMessage(errorData, 'Failed to save sleep'))
+        const errorData = await res.json().catch(() => ({ error: t('sleepForm.errSave') }))
+        throw new Error(extractApiErrorMessage(errorData, t('sleepForm.errSave')))
       }
 
       notifySleepLogsUpdated()
@@ -667,7 +721,7 @@ export function ShiftWorkerSleepPage() {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
-        alert(extractApiErrorMessage(errorData, 'Failed to delete session'))
+        alert(extractApiErrorMessage(errorData, t('sleepSW.deleteSessionFailed')))
         setIsDeleting(false)
         setDeletingSessionId(null)
         return
@@ -679,7 +733,7 @@ export function ShiftWorkerSleepPage() {
       await refreshSleepPageData()
     } catch (err) {
       console.error('[ShiftWorkerSleepPage] Delete error:', err)
-      alert('Failed to delete session')
+      alert(t('sleepSW.deleteSessionFailed'))
     } finally {
       setIsDeleting(false)
     }
@@ -805,17 +859,19 @@ export function ShiftWorkerSleepPage() {
   }
 
   const sleepDebtMinutes = adjustedTargetMinutes > 0 ? Math.max(0, adjustedTargetMinutes - totalMinutes) : null
-  const smartInsight = getShiftAwareInsight({
-    shiftLabel: shiftForDay,
-    totalMinutes,
-    targetMinutes: adjustedTargetMinutes,
-    primaryMinutes,
-    napMinutes,
-    dominantType,
-    sourceSummary,
-    sleepDebtMinutes,
-    circadianAlignment,
-  })
+  const smartInsight = t(
+    getShiftAwareInsightKey({
+      shiftLabel: shiftForDay,
+      totalMinutes,
+      targetMinutes: adjustedTargetMinutes,
+      primaryMinutes,
+      napMinutes,
+      dominantType,
+      sourceSummary,
+      sleepDebtMinutes,
+      circadianAlignment,
+    }),
+  )
   const shiftedDayEnd = selectedDayData
     ? new Date(new Date(selectedDayData.shiftedDayStart).getTime() + 24 * 60 * 60 * 1000).toISOString()
     : ''
@@ -834,7 +890,7 @@ export function ShiftWorkerSleepPage() {
     return (
       <div className="w-full max-w-md mx-auto px-4 py-6">
         <div className="text-center py-12">
-          <p className="text-sm text-slate-500">Loading sleep data...</p>
+          <p className="text-sm text-slate-500">{t('sleepSW.loading')}</p>
         </div>
       </div>
     )
@@ -843,44 +899,6 @@ export function ShiftWorkerSleepPage() {
   const selectedHistory =
     historyDays.find((d) => d.date === selectedHistoryDate) || historyDays[0] || null
 
-  const getHistoryRating = (totalMinutes: number) => {
-    const goal = sleepGoalHours ?? 7.5
-    if (!totalMinutes || totalMinutes <= 0) {
-      return {
-        label: 'No sleep logged',
-        message: 'Log your main sleep and naps to get guidance.',
-        tone: 'neutral' as const,
-      }
-    }
-    const hours = totalMinutes / 60
-    if (hours >= goal + 0.5) {
-      return {
-        label: 'Doing great',
-        message: 'You hit or slightly exceeded your ideal sleep dose for your profile. Keep this pattern when you can.',
-        tone: 'good' as const,
-      }
-    }
-    if (hours >= goal - 0.5) {
-      return {
-        label: 'Okay, could be better',
-        message: 'You are close to your ideal amount – another 30–60 minutes would really help recovery.',
-        tone: 'ok' as const,
-      }
-    }
-    if (hours >= goal - 2) {
-      return {
-        label: 'Falling behind',
-        message: 'You are short on sleep for your needs. Plan a recovery block or nap on your next off‑duty window.',
-        tone: 'warn' as const,
-      }
-    }
-    return {
-      label: 'Running on fumes',
-      message: 'Very short sleep for your profile. Treat today as high‑risk for fatigue, cravings and mistakes.',
-      tone: 'bad' as const,
-    }
-  }
-
   return (
     <div className="w-full max-w-md mx-auto px-4 py-6 space-y-6">
       {/* Page header with back arrow */}
@@ -888,12 +906,12 @@ export function ShiftWorkerSleepPage() {
         <Link
           href="/dashboard"
           className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card)] text-[var(--text-soft)] transition hover:bg-[var(--card-subtle)] hover:text-[var(--text-main)]"
-          aria-label="Back to home"
+          aria-label={t('sleepSW.backHome')}
         >
           <ChevronLeft className="h-4 w-4" />
         </Link>
         <h1 className="text-xs font-semibold tracking-[0.22em] text-[var(--text-soft)] uppercase">
-          Sleep
+          {t('sleepSW.pageTitle')}
         </h1>
       </div>
 
@@ -950,7 +968,7 @@ export function ShiftWorkerSleepPage() {
       {showSleepTimeline && (
         <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4">
           <h2 className="mb-3 text-xs font-semibold tracking-[0.16em] uppercase text-[var(--text-muted)]">
-            24‑hour sleep timeline
+            {t('sleepSW.timelineTitle')}
           </h2>
           <SleepTimelineBar
             sessions={timelineSessions}
@@ -967,10 +985,10 @@ export function ShiftWorkerSleepPage() {
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>
             <h2 className="text-sm font-semibold tracking-tight text-[var(--text-main)]">
-              Last 30 days
+              {t('sleepSW.last30Title')}
             </h2>
             <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-              Pick a day to see if your sleep was enough for that shift, based on your profile.
+              {t('sleepSW.last30Sub')}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -982,7 +1000,7 @@ export function ShiftWorkerSleepPage() {
               >
                 {historyDays.map((d) => {
                   const dateObj = new Date(d.date + 'T12:00:00')
-                  const label = dateObj.toLocaleDateString('en-GB', {
+                  const label = dateObj.toLocaleDateString(dateLocale, {
                     weekday: 'short',
                     day: 'numeric',
                     month: 'short',
@@ -1000,7 +1018,7 @@ export function ShiftWorkerSleepPage() {
               href="/sleep/history"
               className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card)] px-3 py-1.5 text-[11px] font-medium text-[var(--text-soft)] hover:bg-[var(--card-subtle)]"
             >
-              Edit logs
+              {t('sleepSW.editLogs')}
             </Link>
           </div>
         </div>
@@ -1030,7 +1048,7 @@ export function ShiftWorkerSleepPage() {
                 <div className="flex items-baseline justify-between">
                   <div>
                     <p className="text-[11px] font-medium text-[var(--text-muted)]">
-                      Total sleep that shifted day
+                      {t('sleepSW.totalSleepShiftedDay')}
                     </p>
                     <p className="mt-0.5 text-2xl font-semibold text-[var(--text-main)]">
                       {hours.toFixed(1)}h
@@ -1053,7 +1071,7 @@ export function ShiftWorkerSleepPage() {
           })()
         ) : (
           <p className="text-xs text-[var(--text-muted)]">
-            No sleep history in the last 30 days yet. Start logging to unlock guidance.
+            {t('sleepSW.historyEmpty')}
           </p>
         )}
       </section>
@@ -1062,10 +1080,10 @@ export function ShiftWorkerSleepPage() {
       <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-5 py-4">
         <div className="mb-3">
           <h2 className="text-xs font-semibold tracking-[0.14em] uppercase text-[var(--text-muted)]">
-            Sleep stages
+            {t('sleepSW.stagesTitle')}
           </h2>
           <p className="mt-1 text-[11px] text-[var(--text-soft)]">
-            From wearable data or estimated from your latest sleep.
+            {t('sleepSW.stagesSub')}
           </p>
         </div>
         <SleepStageGrid />

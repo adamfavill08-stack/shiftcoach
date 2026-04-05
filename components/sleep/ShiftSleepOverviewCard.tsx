@@ -1,7 +1,10 @@
 'use client'
 
+import { useMemo } from 'react'
 import Link from 'next/link'
-import { formatSleepChartAxisLabel, getSleepTypeLabel, type SleepBarPoint } from '@/lib/sleep/utils'
+import { useLanguage, useTranslation } from '@/components/providers/language-provider'
+import { intlLocaleForApp } from '@/lib/i18n/supportedLocales'
+import { formatSleepChartAxisLabel, type SleepBarPoint } from '@/lib/sleep/utils'
 import type { SleepType } from '@/lib/sleep/types'
 
 type SourceSummary = 'none' | 'manual' | 'wearable' | 'mixed'
@@ -35,11 +38,19 @@ const HIGH_DEBT_MINUTES = 120
 
 type ProgressState = 'empty' | 'neutral' | 'behind' | 'progress' | 'on_track' | 'recovery'
 
-function formatHoursMinutes(totalMinutes: number) {
+type TranslateFn = (key: string, params?: Record<string, string | number>) => string
+
+function formatSleepDuration(t: TranslateFn, totalMinutes: number) {
   const safeMinutes = Math.max(0, Math.round(totalMinutes))
   const h = Math.floor(safeMinutes / 60)
   const m = safeMinutes % 60
-  return `${h}h ${m}m`
+  return t('sleepCard.durationHM', { h, m })
+}
+
+/** Decimal hours for chart labels (locale-aware 7 vs 7,5). */
+function formatSleepChartHoursDecimal(intlLocale: string, totalMinutes: number) {
+  const n = Math.max(0, totalMinutes) / 60
+  return new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 1, minimumFractionDigits: 0 }).format(n)
 }
 
 function getProgressState(totalMinutes: number, targetMinutes: number): ProgressState {
@@ -51,87 +62,94 @@ function getProgressState(totalMinutes: number, targetMinutes: number): Progress
   return 'recovery'
 }
 
-function getHeadline(totalMinutes: number, targetMinutes: number, shiftLabel?: string) {
+function getHeadlineKey(totalMinutes: number, targetMinutes: number, shiftLabel?: string): string {
   const state = getProgressState(totalMinutes, targetMinutes)
   const shift = (shiftLabel || '').toUpperCase()
 
   if (shift === 'NIGHT') {
-    if (state === 'empty') return 'Log post-shift sleep'
-    if (state === 'behind') return 'Post-shift recovery needed'
+    if (state === 'empty') return 'sleepCard.hl.logPostShift'
+    if (state === 'behind') return 'sleepCard.hl.postRecovery'
   }
 
   if (shift === 'OFF') {
-    if (state === 'behind') return 'Recovery day - below target'
+    if (state === 'behind') return 'sleepCard.hl.recoveryBelow'
   }
 
   switch (state) {
     case 'empty':
-      return 'Log your sleep'
+      return 'sleepCard.hl.logYourSleep'
     case 'behind':
-      return 'Below target for today'
+      return 'sleepCard.hl.belowTarget'
     case 'progress':
-      return 'Progressing toward target'
+      return 'sleepCard.hl.progressing'
     case 'on_track':
-      return 'On track for today'
+      return 'sleepCard.hl.onTrack'
     case 'recovery':
-      return 'Recovery needs covered'
+      return 'sleepCard.hl.recoveryCovered'
     default:
-      return 'Sleep overview'
+      return 'sleepCard.hl.overview'
   }
 }
 
-function getSubtext(
+function getSubtextParts(
+  t: TranslateFn,
   totalMinutes: number,
   primaryMinutes: number,
   napMinutes: number,
   dominantType: SleepType | null,
   sleepDebtMinutes: number | null,
   shiftLabel?: string,
-) {
+): { key: string; params?: Record<string, string | number> } {
   const shift = (shiftLabel || '').toUpperCase()
+  const primary = formatSleepDuration(t, primaryMinutes)
+  const naps = formatSleepDuration(t, napMinutes)
   if (totalMinutes <= 0) {
-    return 'No sleep logged yet for this day. Log main sleep or naps to keep your body clock accurate.'
+    return { key: 'sleepCard.sub.noSleep' }
   }
   if (shift === 'NIGHT' && totalMinutes > 0) {
-    return `Post-shift sleep logged. You've recorded ${formatHoursMinutes(primaryMinutes)} primary sleep and ${formatHoursMinutes(napMinutes)} naps.`
+    return { key: 'sleepCard.sub.nightLogged', params: { primary, naps } }
   }
   if (sleepDebtMinutes != null && sleepDebtMinutes >= HIGH_DEBT_MINUTES) {
-    return `You've logged ${formatHoursMinutes(primaryMinutes)} of primary sleep and ${formatHoursMinutes(napMinutes)} of naps. Recovery sleep is recommended to close your debt.`
+    return { key: 'sleepCard.sub.debt', params: { primary, naps } }
   }
   if (primaryMinutes <= 0 && napMinutes > 0) {
-    return `Only naps are logged so far. You've logged ${formatHoursMinutes(napMinutes)} of naps today.`
+    return { key: 'sleepCard.sub.onlyNaps', params: { naps } }
   }
   if (dominantType === 'post_shift_sleep') {
-    return `Post-shift sleep is the main contributor today. You've logged ${formatHoursMinutes(primaryMinutes)} of primary sleep and ${formatHoursMinutes(napMinutes)} of naps.`
+    return { key: 'sleepCard.sub.postShiftDom', params: { primary, naps } }
   }
   if (dominantType === 'recovery_sleep') {
-    return `Recovery sleep is leading today. You've logged ${formatHoursMinutes(primaryMinutes)} of primary sleep and ${formatHoursMinutes(napMinutes)} of naps.`
+    return { key: 'sleepCard.sub.recoveryDom', params: { primary, naps } }
   }
   if (dominantType === 'main_sleep') {
-    return `Primary sleep is logged. You've logged ${formatHoursMinutes(primaryMinutes)} of primary sleep and ${formatHoursMinutes(napMinutes)} of naps today.`
+    return { key: 'sleepCard.sub.mainDom', params: { primary, naps } }
   }
-  return `You've logged ${formatHoursMinutes(primaryMinutes)} of primary sleep and ${formatHoursMinutes(napMinutes)} of naps today.`
+  return { key: 'sleepCard.sub.default', params: { primary, naps } }
 }
 
-function getSourceLabel(sourceSummary: SourceSummary, totalMinutes: number) {
-  if (totalMinutes <= 0 && sourceSummary === 'none') return 'No sleep logged yet'
-  if (sourceSummary === 'none') return 'No source data'
-  if (sourceSummary === 'manual') return 'Manual data'
-  if (sourceSummary === 'wearable') return 'Wearable data'
-  return 'Mixed data'
+function getSourceLabelKey(sourceSummary: SourceSummary, totalMinutes: number): string {
+  if (totalMinutes <= 0 && sourceSummary === 'none') return 'sleepCard.sourceNoneLogged'
+  if (sourceSummary === 'none') return 'sleepCard.sourceNoData'
+  if (sourceSummary === 'manual') return 'sleepCard.sourceManual'
+  if (sourceSummary === 'wearable') return 'sleepCard.sourceWearable'
+  return 'sleepCard.sourceMixed'
 }
 
-function formatRelativeSyncLabel(lastSyncAt: number | null | undefined, hasWearableConnection: boolean) {
-  if (!hasWearableConnection) return 'Manual only'
-  if (!lastSyncAt) return 'Awaiting first sync'
+function formatRelativeSyncLabel(
+  t: TranslateFn,
+  lastSyncAt: number | null | undefined,
+  hasWearableConnection: boolean,
+) {
+  if (!hasWearableConnection) return t('sleepCard.syncManualOnly')
+  if (!lastSyncAt) return t('sleepCard.syncAwaiting')
   const diffMs = Date.now() - lastSyncAt
   const diffMin = Math.max(0, Math.round(diffMs / 60000))
-  if (diffMin < 2) return 'Last sync just now'
-  if (diffMin < 60) return `Last sync ${diffMin}m ago`
+  if (diffMin < 2) return t('sleepCard.syncJustNow')
+  if (diffMin < 60) return t('sleepCard.syncMinAgo', { m: diffMin })
   const diffHours = Math.round(diffMin / 60)
-  if (diffHours < 24) return `Last sync ${diffHours}h ago`
+  if (diffHours < 24) return t('sleepCard.syncHoursAgo', { h: diffHours })
   const diffDays = Math.round(diffHours / 24)
-  return `Last sync ${diffDays}d ago`
+  return t('sleepCard.syncDaysAgo', { d: diffDays })
 }
 
 function compactInsight(text: string | null | undefined): string | null {
@@ -193,8 +211,20 @@ export function ShiftSleepOverviewCard({
   highlightDateKey = null,
   chartTimeZone = null,
 }: ShiftSleepOverviewCardProps) {
-  const headline = getHeadline(totalMinutes, targetMinutes, shiftLabel)
-  const subtext = getSubtext(totalMinutes, primaryMinutes, napMinutes, dominantType, sleepDebtMinutes, shiftLabel)
+  const { t } = useTranslation()
+  const { language } = useLanguage()
+  const intlLocale = useMemo(() => intlLocaleForApp(language), [language])
+  const headline = t(getHeadlineKey(totalMinutes, targetMinutes, shiftLabel))
+  const subParts = getSubtextParts(
+    t,
+    totalMinutes,
+    primaryMinutes,
+    napMinutes,
+    dominantType,
+    sleepDebtMinutes,
+    shiftLabel,
+  )
+  const subtext = t(subParts.key, subParts.params)
   const chipTone = getChipTone(totalMinutes, targetMinutes)
   const syncAgeMs = lastSyncAt ? Date.now() - lastSyncAt : Number.POSITIVE_INFINITY
   const wearableStale = hasWearableConnection && syncAgeMs > WEARABLE_STALE_MS
@@ -203,36 +233,55 @@ export function ShiftSleepOverviewCard({
   const priorityBlock = actionError
     ? { tone: 'error' as const, text: actionError }
     : wearableStale
-    ? { tone: 'warn' as const, text: "Wearable sync delayed. Sync now to keep today's totals accurate." }
+    ? { tone: 'warn' as const, text: t('sleepCard.warnStale') }
     : conciseInsight
     ? { tone: 'info' as const, text: conciseInsight }
     : null
 
   const primaryAction = wearableStale && onSyncWearable
-    ? { label: isWearableSyncing ? 'Syncing…' : 'Sync now', onClick: onSyncWearable, disabled: isWearableSyncing }
+    ? {
+        label: isWearableSyncing ? t('sleepCard.btnSyncing') : t('sleepCard.btnSyncNow'),
+        onClick: onSyncWearable,
+        disabled: isWearableSyncing,
+      }
     : {
         label:
           progressState === 'empty'
-            ? 'Log sleep'
+            ? t('sleepCard.btnLogSleep')
             : progressState === 'behind' || progressState === 'progress'
-            ? 'Add sleep'
-            : 'Edit logs',
+              ? t('sleepCard.btnAddSleep')
+              : t('sleepCard.btnEditLogs'),
         onClick: onLogSleep,
         disabled: false,
       }
 
   const secondaryAction = wearableStale
-    ? { label: 'Log manually', href: null as string | null, onClick: onLogSleep }
-    : { label: totalMinutes > 0 ? 'Edit today' : 'Edit logs', href: editLogsHref, onClick: null as (() => void) | null }
+    ? { label: t('sleepCard.btnLogManually'), href: null as string | null, onClick: onLogSleep }
+    : {
+        label: totalMinutes > 0 ? t('sleepCard.btnEditToday') : t('sleepCard.btnEditLogs'),
+        href: editLogsHref,
+        onClick: null as (() => void) | null,
+      }
 
   const maxBarMinutes = Math.max(
     targetMinutes,
     ...sevenDayBars.map((b) => b.totalMinutes),
     60,
   )
-  const chartSummary = sevenDayBars
-    .map((b) => `${b.dateKey}: ${(b.totalMinutes / 60).toFixed(1)}h`)
-    .join('; ')
+  const chartSummary = useMemo(
+    () =>
+      sevenDayBars
+        .map((b) =>
+          t('sleepCard.chartSummarySegment', {
+            date: b.dateKey,
+            hours: t('sleepCard.chartHoursLabel', {
+              n: formatSleepChartHoursDecimal(intlLocale, b.totalMinutes),
+            }),
+          }),
+        )
+        .join('; '),
+    [sevenDayBars, t, intlLocale],
+  )
 
   return (
     <section className="relative overflow-hidden rounded-[18px] border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-5">
@@ -240,16 +289,18 @@ export function ShiftSleepOverviewCard({
         <div className="w-full space-y-2 text-left">
           <div className="flex items-baseline justify-between gap-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-              Last 7 days
+              {t('sleepCard.last7')}
             </p>
             <p className="text-[11px] text-[var(--text-muted)]">
-              Last 7 local days ending today · {(targetMinutes / 60).toFixed(1)}h target
+              {t('sleepCard.chartSub', {
+                target: formatSleepChartHoursDecimal(intlLocale, targetMinutes),
+              })}
             </p>
           </div>
           <div
             className="relative flex h-[136px] w-full items-end gap-1 sm:gap-1.5"
             role="img"
-            aria-label={`Sleep hours last seven local days. ${chartSummary}`}
+            aria-label={t('sleepCard.ariaChart', { summary: chartSummary })}
           >
             {sevenDayBars.map((day) => {
               const hPx =
@@ -260,7 +311,7 @@ export function ShiftSleepOverviewCard({
               const label =
                 chartTimeZone && chartTimeZone.trim()
                   ? formatSleepChartAxisLabel(day.dateKey, chartTimeZone)
-                  : new Date(`${day.dateKey}T12:00:00`).toLocaleDateString(undefined, {
+                  : new Date(`${day.dateKey}T12:00:00`).toLocaleDateString(intlLocale, {
                       weekday: 'short',
                       month: 'numeric',
                       day: 'numeric',
@@ -277,7 +328,10 @@ export function ShiftSleepOverviewCard({
                         : ''
                     }`}
                     style={{ height: hPx }}
-                    title={`${day.dateKey}: ${(day.totalMinutes / 60).toFixed(1)}h total sleep`}
+                    title={t('sleepCard.barTotalTitle', {
+                      date: day.dateKey,
+                      h: formatSleepChartHoursDecimal(intlLocale, day.totalMinutes),
+                    })}
                   />
                   <span className="w-full truncate text-center text-[10px] font-medium text-[var(--text-muted)]">
                     {label}
@@ -288,16 +342,20 @@ export function ShiftSleepOverviewCard({
           </div>
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-[var(--text-muted)]">
             <span>
-              Selected day:{' '}
-              <span className="font-semibold text-[var(--text-main)]">{formatHoursMinutes(totalMinutes)}</span>
+              {t('sleepCard.selectedDay')}{' '}
+              <span className="font-semibold text-[var(--text-main)]">
+                {formatSleepDuration(t, totalMinutes)}
+              </span>
               {targetMinutes > 0 ? (
                 <span className="text-[var(--text-soft)]">
                   {' '}
-                  ({Math.min(999, Math.round((totalMinutes / targetMinutes) * 100))}% of target)
+                  {t('sleepCard.pctOfTarget', {
+                    pct: Math.min(999, Math.round((totalMinutes / targetMinutes) * 100)),
+                  })}
                 </span>
               ) : null}
             </span>
-            <span>{getSourceLabel(sourceSummary, totalMinutes)}</span>
+            <span>{t(getSourceLabelKey(sourceSummary, totalMinutes))}</span>
           </div>
         </div>
 
@@ -354,43 +412,57 @@ export function ShiftSleepOverviewCard({
 
         <div className="grid w-full grid-cols-2 gap-2 pt-0.5">
           <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left">
-            <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">Primary sleep</div>
-            <div className="text-[13px] font-semibold text-[var(--text-main)]">{formatHoursMinutes(primaryMinutes)}</div>
-          </div>
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left">
-            <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">Naps</div>
-            <div className="text-[13px] font-semibold text-[var(--text-main)]">{formatHoursMinutes(napMinutes)}</div>
-          </div>
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left">
-            <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">Primary type</div>
+            <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">
+              {t('sleepCard.primarySleep')}
+            </div>
             <div className="text-[13px] font-semibold text-[var(--text-main)]">
-              {dominantType ? getSleepTypeLabel(dominantType) : 'None'}
+              {formatSleepDuration(t, primaryMinutes)}
             </div>
           </div>
           <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left">
-            <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">Last sync</div>
+            <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">
+              {t('sleepCard.naps')}
+            </div>
             <div className="text-[13px] font-semibold text-[var(--text-main)]">
-              {formatRelativeSyncLabel(lastSyncAt, hasWearableConnection)}
+              {formatSleepDuration(t, napMinutes)}
+            </div>
+          </div>
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left">
+            <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">
+              {t('sleepCard.primaryType')}
+            </div>
+            <div className="text-[13px] font-semibold text-[var(--text-main)]">
+              {dominantType ? t(`sleepType.${dominantType}`) : t('sleepCard.typeNone')}
+            </div>
+          </div>
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left">
+            <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">
+              {t('sleepCard.lastSync')}
+            </div>
+            <div className="text-[13px] font-semibold text-[var(--text-main)]">
+              {formatRelativeSyncLabel(t, lastSyncAt, hasWearableConnection)}
             </div>
           </div>
           <div className="col-span-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5 text-left">
-            <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">Recovery need</div>
+            <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">
+              {t('sleepCard.recoveryNeed')}
+            </div>
             <div className="text-sm font-semibold text-[var(--text-main)]">
               {sleepDebtMinutes == null
-                ? 'Loading'
+                ? t('sleepCard.recoveryLoading')
                 : sleepDebtMinutes > 0
-                ? `${formatHoursMinutes(sleepDebtMinutes)} recovery needed`
-                : 'Recovery covered'}
+                  ? t('sleepCard.recoveryNeeded', { time: formatSleepDuration(t, sleepDebtMinutes) })
+                  : t('sleepCard.recoveryCoveredLabel')}
             </div>
             <div className="mt-1 text-[10px] text-[var(--text-muted)]">
-              Timing alignment:{' '}
+              {t('sleepCard.timingLabel')}{' '}
               {circadianAlignment == null
-                ? 'Not enough data'
+                ? t('sleepCard.timingNone')
                 : circadianAlignment === 'good'
-                ? 'Good for this shift'
-                : circadianAlignment === 'ok'
-                ? 'Acceptable for this shift'
-                : 'Off for this shift'}
+                  ? t('sleepCard.timingGood')
+                  : circadianAlignment === 'ok'
+                    ? t('sleepCard.timingOk')
+                    : t('sleepCard.timingPoor')}
             </div>
           </div>
         </div>

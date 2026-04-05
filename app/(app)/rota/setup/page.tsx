@@ -7,6 +7,7 @@ import { getPatternsByLength, type ShiftLength } from '@/lib/rota/comprehensiveP
 import { getPatternSlots } from '@/lib/rota/patternSlots'
 import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus'
 import { notifyRotaUpdated } from '@/lib/shift-agent/shiftAgent'
+import { useTranslation } from '@/components/providers/language-provider'
 
 type ShiftType = 'off' | 'day' | 'night'
 
@@ -16,6 +17,7 @@ type SetupStep = 1 | 2 | 3
 type DetailTab = 'times' | 'commute' | 'today'
 
 export default function RotaSetup() {
+  const { t } = useTranslation()
   const router = useRouter()
   const { isOnline } = useNetworkStatus()
   const today = useMemo(() => new Date(), [])
@@ -948,11 +950,11 @@ export default function RotaSetup() {
                   router.refresh()
                 }}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-900 active:scale-95 transition-all"
-                aria-label="Back to calendar"
+                aria-label={t('rota.setup.backAria')}
               >
                 <ChevronLeft className="h-4 w-4" strokeWidth={2.5} />
               </button>
-              <h2 className="text-lg font-semibold tracking-tight text-slate-900">Rota Setup</h2>
+              <h2 className="text-lg font-semibold tracking-tight text-slate-900">{t('rota.setup.pageTitle')}</h2>
             </div>
             <button
               type="button"
@@ -961,7 +963,7 @@ export default function RotaSetup() {
               className="inline-flex items-center gap-1.5 rounded-full bg-red-500 px-4 py-1 text-xs font-semibold text-white transition-all hover:bg-red-600 active:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               <Trash2 className="h-3.5 w-3.5" strokeWidth={2.5} />
-              <span>{clearing ? 'Clearing…' : 'Clear rota'}</span>
+              <span>{clearing ? t('rota.setup.clearing') : t('rota.setup.clearRota')}</span>
             </button>
           </div>
 
@@ -1127,10 +1129,10 @@ export default function RotaSetup() {
                 ].join(' ')}
               >
                 <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-200">
-                  STEP 1
+                  {t('rota.setup.stepBadge', { n: 1 })}
                 </p>
                 <p className="mt-1 text-sm font-semibold tracking-tight">
-                  Shift hours
+                  {t('rota.setup.step1Short')}
                 </p>
               </div>
 
@@ -1144,10 +1146,10 @@ export default function RotaSetup() {
                 ].join(' ')}
               >
                 <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-200">
-                  STEP 2
+                  {t('rota.setup.stepBadge', { n: 2 })}
                 </p>
                 <p className="mt-1 text-sm font-semibold tracking-tight">
-                  Pattern
+                  {t('rota.setup.step2Short')}
                 </p>
               </div>
 
@@ -1161,10 +1163,10 @@ export default function RotaSetup() {
                 ].join(' ')}
               >
                 <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-200">
-                  STEP 3
+                  {t('rota.setup.stepBadge', { n: 3 })}
                 </p>
                 <p className="mt-1 text-sm font-semibold tracking-tight">
-                  Times &amp; sync
+                  {t('rota.setup.step3Short')}
                 </p>
               </div>
             </div>
@@ -1176,10 +1178,10 @@ export default function RotaSetup() {
               {currentStep === 1 && (
                 <div>
                   <h1 className="text-[22px] font-semibold tracking-tight text-slate-900">
-                    Select shift hours
+                    {t('rota.setup.step1Title')}
                   </h1>
                   <p className="mt-2 text-sm leading-relaxed text-slate-600 max-w-prose">
-                    Pick the shift length you work most often. You can fine-tune exact start/finish times later.
+                    {t('rota.setup.step1Sub')}
                   </p>
                 
                   <div className="mt-5 space-y-4">
@@ -1309,7 +1311,7 @@ export default function RotaSetup() {
                       disabled={currentStep === 1}
                       className="rounded-full px-5 py-3 bg-white border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Back
+                      {t('rota.setup.back')}
                     </button>
                     <button
                       type="button"
@@ -1317,7 +1319,7 @@ export default function RotaSetup() {
                       disabled={!canContinue}
                       className="rounded-full px-6 py-3 bg-slate-900 text-white text-sm font-semibold shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] hover:bg-slate-800 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      Continue
+                      {t('rota.setup.continue')}
                     </button>
                   </div>
               </div>
@@ -1329,25 +1331,24 @@ export default function RotaSetup() {
                 {currentStep === 2 && (
                   <>
                     <h1 className="text-[22px] font-semibold tracking-tight text-slate-900">
-                      Select Shift Pattern
+                      {t('rota.setup.step2Title')}
                     </h1>
                     <p className="mt-2 text-sm leading-relaxed text-slate-600 max-w-prose">
-                      Choose the pattern that matches your work schedule.
+                      {t('rota.setup.step2Sub')}
                     </p>
                   </>
                 )}
                 {!selectedShiftHours ? (
                   <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center">
                     <p className="text-sm text-slate-600">
-                      Please select your shift hours first to see available patterns
+                      {t('rota.setup.selectHoursFirst')}
                     </p>
                   </div>
                 ) : selectedShiftHours === 'custom' ? (
                   <div className="mt-5 rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-6 text-center">
-                    <h3 className="mb-2 text-sm font-semibold text-slate-900">Custom patterns</h3>
+                    <h3 className="mb-2 text-sm font-semibold text-slate-900">{t('rota.setup.customTitle')}</h3>
                     <p className="text-sm text-slate-600 leading-relaxed">
-                      A full custom pattern builder is coming soon. For now, choose the shift length that&apos;s
-                      closest to your real pattern and we&apos;ll keep things simple.
+                      {t('rota.setup.customBody')}
                     </p>
                   </div>
                 ) : (
@@ -1357,7 +1358,7 @@ export default function RotaSetup() {
                       <>
                         <div className="relative">
                           <label className="mb-3 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                            SHIFT PATTERN
+                            {t('rota.setup.shiftPatternLabel')}
                           </label>
                           <div className="relative">
                             <select
@@ -1365,7 +1366,7 @@ export default function RotaSetup() {
                               onChange={(e) => setSelectedPattern(e.target.value)}
                               className="w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 py-3.5 pr-10 text-sm font-semibold text-slate-900 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_12px_-8px_rgba(0,0,0,0.12)] transition-all focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 hover:border-slate-300"
                             >
-                              <option value="">Select a pattern...</option>
+                              <option value="">{t('rota.setup.selectPatternPh')}</option>
                               {availablePatterns.map((pattern) => (
                                 <option key={pattern.id} value={pattern.id}>
                                   {pattern.label}
@@ -1386,7 +1387,7 @@ export default function RotaSetup() {
                             {availablePatterns.find((p) => p.id === selectedPattern)?.commonIn &&
                               availablePatterns.find((p) => p.id === selectedPattern)!.commonIn!.length > 0 && (
                                 <div className="mt-4 flex flex-wrap items-center gap-2">
-                                  <span className="text-xs font-medium text-slate-500">Common in:</span>
+                                  <span className="text-xs font-medium text-slate-500">{t('rota.setup.commonIn')}</span>
                                   {availablePatterns
                                     .find((p) => p.id === selectedPattern)!
                                     .commonIn!.map((location) => (
@@ -1411,13 +1412,14 @@ export default function RotaSetup() {
                         <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
                           <div className="flex flex-col">
                             <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]">
-                              Pattern
+                              {t('rota.setup.patternLabel')}
                             </span>
                             <span className="text-sm font-semibold text-slate-900">
-                              {availablePatterns.find((p) => p.id === selectedPattern)?.label || 'Selected pattern'}
+                              {availablePatterns.find((p) => p.id === selectedPattern)?.label ||
+                                t('rota.setup.selectedPatternFallback')}
                             </span>
                           </div>
-                          <span className="text-[11px] text-slate-500">Step 3 of 3</span>
+                          <span className="text-[11px] text-slate-500">{t('rota.setup.step3of3')}</span>
                         </div>
 
                         {/* Tabs */}
@@ -1425,7 +1427,11 @@ export default function RotaSetup() {
                           <div className="mb-3 flex items-center gap-2 rounded-full bg-slate-100 p-1">
                             {(['times', 'commute', 'today'] as DetailTab[]).map((tab) => {
                               const label =
-                                tab === 'times' ? 'Times' : tab === 'commute' ? 'Commute' : 'Today';
+                                tab === 'times'
+                                  ? t('rota.setup.tabTimes')
+                                  : tab === 'commute'
+                                    ? t('rota.setup.tabCommute')
+                                    : t('rota.setup.tabToday')
                               const active = detailTab === tab;
                               return (
                                 <button
@@ -1739,7 +1745,7 @@ export default function RotaSetup() {
                 onClick={() => setCurrentStep((prev) => (prev > 1 ? ((prev - 1) as SetupStep) : prev))}
                 className="rounded-full px-5 py-3 bg-white border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2"
               >
-                Back
+                {t('rota.setup.back')}
               </button>
               {currentStep < 3 && (
                 <button
@@ -1748,7 +1754,7 @@ export default function RotaSetup() {
                   disabled={!canContinue}
                 className="rounded-full px-6 py-3 bg-slate-900 text-white text-sm font-semibold shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] hover:bg-slate-800 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Continue
+                  {t('rota.setup.continue')}
                 </button>
               )}
             </div>

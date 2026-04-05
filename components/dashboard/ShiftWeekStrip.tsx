@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { isoLocalDate } from '@/lib/shifts'
+import { useLanguage } from '@/components/providers/language-provider'
+import { intlLocaleForApp } from '@/lib/i18n/supportedLocales'
 
 type RotaDay = { date: string; label: string | null; status?: string | null }
-
-const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
 // Interpret raw DB label into a simple shift kind
 type SimpleKind = 'day' | 'night' | 'off' | 'other'
@@ -88,6 +88,8 @@ export function ShiftWeekStrip({
   selectedDate?: string
   onSelect?: (isoDate: string) => void
 }) {
+  const { language } = useLanguage()
+  const intlLocale = useMemo(() => intlLocaleForApp(language), [language])
   const today = useMemo(() => new Date(), [])
   const [rotaDays, setRotaDays] = useState<RotaDay[]>([])
 
@@ -100,12 +102,12 @@ export function ShiftWeekStrip({
       d.setDate(start.getDate() + i)
       out.push({
         iso: isoLocal(d),
-        label: DAY_LABELS[d.getDay()],
+        label: d.toLocaleDateString(intlLocale, { weekday: 'narrow' }).toUpperCase(),
         dayNum: d.getDate(),
       })
     }
     return out
-  }, [today])
+  }, [today, intlLocale])
 
   // Load rota data for this week via the same month API the calendar uses,
   // so colours always match what the user sees there (pattern + saved shifts).

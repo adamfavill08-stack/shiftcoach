@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CheckCircle2, Mail, Lock } from 'lucide-react'
 import { useTranslation } from '@/components/providers/language-provider'
+import { CompactLanguagePicker } from '@/components/i18n/CompactLanguagePicker'
 
 function SignUpContent() {
   const { t } = useTranslation()
@@ -71,6 +72,14 @@ function SignUpContent() {
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 {t('auth.personalized')}
               </span>
+
+              <div className="mt-5 text-left px-0.5">
+                <CompactLanguagePicker
+                  variant="compact"
+                  id="sign-up-language"
+                  onlyWhenDeviceLanguageUnsupported
+                />
+              </div>
             </div>
 
             {/* Welcome Text */}

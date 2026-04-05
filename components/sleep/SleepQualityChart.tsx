@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Info, X } from 'lucide-react'
+import { useTranslation } from '@/components/providers/language-provider'
 import { calculateSleepQuality, type SleepQualityResult } from '@/lib/sleep/calculateSleepQuality'
 
 type SleepQualityChartProps = {
@@ -19,6 +20,8 @@ type SleepData = {
 }
 
 export function SleepQualityChart({ className = '' }: SleepQualityChartProps) {
+  const { t } = useTranslation()
+
   const [sleepData, setSleepData] = useState<SleepData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -99,7 +102,7 @@ export function SleepQualityChart({ className = '' }: SleepQualityChartProps) {
       } catch (err) {
         console.error('[SleepQualityChart] Failed to fetch quality data:', err)
         if (!cancelled) {
-          setError('Failed to load sleep quality data')
+          setError(t('sleepQualityChart.errLoad'))
         }
       } finally {
         if (!cancelled) {
@@ -122,23 +125,31 @@ export function SleepQualityChart({ className = '' }: SleepQualityChartProps) {
       cancelled = true
       window.removeEventListener('sleep-refreshed', handleRefresh)
     }
-  }, [])
+  }, [t])
 
-  // Format minutes to "X hr Y min"
   const formatDuration = (minutes: number): string => {
     const hours = Math.floor(minutes / 60)
     const mins = minutes % 60
-    return `${hours} hr ${mins} min`
+    if (hours === 0 && mins === 0) return t('sleepLogs.duration0')
+    if (mins === 0) return t('sleepLogs.durationH', { h: hours })
+    return t('sleepLogs.durationHM', { h: hours, m: mins })
   }
 
-  // Get quality label - now uses the qualityRating from the composite calculation
-  const getQualityLabel = (score: number, qualityRating?: 'Excellent' | 'Good' | 'Fair' | 'Poor'): string => {
-    // Use qualityRating if available (from composite calculation), otherwise fallback to score
-    if (qualityRating) return qualityRating
-    if (score >= 80) return 'Excellent'
-    if (score >= 60) return 'Good'
-    if (score >= 40) return 'Fair'
-    return 'Poor'
+  const qualityLabel = (
+    score: number,
+    qualityRating?: 'Excellent' | 'Good' | 'Fair' | 'Poor',
+  ): string => {
+    const map: Record<'Excellent' | 'Good' | 'Fair' | 'Poor', string> = {
+      Excellent: t('sleepQuality.excellent'),
+      Good: t('sleepQuality.good'),
+      Fair: t('sleepQuality.fair'),
+      Poor: t('sleepQuality.poor'),
+    }
+    if (qualityRating && map[qualityRating]) return map[qualityRating]
+    if (score >= 80) return map.Excellent
+    if (score >= 60) return map.Good
+    if (score >= 40) return map.Fair
+    return map.Poor
   }
 
   // Calculate circular gauge progress (0-100)
@@ -175,17 +186,18 @@ export function SleepQualityChart({ className = '' }: SleepQualityChartProps) {
           {/* Header */}
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                SLEEP QUALITY
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-500 dark:text-slate-400 uppercase">
+                {t('sleepQualityChart.kicker')}
               </p>
               <h3 className="mt-2 text-[18px] font-semibold tracking-tight">
-                Sleep Quality
+                {t('sleepQualityChart.title')}
               </h3>
             </div>
             <button
+              type="button"
               onClick={() => setIsInfoModalOpen(true)}
               className="flex-shrink-0 h-8 w-8 rounded-full bg-transparent text-slate-400 dark:text-slate-500 hover:bg-slate-100/60 dark:hover:bg-slate-800/50 transition-colors flex items-center justify-center"
-              aria-label="Info about sleep quality"
+              aria-label={t('sleepQualityChart.infoAria')}
             >
               <Info className="h-4 w-4" strokeWidth={2} />
             </button>
@@ -204,10 +216,10 @@ export function SleepQualityChart({ className = '' }: SleepQualityChartProps) {
           ) : !sleepData ? (
             <div className="flex flex-col items-center justify-center space-y-2 py-8">
               <p className="text-sm font-medium text-slate-900 dark:text-slate-100 text-center">
-                No sleep data available
+                {t('sleepQualityChart.emptyTitle')}
               </p>
               <p className="text-sm text-slate-600 dark:text-slate-300 text-center leading-relaxed">
-                Log sleep to see your quality metrics
+                {t('sleepQualityChart.emptyBody')}
               </p>
             </div>
           ) : (
@@ -217,7 +229,7 @@ export function SleepQualityChart({ className = '' }: SleepQualityChartProps) {
                 {/* Sleep Duration */}
                 <div>
                   <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
-                    Sleep Duration
+                    {t('sleepQualityChart.labelDuration')}
                   </p>
                   <p className="text-base font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
                     {formatDuration(sleepData.duration)}
@@ -227,7 +239,7 @@ export function SleepQualityChart({ className = '' }: SleepQualityChartProps) {
                 {/* Time Asleep */}
                 <div>
                   <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
-                    Time Asleep
+                    {t('sleepQualityChart.labelTimeAsleep')}
                   </p>
                   <p className="text-base font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
                     {formatDuration(sleepData.timeAsleep)}
@@ -237,7 +249,7 @@ export function SleepQualityChart({ className = '' }: SleepQualityChartProps) {
                 {/* Sleep Efficiency */}
                 <div>
                   <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
-                    Sleep Efficiency
+                    {t('sleepQualityChart.labelEfficiency')}
                   </p>
                   <p className="text-base font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
                     {sleepData.efficiency}%
@@ -290,7 +302,7 @@ export function SleepQualityChart({ className = '' }: SleepQualityChartProps) {
                         {sleepData.qualityScore}
                       </p>
                       <p className="text-xs font-medium text-slate-500 mt-1">
-                        {getQualityLabel(sleepData.qualityScore, sleepData.quality)}
+                        {qualityLabel(sleepData.qualityScore, sleepData.quality)}
                       </p>
                     </div>
                   </div>
@@ -324,16 +336,17 @@ export function SleepQualityChart({ className = '' }: SleepQualityChartProps) {
               <div className="sticky top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-700/40 px-6 py-5 flex items-center justify-between">
                 <div>
                   <h2 className="text-[20px] font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                    Sleep Quality
+                    {t('sleepQualityChart.title')}
                   </h2>
                   <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-1">
-                    Understanding your sleep metrics
+                    {t('sleepQualityChart.modalSubtitle')}
                   </p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setIsInfoModalOpen(false)}
                   className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50/80 dark:bg-slate-800/50 hover:bg-slate-100/80 dark:hover:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/40 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-all hover:scale-105 active:scale-95"
-                  aria-label="Close"
+                  aria-label={t('sleepQualityChart.closeAria')}
                 >
                   <X className="h-5 w-5" strokeWidth={2.5} />
                 </button>
@@ -343,51 +356,50 @@ export function SleepQualityChart({ className = '' }: SleepQualityChartProps) {
               <div className="px-6 py-6 space-y-6">
                 <div>
                   <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 mb-3">
-                    What is Sleep Quality?
+                    {t('sleepQualityChart.whatIsTitle')}
                   </h3>
                   <p className="text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed mb-3">
-                    Your sleep quality score (0-100) reflects how well you slept based on your quality rating, 
-                    sleep efficiency, and time asleep.
+                    {t('sleepQualityChart.whatIsBody')}
                   </p>
                 </div>
 
                 <div>
                   <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 mb-3">
-                    Sleep Duration
+                    {t('sleepQualityChart.labelDuration')}
                   </h3>
                   <p className="text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed">
-                    The total time you spent in bed, from when you went to sleep until you woke up.
+                    {t('sleepQualityChart.explainDuration')}
                   </p>
                 </div>
 
                 <div>
                   <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 mb-3">
-                    Time Asleep
+                    {t('sleepQualityChart.labelTimeAsleep')}
                   </h3>
                   <p className="text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed">
-                    The actual time you were asleep, excluding any time spent awake during the night.
+                    {t('sleepQualityChart.explainTimeAsleep')}
                   </p>
                 </div>
 
                 <div>
                   <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 mb-3">
-                    Sleep Efficiency
+                    {t('sleepQualityChart.labelEfficiency')}
                   </h3>
                   <p className="text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed">
-                    The percentage of time in bed that you were actually asleep. Higher is better - aim for 85% or more.
+                    {t('sleepQualityChart.explainEfficiency')}
                   </p>
                 </div>
 
                 <div>
                   <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 mb-3">
-                    How to Improve
+                    {t('sleepQualityChart.improveTitle')}
                   </h3>
                   <ul className="list-disc list-inside space-y-2 text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed">
-                    <li>Maintain a consistent sleep schedule, even on days off</li>
-                    <li>Create a dark, quiet, and cool sleep environment</li>
-                    <li>Avoid screens and bright lights 1-2 hours before bed</li>
-                    <li>Limit caffeine and heavy meals close to bedtime</li>
-                    <li>Use blackout curtains and eye masks for daytime sleep</li>
+                    <li>{t('sleepQualityChart.improve1')}</li>
+                    <li>{t('sleepQualityChart.improve2')}</li>
+                    <li>{t('sleepQualityChart.improve3')}</li>
+                    <li>{t('sleepQualityChart.improve4')}</li>
+                    <li>{t('sleepQualityChart.improve5')}</li>
                   </ul>
                 </div>
               </div>

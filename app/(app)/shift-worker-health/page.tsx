@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { useTranslation } from "@/components/providers/language-provider";
 
 export default function ShiftWorkerHealthPage() {
+  const { t } = useTranslation();
   return (
     <main
       style={{
@@ -20,7 +22,7 @@ export default function ShiftWorkerHealthPage() {
               borderColor: "var(--border-subtle)",
               color: "var(--text-main)",
             }}
-            aria-label="Back to dashboard"
+            aria-label={t("shiftWorker.health.backAria")}
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
@@ -28,7 +30,7 @@ export default function ShiftWorkerHealthPage() {
             className="text-xl font-semibold tracking-tight"
             style={{ color: "var(--text-main)" }}
           >
-            Shift worker health
+            {t("shiftWorker.health.title")}
           </h1>
         </header>
 
@@ -41,15 +43,10 @@ export default function ShiftWorkerHealthPage() {
           }}
         >
           <p className="text-sm leading-relaxed" style={{ color: "var(--text-main)" }}>
-            Shift work doesn&apos;t just change your timetable – it shifts your{" "}
-            <span className="font-semibold">body clock, hormones and recovery needs</span>.
-            Long, irregular hours and night shifts mean your brain and body are often trying
-            to be &quot;on&quot; when they naturally want to be asleep.
+            {t("shiftWorker.health.p1")}
           </p>
           <p className="text-sm leading-relaxed" style={{ color: "var(--text-main)" }}>
-            ShiftCoach adjusts your calories, sleep goals and movement targets for{" "}
-            <span className="font-semibold">your rota, age, weight, height and sex</span> so
-            that recommendations stay realistic and protective instead of 9–5 based.
+            {t("shiftWorker.health.p2")}
           </p>
         </section>
 
@@ -62,23 +59,23 @@ export default function ShiftWorkerHealthPage() {
           }}
         >
           <h2 className="text-sm font-semibold" style={{ color: "var(--text-main)" }}>
-            3 pillars we track for you
+            {t("shiftWorker.health.pillarsTitle")}
           </h2>
           <ul
             className="text-sm list-disc list-inside space-y-2"
             style={{ color: "var(--text-main)" }}
           >
             <li>
-              <span className="font-semibold">Sleep & recovery:</span> how much sleep you
-              get, when it happens and how big your sleep debt is.
+              <span className="font-semibold">{t("shiftWorker.health.pillar1Title")}</span>{" "}
+              {t("shiftWorker.health.pillar1Body")}
             </li>
             <li>
-              <span className="font-semibold">Shift pattern:</span> day vs night vs
-              rotating, how demanding your shift is and how often you switch.
+              <span className="font-semibold">{t("shiftWorker.health.pillar2Title")}</span>{" "}
+              {t("shiftWorker.health.pillar2Body")}
             </li>
             <li>
-              <span className="font-semibold">Movement & activity:</span> steps, active
-              minutes and how consistent your movement is across the week.
+              <span className="font-semibold">{t("shiftWorker.health.pillar3Title")}</span>{" "}
+              {t("shiftWorker.health.pillar3Body")}
             </li>
           </ul>
         </section>
@@ -92,25 +89,15 @@ export default function ShiftWorkerHealthPage() {
           }}
         >
           <h2 className="text-sm font-semibold" style={{ color: "var(--text-main)" }}>
-            What this means for you
+            {t("shiftWorker.health.meaningTitle")}
           </h2>
           <ul
             className="text-sm list-disc list-inside space-y-2"
             style={{ color: "var(--text-main)" }}
           >
-            <li>
-              Calorie and movement goals that match{" "}
-              <span className="font-semibold">how hard your shifts actually are</span>.
-            </li>
-            <li>
-              Sleep targets that account for{" "}
-              <span className="font-semibold">night work and recovery days</span>, not just
-              a 9–5 schedule.
-            </li>
-            <li>
-              Simple next steps when your body is{" "}
-              <span className="font-semibold">overworked, under‑rested or both</span>.
-            </li>
+            <li>{t("shiftWorker.health.meaning1")}</li>
+            <li>{t("shiftWorker.health.meaning2")}</li>
+            <li>{t("shiftWorker.health.meaning3")}</li>
           </ul>
         </section>
       </div>

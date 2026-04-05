@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { authedFetch } from '@/lib/supabase/authedFetch'
-import { Info } from 'lucide-react'
+import { useTranslation } from '@/components/providers/language-provider'
 
 type SocialJetlagData = {
   currentMisalignmentHours: number
@@ -14,6 +14,7 @@ type SocialJetlagData = {
 }
 
 export function SocialJetlagCard() {
+  const { t } = useTranslation()
   const [data, setData] = useState<SocialJetlagData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -65,17 +66,17 @@ export function SocialJetlagCard() {
             if (isValid) {
               setData(json.socialJetlag)
             } else {
-              setError(explanation || 'Log at least 2 days of main sleep to calculate social jetlag')
+              setError(explanation || t('sleepJetlag.errNeedData'))
             }
           } else {
             console.log('[SocialJetlagCard] No socialJetlag in response')
-            setError('Log at least 2 days of main sleep to calculate social jetlag')
+            setError(t('sleepJetlag.errNeedData'))
           }
         }
       } catch (err: any) {
         console.error('[SocialJetlagCard] Error:', err)
         if (!cancelled) {
-          setError('Unable to load social jetlag data')
+          setError(t('sleepJetlag.errLoad'))
         }
       } finally {
         if (!cancelled) {
@@ -98,25 +99,52 @@ export function SocialJetlagCard() {
       cancelled = true
       window.removeEventListener('sleep-refreshed', handleRefresh)
     }
-  }, [])
+  }, [t])
 
-  const getCategoryColor = () => {
-    if (!data) return { bg: "bg-slate-50 dark:bg-slate-800/50", text: "text-slate-700 dark:text-slate-300", border: "border-slate-200 dark:border-slate-700/40", badge: "—" }
-    
-    switch (data.category) {
-      case "low":
-        return { bg: "bg-emerald-50 dark:bg-emerald-950/30", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-200 dark:border-emerald-800/40", badge: "Low" }
-      case "moderate":
-        return { bg: "bg-amber-50 dark:bg-amber-950/30", text: "text-amber-700 dark:text-amber-300", border: "border-amber-200 dark:border-amber-800/40", badge: "Moderate" }
-      case "high":
-        return { bg: "bg-rose-50 dark:bg-rose-950/30", text: "text-rose-700 dark:text-rose-300", border: "border-rose-200 dark:border-rose-800/40", badge: "High" }
-      default:
-        return { bg: "bg-slate-50 dark:bg-slate-800/50", text: "text-slate-700 dark:text-slate-300", border: "border-slate-200 dark:border-slate-700/40", badge: "—" }
+  const categoryStyles = useMemo(() => {
+    if (!data) {
+      return {
+        bg: 'bg-slate-50 dark:bg-slate-800/50',
+        text: 'text-slate-700 dark:text-slate-300',
+        border: 'border-slate-200 dark:border-slate-700/40',
+        badge: '—',
+      }
     }
-  }
+    switch (data.category) {
+      case 'low':
+        return {
+          bg: 'bg-emerald-50 dark:bg-emerald-950/30',
+          text: 'text-emerald-700 dark:text-emerald-300',
+          border: 'border-emerald-200 dark:border-emerald-800/40',
+          badge: t('sleepJetlag.category.low'),
+        }
+      case 'moderate':
+        return {
+          bg: 'bg-amber-50 dark:bg-amber-950/30',
+          text: 'text-amber-700 dark:text-amber-300',
+          border: 'border-amber-200 dark:border-amber-800/40',
+          badge: t('sleepJetlag.category.moderate'),
+        }
+      case 'high':
+        return {
+          bg: 'bg-rose-50 dark:bg-rose-950/30',
+          text: 'text-rose-700 dark:text-rose-300',
+          border: 'border-rose-200 dark:border-rose-800/40',
+          badge: t('sleepJetlag.category.high'),
+        }
+      default:
+        return {
+          bg: 'bg-slate-50 dark:bg-slate-800/50',
+          text: 'text-slate-700 dark:text-slate-300',
+          border: 'border-slate-200 dark:border-slate-700/40',
+          badge: '—',
+        }
+    }
+  }, [data, t])
 
-  const colors = getCategoryColor()
-  const displayValue = data ? `${data.currentMisalignmentHours.toFixed(1)} h` : '— h'
+  const displayValue = data
+    ? t('sleepJetlag.hoursUnit', { h: data.currentMisalignmentHours.toFixed(1) })
+    : t('sleepJetlag.hoursUnit', { h: '—' })
 
   return (
     <section className="relative overflow-hidden rounded-[24px] bg-white/90 dark:bg-slate-900/45 backdrop-blur-xl border border-white dark:border-slate-700/40 shadow-[0_20px_55px_rgba(15,23,42,0.08)] dark:shadow-[0_20px_55px_rgba(0,0,0,0.4)] px-6 py-6">
@@ -131,10 +159,10 @@ export function SocialJetlagCard() {
         <div className="flex items-start justify-between mb-5">
           <div className="flex-1">
             <p className="text-[13px] font-bold tracking-[0.15em] text-slate-400 dark:text-slate-500 uppercase mb-1">
-              Social Jetlag
+              {t('sleepJetlag.sectionLabel')}
             </p>
             <h2 className="text-[17px] font-bold tracking-[-0.01em] text-slate-900 dark:text-slate-100">
-              Sleep Timing Alignment
+              {t('sleepJetlag.heading')}
             </h2>
           </div>
         </div>
@@ -155,7 +183,9 @@ export function SocialJetlagCard() {
                 </div>
               </div>
               <div className="flex-1">
-                <p className="text-[13px] font-semibold text-amber-900 dark:text-amber-200 mb-1">Social Jetlag</p>
+                <p className="text-[13px] font-semibold text-amber-900 dark:text-amber-200 mb-1">
+                  {t('sleepJetlag.errorStateTitle')}
+                </p>
                 <p className="text-[12px] text-amber-700 dark:text-amber-300 leading-relaxed">{error}</p>
               </div>
             </div>
@@ -171,16 +201,18 @@ export function SocialJetlagCard() {
                 {data.explanation}
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                Current misalignment
+                {t('sleepJetlag.currentMisalignment')}
               </p>
               {data.weeklyAverageMisalignmentHours !== undefined && (
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-                  Weekly avg: {data.weeklyAverageMisalignmentHours.toFixed(1)} h
+                  {t('sleepJetlag.weeklyAvg', { h: data.weeklyAverageMisalignmentHours.toFixed(1) })}
                 </p>
               )}
               {/* Category badge */}
-              <div className={`mt-3 inline-flex items-center gap-1.5 rounded-full ${colors.bg} ${colors.border} border px-2.5 py-1 text-[10px] font-semibold ${colors.text}`}>
-                <span>{colors.badge}</span>
+              <div
+                className={`mt-3 inline-flex items-center gap-1.5 rounded-full ${categoryStyles.bg} ${categoryStyles.border} border px-2.5 py-1 text-[10px] font-semibold ${categoryStyles.text}`}
+              >
+                <span>{categoryStyles.badge}</span>
               </div>
             </div>
 
@@ -238,7 +270,7 @@ export function SocialJetlagCard() {
           </div>
         ) : (
           <div className="h-[120px] flex items-center justify-center">
-            <p className="text-[13px] text-slate-500 dark:text-slate-400">No data available</p>
+            <p className="text-[13px] text-slate-500 dark:text-slate-400">{t('sleepJetlag.noData')}</p>
           </div>
         )}
       </div>

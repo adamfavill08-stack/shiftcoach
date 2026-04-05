@@ -3,17 +3,22 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
-import { format, addWeeks, subWeeks, startOfWeek, addDays, isToday, getDay } from 'date-fns'
+import { format, addWeeks, subWeeks, startOfWeek, addDays, isToday } from 'date-fns'
 import { getEventsInRange } from '@/lib/helpers/calendar/EventsHelper'
+import { useWeekStartsOn } from '@/lib/calendar/useWeekStartsOn'
+import { getWeekStartsOn } from '@/lib/calendar/calendarSettingsStorage'
 import { Event } from '@/lib/models/calendar/Event'
 import { getDayCodeFromDateTime, getDateTimeFromTS } from '@/lib/helpers/calendar/Formatter'
 import { EventFormModal } from '@/components/calendar/EventFormModal'
+import { useTranslation } from '@/components/providers/language-provider'
 
 function WeekViewContent() {
+  const { t } = useTranslation()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const weekParam = searchParams.get('week') // YYYYMMdd format of Monday
-  
+  const weekStartsOn = useWeekStartsOn()
+  const weekParam = searchParams.get('week') // YYYYMMdd — week start (Mon or Sun per settings)
+
   const [currentWeek, setCurrentWeek] = useState<Date>(() => {
     if (weekParam) {
       const year = parseInt(weekParam.substring(0, 4))
@@ -21,22 +26,23 @@ function WeekViewContent() {
       const day = parseInt(weekParam.substring(6, 8))
       return new Date(year, month, day)
     }
-    return startOfWeek(new Date(), { weekStartsOn: 1 })
+    const ws = typeof window !== 'undefined' ? getWeekStartsOn() : 1
+    return startOfWeek(new Date(), { weekStartsOn: ws })
   })
-  
+
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
   const [showEventForm, setShowEventForm] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
 
-  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 })
+  const weekStart = startOfWeek(currentWeek, { weekStartsOn })
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
   const weekEnd = addDays(weekStart, 6)
 
   useEffect(() => {
     loadEvents()
-  }, [currentWeek])
+  }, [currentWeek, weekStartsOn])
 
   async function loadEvents() {
     setLoading(true)
@@ -62,7 +68,7 @@ function WeekViewContent() {
   }
 
   function handleToday() {
-    setCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }))
+    setCurrentWeek(startOfWeek(new Date(), { weekStartsOn }))
   }
 
   function handleNewEvent(day: Date) {
@@ -117,7 +123,9 @@ function WeekViewContent() {
       <div className="sticky top-0 z-10 bg-white/80 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-800/60">
         <div className="max-w-md mx-auto px-3 py-3 flex items-center justify-between">
           <button
+            type="button"
             onClick={() => router.back()}
+            aria-label={t('calendar.weekView.backAria')}
             className="h-9 w-9 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-slate-100/70 dark:hover:bg-slate-800/50 hover:text-slate-600 dark:hover:text-slate-300 transition"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -157,7 +165,7 @@ function WeekViewContent() {
           <div className="border-b border-slate-200/60 dark:border-slate-800/70">
             <div className="grid grid-cols-8 gap-px">
               <div className="p-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">
-                All Day
+                {t('calendar.weekView.allDay')}
               </div>
               {weekDays.map((day) => {
                 const allDayEvents = getAllDayEventsForDay(day)
@@ -308,13 +316,18 @@ function WeekViewContent() {
   )
 }
 
+function WeekViewSuspenseFallback() {
+  const { t } = useTranslation()
+  return (
+    <main className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
+      <div className="text-slate-500 dark:text-slate-400">{t('calendar.weekView.loading')}</div>
+    </main>
+  )
+}
+
 export default function WeekViewPage() {
   return (
-    <Suspense fallback={
-      <main className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
-        <div className="text-slate-500 dark:text-slate-400">Loading...</div>
-      </main>
-    }>
+    <Suspense fallback={<WeekViewSuspenseFallback />}>
       <WeekViewContent />
     </Suspense>
   )

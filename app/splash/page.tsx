@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useAuth } from '@/components/AuthProvider'
+import { useTranslation } from '@/components/providers/language-provider'
 
 export default function SplashPage() {
+  const { t } = useTranslation()
   const router = useRouter()
   const { user, loading } = useAuth()
 
@@ -57,7 +59,7 @@ export default function SplashPage() {
       >
         <Image
           src="/scpremium-logo.svg"
-          alt="ShiftCoach"
+          alt={t('splash.logoAlt')}
           width={200}
           height={80}
           className="h-20 w-auto dark:brightness-0 dark:invert"

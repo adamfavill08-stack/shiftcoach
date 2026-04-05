@@ -71,7 +71,7 @@ export default function HeartHealthPage() {
                 ? hr.reason
                 : typeof hr?.error === "string"
                   ? hr.error
-                  : "Could not load heart rate."
+                  : t("heartHealth.loadFailed")
             );
             setRestingBpm(null);
             setAvgBpm(null);
@@ -116,7 +116,7 @@ export default function HeartHealthPage() {
       } catch {
         if (!cancelled) {
           setHrStatus("error");
-          setHrReason("Could not load heart rate.");
+          setHrReason(t("heartHealth.loadFailed"));
           setRestingBpm(null);
           setAvgBpm(null);
           setRecoveryDelta(null);
@@ -132,7 +132,7 @@ export default function HeartHealthPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   const authoritative =
     hrStatus === "ok" &&
@@ -150,46 +150,46 @@ export default function HeartHealthPage() {
 
   const windowHint =
     sourceWindowLabel ||
-    (usedFallbackWindow ? "Last 24h (until rota sets gaps)" : "From your rota gap when set");
+    (usedFallbackWindow ? t("heartHealth.window.fallback24") : t("heartHealth.window.rotaGap"));
 
   const emptyStateShort =
     hrLoading || hrStatus === null
-      ? "Loading…"
+      ? t("heartHealth.loading")
       : hrStatus === "no_device"
-        ? "Connect a wearable to see recovery here."
+        ? t("heartHealth.noDevice.short")
         : hrStatus === "no_recent_data"
-          ? hrReason ?? "No HR samples in this window yet."
+          ? hrReason ?? t("heartHealth.noRecent.default")
           : hrStatus === "insufficient_data"
-            ? hrReason ?? "Need more HR readings in this window."
+            ? hrReason ?? t("heartHealth.insufficient.default")
             : hrStatus === "error"
-              ? hrReason ?? "Could not load heart rate."
-              : "Waiting for heart data.";
+              ? hrReason ?? t("heartHealth.error.default")
+              : t("heartHealth.waiting");
 
   const statusHeadline =
     hrLoading || hrStatus === null
-      ? "Loading"
+      ? t("heartHealth.loadingShort")
       : authoritative
         ? tone === "good"
-          ? "Settling toward rest"
+          ? t("heartHealth.headline.good")
           : tone === "stressed"
-            ? "Above resting"
-            : "Well above resting"
+            ? t("heartHealth.headline.stressed")
+            : t("heartHealth.headline.over")
         : hrStatus === "no_device"
-          ? "No device"
+          ? t("heartHealth.headline.noDevice")
           : hrStatus === "no_recent_data"
-            ? "No recent HR"
+            ? t("heartHealth.headline.noRecent")
             : hrStatus === "insufficient_data"
-              ? "Need more data"
+              ? t("heartHealth.headline.insufficient")
               : hrStatus === "error"
-                ? "Can’t read HR"
-                : "No data";
+                ? t("heartHealth.headline.error")
+                : t("heartHealth.headline.nodata");
 
   const statusSubline = authoritative
     ? tone === "good"
-      ? "Good sign between shifts."
+      ? t("heartHealth.sub.good")
       : tone === "stressed"
-        ? "Ease evenings when you can."
-        : "Prioritise recovery; seek help if unwell."
+        ? t("heartHealth.sub.stressed")
+        : t("heartHealth.sub.over")
     : emptyStateShort;
 
   const statusPillClass = authoritative
@@ -210,13 +210,13 @@ export default function HeartHealthPage() {
   const weeklySummary = (() => {
     if (!weeklyTrend || weeklyTrend.length === 0) return null;
     const scored = weeklyTrend.filter((d) => d.enough_data && d.recovery_delta_bpm != null);
-    if (scored.length < 2) return "Not enough days yet";
+    if (scored.length < 2) return t("heartHealth.weekly.notEnough");
     const deltas = scored.map((d) => d.recovery_delta_bpm as number);
     const last = deltas[deltas.length - 1];
     const prevAvg = deltas.slice(0, -1).reduce((a, b) => a + b, 0) / (deltas.length - 1);
-    if (last <= prevAvg - 3) return "Recent days easier vs earlier week";
-    if (last >= prevAvg + 3) return "Recent days harder vs earlier week";
-    return "Fairly steady this week";
+    if (last <= prevAvg - 3) return t("heartHealth.weekly.easier");
+    if (last >= prevAvg + 3) return t("heartHealth.weekly.harder");
+    return t("heartHealth.weekly.steady");
   })();
 
   const steps = activity?.steps ?? 0;
@@ -233,7 +233,11 @@ export default function HeartHealthPage() {
       : 0;
 
   const stepsHint =
-    stepsPct >= 90 ? "Strong day for movement" : stepsPct >= 50 ? "On track" : "Short walks still count";
+    stepsPct >= 90
+      ? t("heartHealth.stepsHint.strong")
+      : stepsPct >= 50
+        ? t("heartHealth.stepsHint.ontrack")
+        : t("heartHealth.stepsHint.short");
 
   const hrSamplesValue =
     hrSampleCount != null ? `${hrSampleCount}` : hrLoading ? "—" : "—";
@@ -248,25 +252,29 @@ export default function HeartHealthPage() {
 
   const restAvgValue =
     restingBpm != null && avgBpm != null
-      ? `${restingBpm} · ${avgBpm} bpm`
+      ? t("heartHealth.restAvg.both", { rest: String(restingBpm), avg: String(avgBpm) })
       : restingBpm != null
-        ? `${restingBpm} bpm (rest)`
+        ? t("heartHealth.restAvg.restOnly", { rest: String(restingBpm) })
         : avgBpm != null
-          ? `${avgBpm} bpm (avg)`
+          ? t("heartHealth.avgOnly", { avg: String(avgBpm) })
           : "—";
-  const restAvgHint = "Resting · average in window";
+  const restAvgHint = t("heartHealth.restAvg.hint");
 
-  const recoveryValue =
-    authoritative && recoveryDelta != null
+  const recoveryDeltaStr =
+    recoveryDelta != null
       ? `${recoveryDelta > 0 ? "+" : ""}${
           recoveryDelta % 1 === 0 ? String(recoveryDelta) : recoveryDelta.toFixed(1)
-        } vs rest`
+        }`
+      : "";
+  const recoveryValue =
+    authoritative && recoveryDelta != null
+      ? t("heartHealth.recovery.vsRest", { delta: recoveryDeltaStr })
       : "—";
   const recoveryHint = authoritative
-    ? "Lower is calmer vs your resting estimate"
+    ? t("heartHealth.recovery.hint.ok")
     : hrLoading
       ? undefined
-      : "Shows when we have enough HR in your gap";
+      : t("heartHealth.recovery.hint.wait");
 
   const showSafety =
     authoritative && (tone === "overworked" || (restingBpm != null && restingBpm >= 90));
@@ -302,7 +310,7 @@ export default function HeartHealthPage() {
                   {heroBpm != null ? heroBpm : "—"}
                 </span>
                 {heroBpm != null ? (
-                  <span className="text-sm font-medium text-slate-500">bpm</span>
+                  <span className="text-sm font-medium text-slate-500">{t("heartHealth.bpm")}</span>
                 ) : null}
               </div>
               <p className="text-xs text-slate-500">{windowHint}</p>
@@ -325,24 +333,24 @@ export default function HeartHealthPage() {
 
           <div className="px-5 pb-1">
             <MetricRow
-              label="Steps today"
+              label={t("heartHealth.metric.stepsToday")}
               value={`${steps.toLocaleString()} / ${stepTarget.toLocaleString()}`}
               hint={stepsHint}
               dotClass="bg-[rgb(16,245,156)] shadow-[0_0_6px_rgba(16,245,156,0.45)]"
             />
             <MetricRow
-              label="HR samples"
+              label={t("heartHealth.metric.hrSamples")}
               value={hrSamplesValue}
               hint={hrSamplesHint}
               dotClass="bg-[rgb(56,189,248)] shadow-[0_0_6px_rgba(56,189,248,0.4)]"
             />
             <MetricRow
-              label="Rest · avg"
+              label={t("heartHealth.metric.restAvg")}
               value={restAvgValue}
               hint={restAvgHint}
             />
             <MetricRow
-              label="Recovery"
+              label={t("heartHealth.metric.recovery")}
               value={recoveryValue}
               hint={recoveryHint}
               dotClass="bg-[rgb(255,92,205)] shadow-[0_0_6px_rgba(255,92,205,0.4)]"
@@ -353,7 +361,7 @@ export default function HeartHealthPage() {
         {/* Weekly: title + chart + one line */}
         <section className="rounded-2xl border border-slate-200/80 bg-white shadow-sm px-5 py-4">
           <div className="flex items-baseline justify-between gap-2 mb-3">
-            <h2 className="text-sm font-semibold text-slate-900">Last 7 days</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t("heartHealth.last7Days")}</h2>
             {weeklySummary ? (
               <span className="text-xs font-medium text-slate-600 text-right">{weeklySummary}</span>
             ) : null}
@@ -377,7 +385,18 @@ export default function HeartHealthPage() {
                     <div
                       className={cn("w-1.5 rounded-full transition-all", barClass)}
                       style={{ height: `${heightPx}px` }}
-                      title={`${day.date}: ${ok ? `${d} Δ · ${day.sample_count} samples` : `${day.sample_count} samples`}`}
+                      title={
+                        ok
+                          ? t("heartHealth.chartTooltip.ok", {
+                              date: day.date,
+                              delta: String(d),
+                              samples: String(day.sample_count),
+                            })
+                          : t("heartHealth.chartTooltip.sparse", {
+                              date: day.date,
+                              samples: String(day.sample_count),
+                            })
+                      }
                     />
                     <span className="text-[9px] text-slate-400 tabular-nums truncate w-full text-center">
                       {day.date.slice(5)}
@@ -389,41 +408,40 @@ export default function HeartHealthPage() {
           ) : (
             <p className="text-xs text-slate-500">
               {hrStatus === "no_device"
-                ? "Connect a wearable to see your week."
-                : "Chart fills in as HR syncs."}
+                ? t("heartHealth.chart.noDevice")
+                : t("heartHealth.chart.sync")}
             </p>
           )}
         </section>
 
         {/* Quick actions */}
         <section className="rounded-2xl border border-slate-200/80 bg-white shadow-sm px-5 py-4">
-          <h2 className="text-sm font-semibold text-slate-900 mb-3">Quick wins</h2>
+          <h2 className="text-sm font-semibold text-slate-900 mb-3">{t("heartHealth.quick.title")}</h2>
           <ul className="text-sm text-slate-600 space-y-2 leading-snug">
             <li className="flex gap-2">
               <span className="text-slate-400 shrink-0">•</span>
-              <span>Wind down earlier before a block of nights.</span>
+              <span>{t("heartHealth.quick.1")}</span>
             </li>
             <li className="flex gap-2">
               <span className="text-slate-400 shrink-0">•</span>
-              <span>10–15 min walk around a shift when you can.</span>
+              <span>{t("heartHealth.quick.2")}</span>
             </li>
             <li className="flex gap-2">
               <span className="text-slate-400 shrink-0">•</span>
-              <span>Keep caffeine to the first half of shifts.</span>
+              <span>{t("heartHealth.quick.3")}</span>
             </li>
           </ul>
         </section>
 
         {showSafety ? (
           <p className="text-xs text-rose-800 bg-rose-50 border border-rose-100 rounded-xl px-4 py-3 leading-relaxed">
-            Not for emergencies. Chest pain, bad shortness of breath, or feeling very unwell — get
-            medical help.
+            {t("heartHealth.safety")}
           </p>
         ) : null}
 
         <footer className="pt-2 flex flex-col items-center gap-1 text-center">
           <span className="text-[10px] font-semibold tracking-[0.2em] uppercase text-slate-400">
-            ShiftCoach
+            {t("heartHealth.footerBrand")}
           </span>
           <p className="text-[10px] text-slate-400 max-w-[280px] leading-relaxed">
             {t("detail.common.disclaimer")}

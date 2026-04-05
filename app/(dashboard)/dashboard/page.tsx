@@ -14,15 +14,15 @@ import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import type { FatigueRiskResult } from '@/lib/fatigue/calculateFatigueRisk'
 import ShiftRhythmCard from '@/components/shift-rhythm/ShiftRhythmCard'
 
-const GOOGLE_FIT_ERROR_MESSAGES: Record<string, string> = {
-  access_denied: 'Google Fit connection was denied.',
-  server_not_configured: 'Google Fit is not configured on the server. Check Vercel env vars and redeploy.',
-  redirect_uri_mismatch: 'Redirect URI mismatch. Ensure GOOGLE_FIT_REDIRECT_URI in Vercel matches Google Cloud exactly.',
-  token_exchange_failed: 'Token exchange failed. Check client secret and that the redirect URI matches.',
-  no_access_token: 'Google did not return an access token.',
-  missing_code: 'Google did not return an authorization code.',
-  google_fit_deprecated: 'Google Fit onboarding is disabled. Use Health Connect on Android or Apple Health on iPhone.',
-  unexpected: 'An unexpected error occurred. Check Vercel function logs.',
+const GOOGLE_FIT_ERROR_KEYS: Record<string, string> = {
+  access_denied: 'dashboard.googleFit.accessDenied',
+  server_not_configured: 'dashboard.googleFit.serverNotConfigured',
+  redirect_uri_mismatch: 'dashboard.googleFit.redirectUriMismatch',
+  token_exchange_failed: 'dashboard.googleFit.tokenExchangeFailed',
+  no_access_token: 'dashboard.googleFit.noAccessToken',
+  missing_code: 'dashboard.googleFit.missingCode',
+  google_fit_deprecated: 'dashboard.googleFit.deprecated',
+  unexpected: 'dashboard.googleFit.unexpected',
 }
 
 function DashboardContent() {
@@ -234,16 +234,19 @@ function DashboardContent() {
     const error = params.get('googleFitError')
     const connected = params.get('googleFitConnected')
     if (connected === '1') {
-      setGoogleFitMessage({ type: 'success', text: 'Google Fit connected. You can sync wearables now.' })
+      setGoogleFitMessage({ type: 'success', text: t('dashboard.googleFit.success') })
       router.replace('/dashboard', { scroll: false })
       return
     }
     if (error) {
-      const text = GOOGLE_FIT_ERROR_MESSAGES[error] ?? `Google Fit error: ${error}`
+      const key = GOOGLE_FIT_ERROR_KEYS[error]
+      const text = key
+        ? t(key)
+        : t('dashboard.googleFit.unknownCode', { code: error })
       setGoogleFitMessage({ type: 'error', text })
       router.replace('/dashboard', { scroll: false })
     }
-  }, [router])
+  }, [router, t])
 
   useEffect(() => {
     if (!isOnline) {
@@ -389,22 +392,22 @@ function DashboardContent() {
             {googleFitMessage.text}
             <button
               type="button"
-              aria-label="Dismiss"
+              aria-label={t('dashboard.dismissAria')}
               className="ml-2 font-medium underline"
               onClick={() => setGoogleFitMessage(null)}
             >
-              Dismiss
+              {t('dashboard.dismiss')}
             </button>
           </div>
         )}
         {!isOnline && (
           <div className="mx-4 mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status" aria-live="polite">
-            You are offline. Showing last available dashboard data where possible.
+            {t('dashboard.offlineNotice')}
           </div>
         )}
         {isUsingCachedData && (
           <div className="mx-4 mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700" role="status" aria-live="polite">
-            Displaying cached guidance until connection is restored.
+            {t('dashboard.cachedNotice')}
           </div>
         )}
         <div className="min-h-screen pb-6 bg-slate-100">

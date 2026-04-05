@@ -16,6 +16,7 @@ import { useWeeklyProgress } from "@/lib/hooks/useWeeklyProgress";
 import { ShiftWeekStrip } from "@/components/dashboard/ShiftWeekStrip";
 import { useActivityToday } from "@/lib/hooks/useActivityToday";
 import { useTranslation } from "@/components/providers/language-provider";
+import { localizeBlogPostsEmbed } from "@/lib/i18n/blog";
 import { ExploreCarousel } from "@/components/dashboard/ExploreCarousel";
 import type { FatigueRiskResult } from "@/lib/fatigue/calculateFatigueRisk";
 import { authedFetch } from "@/lib/supabase/authedFetch";
@@ -341,11 +342,11 @@ function BodyClockCard({
 
   const statusLabel = useMemo(() => {
     if (useAgent) return circadianState!.status;
-    if (noData) return "Learning your rhythm";
-    if (capped >= 80) return "Well aligned";
-    if (capped >= 65) return "Slightly out of sync";
-    return "Misaligned";
-  }, [useAgent, circadianState, noData, capped]);
+    if (noData) return t("dashboard.bodyClock.statusShortLearning");
+    if (capped >= 80) return t("dashboard.bodyClock.statusShortWellAligned");
+    if (capped >= 65) return t("dashboard.bodyClock.statusShortSlightlyOut");
+    return t("dashboard.bodyClock.statusShortMisaligned");
+  }, [useAgent, circadianState, noData, capped, t]);
 
   const trendForGauge = useAgent ? circadianState!.trend : null;
 
@@ -3524,31 +3525,18 @@ function buildAlignmentFactors(score: number) {
 
 /* -------------------- BLOG SECTION -------------------- */
 
-const blogPosts = [
-  {
-    slug: "manage-fatigue",
-    title: "How to Manage Fatigue as a Shift Worker",
-    description: "Practical strategies to help reduce tiredness at work",
-  },
-  {
-    slug: "impact-of-shift-work",
-    title: "The Impact of Shift Work on Your Health",
-    description: "Understanding the long-term effects and how to mitigate them",
-  },
-  {
-    slug: "meal-timing-tips",
-    title: "Meal Timing Tips for Different Shifts",
-    description: "Optimal eating patterns tailored to various shift schedules",
-  },
-  {
-    slug: "sleep-quality-rotating-shifts",
-    title: "Improving Sleep Quality on Rotating Shifts",
-    description: "Effective methods to enhance sleep during changing shifts",
-  },
-];
-
 function BlogSection() {
-  const [posts, setPosts] = React.useState<typeof blogPosts | null>(null);
+  const { t } = useTranslation();
+  const fallbackPosts = useMemo(
+    () =>
+      localizeBlogPostsEmbed(t).map(({ slug, title, description }) => ({
+        slug,
+        title,
+        description,
+      })),
+    [t],
+  );
+  const [posts, setPosts] = React.useState<typeof fallbackPosts | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -3592,7 +3580,7 @@ function BlogSection() {
     };
   }, []);
 
-  const effectivePosts = posts && posts.length ? posts : blogPosts;
+  const effectivePosts = posts && posts.length ? posts : fallbackPosts;
 
   // Determine shift type for personalization (simplified - you can enhance this)
   const getPersonalizationChip = (index: number) => {

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslation } from '@/components/providers/language-provider'
 
 const GOALS_STORAGE_KEY = 'shiftcoach-activity-goals'
 const WEIGHT_STORAGE_KEY = 'shiftcoach-weight-cache'
@@ -65,6 +66,7 @@ function saveWeight(weightKg: number) {
 }
 
 export default function LogActivityPage() {
+  const { t } = useTranslation()
   const router = useRouter()
 
   const [summary] = useState<ActivityTodaySummary>({ steps: 7420, activeMinutes: 36, calories: 520 })
@@ -151,7 +153,7 @@ export default function LogActivityPage() {
         console.warn('[LogActivity] backend call optional failed:', err)
       }
 
-      showToast('Activity logged')
+      showToast(t('activityLog.toast.logged'))
       setTimeout(() => router.back(), 400)
     } finally {
       setSavingActivity(false)
@@ -173,7 +175,7 @@ export default function LogActivityPage() {
       } catch (err) {
         console.warn('[LogActivity] goal sync failed (non-fatal)', err)
       }
-      showToast('Goals updated')
+      showToast(t('activityLog.toast.goalsUpdated'))
     } finally {
       setSavingGoals(false)
     }
@@ -182,7 +184,7 @@ export default function LogActivityPage() {
   const handleWeightUpdate = async () => {
     const weight = Number(weightInput)
     if (!weight || Number.isNaN(weight) || weight <= 0) {
-      showToast('Enter a valid weight')
+      showToast(t('activityLog.toast.validWeight'))
       return
     }
 
@@ -199,7 +201,7 @@ export default function LogActivityPage() {
       } catch (err) {
         console.warn('[LogActivity] weight sync failed (non-fatal)', err)
       }
-      showToast('Weight updated')
+      showToast(t('activityLog.toast.weightUpdated'))
     } finally {
       setSavingWeight(false)
     }
@@ -226,7 +228,7 @@ export default function LogActivityPage() {
     const coachGoals: GoalsState = { stepTarget, activeMinutesTarget }
     setGoals(coachGoals)
     saveGoals(coachGoals)
-    showToast('Coach recommendation applied')
+    showToast(t('activityLog.toast.coachApplied'))
   }
 
   const recommendedRange = useMemo(() => ({ min: 8000, max: 9500 }), [])
@@ -243,10 +245,10 @@ export default function LogActivityPage() {
             style={{ color: 'var(--text-soft)' }}
           >
             <span className="text-lg">←</span>
-            <span>Back</span>
+            <span>{t('activityLog.back')}</span>
           </button>
           <h1 className="text-sm font-semibold tracking-[0.2em] uppercase" style={{ color: 'var(--text-muted)' }}>
-            Log activity
+            {t('activityLog.title')}
           </h1>
           <button
             onClick={goBack}
@@ -264,22 +266,22 @@ export default function LogActivityPage() {
             className="flex items-center justify-between rounded-2xl border px-4 py-3"
             style={{ background: 'var(--card-subtle)', borderColor: 'var(--border-subtle)' }}
           >
-            <span className="text-xs font-semibold tracking-[0.2em] uppercase text-slate-400">Today so far</span>
+            <span className="text-xs font-semibold tracking-[0.2em] uppercase text-slate-400">{t('activityLog.todaySoFar')}</span>
             <div className="flex flex-wrap gap-2">
-              <SummaryChip icon="👣" label={`${summary.steps.toLocaleString()} steps`} />
-              <SummaryChip icon="⚡" label={`${summary.activeMinutes} active min`} />
-              <SummaryChip icon="🔥" label={`${summary.calories} kcal`} />
+              <SummaryChip icon="👣" label={t('activityLog.chipSteps', { count: summary.steps.toLocaleString() })} />
+              <SummaryChip icon="⚡" label={t('activityLog.chipActiveMin', { count: summary.activeMinutes })} />
+              <SummaryChip icon="🔥" label={t('activityLog.chipKcal', { count: summary.calories })} />
             </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
             {(
               [
-                ['walk', 'Walk'],
-                ['run', 'Run'],
-                ['workout', 'Workout'],
-                ['shift', 'Shift'],
-                ['custom', 'Custom'],
+                ['walk', t('activityLog.kind.walk')],
+                ['run', t('activityLog.kind.run')],
+                ['workout', t('activityLog.kind.workout')],
+                ['shift', t('activityLog.kind.shift')],
+                ['custom', t('activityLog.kind.custom')],
               ] as [ActivityKind, string][]
             ).map(([value, label]) => {
               const active = kind === value
@@ -307,8 +309,8 @@ export default function LogActivityPage() {
               style={{ background: 'var(--card-subtle)', borderColor: 'var(--border-subtle)' }}
             >
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-semibold tracking-[0.2em] uppercase text-slate-400">Duration</span>
-                <span className="text-xs text-slate-500">min</span>
+                <span className="text-xs font-semibold tracking-[0.2em] uppercase text-slate-400">{t('activityLog.duration')}</span>
+                <span className="text-xs text-slate-500">{t('activityLog.minAbbr')}</span>
               </div>
               <div className="mb-2 flex flex-wrap gap-2">
                 {[10, 20, 30, 45, 60].map((option) => {
@@ -344,13 +346,13 @@ export default function LogActivityPage() {
               className="rounded-2xl border px-4 py-3"
               style={{ background: 'var(--card-subtle)', borderColor: 'var(--border-subtle)' }}
             >
-              <span className="text-xs font-semibold tracking-[0.2em] uppercase text-slate-400">Intensity</span>
+              <span className="text-xs font-semibold tracking-[0.2em] uppercase text-slate-400">{t('activityLog.intensity')}</span>
               <div className="mt-2 flex gap-2">
                 {(
                   [
-                    ['easy', 'Easy'],
-                    ['moderate', 'Moderate'],
-                    ['hard', 'Hard'],
+                    ['easy', t('activityLog.intensity.easy')],
+                    ['moderate', t('activityLog.intensity.moderate')],
+                    ['hard', t('activityLog.intensity.hard')],
                   ] as [Intensity, string][]
                 ).map(([value, label]) => {
                   const active = intensity === value
@@ -375,24 +377,24 @@ export default function LogActivityPage() {
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <MetricCircle
-              label="Steps"
+              label={t('activityLog.metric.steps')}
               value={stepsInput}
               onChange={setStepsInput}
-              placeholder="e.g. 3200"
+              placeholder={t('activityLog.ph.steps')}
             />
             <MetricCircle
-              label="Distance"
+              label={t('activityLog.metric.distance')}
               suffix="km"
               value={distanceKm}
               onChange={setDistanceKm}
-              placeholder="e.g. 2.4"
+              placeholder={t('activityLog.ph.distance')}
             />
             <MetricCircle
-              label="Calories"
+              label={t('activityLog.metric.calories')}
               suffix="kcal"
               value={calories}
               onChange={setCalories}
-              placeholder="e.g. 180"
+              placeholder={t('activityLog.ph.calories')}
             />
           </div>
 
@@ -407,10 +409,13 @@ export default function LogActivityPage() {
             </span>
             <div>
                 <p className="text-sm font-semibold text-slate-900">
-                  Recommended daily goal: {recommendedRange.min.toLocaleString()}–{recommendedRange.max.toLocaleString()} steps
+                  {t('activityLog.recommendedGoal', {
+                    min: recommendedRange.min.toLocaleString(),
+                    max: recommendedRange.max.toLocaleString(),
+                  })}
                 </p>
                 <p className="text-[11px] text-slate-500">
-                  Based on your size and typical shift pattern.
+                  {t('activityLog.recommendedGoalHint')}
                 </p>
             </div>
           </div>
@@ -421,13 +426,13 @@ export default function LogActivityPage() {
               disabled={savingActivity}
               className="w-full rounded-full bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {savingActivity ? 'Saving…' : 'Save activity'}
+              {savingActivity ? t('activityLog.saving') : t('activityLog.saveActivity')}
             </button>
             <button
               onClick={() => router.push('/settings')}
               className="mx-auto block text-xs font-medium text-slate-500 transition hover:text-slate-900"
             >
-              Update weight & goals
+              {t('activityLog.updateWeightGoals')}
             </button>
           </div>
         </section>
@@ -444,7 +449,7 @@ export default function LogActivityPage() {
         {/* Disclaimer */}
         <div className="pt-4">
           <p className="text-[11px] leading-relaxed text-slate-500 text-center">
-            Shift Coach is a coaching tool and does not provide medical advice. For medical conditions, pregnancy or complex health issues, please check your plan with a registered professional.
+            {t('detail.common.disclaimer')}
           </p>
         </div>
       </div>

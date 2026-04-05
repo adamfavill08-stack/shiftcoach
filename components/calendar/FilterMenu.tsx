@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Filter, CheckCircle2, X } from 'lucide-react'
+import { CheckCircle2, ChevronLeft, Plus, X } from 'lucide-react'
+import { useTranslation } from '@/components/providers/language-provider'
 import { TasksList } from './TasksList'
 import { TaskFormModal } from './TaskFormModal'
 import { Event } from '@/lib/models/calendar/Event'
-import { Plus } from 'lucide-react'
 
 interface FilterMenuProps {
   isOpen: boolean
@@ -13,12 +13,20 @@ interface FilterMenuProps {
 }
 
 export function FilterMenu({ isOpen, onClose }: FilterMenuProps) {
+  const { t } = useTranslation()
   const menuRef = useRef<HTMLDivElement>(null)
   const [showTaskForm, setShowTaskForm] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Event | null>(null)
+  const [tasksReloadToken, setTasksReloadToken] = useState(0)
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
+      // TaskFormModal is a sibling of menuRef (not inside it). Clicks on the form would
+      // otherwise count as "outside" and close the whole tasks sheet.
+      if (showTaskForm) return
+      const el = event.target as Node | null
+      if (el instanceof Element && el.closest('[data-shiftcoach-task-form-root]')) return
+
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         onClose()
       }
@@ -28,7 +36,7 @@ export function FilterMenu({ isOpen, onClose }: FilterMenuProps) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, showTaskForm])
 
   if (!isOpen) return null
 
@@ -48,17 +56,25 @@ export function FilterMenu({ isOpen, onClose }: FilterMenuProps) {
         <div className="pointer-events-none absolute inset-0 ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
 
         {/* Header */}
-        <div className="relative z-10 flex items-center justify-between px-5 py-4 border-b border-slate-200/60 dark:border-slate-700/50 bg-white/80 dark:bg-slate-900/90">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-sky-500/10 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300">
+        <div className="relative z-10 flex items-center justify-between gap-2 px-5 py-4 border-b border-slate-200/60 dark:border-slate-700/50 bg-white/80 dark:bg-slate-900/90">
+          <div className="flex min-w-0 flex-1 items-center gap-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="mr-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800/60"
+              aria-label={t('calendar.filter.backAria')}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-500/10 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300">
               <CheckCircle2 className="w-4 h-4" />
             </span>
             <div>
               <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
-                Tasks
+                {t('calendar.filter.title')}
               </h2>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Lightweight to-dos for your shifts
+                {t('calendar.filter.subtitle')}
               </p>
             </div>
           </div>
@@ -70,13 +86,23 @@ export function FilterMenu({ isOpen, onClose }: FilterMenuProps) {
           </button>
         </div>
 
-        {/* Content */}
-        <div className="relative z-10 flex-1 overflow-y-auto p-5">
+        {/* Content — Back link here so it stays visible with the task list / errors (not only in the title bar) */}
+        <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
+          <button
+            type="button"
+            onClick={onClose}
+            className="mb-3 flex w-fit items-center gap-0.5 text-xs font-medium text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300"
+          >
+            <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+            {t('calendar.filter.backToCalendar')}
+          </button>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Your Tasks</h3>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {t('calendar.filter.yourTasks')}
+              </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Manage your to-do items
+                {t('calendar.filter.manageTodos')}
               </p>
             </div>
             <button
@@ -87,10 +113,11 @@ export function FilterMenu({ isOpen, onClose }: FilterMenuProps) {
               className="h-9 px-4 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-700 text-white text-sm font-medium hover:from-sky-700 hover:to-indigo-800 active:scale-95 transition shadow-lg flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
-              Add Task
+              {t('calendar.filter.addTask')}
             </button>
           </div>
           <TasksList
+            reloadToken={tasksReloadToken}
             onTaskClick={(task) => {
               setSelectedTask(task)
               setShowTaskForm(true)
@@ -109,7 +136,7 @@ export function FilterMenu({ isOpen, onClose }: FilterMenuProps) {
           }}
           task={selectedTask}
           onSave={() => {
-            // Tasks will refresh via their own component
+            setTasksReloadToken((n) => n + 1)
           }}
         />
       )}

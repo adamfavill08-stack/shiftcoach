@@ -5,8 +5,10 @@ import { supabase } from '@/lib/supabase'
 import { notifyRotaUpdated } from '@/lib/shift-agent/shiftAgent'
 import { MobileShell } from '@/components/MobileShell'
 import { buildPattern } from '@/lib/patterns'
+import { useTranslation } from '@/components/providers/language-provider'
 
 export default function PatternWizard() {
+  const { t } = useTranslation()
   const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().slice(0,10))
   const [weeks, setWeeks] = useState(8)
   const [startLabel, setStartLabel] = useState<'DAY'|'NIGHT'>('DAY')
@@ -35,7 +37,7 @@ export default function PatternWizard() {
       startLabel, dayStart, dayEnd, nightStart, nightEnd, weeks
     })
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setMsg('Not signed in'); setSaving(false); return }
+    if (!user) { setMsg(t('rota.pattern.notSignedIn')); setSaving(false); return }
 
     const rows = plan.map(p => ({
       user_id: user.id,
@@ -51,49 +53,49 @@ export default function PatternWizard() {
     const { error } = await supabase.from('shifts').upsert(rows, { onConflict: 'user_id,date' })
     if (error) setMsg(error.message)
     else {
-      setMsg(`Applied ${rows.length} days`)
+      setMsg(t('rota.pattern.appliedDays', { count: rows.length }))
       notifyRotaUpdated()
     }
     setSaving(false)
   }
 
   return (
-    <MobileShell title="Pattern Wizard">
+    <MobileShell title={t('rota.pattern.title')}>
       <div className="space-y-3">
         <div>
-          <div className="text-sm text-slate-700 mb-1">Start date</div>
+          <div className="text-sm text-slate-700 mb-1">{t('rota.pattern.startDate')}</div>
           <input type="date" className="w-full border rounded-xl px-3 py-2"
             value={startDate} onChange={e=>setStartDate(e.target.value)} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <label className="text-sm text-slate-700">
-            Weeks
+            {t('rota.pattern.weeks')}
             <input type="number" min={1} max={52} className="w-full border rounded-xl px-3 py-2 mt-1"
               value={weeks} onChange={e=>setWeeks(parseInt(e.target.value||'8'))} />
           </label>
           <label className="text-sm text-slate-700">
-            Start block
+            {t('rota.pattern.startBlock')}
             <select className="w-full border rounded-xl px-3 py-2 mt-1" value={startLabel}
               onChange={e=>setStartLabel(e.target.value as any)}>
-              <option value="DAY">DAY first</option>
-              <option value="NIGHT">NIGHT first</option>
+              <option value="DAY">{t('rota.pattern.dayFirst')}</option>
+              <option value="NIGHT">{t('rota.pattern.nightFirst')}</option>
             </select>
           </label>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Day start" v={dayStart} set={setDayStart} />
-          <Field label="Day end"   v={dayEnd}   set={setDayEnd} />
-          <Field label="Night start" v={nightStart} set={setNightStart} />
-          <Field label="Night end"   v={nightEnd}   set={setNightEnd} />
+          <Field label={t('rota.pattern.dayStart')} v={dayStart} set={setDayStart} />
+          <Field label={t('rota.pattern.dayEnd')} v={dayEnd} set={setDayEnd} />
+          <Field label={t('rota.pattern.nightStart')} v={nightStart} set={setNightStart} />
+          <Field label={t('rota.pattern.nightEnd')} v={nightEnd} set={setNightEnd} />
         </div>
 
         <div className="flex gap-2">
-          <button onClick={makePreview} className="px-4 py-2 rounded-xl border">Preview</button>
-          <button onClick={apply} disabled={saving}
+          <button type="button" onClick={makePreview} className="px-4 py-2 rounded-xl border">{t('rota.pattern.preview')}</button>
+          <button type="button" onClick={apply} disabled={saving}
             className="px-4 py-2 rounded-xl text-white font-semibold bg-gradient-to-r from-orange-500 to-purple-600">
-            {saving ? 'Applying…' : 'Apply to calendar'}
+            {saving ? t('rota.pattern.applying') : t('rota.pattern.apply')}
           </button>
         </div>
 
@@ -101,7 +103,7 @@ export default function PatternWizard() {
 
         {preview && (
           <div className="mt-2 rounded-2xl border p-3">
-            <div className="text-sm font-semibold mb-2">First 14 days</div>
+            <div className="text-sm font-semibold mb-2">{t('rota.pattern.previewHeading')}</div>
             <ul className="text-sm space-y-1">
               {preview.map((p,i)=>(
                 <li key={i}>

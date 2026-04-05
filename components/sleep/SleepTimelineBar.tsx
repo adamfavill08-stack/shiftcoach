@@ -1,7 +1,10 @@
 'use client'
 
+import { useMemo } from 'react'
 import type { SleepType } from '@/lib/sleep/types'
-import { getSleepTypeLabel } from '@/lib/sleep/utils'
+import { useLanguage, useTranslation } from '@/components/providers/language-provider'
+import { intlLocaleForApp } from '@/lib/i18n/supportedLocales'
+import { sleepTypeToUiKey } from '@/lib/i18n/sleepTypeTranslationKey'
 
 interface SleepSession {
   id: string
@@ -52,7 +55,8 @@ function sessionStyle(type: SleepType, isPrimary: boolean) {
 function buildTimelineSummary(
   sessions: SleepSession[],
   primarySessionId: string | null,
-  shiftLabel?: string,
+  shiftLabel: string | undefined,
+  t: (key: string) => string,
 ): string | null {
   if (!sessions.length) return null
 
@@ -68,22 +72,20 @@ function buildTimelineSummary(
     if (shift === 'NIGHT') {
       if (startHour >= 6 && startHour <= 14) {
         return fragmented
-          ? 'Longest sleep occurred after your shift; sleep is split across multiple blocks.'
-          : 'Longest sleep occurred after your shift.'
+          ? t('sleepTimeline.sumNightPostFrag')
+          : t('sleepTimeline.sumNightPost')
       }
       return fragmented
-        ? 'Longest sleep was outside a typical post-shift window; sleep is split across multiple blocks.'
-        : 'Longest sleep was outside a typical post-shift window.'
+        ? t('sleepTimeline.sumNightOffFrag')
+        : t('sleepTimeline.sumNightOff')
     }
 
     return fragmented
-      ? 'Sleep is split across multiple blocks; longest block is highlighted.'
-      : 'Longest sleep block is highlighted for quick review.'
+      ? t('sleepTimeline.sumDefaultFrag')
+      : t('sleepTimeline.sumDefault')
   }
 
-  return blockCount > 1
-    ? 'Sleep is split across multiple blocks.'
-    : 'Single sleep block logged in this shifted day.'
+  return blockCount > 1 ? t('sleepTimeline.sumMulti') : t('sleepTimeline.sumSingle')
 }
 
 export function SleepTimelineBar({
@@ -93,20 +95,24 @@ export function SleepTimelineBar({
   shiftedDayEnd,
   shiftLabel,
 }: SleepTimelineBarProps) {
+  const { t } = useTranslation()
+  const { language } = useLanguage()
+  const intlLocale = useMemo(() => intlLocaleForApp(language), [language])
+
   const dayStart = new Date(shiftedDayStart)
   const dayEnd = new Date(shiftedDayEnd)
   const dayDuration = dayEnd.getTime() - dayStart.getTime()
   const shiftWindow = getShiftWindowHours(shiftLabel)
-  
+
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+    return date.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' })
   }
 
   const primarySessionId =
     sessions
       .filter((s) => s.type !== 'nap')
       .sort((a, b) => b.durationHours - a.durationHours)[0]?.id ?? null
-  const timelineSummary = buildTimelineSummary(sessions, primarySessionId, shiftLabel)
+  const timelineSummary = buildTimelineSummary(sessions, primarySessionId, shiftLabel, t)
 
   const shiftBand = (() => {
     if (!shiftWindow) return null
@@ -127,7 +133,7 @@ export function SleepTimelineBar({
   if (sessions.length === 0) {
     return (
       <div className="rounded-xl border border-slate-200/70 bg-slate-50/70 px-3 py-4">
-        <p className="text-xs text-slate-500">No sleep logged for this shifted day yet.</p>
+        <p className="text-xs text-slate-500">{t('sleepTimeline.noSleepYet')}</p>
       </div>
     )
   }
@@ -135,8 +141,16 @@ export function SleepTimelineBar({
   return (
     <div className="relative">
       <div className="mb-2 flex items-center justify-between text-[11px] text-slate-500">
-        <span>Shifted 24h timeline</span>
-        {shiftBand ? <span>Shift: {shiftBand.label}</span> : <span>Shift: OFF</span>}
+        <span>{t('sleepTimeline.shifted24h')}</span>
+        {shiftBand ? (
+          <span>
+            {t('sleepTimeline.shiftPrefix')} {shiftBand.label}
+          </span>
+        ) : (
+          <span>
+            {t('sleepTimeline.shiftPrefix')} {t('sleepLogs.shiftOff')}
+          </span>
+        )}
       </div>
       {/* Timeline background */}
       <div className="relative h-16 rounded-xl bg-slate-100/60 border border-slate-200/60 overflow-hidden">
@@ -183,7 +197,8 @@ export function SleepTimelineBar({
           
           const isPrimary = session.id === primarySessionId
           const colorClass = sessionStyle(session.type, isPrimary)
-          
+          const typeLabel = t(sleepTypeToUiKey(session.type))
+
           return (
             <button
               key={session.id}
@@ -204,7 +219,12 @@ export function SleepTimelineBar({
                 width: `${width}%`,
                 minWidth: '40px',
               }}
-              title={`${getSleepTypeLabel(session.type)} - ${formatTime(start)} to ${formatTime(end)} (${session.durationHours.toFixed(1)}h)`}
+              title={t('sleepTimeline.sessionTooltip', {
+                type: typeLabel,
+                start: formatTime(start),
+                end: formatTime(end),
+                h: session.durationHours.toFixed(1),
+              })}
             >
               <div className="px-1.5 py-0.5 bg-black/20 rounded opacity-0 group-hover:opacity-100 transition-opacity">
                 <p className="text-[9px] font-semibold text-white whitespace-nowrap">
@@ -219,14 +239,14 @@ export function SleepTimelineBar({
       {/* Legend */}
       {sessions.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2 text-[10px] text-slate-600">
-          <span className="font-medium">Today:</span>
+          <span className="font-medium">{t('sleepTimeline.todayLegend')}</span>
           {sessions.map((session) => (
             <span
               key={session.id}
               className="inline-flex items-center gap-1"
             >
               <span className={`w-2 h-2 rounded ${sessionStyle(session.type, session.id === primarySessionId)}`} />
-              {getSleepTypeLabel(session.type)}
+              {t(sleepTypeToUiKey(session.type))}
             </span>
           ))}
         </div>

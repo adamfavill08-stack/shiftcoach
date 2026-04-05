@@ -40,7 +40,26 @@ export default function BingeRiskPage() {
   const score = risk?.score ?? 0
   const level = risk?.level ?? 'low'
 
-  const levelLabel = level === 'low' ? 'Low' : level === 'medium' ? 'Medium' : 'High'
+  const levelLabel =
+    level === 'low'
+      ? t('detail.bingeRisk.levelLow')
+      : level === 'medium'
+        ? t('detail.bingeRisk.levelMedium')
+        : t('detail.bingeRisk.levelHigh')
+
+  const riskBand =
+    level === 'low'
+      ? t('detail.bingeRisk.bandLow')
+      : level === 'medium'
+        ? t('detail.bingeRisk.bandMedium')
+        : t('detail.bingeRisk.bandHigh')
+
+  const headline =
+    level === 'low'
+      ? t('detail.bingeRisk.headlineLow')
+      : level === 'medium'
+        ? t('detail.bingeRisk.headlineMedium')
+        : t('detail.bingeRisk.headlineHigh')
 
   const scorePct = Math.max(0, Math.min(100, score))
   const markerLeft = `${Math.max(3, Math.min(97, scorePct))}%`
@@ -50,24 +69,14 @@ export default function BingeRiskPage() {
     level === 'low'
       ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/35 dark:text-emerald-300'
       : level === 'medium'
-      ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/35 dark:text-amber-300'
-      : 'bg-rose-50 text-rose-700 dark:bg-rose-950/35 dark:text-rose-300'
+        ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/35 dark:text-amber-300'
+        : 'bg-rose-50 text-rose-700 dark:bg-rose-950/35 dark:text-rose-300'
 
-  const headline =
-    level === 'low'
-      ? 'Cravings in a steady place'
-      : level === 'medium'
-      ? 'Cravings more likely on tired shifts'
-      : 'High risk of big cravings and binges'
-
-  const explainer =
-    risk?.explanation ??
-    'Based on your recent sleep, shifts and habits, this estimates how likely strong cravings or binges are in the next day or two.'
+  const explainer = risk?.explanation ?? t('detail.bingeRisk.explainerDefault')
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
       <div className="max-w-[430px] mx-auto min-h-screen px-4 pb-8 pt-4 flex flex-col gap-5">
-        {/* Header */}
         <header className="flex items-center gap-2 mb-2">
           <Link
             href="/dashboard"
@@ -76,19 +85,20 @@ export default function BingeRiskPage() {
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
-          <h1 className="text-xl font-semibold tracking-tight text-[var(--text-main)]">{t('detail.bingeRisk.title')}</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-[var(--text-main)]">
+            {t('detail.bingeRisk.title')}
+          </h1>
         </header>
 
-        {/* Hero binge risk bar (matches dashboard fatigue-style scale) */}
         <section className="flex flex-col gap-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-5 shadow-[0_14px_36px_rgba(0,0,0,0.32)]">
           <div className="w-full space-y-3">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-                Score
+                {t('detail.bingeRisk.scoreLabel')}
               </span>
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 <span className="text-3xl font-semibold tabular-nums text-[var(--text-main)]">{score}</span>
-                <span className="text-sm font-medium text-[var(--text-soft)]">{levelLabel} risk</span>
+                <span className="text-sm font-medium text-[var(--text-soft)]">{riskBand}</span>
               </div>
             </div>
             <div className="relative w-full pb-0.5 pt-1">
@@ -106,8 +116,8 @@ export default function BingeRiskPage() {
               />
             </div>
             <div className="flex items-center justify-between text-[10px] font-medium text-[var(--text-muted)]">
-              <span>Low</span>
-              <span>High</span>
+              <span>{t('detail.bingeRisk.axisLow')}</span>
+              <span>{t('detail.bingeRisk.axisHigh')}</span>
             </div>
           </div>
 
@@ -115,24 +125,22 @@ export default function BingeRiskPage() {
             <div className="flex items-start justify-between gap-2">
               <div className="space-y-1">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-soft)]">
-                  Binge risk on shifts
+                  {t('detail.bingeRisk.sectionKicker')}
                 </p>
-                <p className="text-sm font-semibold text-[var(--text-main)]">
-                  {headline}
-                </p>
-                <p className="text-[11px] text-[var(--text-soft)]">
-                  {explainer}
-                </p>
+                <p className="text-sm font-semibold text-[var(--text-main)]">{headline}</p>
+                <p className="text-[11px] text-[var(--text-soft)]">{explainer}</p>
               </div>
-              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-medium ${chipClass}`}>
-                {risk ? levelLabel : 'No recent data'}
+              <span
+                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-medium ${chipClass}`}
+              >
+                {risk ? levelLabel : t('detail.bingeRisk.noRecentData')}
               </span>
             </div>
 
             {risk && risk.drivers?.length > 0 && (
               <div className="mt-1">
                 <p className="mb-1 text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                  Main drivers this week
+                  {t('detail.bingeRisk.driversTitle')}
                 </p>
                 <div className="flex flex-wrap gap-1">
                   {risk.drivers.slice(0, 4).map((d) => (
@@ -149,130 +157,79 @@ export default function BingeRiskPage() {
           </div>
         </section>
 
-        {/* Key facts strip */}
         <section className="flex flex-col gap-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-4 py-3 text-[11px] text-[var(--text-soft)] shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-          <span>Binge Risk estimates how likely you are to overeat based on sleep, shifts and recent habits.</span>
-          <span>Low = stable. Medium = watch your triggers. High = extra support & planning.</span>
+          <span>{t('detail.bingeRisk.factsLine1')}</span>
+          <span>{t('detail.bingeRisk.factsLine2')}</span>
         </section>
 
-        {/* Colour scale */}
         <section className="flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-soft)]">
-            What the colours mean
+            {t('detail.bingeRisk.colorsTitle')}
           </p>
           <div className="flex flex-col gap-2 text-[13px] text-[var(--text-soft)]">
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              <span className="font-semibold">Low</span>
-              <span className="text-[12px] text-[var(--text-muted)]">Balanced, stable pattern.</span>
+              <span className="font-semibold">{t('detail.bingeRisk.colorLow')}</span>
+              <span className="text-[12px] text-[var(--text-muted)]">{t('detail.bingeRisk.colorLowDesc')}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-              <span className="font-semibold">Medium</span>
+              <span className="font-semibold">{t('detail.bingeRisk.colorMedium')}</span>
               <span className="text-[12px] text-[var(--text-muted)]">
-                Some red flags – be extra intentional with meals, sleep and caffeine.
+                {t('detail.bingeRisk.colorMediumDesc')}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-rose-500" />
-              <span className="font-semibold">High</span>
-              <span className="text-[12px] text-[var(--text-muted)]">
-                Your body is running on fumes – plan support and recovery now.
-              </span>
+              <span className="font-semibold">{t('detail.bingeRisk.colorHigh')}</span>
+              <span className="text-[12px] text-[var(--text-muted)]">{t('detail.bingeRisk.colorHighDesc')}</span>
             </div>
           </div>
         </section>
 
-        {/* Why shift workers struggle */}
         <section className="flex flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">🤍</span>
-            <p className="text-sm font-semibold text-[var(--text-main)]">Why shift workers binge more</p>
+            <p className="text-sm font-semibold text-[var(--text-main)]">{t('detail.bingeRisk.whyTitle')}</p>
           </div>
           <ul className="list-disc list-inside space-y-1.5 text-[13px] text-[var(--text-soft)]">
-            <li>
-              <span className="font-semibold">Sleep debt:</span> less sleep = more hunger hormone
-              (ghrelin) and less "I&apos;m full" signal (leptin).
-            </li>
-            <li>
-              <span className="font-semibold">Circadian mismatch:</span> eating at 3–4am when your
-              body expects sleep makes you crave junk and store more fat.
-            </li>
-            <li>
-              <span className="font-semibold">Stress &amp; emotion:</span> long, busy shifts with
-              no breaks make food the easiest reward.
-            </li>
-            <li>
-              <span className="font-semibold">Environment:</span> vending machines, takeaways and
-              energy drinks are always available on nights.
-            </li>
+            <li>{t('detail.bingeRisk.whyLi1')}</li>
+            <li>{t('detail.bingeRisk.whyLi2')}</li>
+            <li>{t('detail.bingeRisk.whyLi3')}</li>
+            <li>{t('detail.bingeRisk.whyLi4')}</li>
           </ul>
         </section>
 
-        {/* How Shift Coach helps */}
         <section className="flex flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">📋</span>
-            <p className="text-sm font-semibold text-[var(--text-main)]">How ShiftCoach helps you combat it</p>
+            <p className="text-sm font-semibold text-[var(--text-main)]">{t('detail.bingeRisk.helpsTitle')}</p>
           </div>
           <ul className="list-disc list-inside space-y-1.5 text-[13px] text-[var(--text-soft)]">
-            <li>
-              <span className="font-semibold">Keeps sleep on track:</span> nudges you towards
-              enough sleep and better timing for your shifts.
-            </li>
-            <li>
-              <span className="font-semibold">Times meals for your rota:</span> plans
-              protein‑focused meals when you&apos;re most alert, not when your body expects sleep.
-            </li>
-            <li>
-              <span className="font-semibold">Flags danger windows:</span> high‑risk nights show up
-              on your dashboard so you can plan ahead.
-            </li>
-            <li>
-              <span className="font-semibold">Encourages steady fuel:</span> instead of starving
-              then binging, you get small, regular meal suggestions.
-            </li>
+            <li>{t('detail.bingeRisk.helpsLi1')}</li>
+            <li>{t('detail.bingeRisk.helpsLi2')}</li>
+            <li>{t('detail.bingeRisk.helpsLi3')}</li>
+            <li>{t('detail.bingeRisk.helpsLi4')}</li>
           </ul>
         </section>
 
-        {/* Practical tips */}
         <section className="flex flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">🌿</span>
-            <p className="text-sm font-semibold text-[var(--text-main)]">
-              Quick actions when risk is Medium or High
-            </p>
+            <p className="text-sm font-semibold text-[var(--text-main)]">{t('detail.bingeRisk.tipsTitle')}</p>
           </div>
           <ul className="list-disc list-inside space-y-1.5 text-[13px] text-[var(--text-soft)]">
-            <li>
-              Eat a <span className="font-semibold">planned snack</span> (protein + fibre) before
-              you get home from a long or night shift.
-            </li>
-            <li>
-              Set a <span className="font-semibold">"kitchen closed" time</span> so you don&apos;t
-              default to grazing late at night.
-            </li>
-            <li>
-              Use a <span className="font-semibold">non‑food reward</span> after work: shower,
-              music, short walk, call someone, game, etc.
-            </li>
-            <li>
-              On days off, prioritise <span className="font-semibold">one solid sleep</span>{" "}
-              instead of lots of tiny naps.
-            </li>
+            <li>{t('detail.bingeRisk.tipsLi1')}</li>
+            <li>{t('detail.bingeRisk.tipsLi2')}</li>
+            <li>{t('detail.bingeRisk.tipsLi3')}</li>
+            <li>{t('detail.bingeRisk.tipsLi4')}</li>
           </ul>
-          <p className="text-[13px] text-[var(--text-soft)]">
-            The goal isn&apos;t to be perfect – it&apos;s to stack the odds in your favour so
-            binges become <span className="font-semibold">rare slips</span>, not your normal
-            pattern.
-          </p>
+          <p className="text-[13px] text-[var(--text-soft)]">{t('detail.bingeRisk.tipsFooter')}</p>
         </section>
 
-        
-        {/* ShiftCoach logo footer */}
         <div className="pt-6 pb-4 flex flex-col items-center gap-1">
           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-            ShiftCoach
+            {t('welcome.logoAlt')}
           </div>
           <p className="max-w-[260px] text-center text-[10px] text-[var(--text-muted)]">
             {t('detail.common.disclaimer')}

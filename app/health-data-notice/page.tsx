@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { LegalDocumentChrome } from '@/components/legal/LegalDocumentChrome'
 
 export const metadata: Metadata = {
   title: 'Health Data Notice - Shift Coach',
@@ -6,21 +7,11 @@ export const metadata: Metadata = {
 }
 
 export default function HealthDataNoticePage() {
-  const lastUpdated = new Date().toLocaleDateString()
-
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-10">
-      <div className="max-w-3xl mx-auto">
-        <div className="rounded-3xl bg-white border border-slate-100 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] px-6 py-8">
-          <h1 className="text-2xl font-semibold text-slate-900 mb-4">Health Data Notice</h1>
-
-          <div className="prose prose-slate max-w-none space-y-6 text-slate-700">
-            <p className="text-sm text-slate-500 italic">
-              Last updated: {lastUpdated}
-            </p>
-
+    <LegalDocumentChrome variant="health">
+      <div className="prose prose-slate dark:prose-invert max-w-none space-y-6 text-slate-700 dark:text-slate-300">
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">
                 Health Information We Collect
               </h2>
               <p>
@@ -38,7 +29,7 @@ export default function HealthDataNoticePage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">
                 How We Use Health Data
               </h2>
               <p>We use your health data to:</p>
@@ -52,7 +43,7 @@ export default function HealthDataNoticePage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">
                 Data Security
               </h2>
               <p>
@@ -62,7 +53,7 @@ export default function HealthDataNoticePage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">
                 Third-Party Health Services
               </h2>
               <p>With your explicit permission, we integrate with the following health services:</p>
@@ -84,7 +75,7 @@ export default function HealthDataNoticePage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">
                 Your Rights
               </h2>
               <p>You have the right to:</p>
@@ -98,14 +89,14 @@ export default function HealthDataNoticePage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">
                 Medical Disclaimer
               </h2>
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-900 font-semibold mb-2">
+              <div className="p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-lg">
+                <p className="text-red-900 dark:text-red-200 font-semibold mb-2">
                   This app is not a medical device and does not provide medical advice.
                 </p>
-                <p className="text-red-800 text-sm">
+                <p className="text-red-800 dark:text-red-300 text-sm">
                   Always consult with a qualified healthcare provider before making health decisions,
                   especially if you have medical conditions, are pregnant, or are taking medications.
                 </p>
@@ -113,7 +104,7 @@ export default function HealthDataNoticePage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">
                 Data Sharing
               </h2>
               <p>
@@ -127,7 +118,7 @@ export default function HealthDataNoticePage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 mt-8 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-4">
                 Contact Us
               </h2>
               <p>
@@ -138,9 +129,7 @@ export default function HealthDataNoticePage() {
                 </a>
               </p>
             </section>
-          </div>
-        </div>
       </div>
-    </main>
+    </LegalDocumentChrome>
   )
 }

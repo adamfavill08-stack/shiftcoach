@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { ChevronRight, ChevronDown } from 'lucide-react'
 import { useSettings } from '@/lib/hooks/useSettings'
 import { supabase } from '@/lib/supabase'
+import { useTranslation } from '@/components/providers/language-provider'
 
 export function SubscriptionPlanSection() {
-  const router = useRouter()
+  const { t } = useTranslation()
   const { settings, loading } = useSettings()
   const [isOpen, setIsOpen] = useState(false)
   const [subscriptionPlan, setSubscriptionPlan] = useState<string | null>(null)
@@ -19,14 +19,14 @@ export function SubscriptionPlanSection() {
 
   useEffect(() => {
     if (!settings?.user_id) return
-    
+
     const loadSubscription = async () => {
       const { data: profile } = await supabase
         .from('profiles')
         .select('subscription_plan, subscription_status, trial_ends_at, subscription_platform')
         .eq('user_id', settings.user_id)
         .single()
-      
+
       if (profile) {
         setSubscriptionPlan(profile.subscription_plan || null)
         setSubscriptionStatus(profile.subscription_status || null)
@@ -35,15 +35,15 @@ export function SubscriptionPlanSection() {
         setSubscriptionPlatform(profile.subscription_platform || null)
       }
     }
-    
+
     loadSubscription()
   }, [settings?.user_id])
 
   const getPlanLabel = (plan: string | null) => {
-    if (!plan) return 'No plan selected'
-    if (plan === 'tester') return 'Tester account'
-    if (plan === 'monthly') return 'Monthly subscription'
-    if (plan === 'yearly') return 'Yearly subscription'
+    if (!plan) return t('settings.subscription.plan.none')
+    if (plan === 'tester') return t('settings.subscription.plan.tester')
+    if (plan === 'monthly') return t('settings.subscription.plan.monthly')
+    if (plan === 'yearly') return t('settings.subscription.plan.yearly')
     return plan
   }
 
@@ -52,14 +52,14 @@ export function SubscriptionPlanSection() {
     if (status === 'active' || status === 'trialing') {
       return (
         <span className="text-xs px-2 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 font-medium">
-          Active
+          {t('settings.subscription.status.active')}
         </span>
       )
     }
     if (status === 'canceled') {
       return (
         <span className="text-xs px-2 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 font-medium">
-          Canceled
+          {t('settings.subscription.status.canceled')}
         </span>
       )
     }
@@ -71,7 +71,7 @@ export function SubscriptionPlanSection() {
   }
 
   const getTrialLabel = () => {
-    if (testerAccount) return 'Tester account – no billing.'
+    if (testerAccount) return t('settings.subscription.trial.testerNoBilling')
     if (!trialEndsAt) return null
 
     const end = new Date(trialEndsAt)
@@ -79,11 +79,11 @@ export function SubscriptionPlanSection() {
     if (isNaN(end.getTime())) return null
 
     const diffMs = end.getTime() - now.getTime()
-    if (diffMs <= 0) return 'Free trial ended.'
+    if (diffMs <= 0) return t('settings.subscription.trial.ended')
 
     const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
-    if (daysLeft === 1) return 'On 7‑day free trial – 1 day left.'
-    return `On 7‑day free trial – ${daysLeft} days left.`
+    if (daysLeft === 1) return t('settings.subscription.trial.oneDayLeft')
+    return t('settings.subscription.trial.daysLeft', { days: daysLeft })
   }
 
   const handleCancelSubscription = async () => {
@@ -98,13 +98,11 @@ export function SubscriptionPlanSection() {
       }
       const json = await res.json()
       console.log('[SubscriptionPlanSection] Cancel response', json)
-      
-      // If RevenueCat subscription, show platform-specific message
+
       if (json.platform && json.message) {
         alert(json.message)
       }
-      
-      // Optimistically reflect cancellation in UI
+
       setSubscriptionStatus('canceled')
     } catch (err) {
       console.error('[SubscriptionPlanSection] Cancel error', err)
@@ -112,11 +110,11 @@ export function SubscriptionPlanSection() {
       setIsCanceling(false)
     }
   }
-  
+
   const getPlatformLabel = () => {
     if (!subscriptionPlatform) return null
-    if (subscriptionPlatform === 'revenuecat_ios') return 'App Store'
-    if (subscriptionPlatform === 'revenuecat_android') return 'Play Store'
+    if (subscriptionPlatform === 'revenuecat_ios') return t('settings.subscription.platform.appStore')
+    if (subscriptionPlatform === 'revenuecat_android') return t('settings.subscription.platform.playStore')
     return subscriptionPlatform
   }
 
@@ -124,21 +122,23 @@ export function SubscriptionPlanSection() {
     if (!subscriptionPlatform) return null
 
     if (subscriptionPlatform === 'revenuecat_ios') {
-      return 'To cancel, go to iOS Settings → [Your Name] → Subscriptions → Shift Coach → Cancel Subscription. Your access continues until the end of your billing period.'
+      return t('settings.subscription.cancelIos')
     }
-    
+
     if (subscriptionPlatform === 'revenuecat_android') {
-      return 'To cancel, go to Google Play Store → Subscriptions → Shift Coach → Cancel Subscription. Your access continues until the end of your billing period.'
+      return t('settings.subscription.cancelAndroid')
     }
-    
+
     return null
   }
+
+  const platformLabel = getPlatformLabel()
 
   if (loading) {
     return (
       <div className="relative overflow-hidden rounded-xl bg-white border border-slate-100 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
         <div className="px-5 py-4">
-          <div className="animate-pulse text-xs text-slate-500">Loading...</div>
+          <div className="animate-pulse text-xs text-slate-500">{t('settings.subscription.loading')}</div>
         </div>
       </div>
     )
@@ -150,41 +150,41 @@ export function SubscriptionPlanSection() {
         onClick={() => setIsOpen(!isOpen)}
         className="group flex items-center justify-between gap-3 rounded-xl px-4 py-3 bg-white border border-slate-100 shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:border-sky-100 hover:shadow-[0_4px_12px_rgba(15,23,42,0.12)] transition-colors w-full"
       >
-      <div className="flex items-center gap-3 flex-1">
-        <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-400 to-sky-500 grid place-items-center flex-shrink-0 shadow-sm">
-          <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-          </svg>
+        <div className="flex items-center gap-3 flex-1">
+          <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-400 to-sky-500 grid place-items-center flex-shrink-0 shadow-sm">
+            <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+          </div>
+          <div className="flex-1 text-left">
+            <h3 className="text-sm font-medium text-slate-900">{t('settings.subscription.sectionTitle')}</h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {testerAccount ? t('settings.subscription.plan.tester') : getPlanLabel(subscriptionPlan)}
+            </p>
+          </div>
         </div>
-        <div className="flex-1 text-left">
-          <h3 className="text-sm font-medium text-slate-900">Subscription Plan</h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {testerAccount ? 'Tester account' : getPlanLabel(subscriptionPlan)}
-          </p>
-        </div>
-      </div>
-      {isOpen ? (
-        <ChevronDown className="h-4 w-4 text-slate-300 group-hover:text-sky-400 transition flex-shrink-0" strokeWidth={2} />
-      ) : (
-        <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-sky-400 transition flex-shrink-0" strokeWidth={2} />
-      )}
-    </button>
+        {isOpen ? (
+          <ChevronDown className="h-4 w-4 text-slate-300 group-hover:text-sky-400 transition flex-shrink-0" strokeWidth={2} />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-sky-400 transition flex-shrink-0" strokeWidth={2} />
+        )}
+      </button>
       {isOpen && (
         <div className="absolute left-0 right-0 top-full mt-2 mx-2 rounded-2xl bg-white/95 dark:bg-slate-800/70 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/40 shadow-[0_4px_12px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)] p-4 space-y-3 z-20">
           <div className="space-y-2">
             <div className="space-y-2">
               <div className="flex items-center justify-between py-1">
-                <span className="text-sm font-medium text-slate-800 dark:text-slate-200">Current plan</span>
+                <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{t('settings.subscription.currentPlan')}</span>
                 <div className="flex items-center gap-2">
                   {subscriptionStatus && !testerAccount && getStatusBadge(subscriptionStatus)}
                   <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                    {testerAccount ? 'Tester account' : getPlanLabel(subscriptionPlan)}
+                    {testerAccount ? t('settings.subscription.plan.tester') : getPlanLabel(subscriptionPlan)}
                   </span>
                 </div>
               </div>
-              {getPlatformLabel() && !testerAccount && (
+              {platformLabel && !testerAccount && (
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Billed via {getPlatformLabel()}
+                  {t('settings.subscription.billedVia', { platform: platformLabel })}
                 </p>
               )}
             </div>
@@ -197,21 +197,19 @@ export function SubscriptionPlanSection() {
 
           {!testerAccount && !subscriptionPlan && (
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              Your access is managed through your App Store or Play Store purchase.
-            </p>
-          )}
-          
-          {/* Note: Plan changes require canceling and resubscribing on mobile */}
-          {!testerAccount && subscriptionPlan && subscriptionPlatform?.startsWith('revenuecat_') && (
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed px-1">
-              To change your plan, cancel your current subscription and select a new plan. Your access continues until the end of your billing period.
+              {t('settings.subscription.accessViaStore')}
             </p>
           )}
 
-          {/* Cancel subscription / tester label */}
+          {!testerAccount && subscriptionPlan && subscriptionPlatform?.startsWith('revenuecat_') && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed px-1">
+              {t('settings.subscription.changePlanHint')}
+            </p>
+          )}
+
           {testerAccount ? (
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              Tester account – you have full access while you are in the test programme. No billing is active.
+              {t('settings.subscription.testerFullAccess')}
             </p>
           ) : subscriptionPlan ? (
             <div className="space-y-2">
@@ -219,7 +217,7 @@ export function SubscriptionPlanSection() {
                 <>
                   <div className="rounded-xl border border-amber-200/50 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-950/20 px-4 py-3">
                     <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed font-medium mb-1.5">
-                      Cancel via {getPlatformLabel()}
+                      {platformLabel ? t('settings.subscription.cancelVia', { platform: platformLabel }) : null}
                     </p>
                     <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
                       {getCancelInstructions()}
@@ -230,15 +228,17 @@ export function SubscriptionPlanSection() {
                     disabled={isCanceling}
                     className="w-full rounded-xl border border-slate-200/50 dark:border-slate-700/40 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50/60 dark:hover:bg-slate-800/50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                   >
-                    {isCanceling ? 'Processing…' : 'Mark as Canceled'}
+                    {isCanceling ? t('settings.subscription.processing') : t('settings.subscription.markCanceled')}
                   </button>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    This marks your subscription as canceled in the app. You still need to cancel in {getPlatformLabel()} to stop billing.
+                    {platformLabel
+                      ? t('settings.subscription.markCanceledNote', { platform: platformLabel })
+                      : null}
                   </p>
                 </>
               ) : (
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Subscription management is available through your app store subscription settings.
+                  {t('settings.subscription.manageInStore')}
                 </p>
               )}
             </div>
@@ -248,4 +248,3 @@ export function SubscriptionPlanSection() {
     </div>
   )
 }
-
