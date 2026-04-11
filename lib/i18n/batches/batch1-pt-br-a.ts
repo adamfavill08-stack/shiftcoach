@@ -69,7 +69,7 @@ export const batch1PtBrA: Record<string, string> = {
   'auth.signIn.configError':
     'Erro de configuração: falta a URL do Supabase. Verifique o .env.local.',
   'auth.signUp.title': 'Criar conta',
-  'auth.signUp.titleConfirm': 'Verifique seu e-mail',
+  'auth.signUp.titleConfirm': 'Conta criada',
   'auth.signUp.subtitle': 'Comece a cuidar melhor da saúde nos turnos.',
   'auth.signUp.email': 'E-mail',
   'auth.signUp.password': 'Senha',
@@ -78,9 +78,8 @@ export const batch1PtBrA: Record<string, string> = {
   'auth.signUp.busy': 'Criando…',
   'auth.signUp.hasAccount': 'Já tem conta?',
   'auth.signUp.signIn': 'Entrar',
-  'auth.signUp.confirmTitle': 'E-mail de confirmação enviado!',
-  'auth.signUp.confirmBody':
-    'Verifique seu e-mail e clique no link de confirmação. Você será redirecionado para configurar o perfil.',
+  'auth.signUp.confirmTitle': 'Conta criada',
+  'auth.signUp.confirmBody': 'Entre, por favor.',
   'auth.signUp.noEmail': 'Não recebeu? Confira o spam ou',
   'auth.signUp.tryAgain': 'tente de novo',
   'auth.signUp.alreadyConfirmed': 'Já confirmou? Entre',

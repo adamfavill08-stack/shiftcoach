@@ -69,7 +69,7 @@ export const batch1FrA: Record<string, string> = {
   'auth.signIn.configError':
     'Erreur de configuration : URL Supabase manquante. Vérifiez .env.local.',
   'auth.signUp.title': 'Créer un compte',
-  'auth.signUp.titleConfirm': 'Vérifiez votre e-mail',
+  'auth.signUp.titleConfirm': 'Compte créé',
   'auth.signUp.subtitle': 'Commencez à mieux vivre vos shifts.',
   'auth.signUp.email': 'E-mail',
   'auth.signUp.password': 'Mot de passe',
@@ -78,9 +78,8 @@ export const batch1FrA: Record<string, string> = {
   'auth.signUp.busy': 'Création…',
   'auth.signUp.hasAccount': 'Déjà un compte ?',
   'auth.signUp.signIn': 'Se connecter',
-  'auth.signUp.confirmTitle': 'E-mail de confirmation envoyé !',
-  'auth.signUp.confirmBody':
-    'Ouvrez votre boîte mail et cliquez sur le lien de confirmation. Vous serez redirigé pour finaliser votre profil.',
+  'auth.signUp.confirmTitle': 'Compte créé',
+  'auth.signUp.confirmBody': 'Connectez-vous, s’il vous plaît.',
   'auth.signUp.noEmail': 'E-mail introuvable ? Vérifiez les spams ou',
   'auth.signUp.tryAgain': 'réessayez',
   'auth.signUp.alreadyConfirmed': 'Déjà confirmé ? Connectez-vous',

@@ -39,7 +39,6 @@ function SignUpContent() {
     })
     setBusy(false)
     if (error) return setErr(error.message)
-    // Show success message - user needs to confirm email
     setShowConfirm(true)
     setEmail('')
     setPassword('')
@@ -99,14 +98,9 @@ function SignUpContent() {
               <div className="mt-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200">
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-emerald-900 font-semibold text-sm mb-1">
-                      {t('auth.signUp.confirmTitle')}
-                    </p>
-                    <p className="text-emerald-700 text-sm">
-                      {t('auth.signUp.confirmBody')}
-                    </p>
-                  </div>
+                  <p className="text-emerald-900 font-semibold text-sm">
+                    {t('auth.signUp.confirmBody')}
+                  </p>
                 </div>
               </div>
             )}
@@ -169,20 +163,11 @@ function SignUpContent() {
 
             {showConfirm && (
               <div className="mt-6 text-center">
-                <p className="text-sm text-slate-600 mb-4">
-                  {t('auth.signUp.noEmail')}{' '}
-                  <button
-                    onClick={() => setShowConfirm(false)}
-                    className="text-sm font-semibold text-slate-900 hover:opacity-80 transition-opacity"
-                  >
-                    {t('auth.signUp.tryAgain')}
-                  </button>
-                </p>
                 <Link
                   href="/auth/sign-in"
-                  className="text-sm font-semibold text-slate-900 hover:opacity-80 transition-opacity"
+                  className="inline-flex h-12 w-full items-center justify-center rounded-full text-sm font-semibold text-white bg-slate-900 shadow-[0_10px_26px_-14px_rgba(15,23,42,0.35)] hover:opacity-95 active:scale-[0.99] transition"
                 >
-                  {t('auth.signUp.alreadyConfirmed')}
+                  {t('auth.signUp.signIn')}
                 </Link>
               </div>
             )}

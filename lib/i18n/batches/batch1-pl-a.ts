@@ -69,7 +69,7 @@ export const batch1PlA: Record<string, string> = {
   'auth.signIn.configError':
     'Błąd konfiguracji: brak URL Supabase. Sprawdź plik .env.local.',
   'auth.signUp.title': 'Utwórz konto',
-  'auth.signUp.titleConfirm': 'Sprawdź e-mail',
+  'auth.signUp.titleConfirm': 'Konto utworzone',
   'auth.signUp.subtitle': 'Zadbaj o zdrowie przy pracy zmianowej.',
   'auth.signUp.email': 'E-mail',
   'auth.signUp.password': 'Hasło',
@@ -78,9 +78,8 @@ export const batch1PlA: Record<string, string> = {
   'auth.signUp.busy': 'Tworzenie…',
   'auth.signUp.hasAccount': 'Masz już konto?',
   'auth.signUp.signIn': 'Zaloguj się',
-  'auth.signUp.confirmTitle': 'Wysłano e-mail potwierdzający!',
-  'auth.signUp.confirmBody':
-    'Sprawdź skrzynkę i kliknij link potwierdzający. Zostaniesz przekierowany, aby dokończyć profil.',
+  'auth.signUp.confirmTitle': 'Konto utworzone',
+  'auth.signUp.confirmBody': 'Zaloguj się, proszę.',
   'auth.signUp.noEmail': 'Nie dostałeś wiadomości? Sprawdź spam lub',
   'auth.signUp.tryAgain': 'spróbuj ponownie',
   'auth.signUp.alreadyConfirmed': 'Już potwierdzono? Zaloguj się',
