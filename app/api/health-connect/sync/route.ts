@@ -4,57 +4,7 @@ import { z } from 'zod'
 import { parseJsonBody } from '@/lib/api/validation'
 import { apiServerError } from '@/lib/api/response'
 import { rateLimitByIp } from '@/lib/api/security'
-import type { SupabaseClient } from '@supabase/supabase-js'
-
-/** Aligns with /api/activity/today: some DBs use `ts`, others `created_at`. */
-async function upsertTodayActivitySteps(
-  supabase: SupabaseClient,
-  userId: string,
-  steps: number,
-  syncedAt: string,
-): Promise<{ error: { message?: string; code?: string } | null }> {
-  const today = new Date().toISOString().slice(0, 10)
-  const startIso = new Date(today + 'T00:00:00Z').toISOString()
-  const endIso = new Date(today + 'T23:59:59Z').toISOString()
-
-  const attempt = async (timeCol: 'ts' | 'created_at') => {
-    const { data: existing, error: selErr } = await supabase
-      .from('activity_logs')
-      .select('id')
-      .eq('user_id', userId)
-      .gte(timeCol, startIso)
-      .lt(timeCol, endIso)
-      .order(timeCol, { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (selErr) return { error: selErr }
-    const updatePayload =
-      timeCol === 'ts'
-        ? { steps, source: 'Health Connect', ts: syncedAt }
-        : { steps, source: 'Health Connect' }
-    const insertPayload =
-      timeCol === 'ts'
-        ? { user_id: userId, steps, source: 'Health Connect', ts: syncedAt }
-        : { user_id: userId, steps, source: 'Health Connect' }
-    if (existing?.id) {
-      const { error } = await supabase.from('activity_logs').update(updatePayload).eq('id', existing.id)
-      return { error: error ?? null }
-    }
-    const { error } = await supabase.from('activity_logs').insert(insertPayload)
-    return { error: error ?? null }
-  }
-
-  let r = await attempt('ts')
-  if (
-    r.error &&
-    (r.error.code === '42703' ||
-      String(r.error.message ?? '').includes('ts') ||
-      String(r.error.message ?? '').includes('column'))
-  ) {
-    r = await attempt('created_at')
-  }
-  return r
-}
+import { upsertActivityLogDailySteps } from '@/lib/activity/upsertActivityLogDailySteps'
 
 const SleepItemSchema = z.object({
   sampleId: z.string().trim().min(1).optional(),
@@ -73,6 +23,8 @@ const HeartRateItemSchema = z.object({
 
 const HealthConnectSyncSchema = z.object({
   steps: z.number().optional(),
+  /** Device-local civil date (YYYY-MM-DD) for the step total window — not server UTC day. */
+  activityDate: z.string().optional(),
   sleep: z.array(SleepItemSchema).optional().default([]),
   heartRate: z.array(HeartRateItemSchema).optional().default([]),
   syncedAt: z.string().optional(),
@@ -82,7 +34,8 @@ const HealthConnectSyncSchema = z.object({
  * POST /api/health-connect/sync
  *
  * Session-authenticated Android ingestion path for Health Connect.
- * This reduces reliance on Google Fit for Android users.
+ * Step totals can include watch, phone, and any permitted apps writing to HC;
+ * the native client sums records and ShiftCoach stores that unified total.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -94,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     const parsed = await parseJsonBody(req, HealthConnectSyncSchema)
     if (!parsed.ok) return parsed.response
-    const { steps: rawSteps, sleep, heartRate, syncedAt: rawSyncedAt } = parsed.data
+    const { steps: rawSteps, activityDate, sleep, heartRate, syncedAt: rawSyncedAt } = parsed.data
     const steps = typeof rawSteps === 'number' ? Math.max(0, Math.round(rawSteps)) : null
     const syncedAt = typeof rawSyncedAt === 'string' ? rawSyncedAt : new Date().toISOString()
 
@@ -109,7 +62,12 @@ export async function POST(req: NextRequest) {
       )
 
     if (steps != null) {
-      const { error: actErr } = await upsertTodayActivitySteps(supabase, userId, steps, syncedAt)
+      const { error: actErr } = await upsertActivityLogDailySteps(supabase, userId, {
+        steps,
+        syncedAt,
+        source: 'Health Connect',
+        activityDate,
+      })
       if (actErr) {
         console.error('[health-connect/sync] activity_logs upsert:', actErr.message ?? actErr)
       }

@@ -3,28 +3,34 @@ import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/sup
 import { z } from 'zod'
 import { parseJsonBody } from '@/lib/api/validation'
 import { apiServerError } from '@/lib/api/response'
+import { upsertActivityLogDailySteps } from '@/lib/activity/upsertActivityLogDailySteps'
 
 const AppleHealthSyncSchema = z.object({
   steps: z.number(),
   source: z.string().trim().min(1).optional(),
   syncedAt: z.string().optional(),
+  /** Device-local civil date (YYYY-MM-DD) for the step total — not server UTC day. */
+  activityDate: z.string().optional(),
 })
 
 /**
  * POST /api/apple-health/sync
  *
  * This endpoint is designed for a native iOS client (or backend worker)
- * that has access to Apple Health / Apple Watch data via HealthKit.
+ * that reads Apple Health via HealthKit. HealthKit often aggregates iPhone
+ * motion and Apple Watch into one step total—pass that value through; there is
+ * no separate phone-only sync path in ShiftCoach.
  *
  * It mirrors the behaviour of /api/wearables/sync (Google Fit):
- * - Upserts today's steps into activity_logs
+ * - Upserts daily steps into activity_logs (by activityDate when provided, else legacy UTC-day window)
  * - Records the wearable source as "Apple Health"
  *
  * Request body (JSON):
  * {
- *   steps: number;          // total steps for "today"
- *   source?: string;        // optional label for the wearable source
- *   syncedAt?: string;      // optional ISO timestamp when sync occurred
+ *   steps: number;
+ *   source?: string;
+ *   syncedAt?: string;
+ *   activityDate?: string;  // YYYY-MM-DD logical day for steps (recommended)
  * }
  *
  * This does NOT talk to Apple directly; your iOS app should call this after
@@ -36,83 +42,26 @@ export async function POST(req: NextRequest) {
     const { userId } = await getServerSupabaseAndUserId()
     if (!userId) return buildUnauthorizedResponse()
 
-
     const parsed = await parseJsonBody(req, AppleHealthSyncSchema)
     if (!parsed.ok) return parsed.response
     const steps = Math.max(0, Math.round(parsed.data.steps))
     const sourceOverride = parsed.data.source ?? null
     const syncedAt = parsed.data.syncedAt ?? new Date().toISOString()
+    const activityDate = parsed.data.activityDate
 
     const { supabaseServer } = await import('@/lib/supabase-server')
     const supabase = supabaseServer
 
-    const today = new Date().toISOString().slice(0, 10)
-    const startIso = new Date(today + 'T00:00:00Z').toISOString()
-    const endIso = new Date(today + 'T23:59:59Z').toISOString()
-
-    // Try with ts column first
-    let existingQuery = await supabase
-      .from('activity_logs')
-      .select('id, steps, ts, source')
-      .eq('user_id', userId)
-      .gte('ts', startIso)
-      .lt('ts', endIso)
-      .order('ts', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (existingQuery.error && (existingQuery.error.code === '42703' || existingQuery.error.message?.includes('ts'))) {
-      existingQuery = await supabase
-        .from('activity_logs')
-        .select('id, steps, created_at, source')
-        .eq('user_id', userId)
-        .gte('created_at', startIso)
-        .lt('created_at', endIso)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-    }
-
     const sourceLabel = sourceOverride || 'Apple Health'
 
-    if (!existingQuery.error && existingQuery.data) {
-      const { error: updateError } = await supabase
-        .from('activity_logs')
-        .update({ steps, source: sourceLabel })
-        .eq('id', existingQuery.data.id)
-
-      if (updateError) {
-        console.error('[apple-health/sync] Error updating activity_logs:', updateError)
-      }
-    } else if (!existingQuery.error && !existingQuery.data) {
-      let insertQuery = await supabase
-        .from('activity_logs')
-        .insert({
-          user_id: userId,
-          steps,
-          source: sourceLabel,
-          ts: syncedAt,
-        })
-        .select('id')
-        .single()
-
-      if (insertQuery.error && (insertQuery.error.code === '42703' || insertQuery.error.message?.includes('ts'))) {
-        insertQuery = await supabase
-          .from('activity_logs')
-          .insert({
-            user_id: userId,
-            steps,
-            source: sourceLabel,
-          })
-          .select('id')
-          .single()
-      }
-
-      if (insertQuery.error) {
-        console.error('[apple-health/sync] Error inserting activity_logs:', insertQuery.error)
-      }
-    } else if (existingQuery.error) {
-      console.warn('[apple-health/sync] activity_logs query error (non-fatal):', existingQuery.error.message)
+    const { error: actErr } = await upsertActivityLogDailySteps(supabase, userId, {
+      steps,
+      syncedAt,
+      source: sourceLabel,
+      activityDate,
+    })
+    if (actErr) {
+      console.error('[apple-health/sync] activity_logs upsert:', actErr.message ?? actErr)
     }
 
     return NextResponse.json(
@@ -131,5 +80,3 @@ export async function POST(req: NextRequest) {
     return apiServerError('unexpected_error', 'Unexpected error')
   }
 }
-
-

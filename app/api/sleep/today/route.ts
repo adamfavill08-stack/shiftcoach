@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
+import { fetchMergedPhoneHealthSleepSessionsOverlapping } from '@/lib/sleep/sleepRecordsSummaryFallback'
 
 // Cache for 30 seconds - sleep data updates when logged
 export const revalidate = 30
@@ -90,7 +91,38 @@ export async function GET(req: NextRequest) {
     }
 
     if (!data) {
-      return NextResponse.json({ sleep: null } satisfies SleepTodayPayload, { status: 200 })
+      const merged = await fetchMergedPhoneHealthSleepSessionsOverlapping(
+        supabase,
+        userId,
+        sinceIso,
+        now.toISOString(),
+      )
+      const pick = merged
+        .filter((s) => new Date(s.end_at).getTime() <= now.getTime())
+        .sort((a, b) => new Date(b.end_at).getTime() - new Date(a.end_at).getTime())[0]
+      if (!pick) {
+        return NextResponse.json({ sleep: null } satisfies SleepTodayPayload, { status: 200 })
+      }
+      const start = new Date(pick.start_at)
+      const end = new Date(pick.end_at)
+      const diffMs = end.getTime() - start.getTime()
+      const durationMinutes =
+        !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && diffMs > 0
+          ? Math.round(diffMs / 60000)
+          : null
+      return NextResponse.json(
+        {
+          sleep: {
+            id: `phone_health:${pick.start_at}:${pick.end_at}`,
+            start_ts: pick.start_at,
+            end_ts: pick.end_at,
+            quality: null,
+            naps: 0,
+            duration_min: durationMinutes,
+          },
+        } satisfies SleepTodayPayload,
+        { status: 200 },
+      )
     }
 
     let durationMinutes: number | null = null

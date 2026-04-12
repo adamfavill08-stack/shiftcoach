@@ -34,7 +34,7 @@ import org.json.JSONObject
 
 /**
  * Phone-side Health Connect → POST /api/health-connect/sync (session cookies from WebView).
- * Watch continues to read summaries from the backend.
+ * [StepsRecord] aggregation includes all sources the user allowed in Health Connect (watch, phone, apps).
  */
 @CapacitorPlugin(name = "ShiftCoachHealthConnect")
 class ShiftCoachHealthConnectPlugin : Plugin() {
@@ -183,6 +183,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 val body = JSONObject()
                 val stepsInt = stepsTotal.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
                 body.put("steps", stepsInt)
+                body.put("activityDate", ZonedDateTime.now(zone).toLocalDate().toString())
                 body.put("sleep", sleepArr)
                 body.put("heartRate", hrArr)
                 body.put("syncedAt", syncedAt)

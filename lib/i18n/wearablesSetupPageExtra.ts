@@ -8,7 +8,7 @@ export const wearablesSetupPageExtraEn: Record<string, string> = {
   'detail.wearablesSetup.samsungWearStep3':
     'Open ShiftCoach on both phone and watch once, and keep Bluetooth enabled.',
   'detail.wearablesSetup.samsungWearStep4':
-    'On Android, enable Health Connect and allow Samsung Health / watch app data sharing.',
+    'On Android, enable Health Connect and allow apps to share Steps (and sleep): Samsung Health, Google Fit where supported, and phone sensors can all write into Health Connect.',
   'detail.wearablesSetup.samsungWearStep5':
     'In ShiftCoach mobile, check the watch status pill. It should show “Watch app connected”.',
   'detail.wearablesSetup.samsungWearStep6':
@@ -21,6 +21,9 @@ export const wearablesSetupPageExtraEn: Record<string, string> = {
   'detail.wearablesSetup.legacyGoogleFitBanner':
     'Connected via legacy Google Fit. Android should migrate to Health Connect.',
   'detail.wearablesSetup.debugWearablesLink': 'Open wearables data health debug',
+  'detail.wearablesSetup.permissionHelpIntro': 'Having trouble with steps? Check permissions on your phone:',
+  'detail.wearablesSetup.helpLinkAppleLabel': 'iPhone: Motion & Fitness (Apple Support)',
+  'detail.wearablesSetup.helpLinkAndroidLabel': 'Android: Health Connect (Google Help)',
 
   'detail.wearablesSync.syncWearables': 'Sync wearables',
   'detail.wearablesSync.syncing': 'Syncing…',
@@ -45,7 +48,7 @@ export const wearablesSetupPageExtraEs: Record<string, string> = {
   'detail.wearablesSetup.samsungWearStep3':
     'Abre ShiftCoach una vez en móvil y reloj y mantén el Bluetooth activado.',
   'detail.wearablesSetup.samsungWearStep4':
-    'En Android, activa Health Connect y permite compartir datos de Samsung Health / app del reloj.',
+    'En Android, activa Health Connect y permite que las apps compartan Pasos (y sueño): Samsung Health, Google Fit si aplica, y sensores del móvil pueden escribir en Health Connect.',
   'detail.wearablesSetup.samsungWearStep5':
     'En ShiftCoach móvil, revisa el indicador del reloj. Debería mostrar «App del reloj conectada».',
   'detail.wearablesSetup.samsungWearStep6':
@@ -58,6 +61,9 @@ export const wearablesSetupPageExtraEs: Record<string, string> = {
   'detail.wearablesSetup.legacyGoogleFitBanner':
     'Conectado con Google Fit heredado. En Android conviene pasar a Health Connect.',
   'detail.wearablesSetup.debugWearablesLink': 'Abrir depuración de datos de wearables',
+  'detail.wearablesSetup.permissionHelpIntro': '¿Problemas con los pasos? Revisa los permisos en el móvil:',
+  'detail.wearablesSetup.helpLinkAppleLabel': 'iPhone: Movimiento y fitness (soporte Apple)',
+  'detail.wearablesSetup.helpLinkAndroidLabel': 'Android: Health Connect (ayuda de Google)',
 
   'detail.wearablesSync.syncWearables': 'Sincronizar wearables',
   'detail.wearablesSync.syncing': 'Sincronizando…',
@@ -82,7 +88,7 @@ export const wearablesSetupPageExtraDe: Record<string, string> = {
   'detail.wearablesSetup.samsungWearStep3':
     'Öffne ShiftCoach einmal auf Handy und Uhr und lasse Bluetooth aktiviert.',
   'detail.wearablesSetup.samsungWearStep4':
-    'Aktiviere auf Android Health Connect und erlaube die Datenfreigabe für Samsung Health / Uhren-App.',
+    'Aktiviere auf Android Health Connect und erlaube Apps die Freigabe für Schritte (und Schlaf): Samsung Health, ggf. Google Fit, und Handy-Sensoren können in Health Connect schreiben.',
   'detail.wearablesSetup.samsungWearStep5':
     'In der ShiftCoach-App prüfe den Uhren-Status. Er sollte „Watch-App verbunden“ anzeigen.',
   'detail.wearablesSetup.samsungWearStep6':
@@ -95,6 +101,9 @@ export const wearablesSetupPageExtraDe: Record<string, string> = {
   'detail.wearablesSetup.legacyGoogleFitBanner':
     'Verbunden über älteres Google Fit. Auf Android solltest du zu Health Connect wechseln.',
   'detail.wearablesSetup.debugWearablesLink': 'Wearables-Daten-Debug öffnen',
+  'detail.wearablesSetup.permissionHelpIntro': 'Probleme mit Schritten? Prüfe die Berechtigungen auf dem Handy:',
+  'detail.wearablesSetup.helpLinkAppleLabel': 'iPhone: Bewegung & Fitness (Apple Support)',
+  'detail.wearablesSetup.helpLinkAndroidLabel': 'Android: Health Connect (Google-Hilfe)',
 
   'detail.wearablesSync.syncWearables': 'Wearables synchronisieren',
   'detail.wearablesSync.syncing': 'Wird synchronisiert…',
@@ -119,7 +128,7 @@ export const wearablesSetupPageExtraFr: Record<string, string> = {
   'detail.wearablesSetup.samsungWearStep3':
     'Ouvrez ShiftCoach une fois sur les deux appareils et gardez le Bluetooth activé.',
   'detail.wearablesSetup.samsungWearStep4':
-    'Sur Android, activez Health Connect et autorisez le partage Samsung Health / appli montre.',
+    'Sur Android, activez Health Connect et autorisez le partage des Pas (et sommeil) : Samsung Health, Google Fit le cas échéant, et les capteurs du téléphone peuvent écrire dans Health Connect.',
   'detail.wearablesSetup.samsungWearStep5':
     'Dans ShiftCoach mobile, vérifiez le pastille montre : elle doit afficher « Appli montre connectée ».',
   'detail.wearablesSetup.samsungWearStep6':
@@ -132,6 +141,9 @@ export const wearablesSetupPageExtraFr: Record<string, string> = {
   'detail.wearablesSetup.legacyGoogleFitBanner':
     'Connecté via l’ancien Google Fit. Sur Android, migrez vers Health Connect.',
   'detail.wearablesSetup.debugWearablesLink': 'Ouvrir le débogage données wearables',
+  'detail.wearablesSetup.permissionHelpIntro': 'Problème de pas ? Vérifiez les autorisations sur le téléphone :',
+  'detail.wearablesSetup.helpLinkAppleLabel': 'iPhone : Mouvement et forme (assistance Apple)',
+  'detail.wearablesSetup.helpLinkAndroidLabel': 'Android : Health Connect (aide Google)',
 
   'detail.wearablesSync.syncWearables': 'Synchroniser les wearables',
   'detail.wearablesSync.syncing': 'Synchronisation…',
@@ -156,7 +168,7 @@ export const wearablesSetupPageExtraPtBR: Record<string, string> = {
   'detail.wearablesSetup.samsungWearStep3':
     'Abra o ShiftCoach uma vez no celular e no relógio e mantenha o Bluetooth ligado.',
   'detail.wearablesSetup.samsungWearStep4':
-    'No Android, ative o Health Connect e permita o compartilhamento do Samsung Health / app do relógio.',
+    'No Android, ative o Health Connect e permita que apps compartilhem Passos (e sono): Samsung Health, Google Fit quando aplicável, e sensores do celular podem gravar no Health Connect.',
   'detail.wearablesSetup.samsungWearStep5':
     'No ShiftCoach no celular, confira o indicador do relógio. Deve mostrar “App do relógio conectada”.',
   'detail.wearablesSetup.samsungWearStep6':
@@ -169,6 +181,9 @@ export const wearablesSetupPageExtraPtBR: Record<string, string> = {
   'detail.wearablesSetup.legacyGoogleFitBanner':
     'Conectado pelo Google Fit legado. No Android, migre para o Health Connect.',
   'detail.wearablesSetup.debugWearablesLink': 'Abrir depuração de dados de wearables',
+  'detail.wearablesSetup.permissionHelpIntro': 'Problemas com passos? Verifique as permissões no celular:',
+  'detail.wearablesSetup.helpLinkAppleLabel': 'iPhone: Movimento e condicionamento físico (suporte Apple)',
+  'detail.wearablesSetup.helpLinkAndroidLabel': 'Android: Health Connect (ajuda Google)',
 
   'detail.wearablesSync.syncWearables': 'Sincronizar wearables',
   'detail.wearablesSync.syncing': 'Sincronizando…',
@@ -193,7 +208,7 @@ export const wearablesSetupPageExtraPl: Record<string, string> = {
   'detail.wearablesSetup.samsungWearStep3':
     'Otwórz ShiftCoach raz na telefonie i zegarku i zostaw włączony Bluetooth.',
   'detail.wearablesSetup.samsungWearStep4':
-    'Na Androidzie włącz Health Connect i zezwól na udostępnianie danych Samsung Health / aplikacji zegarka.',
+    'Na Androidzie włącz Health Connect i zezwól aplikacjom udostępniać Kroki (i sen): Samsung Health, Google Fit jeśli dotyczy, a czujniki telefonu też mogą zapisywać dane w Health Connect.',
   'detail.wearablesSetup.samsungWearStep5':
     'W aplikacji ShiftCoach sprawdź status zegarka — powinno być „Aplikacja zegarka połączona”.',
   'detail.wearablesSetup.samsungWearStep6':
@@ -206,6 +221,9 @@ export const wearablesSetupPageExtraPl: Record<string, string> = {
   'detail.wearablesSetup.legacyGoogleFitBanner':
     'Połączenie przez starsze Google Fit. Na Androidzie warto przejść na Health Connect.',
   'detail.wearablesSetup.debugWearablesLink': 'Otwórz debug danych wearables',
+  'detail.wearablesSetup.permissionHelpIntro': 'Problem z krokami? Sprawdź uprawnienia w telefonie:',
+  'detail.wearablesSetup.helpLinkAppleLabel': 'iPhone: Ruch i fitness (wsparcie Apple)',
+  'detail.wearablesSetup.helpLinkAndroidLabel': 'Android: Health Connect (pomoc Google)',
 
   'detail.wearablesSync.syncWearables': 'Synchronizuj wearables',
   'detail.wearablesSync.syncing': 'Synchronizacja…',

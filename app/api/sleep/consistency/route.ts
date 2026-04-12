@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
+import { fetchMergedPhoneHealthSleepSessionsOverlapping } from '@/lib/sleep/sleepRecordsSummaryFallback'
 import { rowCountsAsPrimarySleep } from '@/lib/sleep/utils'
 
 export const dynamic = 'force-dynamic'
@@ -90,11 +91,26 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    if (!sleepLogsArray || sleepLogsArray.length === 0) {
-      return NextResponse.json({ consistencyScore: null, error: 'No sleep data available' }, { status: 200 })
-    }
+    const mainFromLogs = (sleepLogsArray ?? []).filter((log: any) => rowCountsAsPrimarySleep(log))
 
-    const mainSleepSessions = sleepLogsArray.filter((log: any) => rowCountsAsPrimarySleep(log))
+    let mainSleepSessions: any[] = mainFromLogs
+
+    if (mainFromLogs.length === 0) {
+      const merged = await fetchMergedPhoneHealthSleepSessionsOverlapping(
+        supabase,
+        userId,
+        sevenDaysAgo.toISOString(),
+        new Date().toISOString(),
+      )
+      if (merged.length >= 2) {
+        mainSleepSessions = merged.map((s) => ({
+          start_at: s.start_at,
+          end_at: s.end_at,
+          start_ts: s.start_at,
+          end_ts: s.end_at,
+        }))
+      }
+    }
 
     if (mainSleepSessions.length < 2) {
       // Need at least 2 main sleep sessions to calculate consistency

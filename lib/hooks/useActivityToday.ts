@@ -5,11 +5,37 @@ import { authedFetch } from '@/lib/supabase/authedFetch'
 import type { IntensityBreakdown } from '@/lib/activity/calculateIntensityBreakdown'
 import type { ShiftMovementPlan } from '@/lib/activity/generateShiftMovementPlan'
 import type { MovementConsistencyResult } from '@/lib/activity/calculateMovementConsistency'
+import type { ShiftStepsDuringShiftDay } from '@/lib/activity/computeShiftStepsDuringShifts'
+import type { ActivityIntelligence } from '@/lib/activity/activityIntelligence'
+import type { ActivityPersonalizationPayload } from '@/lib/activity/personalizedActivityTargets'
+import type { ActivityPersonalizationAgentPayload } from '@/lib/activity/computeAdaptedStepGoalAgent'
+
+/** API may return legacy personalization (intensity multiplier) or adapted-step agent audit payload. */
+export type ActivityPersonalizationFromApi =
+  | ActivityPersonalizationPayload
+  | ActivityPersonalizationAgentPayload
+
+export function isLegacyActivityPersonalization(
+  p: ActivityPersonalizationFromApi | undefined,
+): p is ActivityPersonalizationPayload {
+  return p != null && 'effectiveStepGoal' in p && 'intensityTargetMultiplier' in p
+}
+
+export function isAgentActivityPersonalization(
+  p: ActivityPersonalizationFromApi | undefined,
+): p is ActivityPersonalizationAgentPayload {
+  return p != null && 'computedAt' in p && 'explanation' in p && 'factors' in p
+}
 
 export type ActivityToday = {
   source?: 'apple' | 'fitbit' | 'google' | 'manual' | 'unknown'
   steps?: number
   stepTarget?: number
+  /** Daily steps goal from profile (same as API `goal`). */
+  goal?: number
+  /** Personalized step target (sleep, shift, recovery, learned rhythm). */
+  adaptedStepGoal?: number
+  activityPersonalization?: ActivityPersonalizationFromApi
   activeMinutes?: number
   intensity?: 'light' | 'moderate' | 'vigorous' | 'mixed'
   mostActiveWindow?: { start: string; end: string } | null
@@ -53,12 +79,100 @@ export type ActivityToday = {
 
   /** Rota calendar day (YYYY-MM-DD) aligned with /api/activity/today window; use when saving shift demand. */
   date?: string
+
+  activityIntelligence?: ActivityIntelligence | null
+
+  /** 24 local-hour buckets (0–23) for chart; from sync history or estimated from daily total. */
+  stepsByHour?: number[]
+  /** Start instant for hour index 0 when buckets are shift-window–anchored (see /api/activity/today). */
+  stepsByHourAnchorStart?: string | null
+
+  /** Steps attributed to each rota shift window, last 7 civil days (oldest → newest). */
+  shiftStepsLast7Days?: ShiftStepsDuringShiftDay[]
+}
+
+const SHIFT_TYPES = new Set(['day', 'night', 'off', 'other'])
+
+function parseShiftStepsLast7Days(raw: unknown): ShiftStepsDuringShiftDay[] | undefined {
+  if (!Array.isArray(raw) || raw.length !== 7) return undefined
+  const out: ShiftStepsDuringShiftDay[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') return undefined
+    const o = item as Record<string, unknown>
+    if (typeof o.date !== 'string') return undefined
+    const st = o.shiftType
+    const shiftType =
+      st === null || st === undefined
+        ? null
+        : typeof st === 'string' && SHIFT_TYPES.has(st)
+          ? (st as ShiftStepsDuringShiftDay['shiftType'])
+          : null
+    out.push({
+      date: o.date,
+      dayLabel: typeof o.dayLabel === 'string' ? o.dayLabel : '?',
+      steps: typeof o.steps === 'number' && Number.isFinite(o.steps) ? Math.max(0, Math.round(o.steps)) : 0,
+      hasData: o.hasData === true,
+      hasWorkShift: o.hasWorkShift === true,
+      shiftType,
+    })
+  }
+  return out
+}
+
+function parseFactors(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== 'object') return {}
+  const out: Record<string, number> = {}
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof v === 'number' && Number.isFinite(v)) out[k] = v
+  }
+  return out
+}
+
+function parseActivityPersonalization(raw: unknown): ActivityPersonalizationFromApi | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const o = raw as Record<string, unknown>
+
+  // Adapted-step agent payload (/api/activity/today success path)
+  if (
+    typeof o.computedAt === 'string' &&
+    typeof o.explanation === 'string' &&
+    o.factors != null &&
+    typeof o.factors === 'object' &&
+    Array.isArray(o.reasons)
+  ) {
+    return {
+      reasons: o.reasons.filter((x): x is string => typeof x === 'string'),
+      factors: parseFactors(o.factors),
+      computedAt: o.computedAt,
+      explanation: o.explanation,
+    }
+  }
+
+  // Legacy payload (error stub or older API)
+  if (
+    typeof o.profileStepGoal === 'number' &&
+    typeof o.effectiveStepGoal === 'number' &&
+    typeof o.intensityTargetMultiplier === 'number'
+  ) {
+    const reasons = Array.isArray(o.reasons)
+      ? o.reasons.filter((x): x is string => typeof x === 'string')
+      : []
+    return {
+      profileStepGoal: Math.round(o.profileStepGoal),
+      effectiveStepGoal: Math.round(o.effectiveStepGoal),
+      intensityTargetMultiplier: o.intensityTargetMultiplier,
+      reasons,
+    }
+  }
+
+  return undefined
 }
 
 const fallback: ActivityToday = {
   source: 'unknown',
   steps: 0,
   stepTarget: 9000,
+  goal: 10000,
   activeMinutes: 0,
   intensity: 'light',
   mostActiveWindow: null,
@@ -80,9 +194,14 @@ export function useActivityToday() {
     let cancelled = false
     const fetchData = async () => {
       try {
-        const res = await authedFetch('/api/activity/today', { cache: 'no-store' })
+        const tz =
+          typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : ''
+        const qs = tz ? `?tz=${encodeURIComponent(tz)}` : ''
+        const res = await authedFetch(`/api/activity/today${qs}`, { cache: 'no-store' })
         if (!res.ok) throw new Error(String(res.status))
         const json = await res.json()
+        const rawPersonalization = json.activity?.activityPersonalization
+        const parsedPersonalization = parseActivityPersonalization(rawPersonalization)
         if (!cancelled) {
           setData({ 
             ...fallback, 
@@ -114,6 +233,28 @@ export function useActivityToday() {
             // Movement consistency
             movementConsistency: json.activity?.movementConsistency ?? 0,
             movementConsistencyData: json.activity?.movementConsistencyData ?? undefined,
+            activityIntelligence: json.activity?.activityIntelligence ?? undefined,
+            stepsByHour:
+              Array.isArray(json.activity?.stepsByHour) && json.activity.stepsByHour.length === 24
+                ? json.activity.stepsByHour.map((n: unknown) =>
+                    typeof n === 'number' && Number.isFinite(n) ? Math.max(0, n) : 0,
+                  )
+                : undefined,
+            stepsByHourAnchorStart:
+              json.activity && 'stepsByHourAnchorStart' in json.activity
+                ? (json.activity as { stepsByHourAnchorStart: string | null }).stepsByHourAnchorStart
+                : undefined,
+            shiftStepsLast7Days: parseShiftStepsLast7Days(json.activity?.shiftStepsLast7Days),
+            adaptedStepGoal:
+              typeof json.activity?.adaptedStepGoal === 'number' &&
+              Number.isFinite(json.activity.adaptedStepGoal)
+                ? Math.round(json.activity.adaptedStepGoal)
+                : undefined,
+            activityPersonalization:
+              parsedPersonalization ??
+              (rawPersonalization && typeof rawPersonalization === 'object'
+                ? (rawPersonalization as ActivityPersonalizationFromApi)
+                : undefined),
           })
         }
       } catch {

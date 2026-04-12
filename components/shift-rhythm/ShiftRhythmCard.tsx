@@ -775,7 +775,7 @@ function HomeActivityCard() {
   const { data, loading } = useActivityToday();
 
   const steps = data?.steps ?? 0;
-  const goal = data?.stepTarget ?? 9000;
+  const goal = data?.adaptedStepGoal ?? data?.goal ?? data?.stepTarget ?? 9000;
   const activeMinutes = data?.activeMinutes ?? 0;
   const calories = data?.estimatedCaloriesBurned ?? 0;
 

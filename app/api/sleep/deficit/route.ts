@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
+import { aggregateSleepMinutesForDeficitWindow } from '@/lib/sleep/aggregateSleepMinutesForDeficitWindow'
 import { calculateSleepDeficit } from '@/lib/sleep/calculateSleepDeficit'
-import { rowCountsAsPrimarySleep } from '@/lib/sleep/utils'
 
 // Cache for 30 seconds - sleep deficit updates when sleep is logged
 export const revalidate = 30
@@ -22,60 +22,10 @@ export async function GET(req: NextRequest) {
 
     const requiredDailyHours = 7.5; // Default requirement
 
-    // Get last 7 days of sleep data
-    const now = new Date()
-    const sevenAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0)
-    
-    // Helper to get local date string (YYYY-MM-DD) from a Date
-    const getLocalDateString = (date: Date): string => {
-      const year = date.getFullYear()
-      const month = String(date.getMonth() + 1).padStart(2, '0')
-      const day = String(date.getDate()).padStart(2, '0')
-      return `${year}-${month}-${day}`
-    }
-    
-    // Helper to get local date from ISO string
-    const getLocalDateFromISO = (isoString: string): string => {
-      const date = new Date(isoString)
-      return getLocalDateString(date)
-    }
-
-    // Utility function to calculate minutes between two times
-    const minutesBetween = (a: string | Date, b: string | Date) => {
-      return Math.max(0, Math.round((+new Date(b) - +new Date(a)) / 60000))
-    }
-
-    // Try new schema first (start_at, end_at, type)
-    let weekLogs: any[] = []
-    let weekErr: any = null
-    
-    let weekResult = await supabase
-      .from('sleep_logs')
-      .select('*')
-      .eq('user_id', userId)
-      .gte('start_at', sevenAgo.toISOString())
-      .order('start_at', { ascending: true })
-    
-    weekLogs = weekResult.data || []
-    weekErr = weekResult.error
-    
-    // If new schema fails, try old schema
-    if (weekErr && (weekErr.message?.includes("start_at") || weekErr.message?.includes("type") || weekErr.code === 'PGRST204')) {
-      console.log('[api/sleep/deficit] Trying old schema')
-      weekResult = await supabase
-        .from('sleep_logs')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('start_ts', sevenAgo.toISOString())
-        .order('start_ts', { ascending: true })
-      weekLogs = weekResult.data || []
-      weekErr = weekResult.error
-    }
-
-    if (weekErr) {
-      console.error('[api/sleep/deficit] Query error:', weekErr)
-      // If table doesn't exist, return empty data
-      if (weekErr.message?.includes('relation') || weekErr.message?.includes('does not exist')) {
+    const agg = await aggregateSleepMinutesForDeficitWindow(supabase, userId)
+    if (!agg.ok) {
+      console.error('[api/sleep/deficit] Query error:', agg.error)
+      if (agg.isMissingRelation) {
         return NextResponse.json({
           requiredDaily: requiredDailyHours,
           weeklyDeficit: 0,
@@ -83,48 +33,10 @@ export async function GET(req: NextRequest) {
           category: 'low',
         }, { status: 200 })
       }
-      return NextResponse.json({ error: weekErr.message }, { status: 500 })
+      return NextResponse.json({ error: agg.error.message ?? 'Query failed' }, { status: 500 })
     }
 
-    // Aggregate sleep by day (same logic as /api/sleep/summary)
-    const byDay: Record<string, number> = {}
-
-    // Initialize 7 days with 0
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(sevenAgo.getFullYear(), sevenAgo.getMonth(), sevenAgo.getDate() + i, 12, 0, 0, 0)
-      const key = getLocalDateString(d)
-      byDay[key] = 0
-    }
-
-    const mainSleepLogs = weekLogs.filter((row: any) => rowCountsAsPrimarySleep(row))
-
-    // Aggregate sleep by day (only main sleep, not naps)
-    for (const row of mainSleepLogs ?? []) {
-      const endTime = row.end_at || row.end_ts
-      const startTime = row.start_at || row.start_ts
-      if (!endTime || !startTime) continue
-      
-      // Use date column if available (old schema), otherwise extract local date from endTime
-      let key: string
-      if (row.date) {
-        key = row.date.slice(0, 10)
-      } else {
-        // Extract local date from endTime (sleep ends on the date it's logged for)
-        key = getLocalDateFromISO(endTime)
-      }
-      
-      if (!byDay[key]) {
-        // Date might be outside our 7-day window, skip it
-        continue
-      }
-      byDay[key] += minutesBetween(startTime, endTime)
-    }
-
-    // Convert to array format for calculation
-    const sleepData = Object.entries(byDay).map(([date, totalMinutes]) => ({
-      date,
-      totalMinutes,
-    }))
+    const sleepData = agg.sleepData
 
     // Calculate deficit
     const deficit = calculateSleepDeficit(sleepData, requiredDailyHours)

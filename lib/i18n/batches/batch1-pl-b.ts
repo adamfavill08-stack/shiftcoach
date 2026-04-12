@@ -112,6 +112,9 @@ export const batch1PlB: Record<string, string> = {
   'detail.common.backToDashboard': 'Wróć do pulpitu',
   'detail.common.loading': 'Ładowanie…',
   'detail.common.noData': 'Brak danych',
+  'detail.common.disclaimerBrand': 'SHIFTCOACH',
+  'detail.common.disclaimerLine1': 'Tylko aplikacja coachingowa; nie zastępuje porady medycznej.',
+  'detail.common.disclaimerLine2': 'W razie wątpliwości skonsultuj się ze specjalistą.',
   'detail.common.disclaimer':
     'Tylko aplikacja coachingowa; nie zastępuje porady medycznej. W razie wątpliwości skonsultuj się ze specjalistą.',
   'detail.common.goToDashboard': 'Idź do pulpitu',

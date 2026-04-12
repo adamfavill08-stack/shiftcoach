@@ -112,6 +112,9 @@ export const batch1PtBrB: Record<string, string> = {
   'detail.common.backToDashboard': 'Voltar ao painel',
   'detail.common.loading': 'Carregando…',
   'detail.common.noData': 'Sem dados',
+  'detail.common.disclaimerBrand': 'SHIFTCOACH',
+  'detail.common.disclaimerLine1': 'Apenas app de coaching; não substitui orientação médica.',
+  'detail.common.disclaimerLine2': 'Em caso de dúvidas de saúde, consulte um profissional.',
   'detail.common.disclaimer':
     'Apenas app de coaching; não substitui orientação médica. Em caso de dúvidas de saúde, consulte um profissional.',
   'detail.common.goToDashboard': 'Ir ao painel',

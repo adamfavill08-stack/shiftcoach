@@ -220,7 +220,8 @@ export default function HeartHealthPage() {
   })();
 
   const steps = activity?.steps ?? 0;
-  const stepTarget = activity?.stepTarget ?? 9000;
+  const stepTarget =
+    activity?.adaptedStepGoal ?? activity?.goal ?? activity?.stepTarget ?? 9000;
   const stepsPct = stepTarget > 0 ? Math.round((steps / stepTarget) * 100) : 0;
 
   const ringOuterProgress = stepTarget > 0 ? Math.min(1, steps / stepTarget) : 0;

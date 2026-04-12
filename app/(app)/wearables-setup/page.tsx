@@ -6,6 +6,11 @@ import { ChevronLeft, Watch, CheckCircle2, XCircle } from "lucide-react";
 import SyncWearableButton from "@/components/wearables/SyncWearableButton";
 import { useTranslation } from "@/components/providers/language-provider";
 
+/** OS help — Motion & Fitness (iPhone) and Health Connect (Android). */
+const HELP_APPLE_MOTION =
+  "https://support.apple.com/guide/iphone/change-motion-and-fitness-settings-iphb7926e9b9/ios";
+const HELP_ANDROID_HEALTH_CONNECT = "https://support.google.com/android/answer/12982602";
+
 type DeviceChoice = "apple" | "samsung" | "other";
 
 const deviceOptionBase =
@@ -120,6 +125,34 @@ export default function WearablesSetupPage() {
           <p className="text-sm leading-relaxed text-[var(--text-soft)]">
             {t("detail.wearablesSetup.intro2")}
           </p>
+
+          <div className="mt-2 rounded-xl border px-3 py-2.5" style={{ borderColor: "var(--border-subtle)" }}>
+            <p className="text-xs font-medium leading-snug text-[var(--text-main)]">
+              {t("detail.wearablesSetup.permissionHelpIntro")}
+            </p>
+            <ul className="mt-1.5 space-y-1 text-xs list-disc list-inside text-[var(--text-soft)]">
+              <li>
+                <a
+                  href={HELP_APPLE_MOTION}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-indigo-600 underline underline-offset-2 hover:opacity-90 dark:text-indigo-400"
+                >
+                  {t("detail.wearablesSetup.helpLinkAppleLabel")}
+                </a>
+              </li>
+              <li>
+                <a
+                  href={HELP_ANDROID_HEALTH_CONNECT}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-indigo-600 underline underline-offset-2 hover:opacity-90 dark:text-indigo-400"
+                >
+                  {t("detail.wearablesSetup.helpLinkAndroidLabel")}
+                </a>
+              </li>
+            </ul>
+          </div>
 
           <div className="mt-2 grid grid-cols-1 gap-3">
             <button

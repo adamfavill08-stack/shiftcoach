@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { predictSleepStages } from '@/lib/sleep/predictSleepStages'
+import { fetchMergedPhoneHealthSleepSessionsOverlapping } from '@/lib/sleep/sleepRecordsSummaryFallback'
 import {
   addCalendarDaysToYmd,
   endOfLocalDayUtcMs,
   formatYmdInTimeZone,
   isPrimarySleepType,
+  rowCountsAsPrimarySleep,
   splitSleepMinutesAcrossLocalDays,
   startOfLocalDayUtcMs,
 } from '@/lib/sleep/utils'
@@ -139,17 +141,33 @@ export async function GET(req: NextRequest) {
       byDay[key] = { date: key, total: 0 }
     }
 
-    for (const row of weekLogs ?? []) {
-      const endTime = row.end_at || row.end_ts
-      const startTime = row.start_at || row.start_ts
-      if (!endTime || !startTime) continue
+    const primaryRows = (weekLogs ?? []).filter((row: any) => rowCountsAsPrimarySleep(row))
 
-      // Ignore row.date: it often reflects import/start metadata and breaks alignment with logs.
-      // Split at local midnights so overnight sleep credits each calendar day correctly.
-      const pieces = splitSleepMinutesAcrossLocalDays(startTime, endTime, timeZone)
-      for (const [ymd, mins] of pieces) {
-        if (!dayKeySet.has(ymd) || !byDay[ymd]) continue
-        byDay[ymd].total += mins
+    if (primaryRows.length > 0) {
+      for (const row of primaryRows) {
+        const endTime = row.end_at || row.end_ts
+        const startTime = row.start_at || row.start_ts
+        if (!endTime || !startTime) continue
+
+        const pieces = splitSleepMinutesAcrossLocalDays(startTime, endTime, timeZone)
+        for (const [ymd, mins] of pieces) {
+          if (!dayKeySet.has(ymd) || !byDay[ymd]) continue
+          byDay[ymd].total += mins
+        }
+      }
+    } else {
+      const merged = await fetchMergedPhoneHealthSleepSessionsOverlapping(
+        supabase,
+        userId,
+        fetchFrom,
+        fetchThrough,
+      )
+      for (const s of merged) {
+        const pieces = splitSleepMinutesAcrossLocalDays(s.start_at, s.end_at, timeZone)
+        for (const [ymd, mins] of pieces) {
+          if (!dayKeySet.has(ymd) || !byDay[ymd]) continue
+          byDay[ymd].total += mins
+        }
       }
     }
 

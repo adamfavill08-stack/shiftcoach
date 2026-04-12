@@ -112,6 +112,9 @@ export const batch1FrB: Record<string, string> = {
   'detail.common.backToDashboard': 'Retour au tableau de bord',
   'detail.common.loading': 'Chargement…',
   'detail.common.noData': 'Aucune donnée',
+  'detail.common.disclaimerBrand': 'SHIFTCOACH',
+  'detail.common.disclaimerLine1': 'Application de coaching uniquement ; ne remplace pas un avis médical.',
+  'detail.common.disclaimerLine2': 'Consultez un professionnel de santé pour toute question.',
   'detail.common.disclaimer':
     'Application de coaching uniquement ; ne remplace pas un avis médical. Consultez un professionnel de santé pour toute question.',
   'detail.common.goToDashboard': 'Aller au tableau de bord',

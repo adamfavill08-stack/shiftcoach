@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { estimateSleepStages } from '@/lib/sleep/estimateSleepStages'
+import { loadPhoneHealthSleepForSummary } from '@/lib/sleep/sleepRecordsSummaryFallback'
 import { getShiftedDayKey, isPrimarySleepType, minutesBetween, qualityNumberToLabel } from '@/lib/sleep/utils'
 import type { SleepType } from '@/lib/sleep/types'
 
@@ -32,7 +33,7 @@ export async function GET(_req: NextRequest) {
 
     const logs = (data ?? []).filter((row: any) => row.start_at && row.end_at)
     const primaryLogs = logs.filter((row: any) => isPrimarySleepType(row.type as SleepType))
-    const lastNight = primaryLogs.length > 0 ? primaryLogs[0] : null
+    let lastNight: (typeof primaryLogs)[0] | null = primaryLogs.length > 0 ? primaryLogs[0] : null
 
     const grouped: Record<string, { dateISO: string; total: number; quality: string }> = {}
     for (let i = 6; i >= 0; i--) {
@@ -43,6 +44,16 @@ export async function GET(_req: NextRequest) {
         dateISO: new Date(`${key}T12:00:00.000Z`).toISOString(),
         total: 0,
         quality: '—',
+      }
+    }
+
+    if (primaryLogs.length === 0) {
+      const fb = await loadPhoneHealthSleepForSummary(supabase, userId, since, now)
+      if (fb.lastNight) {
+        lastNight = fb.lastNight as (typeof primaryLogs)[0]
+      }
+      for (const [key, mins] of fb.minutesByShiftedDay) {
+        if (grouped[key]) grouped[key].total += mins
       }
     }
 
