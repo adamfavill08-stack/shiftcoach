@@ -24,6 +24,10 @@ export const metadata: Metadata = {
     shortcut: '/faviconsvg.svg',
     apple: '/faviconsvg.svg',
   },
+  robots: {
+    index: false,
+    follow: false,
+  },
 }
 
 export const viewport: Viewport = {

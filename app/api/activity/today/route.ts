@@ -13,6 +13,8 @@ import { calculateRecoveryScore } from '@/lib/activity/calculateRecoveryScore'
 import { calculateActivityScore } from '@/lib/activity/calculateActivityScore'
 import { calculateMovementConsistency, type DailyActivityData } from '@/lib/activity/calculateMovementConsistency'
 import { toShiftType, toActivityShiftType } from '@/lib/shifts/toShiftType'
+import { isoLocalDate } from '@/lib/shifts'
+import { fetchHolidayLocalDatesSet } from '@/lib/rota/holidayRotaPriority'
 
 // Cache for 60 seconds - activity data updates throughout the day
 export const revalidate = 60
@@ -21,8 +23,9 @@ export async function GET(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
   if (!userId) return buildUnauthorizedResponse()
 
-  const today = new Date().toISOString().slice(0, 10)
   const now = new Date()
+  const localToday = isoLocalDate(now)
+  const today = localToday
   const nowIso = now.toISOString()
   const startOfDay = new Date(today + 'T00:00:00Z')
   const endOfDay = new Date(today + 'T23:59:59Z')
@@ -68,6 +71,11 @@ export async function GET(req: NextRequest) {
         .maybeSingle()
 
       currentShift = (lastStartedShift as any) ?? null
+    }
+
+    const holidayToday = await fetchHolidayLocalDatesSet(supabase, userId, localToday, localToday)
+    if (holidayToday.has(localToday)) {
+      currentShift = null
     }
 
     const windowStartDate =

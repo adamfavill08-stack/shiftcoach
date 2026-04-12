@@ -4,6 +4,11 @@ import { supabaseServer } from '@/lib/supabase-server'
 import { calculateCircadianPhase, type ShiftType } from '@/lib/circadian/calcCircadianPhase'
 import { getSleepDeficitForCircadian } from '@/lib/circadian/sleep'
 import { circadianOk, circadianUnavailable } from '@/lib/circadian/circadianCalculateApi'
+import { isoLocalDate } from '@/lib/shifts'
+import {
+  applyHolidayAsOffToShiftRows,
+  fetchHolidayLocalDatesSet,
+} from '@/lib/rota/holidayRotaPriority'
 
 // Cache for 60 seconds - circadian phase updates daily
 export const revalidate = 60
@@ -67,7 +72,7 @@ export async function GET(req: NextRequest) {
     }
 
     const today = new Date()
-    const todayDateString = today.toISOString().slice(0, 10) // YYYY-MM-DD format
+    const todayDateString = isoLocalDate(today)
 
     // Fast path: if we already have a recent circadian_logs row for this user,
     // reuse it instead of recalculating. This keeps behavior the same but moves
@@ -438,8 +443,16 @@ export async function GET(req: NextRequest) {
     let shiftType: ShiftType = 'day' // default
 
     if (!shiftError && shifts && shifts.length > 0) {
-      // Find the most recent non-OFF shift
-      const latestShift = shifts.find((s: { label: string | null; start_ts: string | null; date: string }) => s.label && s.label !== 'OFF')
+      const oldestShiftDate = shifts[shifts.length - 1]?.date ?? todayDateString
+      const holidayDates = await fetchHolidayLocalDatesSet(dbClient, userId, oldestShiftDate, todayDateString)
+      const shiftsAdjusted = applyHolidayAsOffToShiftRows(
+        shifts as { date: string; label: string | null; start_ts: string | null }[],
+        holidayDates,
+      )
+      // Find the most recent non-OFF shift (holidays override roster to OFF)
+      const latestShift = shiftsAdjusted.find(
+        (s: { label: string | null; start_ts: string | null; date: string }) => s.label && s.label !== 'OFF',
+      )
       
       if (latestShift) {
         try {
@@ -449,7 +462,7 @@ export async function GET(req: NextRequest) {
             latestShift.label,
             latestShift.start_ts,
             true, // check for rotating pattern
-            shifts
+            shiftsAdjusted,
           ) as ShiftType
         } catch (importError: any) {
           console.warn('[api/circadian/calculate] Failed to import toShiftType:', importError?.message || importError)

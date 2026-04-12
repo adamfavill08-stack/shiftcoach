@@ -6,6 +6,10 @@ import { getTodayHydrationIntake } from '@/lib/nutrition/getTodayHydrationIntake
 import { calculateBingeRisk } from '@/lib/binge/calculateBingeRisk'
 import { isoLocalDate } from '@/lib/shifts'
 import { toShiftType, toActivityShiftType } from '@/lib/shifts/toShiftType'
+import {
+  applyHolidayAsOffToShiftRows,
+  fetchHolidayLocalDatesSet,
+} from '@/lib/rota/holidayRotaPriority'
 
 export async function GET(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
@@ -75,7 +79,20 @@ export async function GET(req: NextRequest) {
       recentSleepRows = sleepResult.data ?? []
     }
 
-    const standardShift = toShiftType(todayShift?.label, todayShift?.start_ts)
+    const pastWeek = new Date(now)
+    pastWeek.setDate(pastWeek.getDate() - 7)
+    const holidayFrom = isoLocalDate(pastWeek)
+    const holidayDates = await fetchHolidayLocalDatesSet(supabase, userId, holidayFrom, today)
+
+    const effectiveTodayShift = holidayDates.has(today)
+      ? { ...(todayShift ?? {}), label: 'OFF', start_ts: null, end_ts: null }
+      : todayShift
+    const effectiveRecentShifts = applyHolidayAsOffToShiftRows(
+      (recentShifts ?? []) as { date: string; label?: string | null; start_ts?: string | null }[],
+      holidayDates,
+    )
+
+    const standardShift = toShiftType(effectiveTodayShift?.label, effectiveTodayShift?.start_ts)
     let shiftTypeForMeals: 'day' | 'night' | 'late' | 'off' = toActivityShiftType(standardShift)
     if (standardShift === 'evening') {
       shiftTypeForMeals = 'late'
@@ -85,8 +102,8 @@ export async function GET(req: NextRequest) {
     const { slots: mealSlots } = getTodayMealSchedule({
       adjustedCalories: calorieResult.adjustedCalories,
       shiftType: shiftTypeForMeals,
-      shiftStart: todayShift?.start_ts ? new Date(todayShift.start_ts) : undefined,
-      shiftEnd: todayShift?.end_ts ? new Date(todayShift.end_ts) : undefined,
+      shiftStart: effectiveTodayShift?.start_ts ? new Date(effectiveTodayShift.start_ts) : undefined,
+      shiftEnd: effectiveTodayShift?.end_ts ? new Date(effectiveTodayShift.end_ts) : undefined,
       wakeTime,
     })
 
@@ -104,7 +121,7 @@ export async function GET(req: NextRequest) {
         durationHours: s.sleep_hours ?? 0,
         quality: typeof s.quality === 'number' ? s.quality : null,
       })),
-      shifts: (recentShifts ?? []).map((s: any) => ({
+      shifts: effectiveRecentShifts.map((s: any) => ({
         date: s.date,
         type: toActivityShiftType(toShiftType(s.label, s.start_ts)) === 'late' ? 'afternoon' : (toActivityShiftType(toShiftType(s.label, s.start_ts)) as 'night' | 'day' | 'off' | 'morning' | 'afternoon'),
       })),
@@ -116,16 +133,16 @@ export async function GET(req: NextRequest) {
     }
     const bingeRiskResult = calculateBingeRisk(bingeInputs)
 
-    const shiftStart = todayShift?.start_ts
-      ? new Date(todayShift.start_ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const shiftStart = effectiveTodayShift?.start_ts
+      ? new Date(effectiveTodayShift.start_ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       : null
-    const shiftEnd = todayShift?.end_ts
-      ? new Date(todayShift.end_ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const shiftEnd = effectiveTodayShift?.end_ts
+      ? new Date(effectiveTodayShift.end_ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       : null
 
     return Response.json({
       shift: {
-        label: todayShift?.label ?? 'OFF',
+        label: effectiveTodayShift?.label ?? 'OFF',
         start: shiftStart,
         end: shiftEnd,
         sleep_goal_h: profile?.sleep_goal_h ?? 7.5,

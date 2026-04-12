@@ -1,4 +1,9 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { isoLocalDate } from '@/lib/shifts'
+import {
+  applyHolidayAsOffToShiftRows,
+  fetchHolidayLocalDatesSet,
+} from '@/lib/rota/holidayRotaPriority'
 import { toShiftType, type StandardShiftType } from '@/lib/shifts/toShiftType'
 import type {
   GuidanceMode,
@@ -344,5 +349,7 @@ export async function fetchShiftContext(
     return resolveShiftContextFromRows([], now)
   }
 
-  return resolveShiftContextFromRows((data ?? []) as ShiftRowInput[], now)
+  const holidayDates = await fetchHolidayLocalDatesSet(supabase as SupabaseClient, userId, from, to)
+  const rows = applyHolidayAsOffToShiftRows((data ?? []) as ShiftRowInput[], holidayDates)
+  return resolveShiftContextFromRows(rows, now)
 }

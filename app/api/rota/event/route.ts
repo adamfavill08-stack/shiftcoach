@@ -211,6 +211,7 @@ export async function POST(req: NextRequest) {
           all_day: true,
           color: body.color ?? '#FCD34D', // Yellow for holidays
           notes: body.description?.trim() || null,
+          type: 'holiday',
         })
 
         // Move to next day
@@ -268,6 +269,7 @@ export async function POST(req: NextRequest) {
         // Default to the same amber-yellow used in the UI if no explicit colour chosen
         color: body.color ?? '#FCD34D',
         notes: body.description?.trim() || null,
+        type: body.eventType || 'other',
       })
     }
 
@@ -285,6 +287,7 @@ export async function POST(req: NextRequest) {
         all_day: e.all_day,
         color: e.color,
         notes: e.notes,
+        type: e.type,
       })),
       // Legacy schema: date + start_time/end_time + all_day + notes
       () => eventsToCreate.map((e) => ({

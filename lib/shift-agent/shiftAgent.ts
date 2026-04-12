@@ -6,6 +6,10 @@ import type { AnalyserShiftInput } from '@/lib/shift-pattern-analyser/types'
 import { isoLocalDate } from '@/lib/shifts'
 import { filterShiftsIn72hWindow, computeUserShiftState } from '@/lib/shift-agent/computeUserShiftState'
 import type { ShiftAgentLogPayload, UserShiftState } from '@/lib/shift-agent/types'
+import {
+  applyHolidayAsOffToShiftRows,
+  fetchHolidayLocalDatesSet,
+} from '@/lib/rota/holidayRotaPriority'
 
 const LOG_PREFIX = '[shiftAgent]'
 const PATTERN_BACK_DAYS = 28
@@ -109,7 +113,9 @@ async function fetchShiftsForUser(
     return []
   }
 
-  return (data ?? []) as AnalyserShiftInput[]
+  const rows = (data ?? []) as AnalyserShiftInput[]
+  const holidayDates = await fetchHolidayLocalDatesSet(supabase, userId, fromY, toY)
+  return applyHolidayAsOffToShiftRows(rows, holidayDates)
 }
 
 export type RunShiftAgentOptions = {

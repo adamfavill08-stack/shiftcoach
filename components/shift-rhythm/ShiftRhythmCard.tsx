@@ -20,6 +20,7 @@ import { localizeBlogPostsEmbed } from "@/lib/i18n/blog";
 import { ExploreCarousel } from "@/components/dashboard/ExploreCarousel";
 import type { FatigueRiskResult } from "@/lib/fatigue/calculateFatigueRisk";
 import { authedFetch } from "@/lib/supabase/authedFetch";
+import { supabase } from "@/lib/supabase";
 import { useShiftState } from "@/components/providers/shift-state-provider";
 import { useCircadianState } from "@/components/providers/circadian-state-provider";
 import { applyUserShiftStateToMealTimingJson } from "@/lib/nutrition/applyUserShiftStateToMealTiming";
@@ -104,6 +105,14 @@ function ShiftRhythmCard({
     const fetchMoodFocus = async () => {
       try {
         const res = await authedFetch('/api/today');
+        // Session/cookies often lag right after sign-in; /api/today returns 401 — not a console error.
+        if (res.status === 401 || res.status === 403) {
+          if (!cancelled) {
+            setMood(3);
+            setFocus(3);
+          }
+          return;
+        }
         if (!res.ok) throw new Error(String(res.status));
         const json = await res.json();
         if (!cancelled) {
@@ -116,19 +125,27 @@ function ShiftRhythmCard({
         if (!cancelled) setIsLoadingMood(false);
       }
     };
-    
+
     fetchMoodFocus();
-    
-    // Listen for sleep refresh events to refetch mood/focus (in case they're related)
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        fetchMoodFocus();
+      }
+    });
+
     const handleSleepRefresh = () => {
       if (!cancelled) {
         fetchMoodFocus();
       }
     };
     window.addEventListener('sleep-refreshed', handleSleepRefresh);
-    
-    return () => { 
+
+    return () => {
       cancelled = true;
+      subscription.unsubscribe();
       window.removeEventListener('sleep-refreshed', handleSleepRefresh);
     };
   }, []);
