@@ -83,7 +83,7 @@ export const sleepUiMessagesEn: Record<string, string> = {
   'sleepSW.last30Title': 'Last 30 days',
   'sleepSW.last30Sub':
     'Pick a day to see if your sleep was enough for that shift, based on your profile.',
-  'sleepSW.editLogs': 'Edit logs',
+  'sleepSW.editLogs': 'Log sleep',
   'sleepSW.totalSleepShiftedDay': 'Total sleep that shifted day',
   'sleepSW.historyEmpty':
     'No sleep history in the last 30 days yet. Start logging to unlock guidance.',
@@ -108,6 +108,25 @@ export const sleepUiMessagesEn: Record<string, string> = {
   'sleepSW.syncFailed': 'Failed to sync wearables',
   'sleepSW.deleteSessionFailed': 'Failed to delete session',
 
+  'sleepSW.motivate.title': 'A note for you',
+  'sleepSW.motivate.noSleep':
+    '{name}, when you log your main sleep we can tailor this message to how you are really doing. Your recovery story starts with one honest entry.',
+  'sleepSW.motivate.highDebt':
+    '{name}, you are short on sleep versus your goal for this shifted day. Block time for recovery sleep soon — your next shift will feel the difference.',
+  'sleepSW.motivate.moderateDebt':
+    '{name}, you are a little under target today. Even an extra 30–60 minutes of protected sleep or a planned nap can steady your week.',
+  'sleepSW.motivate.ahead':
+    '{name}, you have met or passed your sleep target for this day. That is strong groundwork — keep protecting those windows when work gets intense.',
+  'sleepSW.motivate.strong':
+    '{name}, you are close to your ideal sleep for today. Small consistent wins like this are what shift workers bank for the hard weeks.',
+  'sleepSW.motivate.onTrack':
+    '{name}, you are in a solid range for today. Staying near your target through changing shifts is the real win — keep going.',
+  'sleepSW.motivate.catchUp':
+    '{name}, you are below target but not far off. A slightly earlier wind-down or a short recovery nap can put you back in the green.',
+  'sleepSW.motivate.low':
+    '{name}, sleep is quite short versus what your profile suggests. Treat rest as safety today — lighter plans where you can, and sleep before the next heavy run.',
+  'sleepSW.motivate.fallbackName': 'there',
+
   'sleepCard.last7': 'Last 7 days',
   'sleepCard.chartSub': 'Last 7 local days ending today · {target} h target',
   'sleepCard.chartSummarySegment': '{date}: {hours}',
@@ -130,9 +149,9 @@ export const sleepUiMessagesEn: Record<string, string> = {
   'sleepCard.btnSyncNow': 'Sync now',
   'sleepCard.btnLogSleep': 'Log sleep',
   'sleepCard.btnAddSleep': 'Add sleep',
-  'sleepCard.btnEditLogs': 'Edit logs',
+  'sleepCard.btnEditLogs': 'Log sleep',
   'sleepCard.btnLogManually': 'Log manually',
-  'sleepCard.btnEditToday': 'Edit today',
+  'sleepCard.btnEditToday': 'Edit sleep',
   'sleepCard.hl.logPostShift': 'Log post-shift sleep',
   'sleepCard.hl.postRecovery': 'Post-shift recovery needed',
   'sleepCard.hl.recoveryBelow': 'Recovery day - below target',
@@ -233,7 +252,11 @@ export const sleepUiMessagesEn: Record<string, string> = {
   'sleepDel.deleting': 'Deleting...',
   'sleepDel.closeAria': 'Close',
   'sleepCard.ariaChart': 'Sleep hours last seven local days. {summary}',
+  'sleepCard.ariaChartTarget': 'Green dotted line shows target {hours}.',
   'sleepCard.barTotalTitle': '{date}: {h}h total sleep',
+  'sleepCard.dayTotalCaption': 'Total sleep time',
+  'sleepCard.dayTotalHrsShort': 'hrs',
+  'sleepCard.dayTotalMinsShort': 'mins',
 
   'sleepType.main_sleep': 'Main sleep',
   'sleepType.post_shift_sleep': 'Post-shift sleep',
@@ -629,7 +652,7 @@ export const sleepUiMessagesEs: Record<string, string> = {
   'sleepSW.deficit': 'Déficit de sueño',
   'sleepSW.timelineTitle': 'Línea de tiempo 24 h',
   'sleepSW.last30Title': 'Últimos 30 días',
-  'sleepSW.editLogs': 'Editar registros',
+  'sleepSW.editLogs': 'Registrar sueño',
   'sleepSW.stagesTitle': 'Etapas del sueño',
   'sleepSW.weekMetricsError': 'No se pudieron cargar las métricas semanales.',
   'sleepSW.noWearable': 'Aún no hay wearable. Conéctalo en Configuración de wearables.',
@@ -639,9 +662,14 @@ export const sleepUiMessagesEs: Record<string, string> = {
   'sleepCard.chartSub': 'Últimos 7 días locales hasta hoy · objetivo {target} h',
   'sleepCard.chartSummarySegment': '{date}: {hours}',
   'sleepCard.chartHoursLabel': '{n} h',
+  'sleepCard.ariaChartTarget': 'La línea punteada verde marca el objetivo {hours}.',
+  'sleepCard.dayTotalCaption': 'Tiempo total de sueño',
+  'sleepCard.dayTotalHrsShort': 'h',
+  'sleepCard.dayTotalMinsShort': 'min',
   'sleepCard.btnLogSleep': 'Registrar sueño',
   'sleepCard.btnAddSleep': 'Añadir sueño',
-  'sleepCard.btnEditLogs': 'Editar registros',
+  'sleepCard.btnEditLogs': 'Registrar sueño',
+  'sleepCard.btnEditToday': 'Editar sueño',
   'sleepCard.durationHM': '{h} h {m} min',
   'sleep7.header': 'Últimos 7 días',
   'sleep7.today': 'Hoy',

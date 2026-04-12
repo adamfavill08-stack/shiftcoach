@@ -4,14 +4,13 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useLanguage, useTranslation } from '@/components/providers/language-provider'
-import { LOCALE_META } from '@/lib/i18n/supportedLocales'
-import { SleepTimelineBar } from './SleepTimelineBar'
+import { useTranslation } from '@/components/providers/language-provider'
 import { LogSleepModal } from './LogSleepModal'
 import { SleepEditModal } from './SleepEditModal'
 import { DeleteSleepConfirmModal } from './DeleteSleepConfirmModal'
+import { LastWorkBlockCard } from './LastWorkBlockCard'
+import { deriveSleepMotivationBand, SleepMotivationCard } from './SleepMotivationCard'
 import { ShiftSleepOverviewCard } from './ShiftSleepOverviewCard'
-import { getShiftAwareInsightKey } from '@/lib/sleep/coaching'
 import type { SleepLogInput, SleepType } from '@/lib/sleep/types'
 import {
   pickDefaultShiftedDay,
@@ -21,16 +20,6 @@ import {
 } from '@/lib/sleep/utils'
 import { authedFetch } from '@/lib/supabase/authedFetch'
 import { notifySleepLogsUpdated } from '@/lib/circadian/circadianAgent'
-
-type WeekSleepOverview = {
-  loading: boolean
-  error: string | null
-  weeklyDeficit: number | null
-  requiredDaily: number | null
-  category: string | null
-  consistencyScore: number | null
-  consistencyError: string | null
-}
 
 interface SleepSession {
   id: string
@@ -51,12 +40,6 @@ interface ShiftedDay {
   totalHours: number
 }
 
-interface SleepHistoryDay {
-  date: string
-  totalMinutes: number
-  shiftLabel: string
-}
-
 function extractApiErrorMessage(errorData: any, fallback: string): string {
   if (!errorData) return fallback
   if (typeof errorData.error === 'string' && errorData.error.trim()) return errorData.error
@@ -67,206 +50,6 @@ function extractApiErrorMessage(errorData: any, fallback: string): string {
     }
   }
   return fallback
-}
-
-function SleepMetricsCard({
-  targetHours,
-  targetLoading,
-  week,
-}: {
-  targetHours: number
-  targetLoading: boolean
-  week: WeekSleepOverview
-}) {
-  const { t } = useTranslation()
-  const weekLoading = week.loading
-  const deficitHours = week.weeklyDeficit
-  const deficitLabel =
-    deficitHours == null
-      ? '—'
-      : deficitHours <= 0
-        ? t('sleepSW.deficitAhead', { h: Math.abs(deficitHours).toFixed(1) })
-        : t('sleepSW.deficitBehind', { h: deficitHours.toFixed(1) })
-  const deficitSub =
-    deficitHours == null
-      ? week.error || t('sleepSW.deficitSubError')
-      : deficitHours <= 0
-        ? t('sleepSW.deficitSubAhead')
-        : t('sleepSW.deficitSubBehind')
-
-  const consistencyPct = week.consistencyScore
-  const consistencySub =
-    consistencyPct != null
-      ? t('sleepSW.consistencySub')
-      : week.consistencyError || t('sleepSW.consistencyNeedData')
-
-  return (
-    <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="space-y-1">
-          <p className="text-[11px] font-semibold tracking-[0.16em] text-[var(--text-muted)] uppercase">
-            {t('sleepSW.metricsTitle')}
-          </p>
-          <h2 className="text-sm font-semibold tracking-tight text-[var(--text-main)]">
-            {t('sleepSW.metricsHeading')}
-          </h2>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-3 text-xs">
-        <div className="space-y-1">
-          <p className="font-semibold tracking-[0.14em] uppercase text-[var(--text-muted)]">
-            {t('sleepSW.tonightTarget')}
-          </p>
-          <p className="text-lg font-semibold text-[var(--text-main)]">
-            {targetLoading ? '—' : `${targetHours.toFixed(1)}h`}
-          </p>
-          <p className="text-[11px] leading-snug text-[var(--text-soft)]">
-            {t('sleepSW.tonightHint')}
-          </p>
-        </div>
-
-        <div className="space-y-1">
-          <p className="font-semibold tracking-[0.14em] uppercase text-[var(--text-muted)]">
-            {t('sleepSW.consistency')}
-          </p>
-          {weekLoading ? (
-            <div className="mb-1 h-1.5 w-full rounded-full bg-[var(--card-subtle)] animate-pulse" />
-          ) : (
-            <div className="mb-1 h-1.5 w-full rounded-full bg-[var(--card-subtle)] overflow-hidden">
-              <div
-                className="h-full rounded-full bg-sky-500/80 dark:bg-sky-400/80 transition-[width] duration-300"
-                style={{ width: consistencyPct != null ? `${consistencyPct}%` : '0%' }}
-              />
-            </div>
-          )}
-          <p className="text-[11px] leading-snug text-[var(--text-muted)]">
-            {weekLoading
-              ? '…'
-              : consistencyPct != null
-                ? t('sleepSW.consistencyLine', { pct: consistencyPct })
-                : consistencySub}
-          </p>
-        </div>
-
-        <div className="space-y-1 text-right">
-          <p className="font-semibold tracking-[0.14em] uppercase text-[var(--text-muted)]">
-            {t('sleepSW.deficit')}
-          </p>
-          <p className="text-lg font-semibold text-[var(--text-main)]">
-            {weekLoading ? '—' : deficitLabel}
-          </p>
-          <p className="text-[11px] leading-snug text-[var(--text-soft)]">
-            {weekLoading ? '…' : deficitSub}
-          </p>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function SleepStageGrid() {
-  const { t } = useTranslation()
-  const stages = [
-    { label: t('sleepSW.stage.deep'), description: t('sleepSW.stageDesc.deep') },
-    { label: t('sleepSW.stage.rem'), description: t('sleepSW.stageDesc.rem') },
-    { label: t('sleepSW.stage.light'), description: t('sleepSW.stageDesc.light') },
-    { label: t('sleepSW.stage.awake'), description: t('sleepSW.stageDesc.awake') },
-  ]
-
-  return (
-    <section className="grid grid-cols-2 gap-3">
-      {stages.map((stage) => (
-        <div
-          key={stage.label}
-          className="rounded-lg border border-[var(--border-subtle)] bg-[var(--card)] px-4 py-3"
-        >
-          <div className="mb-1 flex items-center justify-between text-xs font-semibold text-[var(--text-soft)]">
-            <span className="uppercase tracking-[0.12em]">{stage.label}</span>
-            <span>0%</span>
-          </div>
-          <div className="mb-2 h-1.5 w-full rounded-full bg-[var(--card-subtle)]" />
-          <p className="text-[11px] leading-snug text-[var(--text-soft)]">
-            {stage.description}
-          </p>
-        </div>
-      ))}
-    </section>
-  )
-}
-
-function SleepDebtCard({ week }: { week: WeekSleepOverview }) {
-  const { t } = useTranslation()
-  const { loading, error, weeklyDeficit, category } = week
-
-  if (loading) {
-    return (
-      <div className="space-y-2">
-        <div className="h-4 w-32 bg-slate-200/70 dark:bg-slate-700/60 rounded animate-pulse" />
-        <div className="h-3 w-full bg-slate-200/70 dark:bg-slate-700/60 rounded animate-pulse" />
-      </div>
-    )
-  }
-
-  if (error || weeklyDeficit === null || category === null) {
-    return (
-      <div className="text-xs text-slate-500 dark:text-slate-400">
-        {error || t('sleepSW.debtNoData')}
-      </div>
-    )
-  }
-
-  const hoursBehind = weeklyDeficit
-  const absHours = Math.abs(hoursBehind).toFixed(1)
-  const isSurplus = hoursBehind <= 0
-
-  let label: string
-  let message: string
-  let toneClasses: string
-
-  if (isSurplus) {
-    label = t('sleepSW.debtBanked')
-    message = t('sleepSW.debtBankedMsg')
-    toneClasses = 'bg-emerald-50/80 text-emerald-700 border-emerald-200'
-  } else if (category === 'low') {
-    label = t('sleepSW.debtMild')
-    message = t('sleepSW.debtMildMsg')
-    toneClasses = 'bg-sky-50/80 text-sky-700 border-sky-200'
-  } else if (category === 'medium') {
-    label = t('sleepSW.debtModerate')
-    message = t('sleepSW.debtModerateMsg')
-    toneClasses = 'bg-amber-50/80 text-amber-700 border-amber-200'
-  } else {
-    label = t('sleepSW.debtHigh')
-    message = t('sleepSW.debtHighMsg')
-    toneClasses = 'bg-rose-50/80 text-rose-700 border-rose-200'
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-500 dark:text-slate-400">
-            {t('sleepSW.debtWeeklyTitle')}
-          </p>
-          <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-            {t('sleepSW.debtWeeklySub')}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">{t('sleepSW.behindAhead')}</p>
-          <p className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-            {isSurplus ? '-' : '+'}
-            {absHours}h
-          </p>
-        </div>
-      </div>
-      <div className={`rounded-2xl px-3 py-2 text-[11px] font-medium border ${toneClasses}`}>
-        <p className="text-[11px] mb-0.5">{label}</p>
-        <p className="text-[11px] font-normal opacity-90">{message}</p>
-      </div>
-    </div>
-  )
 }
 
 function getShiftAdjustedTargetMinutes(baseTargetMinutes: number, shiftLabel: string) {
@@ -283,22 +66,9 @@ function getShiftAdjustedTargetMinutes(baseTargetMinutes: number, shiftLabel: st
   }
 }
 
-const initialWeekOverview: WeekSleepOverview = {
-  loading: true,
-  error: null,
-  weeklyDeficit: null,
-  requiredDaily: null,
-  category: null,
-  consistencyScore: null,
-  consistencyError: null,
-}
-
 export function ShiftWorkerSleepPage() {
   const router = useRouter()
   const { t } = useTranslation()
-  const { language } = useLanguage()
-  const dateLocale = LOCALE_META[language]?.intl ?? 'en-GB'
-  const [weekSleepOverview, setWeekSleepOverview] = useState<WeekSleepOverview>(initialWeekOverview)
   const [shiftedDays, setShiftedDays] = useState<ShiftedDay[]>([])
   const [sevenDayChartBars, setSevenDayChartBars] = useState<SleepBarPoint[]>([])
   const [sevenDayCalendarDays, setSevenDayCalendarDays] = useState<
@@ -314,57 +84,13 @@ export function ShiftWorkerSleepPage() {
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // Last 30 days history for guidance
-  const [historyDays, setHistoryDays] = useState<SleepHistoryDay[]>([])
   const [shiftByDate, setShiftByDate] = useState<Map<string, string>>(new Map())
-  const [historyLoading, setHistoryLoading] = useState(true)
-  const [selectedHistoryDate, setSelectedHistoryDate] = useState<string | null>(null)
   const [sleepGoalHours, setSleepGoalHours] = useState<number | null>(null)
   const [hasWearableConnection, setHasWearableConnection] = useState(false)
   const [lastWearableSyncAt, setLastWearableSyncAt] = useState<number | null>(null)
   const [isWearableSyncing, setIsWearableSyncing] = useState(false)
   const [heroActionError, setHeroActionError] = useState<string | null>(null)
-
-  const getHistoryRating = useCallback(
-    (totalM: number) => {
-      const goal = sleepGoalHours ?? 7.5
-      if (!totalM || totalM <= 0) {
-        return {
-          label: t('sleepSW.rating.noneLabel'),
-          message: t('sleepSW.rating.noneMsg'),
-          tone: 'neutral' as const,
-        }
-      }
-      const hours = totalM / 60
-      if (hours >= goal + 0.5) {
-        return {
-          label: t('sleepSW.rating.greatLabel'),
-          message: t('sleepSW.rating.greatMsg'),
-          tone: 'good' as const,
-        }
-      }
-      if (hours >= goal - 0.5) {
-        return {
-          label: t('sleepSW.rating.okLabel'),
-          message: t('sleepSW.rating.okMsg'),
-          tone: 'ok' as const,
-        }
-      }
-      if (hours >= goal - 2) {
-        return {
-          label: t('sleepSW.rating.warnLabel'),
-          message: t('sleepSW.rating.warnMsg'),
-          tone: 'warn' as const,
-        }
-      }
-      return {
-        label: t('sleepSW.rating.badLabel'),
-        message: t('sleepSW.rating.badMsg'),
-        tone: 'bad' as const,
-      }
-    },
-    [t, sleepGoalHours],
-  )
+  const [profileFirstName, setProfileFirstName] = useState<string | null>(null)
 
   const selectedDayRef = useRef<string | null>(null)
   useEffect(() => {
@@ -375,46 +101,6 @@ export function ShiftWorkerSleepPage() {
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     [],
   )
-
-  const fetchWeekSleepOverview = useCallback(async () => {
-    setWeekSleepOverview((s) => ({ ...s, loading: true, error: null }))
-    try {
-      const [defRes, conRes] = await Promise.all([
-        authedFetch('/api/sleep/deficit', { cache: 'no-store' }),
-        authedFetch('/api/sleep/consistency', { cache: 'no-store' }),
-      ])
-      if (!defRes.ok) {
-        throw new Error(`deficit ${defRes.status}`)
-      }
-      const defJson = await defRes.json()
-      const conJson = conRes.ok ? await conRes.json().catch(() => ({})) : {}
-      setWeekSleepOverview({
-        loading: false,
-        error: null,
-        weeklyDeficit: defJson.weeklyDeficit ?? 0,
-        requiredDaily: defJson.requiredDaily ?? 7.5,
-        category: defJson.category ?? 'low',
-        consistencyScore:
-          typeof conJson.consistencyScore === 'number' ? conJson.consistencyScore : null,
-        consistencyError: typeof conJson.error === 'string' ? conJson.error : null,
-      })
-    } catch (err) {
-      console.error('[ShiftWorkerSleepPage] week metrics:', err)
-      setWeekSleepOverview({
-        loading: false,
-        error: t('sleepSW.weekMetricsError'),
-        weeklyDeficit: null,
-        requiredDaily: null,
-        category: null,
-        consistencyScore: null,
-        consistencyError: null,
-      })
-    }
-  }, [t])
-
-  useEffect(() => {
-    void fetchWeekSleepOverview()
-  }, [fetchWeekSleepOverview])
 
   // Fetch shifted day sleep data
   const fetchShiftedDays = useCallback(async (isInitial = false) => {
@@ -504,87 +190,30 @@ export function ShiftWorkerSleepPage() {
     void fetchSevenDayChart()
   }, [fetchSevenDayChart])
 
-  // Fetch profile-based sleep goal (takes into account age, sex, etc. set in profile)
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const res = await authedFetch('/api/profile', { cache: 'no-store' })
-        if (!res.ok) return
-        const json = await res.json()
-        const goal = json?.profile?.sleep_goal_h
-        if (typeof goal === 'number' && !Number.isNaN(goal) && goal > 0 && goal < 16) {
-          setSleepGoalHours(goal)
-        }
-      } catch (err) {
-        console.error('[ShiftWorkerSleepPage] profile fetch error:', err)
-      }
-    }
-
-    fetchProfile()
-  }, [])
-
-  // Fetch last 30 days history for guidance card
-  const fetchSleepHistory = useCallback(async () => {
+  const fetchProfileSleepAndName = useCallback(async () => {
     try {
-      setHistoryLoading(true)
-      const res = await authedFetch('/api/sleep/history', { cache: 'no-store' })
-      if (!res.ok) {
-        console.error('[ShiftWorkerSleepPage] history error:', res.status)
-        setHistoryDays([])
-        return
-      }
+      const res = await authedFetch('/api/profile', { cache: 'no-store' })
+      if (!res.ok) return
       const json = await res.json()
-      const items: any[] = json.items || []
-
-      const byDate: Record<string, { totalMinutes: number; shiftLabel: string }> = {}
-
-      for (const item of items) {
-        const date: string | null = item.date || null
-        if (!date) continue
-
-        const start = item.start_at
-        const end = item.end_at
-        let minutes = 0
-        if (start && end) {
-          minutes = Math.max(
-            0,
-            Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000),
-          )
-        }
-
-        if (!byDate[date]) {
-          byDate[date] = {
-            totalMinutes: 0,
-            shiftLabel: item.shift_label || 'OFF',
-          }
-        }
-        byDate[date].totalMinutes += minutes
-        if (byDate[date].shiftLabel === 'OFF' && item.shift_label) {
-          byDate[date].shiftLabel = item.shift_label
-        }
+      const goal = json?.profile?.sleep_goal_h
+      if (typeof goal === 'number' && !Number.isNaN(goal) && goal > 0 && goal < 16) {
+        setSleepGoalHours(goal)
       }
-
-      const entries: SleepHistoryDay[] = Object.entries(byDate)
-        .map(([date, v]) => ({
-          date,
-          totalMinutes: v.totalMinutes,
-          shiftLabel: v.shiftLabel,
-        }))
-        .sort((a, b) => (a.date < b.date ? 1 : -1))
-
-      setHistoryDays(entries)
-      setSelectedHistoryDate((prev) => prev ?? entries[0]?.date ?? null)
+      const rawName = json?.profile?.name
+      if (typeof rawName === 'string' && rawName.trim()) {
+        const first = rawName.trim().split(/\s+/)[0]
+        setProfileFirstName(first || null)
+      } else {
+        setProfileFirstName(null)
+      }
     } catch (err) {
-      console.error('[ShiftWorkerSleepPage] history fetch error:', err)
-      setHistoryDays([])
-    } finally {
-      setHistoryLoading(false)
+      console.error('[ShiftWorkerSleepPage] profile fetch error:', err)
     }
   }, [])
 
   useEffect(() => {
-    void fetchSleepHistory()
-  }, [fetchSleepHistory])
+    void fetchProfileSleepAndName()
+  }, [fetchProfileSleepAndName])
 
   const fetchShifts = useCallback(async () => {
     try {
@@ -634,20 +263,15 @@ export function ShiftWorkerSleepPage() {
 
   const refreshSleepPageData = useCallback(async () => {
     try {
-      await Promise.all([
-        fetchShiftedDays(false),
-        fetchSevenDayChart(),
-        fetchSleepHistory(),
-        fetchShifts(),
-        fetchWeekSleepOverview(),
-      ])
+      await Promise.all([fetchShiftedDays(false), fetchSevenDayChart(), fetchShifts()])
+      void fetchProfileSleepAndName()
       void authedFetch('/api/shift-rhythm?force=true').catch(() => {})
       void authedFetch('/api/sleep/tonight-target').catch(() => {})
       router.refresh()
     } catch (err) {
       console.error('[ShiftWorkerSleepPage] refresh error:', err)
     }
-  }, [fetchShiftedDays, fetchSevenDayChart, fetchSleepHistory, fetchShifts, fetchWeekSleepOverview, router])
+  }, [fetchShiftedDays, fetchSevenDayChart, fetchProfileSleepAndName, fetchShifts, router])
 
   const handleSyncWearable = useCallback(async () => {
     try {
@@ -769,7 +393,6 @@ export function ShiftWorkerSleepPage() {
   let napMinutes = 0
 
   const typeMinutes: Partial<Record<SleepType, number>> = {}
-  const sources = new Set<string>()
   let latestWearableSyncAt: number | null = null
   let primarySleepStartHour: number | null = null
   let longestPrimaryMinutes = 0
@@ -790,10 +413,6 @@ export function ShiftWorkerSleepPage() {
     }
 
     typeMinutes[s.type] = (typeMinutes[s.type] ?? 0) + minutes
-
-    if (s.source) {
-      sources.add(s.source)
-    }
 
     if (s.source && s.source !== 'manual') {
       const endTime = new Date(s.end_at).getTime()
@@ -850,40 +469,13 @@ export function ShiftWorkerSleepPage() {
     }
   }
 
-  let sourceSummary: 'none' | 'manual' | 'wearable' | 'mixed' = 'none'
-  if (sources.size === 1) {
-    const onlySource = Array.from(sources)[0]
-    sourceSummary = onlySource === 'manual' ? 'manual' : 'wearable'
-  } else if (sources.size > 1) {
-    sourceSummary = 'mixed'
-  }
-
   const sleepDebtMinutes = adjustedTargetMinutes > 0 ? Math.max(0, adjustedTargetMinutes - totalMinutes) : null
-  const smartInsight = t(
-    getShiftAwareInsightKey({
-      shiftLabel: shiftForDay,
-      totalMinutes,
-      targetMinutes: adjustedTargetMinutes,
-      primaryMinutes,
-      napMinutes,
-      dominantType,
-      sourceSummary,
-      sleepDebtMinutes,
-      circadianAlignment,
-    }),
-  )
-  const shiftedDayEnd = selectedDayData
-    ? new Date(new Date(selectedDayData.shiftedDayStart).getTime() + 24 * 60 * 60 * 1000).toISOString()
-    : ''
 
-  const calendarTimelineStart = `${calendarFocusYmd}T00:00:00`
-  const calendarTimelineEnd = `${calendarFocusYmd}T23:59:59.999`
-  const timelineSessions = useCalendarOverview
-    ? (calendarOverviewRow?.sessions ?? [])
-    : (selectedDayData?.sessions ?? [])
-  const showSleepTimeline =
-    timelineSessions.length > 0 &&
-    (useCalendarOverview ? Boolean(calendarOverviewRow) : Boolean(selectedDayData))
+  const motivationBand = deriveSleepMotivationBand({
+    totalMinutes,
+    adjustedTargetMinutes,
+    sleepDebtMinutes,
+  })
 
   // Show loading state
   if (loading && shiftedDays.length === 0) {
@@ -896,9 +488,6 @@ export function ShiftWorkerSleepPage() {
     )
   }
 
-  const selectedHistory =
-    historyDays.find((d) => d.date === selectedHistoryDate) || historyDays[0] || null
-
   return (
     <div className="w-full max-w-md mx-auto px-4 py-6 space-y-6">
       {/* Page header with back arrow */}
@@ -910,7 +499,7 @@ export function ShiftWorkerSleepPage() {
         >
           <ChevronLeft className="h-4 w-4" />
         </Link>
-        <h1 className="text-xs font-semibold tracking-[0.22em] text-[var(--text-soft)] uppercase">
+        <h1 className="text-sm font-semibold tracking-tight text-[var(--text-main)]">
           {t('sleepSW.pageTitle')}
         </h1>
       </div>
@@ -920,15 +509,12 @@ export function ShiftWorkerSleepPage() {
         targetMinutes={adjustedTargetMinutes}
         primaryMinutes={primaryMinutes}
         napMinutes={napMinutes}
-        sourceSummary={sourceSummary}
         dominantType={dominantType}
-        shiftLabel={shiftForDay}
         hasWearableConnection={hasWearableConnection}
         lastSyncAt={lastWearableSyncAt ?? latestWearableSyncAt}
         isWearableSyncing={isWearableSyncing}
         sleepDebtMinutes={sleepDebtMinutes}
         circadianAlignment={circadianAlignment}
-        smartInsight={smartInsight}
         actionError={heroActionError}
         onLogSleep={() => {
           setHeroActionError(null)
@@ -952,142 +538,21 @@ export function ShiftWorkerSleepPage() {
         chartTimeZone={userTimeZone}
       />
 
-      {/* Sleep metrics card */}
-      <SleepMetricsCard
-        targetHours={sleepGoalHours ?? 7.5}
-        targetLoading={sleepGoalHours == null}
-        week={weekSleepOverview}
-      />
+      <LastWorkBlockCard timeZone={userTimeZone} authedFetch={authedFetch} />
 
-      {/* Weekly sleep debt (Google Fit style) */}
-      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4">
-        <SleepDebtCard week={weekSleepOverview} />
-      </section>
+      <SleepMotivationCard profileFirstName={profileFirstName} band={motivationBand} />
 
-      {/* Sleep Timeline Bar */}
-      {showSleepTimeline && (
-        <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4">
-          <h2 className="mb-3 text-xs font-semibold tracking-[0.16em] uppercase text-[var(--text-muted)]">
-            {t('sleepSW.timelineTitle')}
-          </h2>
-          <SleepTimelineBar
-            sessions={timelineSessions}
-            shiftedDayStart={useCalendarOverview ? calendarTimelineStart : selectedDayData!.shiftedDayStart}
-            shiftedDayEnd={useCalendarOverview ? calendarTimelineEnd : shiftedDayEnd}
-            shiftLabel={shiftForDay}
-            onSessionClick={(session) => setEditingSession(session)}
-          />
-        </section>
-      )}
-
-      {/* 30-day sleep guide */}
-      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <div>
-            <h2 className="text-sm font-semibold tracking-tight text-[var(--text-main)]">
-              {t('sleepSW.last30Title')}
-            </h2>
-            <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-              {t('sleepSW.last30Sub')}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {historyDays.length > 0 && (
-              <select
-                className="rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-1 text-xs text-[var(--text-soft)]"
-                value={selectedHistory?.date ?? historyDays[0].date}
-                onChange={(e) => setSelectedHistoryDate(e.target.value)}
-              >
-                {historyDays.map((d) => {
-                  const dateObj = new Date(d.date + 'T12:00:00')
-                  const label = dateObj.toLocaleDateString(dateLocale, {
-                    weekday: 'short',
-                    day: 'numeric',
-                    month: 'short',
-                  })
-                  const shift = d.shiftLabel && d.shiftLabel !== 'OFF' ? ` · ${d.shiftLabel}` : ''
-                  return (
-                    <option key={d.date} value={d.date}>
-                      {label}{shift}
-                    </option>
-                  )
-                })}
-              </select>
-            )}
-            <Link
-              href="/sleep/history"
-              className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card)] px-3 py-1.5 text-[11px] font-medium text-[var(--text-soft)] hover:bg-[var(--card-subtle)]"
-            >
-              {t('sleepSW.editLogs')}
-            </Link>
-          </div>
-        </div>
-
-        {historyLoading && !selectedHistory ? (
-          <div className="py-6 space-y-2">
-            <div className="h-4 w-32 bg-slate-200/70 dark:bg-slate-700/60 rounded animate-pulse" />
-            <div className="h-3 w-full bg-slate-200/70 dark:bg-slate-700/60 rounded animate-pulse" />
-          </div>
-        ) : selectedHistory ? (
-          (() => {
-            const rating = getHistoryRating(selectedHistory.totalMinutes)
-            const hours = (selectedHistory.totalMinutes / 60) || 0
-            const toneClasses =
-              rating.tone === 'good'
-                ? 'bg-emerald-50/80 text-emerald-700 border-emerald-200'
-                : rating.tone === 'ok'
-                ? 'bg-sky-50/80 text-sky-700 border-sky-200'
-                : rating.tone === 'warn'
-                ? 'bg-amber-50/80 text-amber-700 border-amber-200'
-                : rating.tone === 'bad'
-                ? 'bg-rose-50/80 text-rose-700 border-rose-200'
-                : 'bg-slate-50/80 text-slate-700 border-slate-200'
-
-            return (
-              <div className="space-y-3">
-                <div className="flex items-baseline justify-between">
-                  <div>
-                    <p className="text-[11px] font-medium text-[var(--text-muted)]">
-                      {t('sleepSW.totalSleepShiftedDay')}
-                    </p>
-                    <p className="mt-0.5 text-2xl font-semibold text-[var(--text-main)]">
-                      {hours.toFixed(1)}h
-                    </p>
-                  </div>
-                  {selectedHistory.shiftLabel && selectedHistory.shiftLabel !== 'OFF' && (
-                    <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-2.5 py-0.5 text-[10px] text-[var(--text-soft)]">
-                      {selectedHistory.shiftLabel}
-                    </span>
-                  )}
-                </div>
-                <div
-                  className={`rounded-2xl px-3 py-2 text-[11px] font-medium border ${toneClasses}`}
-                >
-                  <p className="text-[11px] mb-0.5">{rating.label}</p>
-                  <p className="text-[11px] font-normal opacity-90">{rating.message}</p>
-                </div>
-              </div>
-            )
-          })()
-        ) : (
-          <p className="text-xs text-[var(--text-muted)]">
-            {t('sleepSW.historyEmpty')}
-          </p>
-        )}
-      </section>
-
-      {/* Sleep stages snapshot (de-emphasized) */}
-      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-5 py-4">
-        <div className="mb-3">
-          <h2 className="text-xs font-semibold tracking-[0.14em] uppercase text-[var(--text-muted)]">
-            {t('sleepSW.stagesTitle')}
-          </h2>
-          <p className="mt-1 text-[11px] text-[var(--text-soft)]">
-            {t('sleepSW.stagesSub')}
-          </p>
-        </div>
-        <SleepStageGrid />
-      </section>
+      <footer className="pt-6 pb-2 text-center">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+          {t('detail.common.disclaimerBrand')}
+        </p>
+        <p className="mt-2.5 text-[11px] leading-relaxed text-[var(--text-muted)]">
+          {t('detail.common.disclaimerLine1')}
+        </p>
+        <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
+          {t('detail.common.disclaimerLine2')}
+        </p>
+      </footer>
 
       {/* Log Sleep Modal */}
       <LogSleepModal

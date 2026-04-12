@@ -96,7 +96,7 @@ export function startOfLocalDayUtcMs(ymd: string, timeZone: string): number {
   return hi2
 }
 
-/** Weekday + month/day for chart ticks; must use the same IANA zone as the 7-day API. */
+/** Calendar day of month for chart ticks; must use the same IANA zone as the 7-day API. */
 export function formatSleepChartAxisLabel(ymd: string, timeZone: string): string {
   if (!ymd?.trim() || !timeZone) return ymd
   const start = startOfLocalDayUtcMs(ymd, timeZone)
@@ -104,8 +104,6 @@ export function formatSleepChartAxisLabel(ymd: string, timeZone: string): string
   const inst = new Date(start + 12 * 3600000)
   try {
     return new Intl.DateTimeFormat(undefined, {
-      weekday: 'short',
-      month: 'numeric',
       day: 'numeric',
       timeZone,
     }).format(inst)
