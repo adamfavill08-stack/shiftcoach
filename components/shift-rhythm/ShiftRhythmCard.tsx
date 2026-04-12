@@ -590,19 +590,15 @@ function HomeMealTimesCard() {
 }
 
 function HomeLogSleepCard() {
-  const { sleep, loading } = useTodaySleep();
-  const durationMinRaw =
-    typeof sleep?.duration_min === "number"
-      ? sleep.duration_min
-      : sleep?.start_ts && sleep?.end_ts
-        ? Math.max(0, Math.round((new Date(sleep.end_ts).getTime() - new Date(sleep.start_ts).getTime()) / 60000))
-        : 0;
-  const durationMin = Math.max(0, durationMinRaw);
+  const { t } = useTranslation();
+  const { totalMinutes, loading } = useTodaySleep();
+  const durationMin = Math.max(0, Math.round(totalMinutes));
   const hours = Math.floor(durationMin / 60);
   const mins = durationMin % 60;
   const heroValue = loading ? "—" : `${hours}h ${String(mins).padStart(2, "0")}m`;
 
-  const sleepLabel = sleep ? "Main sleep" : "No main sleep";
+  const sleepLabel =
+    durationMin > 0 ? t("sleepCard.dashboardTodaySleep") : t("sleepCard.sourceNoneLogged");
   const statusLine = loading
     ? "Syncing sleep data..."
     : durationMin >= 450

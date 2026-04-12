@@ -112,9 +112,6 @@ export function ShiftSleepOverviewCard({
     highlightDateKey && sevenDayBars.some((b) => b.dateKey === highlightDateKey)
       ? highlightDateKey
       : (sevenDayBars[sevenDayBars.length - 1]?.dateKey ?? highlightDateKey ?? '')
-  const summaryMinutes = summaryDateKey
-    ? (sevenDayBars.find((b) => b.dateKey === summaryDateKey)?.totalMinutes ?? 0)
-    : 0
 
   return (
     <div className="flex w-full flex-col gap-3">
@@ -202,7 +199,7 @@ export function ShiftSleepOverviewCard({
       {summaryDateKey ? (
         <SleepDayTotalHero
           dateKey={summaryDateKey}
-          totalMinutes={summaryMinutes}
+          totalMinutes={totalMinutes}
           intlLocale={intlLocale}
           chartTimeZone={chartTimeZone}
         />

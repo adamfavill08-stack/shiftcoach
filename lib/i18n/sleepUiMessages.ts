@@ -134,6 +134,7 @@ export const sleepUiMessagesEn: Record<string, string> = {
   'sleepCard.selectedDay': 'Selected day:',
   'sleepCard.pctOfTarget': '({pct}% of target)',
   'sleepCard.sourceNoneLogged': 'No sleep logged yet',
+  'sleepCard.dashboardTodaySleep': "Today's sleep",
   'sleepCard.sourceNoData': 'No source data',
   'sleepCard.sourceManual': 'Manual data',
   'sleepCard.sourceWearable': 'Wearable data',
