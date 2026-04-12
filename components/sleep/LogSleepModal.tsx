@@ -12,20 +12,18 @@ export function LogSleepModal({
   open,
   onClose,
   onSubmit,
-  defaultType = 'main_sleep',
   defaultStart,
   defaultEnd,
 }: {
   open: boolean
   onClose: () => void
   onSubmit: (data: SleepLogInput) => Promise<void>
-  defaultType?: SleepType
   defaultStart?: Date | null
   defaultEnd?: Date | null
 }) {
   const { t } = useTranslation()
   const [form, setForm] = useState({
-    type: defaultType,
+    type: 'main_sleep' as SleepType,
     startDate: '',
     startTime: '',
     endDate: '',
@@ -64,7 +62,7 @@ export function LogSleepModal({
     }
 
     setForm({
-      type: defaultType,
+      type: 'main_sleep',
       startDate: formatDateForInput(startDate),
       startTime: formatTimeForInput(startDate),
       endDate: formatDateForInput(endDate),
@@ -72,7 +70,7 @@ export function LogSleepModal({
       quality: 'Good',
       notes: '',
     })
-  }, [open, defaultType, defaultStart, defaultEnd])
+  }, [open, defaultStart, defaultEnd])
 
   if (!open) return null
 
@@ -85,7 +83,7 @@ export function LogSleepModal({
       />
       
       {/* Modal container */}
-      <div className="relative flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-t-[32px] bg-[var(--card)] shadow-2xl duration-300 animate-in slide-in-from-bottom-4 sm:rounded-[32px] sm:slide-in-from-bottom-0 sm:zoom-in-95">
+      <div className="relative flex max-h-[min(90dvh,90vh)] w-full max-w-md flex-col overflow-hidden rounded-t-[32px] bg-[var(--card)] shadow-2xl duration-300 animate-in slide-in-from-bottom-4 sm:max-h-[90vh] sm:rounded-[32px] sm:slide-in-from-bottom-0 sm:zoom-in-95">
         {/* Ultra-premium gradient overlay */}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[var(--card)] via-[var(--card)] to-[var(--card-subtle)]" />
         
@@ -220,8 +218,8 @@ export function LogSleepModal({
           </div>
         </div>
 
-        {/* Footer with buttons */}
-        <div className="relative z-10 border-t border-[var(--border-subtle)] bg-gradient-to-b from-[var(--card)] to-[var(--card-subtle)] px-7 py-5">
+        {/* Footer: extra bottom inset on phones (home indicator / gesture bar) */}
+        <div className="relative z-10 border-t border-[var(--border-subtle)] bg-gradient-to-b from-[var(--card)] to-[var(--card-subtle)] px-7 pt-5 pb-[max(1.75rem,calc(1rem+env(safe-area-inset-bottom,0px)))]">
           <div className="flex gap-3">
             <button
               onClick={onClose}

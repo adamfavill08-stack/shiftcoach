@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import { Moon, X, Pencil, Trash2, Clock, Plus, Sparkles } from "lucide-react";
 import { LogSleepModal } from "@/components/sleep/LogSleepModal";
 import { SleepEditModal } from "@/components/sleep/SleepEditModal";
-import type { SleepType } from '@/lib/sleep/predictSleep';
 import { DeleteSleepConfirmModal } from "@/components/sleep/DeleteSleepConfirmModal";
 import { useRouter } from "next/navigation";
 import type { SleepLogInput } from '@/lib/sleep/types';
@@ -500,7 +499,6 @@ export default function SleepPage() {
   }, [])
   const router = useRouter()
   const [isLogModalOpen, setIsLogModalOpen] = useState(false)
-  const [logModalType, setLogModalType] = useState<SleepType>('main')
   const [logModalStart, setLogModalStart] = useState<Date | null>(null)
   const [logModalEnd, setLogModalEnd] = useState<Date | null>(null)
   const [sleepData, setSleepData] = useState<{
@@ -815,7 +813,6 @@ export default function SleepPage() {
           setLogModalEnd(null)
         }}
         onSubmit={handleLogSleep}
-        defaultType={logModalType === 'post_shift' ? 'post_shift_sleep' : logModalType === 'recovery' ? 'recovery_sleep' : logModalType === 'nap' || logModalType === 'pre_shift_nap' ? 'nap' : 'main_sleep'}
         defaultStart={logModalStart}
         defaultEnd={logModalEnd}
       />

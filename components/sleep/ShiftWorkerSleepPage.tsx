@@ -77,7 +77,6 @@ export function ShiftWorkerSleepPage() {
   const [loading, setLoading] = useState(true)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [isLogModalOpen, setIsLogModalOpen] = useState(false)
-  const [logModalType, setLogModalType] = useState<SleepType>('main_sleep')
   const [logModalStart, setLogModalStart] = useState<Date | null>(null)
   const [logModalEnd, setLogModalEnd] = useState<Date | null>(null)
   const [editingSession, setEditingSession] = useState<SleepSession | null>(null)
@@ -518,15 +517,6 @@ export function ShiftWorkerSleepPage() {
         actionError={heroActionError}
         onLogSleep={() => {
           setHeroActionError(null)
-          if (shiftForDay === 'NIGHT' && totalMinutes <= 0) {
-            setLogModalType('post_shift_sleep')
-          } else if (sleepDebtMinutes != null && sleepDebtMinutes >= 120) {
-            setLogModalType('recovery_sleep')
-          } else if (totalMinutes > 0) {
-            setLogModalType('nap')
-          } else {
-            setLogModalType('main_sleep')
-          }
           setLogModalStart(null)
           setLogModalEnd(null)
           setIsLogModalOpen(true)
@@ -563,7 +553,6 @@ export function ShiftWorkerSleepPage() {
           setLogModalEnd(null)
         }}
         onSubmit={handleLogSleep}
-        defaultType={logModalType}
         defaultStart={logModalStart}
         defaultEnd={logModalEnd}
       />

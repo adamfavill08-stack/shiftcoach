@@ -42,6 +42,31 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* First in head: sync .dark before paint (localStorage theme key matches ThemeProvider). */}
+        <script
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{
+            __html: `
+(function() {
+  try {
+    var root = document.documentElement;
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    function apply() {
+      var saved = localStorage.getItem('theme');
+      var useDark = saved === 'dark' || (saved !== 'light' && mq.matches);
+      root.classList.toggle('dark', useDark);
+    }
+    apply();
+    mq.addEventListener('change', function (e) {
+      var saved = localStorage.getItem('theme');
+      if (saved === 'dark' || saved === 'light') return;
+      root.classList.toggle('dark', e.matches);
+    });
+  } catch (e) {}
+})();
+            `,
+          }}
+        />
         {/* Safe area insets for Android/iOS notches and status bars */}
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
         {/* Match Android navigation bar color to app background to avoid dark strip */}

@@ -820,7 +820,6 @@ export default function SleepPage() {
         open={isLogModalOpen}
         onClose={() => setIsLogModalOpen(false)}
         onSubmit={handleLogSleep}
-        defaultType="main_sleep"
       />
     </div>
   );
