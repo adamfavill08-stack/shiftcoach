@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { getRollingWeekStartThroughUtcToday, utcTodayYmd } from '@/lib/date/utcCalendar'
 import { computeToday } from '@/lib/engine'
 import { getMyProfile } from '@/lib/profile'
 import type { Profile } from '@/lib/profile'
@@ -13,16 +14,13 @@ export type WeeklyMetrics = {
   avgCalories: number | null
 }
 
+export { utcTodayYmd } from '@/lib/date/utcCalendar'
+
 /**
- * First day (YYYY-MM-DD) of the rolling 7-day window that **includes today**
- * (same calendar math as {@link getWeeklyMetrics}).
+ * First day (YYYY-MM-DD, UTC) of the rolling 7-day window that includes **UTC today**.
  */
 export function getRollingWeekStartThroughToday(): string {
-  const today = new Date()
-  const endDate = new Date(today)
-  const startDate = new Date(endDate)
-  startDate.setDate(startDate.getDate() - 6)
-  return startDate.toISOString().slice(0, 10)
+  return getRollingWeekStartThroughUtcToday()
 }
 
 /**
@@ -33,15 +31,10 @@ export async function getWeeklyMetrics(
   serverSupabase: SupabaseClient,
   userId: string
 ): Promise<WeeklyMetrics> {
-  const today = new Date()
-  const endDate = new Date(today)
-  const startDate = new Date(endDate)
-  startDate.setDate(startDate.getDate() - 6) // 7 days total including today
-
-  const weekStartISO = startDate.toISOString()
-  const weekEndISO = endDate.toISOString()
-  const weekStart = startDate.toISOString().slice(0, 10) // YYYY-MM-DD
-  const weekEnd = endDate.toISOString().slice(0, 10)
+  const weekEnd = utcTodayYmd()
+  const weekStart = getRollingWeekStartThroughToday()
+  const weekStartISO = `${weekStart}T00:00:00.000Z`
+  const weekEndISO = `${weekEnd}T23:59:59.999Z`
 
   // 1) Sleep logs: sum duration_min from last 7 days
   const { data: sleepLogs } = await serverSupabase

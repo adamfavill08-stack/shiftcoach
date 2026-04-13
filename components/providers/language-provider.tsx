@@ -667,6 +667,17 @@ const messageBundles: Partial<Record<AppLocaleCode, Record<string, string>>> & {
     'detail.bodyClock.riskWindow': 'Upcoming risk window',
     'detail.bodyClock.riskWindowText': "Based on this week's pattern, your body clock will find runs of nights, early starts and short turnarounds hardest. Treat the days after these blocks as recovery shifts: protect sleep, keep caffeine early and keep meals lighter overnight.",
     'detail.bodyClock.waitingData': 'Waiting for enough sleep and shift data to show your 7‑day body clock trend.',
+    'detail.bodyClock.motivationUnderTarget':
+      '{prefix}You are a little under target today. Even an extra 30–60 minutes of protected sleep or a planned nap can steady your week.',
+    'detail.bodyClock.motivationSteady':
+      '{prefix}You are close to a solid rhythm. Small tweaks to sleep timing today can lift the rest of your week.',
+    'detail.bodyClock.motivationStrong':
+      '{prefix}Your body clock is in a strong place. Keep protecting recovery sleep between demanding shifts.',
+    'detail.bodyClock.motivationForecastDip':
+      '{prefix}Your score may dip slightly tomorrow. A bit of protected sleep or a short nap now can keep your week on track.',
+    'detail.bodyClock.motivationLoading': '{prefix}Hang tight—we are updating your rhythm picture.',
+    'detail.bodyClock.motivationGeneric':
+      '{prefix}Keep logging sleep and shifts so coaching can stay tuned to your week.',
     'detail.bodyClock.warningMixed': 'Mixed week – keep an eye on runs of nights and very short sleeps.',
     'detail.bodyClock.warningStable': 'Your body clock has mostly stayed in rhythm this week – keep protecting recovery days.',
     'detail.bodyClock.warningOutOfSync': "Your body clock has been out of sync on most days – treat upcoming days as recovery where you can and check your rota pattern.",
@@ -1271,6 +1282,17 @@ const messageBundles: Partial<Record<AppLocaleCode, Record<string, string>>> & {
     'detail.bodyClock.riskWindow': 'Ventana de riesgo próxima',
     'detail.bodyClock.riskWindowText': 'Según el patrón de esta semana, tu reloj corporal sufrirá más con rachas de noches, madrugadas y turnos muy seguidos. Trata los días después de esos bloques como recuperación: protege el sueño, cafeína temprano y comidas ligeras de noche.',
     'detail.bodyClock.waitingData': 'Esperando suficientes datos de sueño y turnos para mostrar la tendencia de 7 días.',
+    'detail.bodyClock.motivationUnderTarget':
+      '{prefix}Hoy vas un poco por debajo del objetivo. Incluso 30–60 minutos extra de sueño protegido o una siesta planificada pueden estabilizar la semana.',
+    'detail.bodyClock.motivationSteady':
+      '{prefix}Estás cerca de un ritmo sólido. Pequeños ajustes en el horario de sueño hoy pueden mejorar el resto de la semana.',
+    'detail.bodyClock.motivationStrong':
+      '{prefix}Tu reloj corporal va fuerte. Sigue protegiendo el sueño de recuperación entre turnos exigentes.',
+    'detail.bodyClock.motivationForecastDip':
+      '{prefix}Mañana la puntuación podría bajar un poco. Un poco de sueño protegido o una siesta corta ahora pueden mantener la semana en buen camino.',
+    'detail.bodyClock.motivationLoading': '{prefix}Un momento: estamos actualizando tu ritmo.',
+    'detail.bodyClock.motivationGeneric':
+      '{prefix}Sigue registrando sueño y turnos para que el coaching se ajuste a tu semana.',
     'detail.bodyClock.warningMixed': 'Semana mixta; vigila rachas de noches y sueños muy cortos.',
     'detail.bodyClock.warningStable': 'Tu reloj corporal se ha mantenido en ritmo esta semana; sigue protegiendo los días de recuperación.',
     'detail.bodyClock.warningOutOfSync': 'Tu reloj corporal ha estado desincronizado la mayoría de los días; trata los próximos días como recuperación y revisa tu patrón de turnos.',
@@ -1877,6 +1899,17 @@ const messageBundles: Partial<Record<AppLocaleCode, Record<string, string>>> & {
     'detail.bodyClock.riskWindow': 'Kommendes Risikofenster',
     'detail.bodyClock.riskWindowText': 'Nach dem Muster dieser Woche werden Nachtschicht-Blöcke, frühe Starts und kurze Pausen deine Körperuhr am meisten belasten. Behandle die Tage danach als Erholung: Schlaf schützen, Koffein früh, leichtere Mahlzeiten nachts.',
     'detail.bodyClock.waitingData': 'Warte auf genug Schlaf- und Schichtdaten für den 7-Tage-Trend.',
+    'detail.bodyClock.motivationUnderTarget':
+      '{prefix}Heute liegst du etwas unter dem Ziel. Schon 30–60 Minuten geschützter Schlaf oder ein geplanter Powernap können die Woche stabilisieren.',
+    'detail.bodyClock.motivationSteady':
+      '{prefix}Du bist nah an einem soliden Rhythmus. Kleine Anpassungen an die Schlafzeiten heute können den Rest der Woche heben.',
+    'detail.bodyClock.motivationStrong':
+      '{prefix}Deine innere Uhr steht gut da. Schütze weiter Erholungsschlaf zwischen anspruchsvollen Schichten.',
+    'detail.bodyClock.motivationForecastDip':
+      '{prefix}Morgen kann der Wert etwas sinken. Etwas geschützter Schlaf oder ein kurzer Nap jetzt halten die Woche auf Kurs.',
+    'detail.bodyClock.motivationLoading': '{prefix}Einen Moment – wir aktualisieren dein Rhythmus-Bild.',
+    'detail.bodyClock.motivationGeneric':
+      '{prefix}Trag weiter Schlaf und Schichten ein, damit das Coaching zu deiner Woche passt.',
     'detail.bodyClock.warningMixed': 'Gemischte Woche – achte auf Nachtschicht-Blöcke und sehr kurzen Schlaf.',
     'detail.bodyClock.warningStable': 'Deine Körperuhr war diese Woche meist im Takt – schütze weiter die Erholungstage.',
     'detail.bodyClock.warningOutOfSync': 'Deine Körperuhr war an den meisten Tagen aus dem Takt – behandle die nächsten Tage wo möglich als Erholung und prüfe dein Schichtmuster.',

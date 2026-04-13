@@ -11,6 +11,8 @@ import {
 } from "@/lib/shift-rhythm/shiftRhythmDisplay"
 import type { ShiftRhythmScores } from "@/lib/shift-rhythm/engine"
 import { useTranslation } from "@/components/providers/language-provider"
+import { addUtcCalendarDays, utcTodayYmd } from "@/lib/date/utcCalendar"
+import { authedFetch } from "@/lib/supabase/authedFetch"
 import { cn } from "@/lib/utils"
 import { useCircadianState } from "@/components/providers/circadian-state-provider"
 import { useShiftState } from "@/components/providers/shift-state-provider"
@@ -29,6 +31,7 @@ import {
   type BodyClockBreakdownRow,
 } from "@/components/body-clock/BodyClockBreakdownCard"
 import { BodyClockSimpleHabitsCard } from "@/components/body-clock/BodyClockSimpleHabitsCard"
+import { BodyClockMotivationCard } from "@/components/body-clock/BodyClockMotivationCard"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -60,14 +63,36 @@ export default function BodyClockPage() {
   const [loading, setLoading] = useState(true)
   const [detail, setDetail] = useState<ShiftRhythmScores | null>(null)
   const [hasRhythmData, setHasRhythmData] = useState<boolean | undefined>(undefined)
+  const [displayName, setDisplayName] = useState<string | null>(null)
   const weekly = useWeeklyProgress()
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await authedFetch("/api/profile", { cache: "no-store" })
+        if (!res.ok || cancelled) return
+        const j = (await res.json().catch(() => ({}))) as { profile?: { name?: string | null } }
+        const raw = j?.profile?.name
+        if (typeof raw === "string" && raw.trim()) {
+          const first = raw.trim().split(/\s+/)[0]
+          if (first && !cancelled) setDisplayName(first)
+        }
+      } catch {
+        /* ignore */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
     const load = async () => {
       try {
         setLoading(true)
-        const res = await fetch("/api/shift-rhythm", { cache: "no-store" })
+        const res = await authedFetch("/api/shift-rhythm", { cache: "no-store" })
         if (!res.ok) {
           if (!cancelled) {
             setDetail(null)
@@ -203,16 +228,85 @@ export default function BodyClockPage() {
     if (!trustWeekly) return []
     const dayLabels = weekly?.days ?? []
     const scores = weekly?.bodyClockScores ?? []
-    if (!dayLabels.length || !scores.length) return []
-    const todayShort = new Date().toLocaleDateString("en-GB", { weekday: "short" })
-    return dayLabels.map((label, idx) => ({
-      day: label,
-      score: Math.min(100, Math.max(0, Math.round(scores[idx] ?? 0))),
-      isToday: label === todayShort,
-    }))
-  }, [trustWeekly, weekly?.days, weekly?.bodyClockScores])
+    const weekStart = weekly?.weekStartYmd
+    if (!dayLabels.length || scores.length !== 7 || !weekStart) return []
+
+    const todayYmd = utcTodayYmd()
+    const heroRaw =
+      circadianState != null
+        ? circadianState.score
+        : !loading && detail != null
+          ? legacyGaugeScore
+          : null
+    const hero =
+      heroRaw != null ? Math.round(Math.min(100, Math.max(0, heroRaw))) : null
+
+    return dayLabels.map((label, idx) => {
+      const ymd = addUtcCalendarDays(weekStart, idx)
+      const isToday = ymd === todayYmd
+      let score = Math.min(100, Math.max(0, Math.round(scores[idx] ?? 0)))
+      if (isToday && hero != null) score = hero
+      return { day: label, score, isToday }
+    })
+  }, [
+    trustWeekly,
+    weekly?.days,
+    weekly?.bodyClockScores,
+    weekly?.weekStartYmd,
+    circadianState,
+    loading,
+    detail,
+    legacyGaugeScore,
+  ])
 
   const chartReady = chartDays.length === 7
+
+  const motivationMessage = useMemo(() => {
+    const prefix = displayName ? `${displayName}, ` : ""
+    const heroRaw =
+      circadianState != null
+        ? circadianState.score
+        : !loading && detail != null
+          ? legacyGaugeScore
+          : null
+    const hero =
+      heroRaw != null ? Math.round(Math.min(100, Math.max(0, heroRaw))) : null
+
+    if (hero == null && (circadianAgentLoading || loading)) {
+      return t("detail.bodyClock.motivationLoading", { prefix })
+    }
+    if (hero == null || (noData && detail == null)) {
+      return t("detail.bodyClock.motivationGeneric", { prefix })
+    }
+
+    if (hero < 58 || (detail != null && detail.sleep_score < 48 && hero < 68)) {
+      return t("detail.bodyClock.motivationUnderTarget", { prefix })
+    }
+
+    if (
+      scoreForecastTomorrowDelta.tone === "down" &&
+      circadianState != null &&
+      hero >= 55
+    ) {
+      return t("detail.bodyClock.motivationForecastDip", { prefix })
+    }
+
+    if (hero < 75) {
+      return t("detail.bodyClock.motivationSteady", { prefix })
+    }
+
+    return t("detail.bodyClock.motivationStrong", { prefix })
+  }, [
+    displayName,
+    circadianState,
+    loading,
+    detail,
+    legacyGaugeScore,
+    noData,
+    circadianAgentLoading,
+    scoreForecastTomorrowDelta.tone,
+    t,
+  ])
 
   const { weekAvg, weekBest, dayOverDayTrend } = useMemo(() => {
     if (!chartReady || chartDays.length === 0) {
@@ -364,6 +458,8 @@ export default function BodyClockPage() {
             coffee: t("detail.bodyClock.habitTileCaffeine"),
           }}
         />
+
+        <BodyClockMotivationCard message={motivationMessage} />
 
         <footer className="pt-2 flex flex-col items-center gap-1 text-center">
           <span

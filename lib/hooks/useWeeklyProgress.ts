@@ -1,10 +1,15 @@
 "use client"
 
 import { useEffect, useMemo, useState } from 'react'
+import { getRollingWeekStartThroughUtcToday } from '@/lib/date/utcCalendar'
+import { supabase } from '@/lib/supabase'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 
 export type DayKey = string
 
 export type WeeklyProgress = {
+  /** UTC YYYY-MM-DD of first series day; use for matching “today” to bar index */
+  weekStartYmd: string | null
   days: DayKey[]
   bodyClockScores: number[]
   adjustedCalories: number[]
@@ -30,7 +35,56 @@ export type WeeklyProgress = {
   hasRealData?: boolean
 }
 
+function coerceWeekStartYmd(raw: unknown): string | null {
+  if (raw == null) return null
+  if (typeof raw === 'string') {
+    const m = raw.match(/^(\d{4}-\d{2}-\d{2})/)
+    return m ? m[1]! : null
+  }
+  return null
+}
+
+/**
+ * Accepts PostgREST jsonb arrays or JSON strings.
+ * Missing, null, or empty `[]` (common DB default for new jsonb columns) becomes seven zeros
+ * so the body-clock chart can render instead of staying on “Waiting…”.
+ */
+function coerceSevenNumberArray(raw: unknown): number[] | null {
+  let arr: unknown[] | null = null
+  if (raw == null) {
+    arr = []
+  } else if (Array.isArray(raw)) {
+    arr = raw
+  } else if (typeof raw === 'string') {
+    try {
+      const p = JSON.parse(raw) as unknown
+      if (p == null) arr = []
+      else if (Array.isArray(p)) arr = p
+      else return null
+    } catch {
+      return null
+    }
+  } else {
+    return null
+  }
+
+  let a = [...arr]
+  if (a.length === 0) {
+    a = new Array(7).fill(0)
+  }
+  if (a.length > 7) a = a.slice(0, 7)
+  while (a.length < 7) a.push(0)
+  const out: number[] = []
+  for (const x of a) {
+    const n = typeof x === 'number' && !Number.isNaN(x) ? x : Number(x)
+    if (!Number.isFinite(n)) return null
+    out.push(n)
+  }
+  return out
+}
+
 const MOCK: WeeklyProgress = {
+  weekStartYmd: null,
   days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
   bodyClockScores: [82, 79, 80, 84, 86, 88, 83],
   adjustedCalories: [2300, 2280, 2320, 2350, 2400, 2380, 2290],
@@ -53,6 +107,7 @@ const MOCK: WeeklyProgress = {
 export function useWeeklyProgress(weekOffset: number = 0): WeeklyProgress {
   const [state, setState] = useState<WeeklyProgress>({
     ...MOCK,
+    weekStartYmd: null,
     loading: true,
     hasNewInsights: false,
     hasRealData: false,
@@ -67,16 +122,38 @@ export function useWeeklyProgress(weekOffset: number = 0): WeeklyProgress {
 
         // For now we use the latest weekly summary as "real" data source.
         // Later this can be swapped to a dedicated /api/weekly-metrics route.
-        const res = await fetch('/api/weekly-summary/latest', { cache: 'no-store' })
+        const res = await authedFetch('/api/weekly-summary/latest', { cache: 'no-store' })
+        const httpStatus = res.status
+        let json: unknown = null
+        try {
+          json = await res.json()
+        } catch (parseErr) {
+          console.log('[useWeeklyProgress] authedFetch resolved', {
+            httpStatus,
+            json: null,
+            parseError: String(parseErr),
+          })
+          throw parseErr
+        }
+        console.log('[useWeeklyProgress] authedFetch resolved', {
+          httpStatus,
+          json: JSON.stringify(json),
+        })
+
         if (!res.ok) {
+          console.log(
+            '[useWeeklyProgress] hasRealData -> false, why: HTTP not OK after parse (unexpected if body is JSON)',
+          )
           throw new Error(String(res.status))
         }
-        const json = await res.json()
-        const summary = json?.summary
+
+        const summary = (json as { summary?: unknown })?.summary
 
         if (cancelled || !summary) {
+          console.log('[useWeeklyProgress] hasRealData -> false, why:', !summary ? 'summary is null/undefined in JSON' : 'cancelled before setState')
           setState({
             ...MOCK,
+            weekStartYmd: null,
             loading: false,
             hasNewInsights: false,
             hasRealData: false,
@@ -84,58 +161,99 @@ export function useWeeklyProgress(weekOffset: number = 0): WeeklyProgress {
           return
         }
 
-        // Map week_start..week_end into 7 labels
-        const startDate = new Date(summary.week_start)
-        const days: DayKey[] = []
-        for (let i = 0; i < 7; i++) {
-          const d = new Date(startDate)
-          d.setDate(startDate.getDate() + i)
-          const label = d.toLocaleDateString('en-GB', { weekday: 'short' })
-          days.push(label)
-        }
+        const s = summary as Record<string, unknown>
 
         const toArray = (v: number[] | null | undefined, fallback: number[]): number[] =>
           Array.isArray(v) && v.length === 7 ? v : fallback
 
-        // We treat data as "real" only if key circadian arrays have a full 7-day window
-        const hasSevenBodyClock =
-          Array.isArray(summary.body_clock_scores) && summary.body_clock_scores.length === 7
-        const hasSevenSleep =
-          Array.isArray(summary.sleep_hours) && summary.sleep_hours.length === 7
-
-        const useReal = hasSevenBodyClock && hasSevenSleep
-
-        const bodyClockScores = toArray(
-          useReal ? summary.body_clock_scores : null,
-          MOCK.bodyClockScores,
+        const bodyParsed = coerceSevenNumberArray(s.body_clock_scores)
+        console.log(
+          '[useWeeklyProgress] coerceSevenNumberArray(body_clock_scores) result:',
+          bodyParsed,
+          'raw:',
+          s.body_clock_scores,
         )
-        const sleepHours = toArray(useReal ? summary.sleep_hours : null, MOCK.sleepHours)
-        const sleepTimingScore = toArray(
-          useReal ? summary.sleep_timing_scores : null,
-          MOCK.sleepTimingScore,
-        )
-        const moodScores = toArray(summary.mood_scores, MOCK.moodScores)
-        const focusScores = toArray(summary.focus_scores, MOCK.focusScores)
 
-        const adjustedCalories = toArray(summary.adjusted_calories, MOCK.adjustedCalories)
-        const caloriesConsumed = toArray(summary.calories_consumed, MOCK.caloriesConsumed)
-        const proteinG = toArray(summary.protein_g, MOCK.proteinG)
-        const carbsG = toArray(summary.carbs_g, MOCK.carbsG)
-        const fatsG = toArray(summary.fats_g, MOCK.fatsG)
+        let sleepParsed = coerceSevenNumberArray(s.sleep_hours)
+        console.log(
+          '[useWeeklyProgress] coerceSevenNumberArray(sleep_hours) result (before zero-fill):',
+          sleepParsed,
+          'raw:',
+          s.sleep_hours,
+        )
+        if (bodyParsed && !sleepParsed) sleepParsed = new Array(7).fill(0)
+        console.log(
+          '[useWeeklyProgress] sleep_hours final array used for useReal:',
+          sleepParsed,
+        )
+
+        const timingParsed = coerceSevenNumberArray(s.sleep_timing_scores)
+
+        const useReal = bodyParsed != null && sleepParsed != null
+
+        const weekStartFromSummary = coerceWeekStartYmd(s.week_start)
+        const weekStartYmd =
+          weekStartFromSummary ?? (useReal ? getRollingWeekStartThroughUtcToday() : null)
+
+        // Week labels: UTC calendar days (aligned with series + shift_rhythm_scores.date)
+        const days: DayKey[] = []
+        if (weekStartYmd) {
+          const [sy, sm, sd] = weekStartYmd.split('-').map(Number)
+          for (let i = 0; i < 7; i++) {
+            const t = Date.UTC(sy, sm - 1, sd + i)
+            const label = new Date(t).toLocaleDateString('en-GB', {
+              weekday: 'short',
+              timeZone: 'UTC',
+            })
+            days.push(label)
+          }
+        }
+
+        const bodyClockScores = useReal ? bodyParsed! : MOCK.bodyClockScores
+        const sleepHours = useReal ? sleepParsed! : MOCK.sleepHours
+        const sleepTimingScore: number[] = useReal
+          ? timingParsed ?? new Array(7).fill(0)
+          : toArray(s.sleep_timing_scores as number[] | null | undefined, MOCK.sleepTimingScore)
+        const moodScores = toArray(s.mood_scores as number[] | null | undefined, MOCK.moodScores)
+        const focusScores = toArray(s.focus_scores as number[] | null | undefined, MOCK.focusScores)
+
+        const adjustedCalories = toArray(
+          s.adjusted_calories as number[] | null | undefined,
+          MOCK.adjustedCalories,
+        )
+        const caloriesConsumed = toArray(
+          s.calories_consumed as number[] | null | undefined,
+          MOCK.caloriesConsumed,
+        )
+        const proteinG = toArray(s.protein_g as number[] | null | undefined, MOCK.proteinG)
+        const carbsG = toArray(s.carbs_g as number[] | null | undefined, MOCK.carbsG)
+        const fatsG = toArray(s.fats_g as number[] | null | undefined, MOCK.fatsG)
 
         const hydrationTargetMl = toArray(
-          summary.hydration_target_ml,
+          s.hydration_target_ml as number[] | null | undefined,
           MOCK.hydrationTargetMl,
         )
         const hydrationActualMl = toArray(
-          summary.hydration_actual_ml,
+          s.hydration_actual_ml as number[] | null | undefined,
           MOCK.hydrationActualMl,
         )
 
-        const mealsLoggedCount = toArray(summary.meals_logged_count, MOCK.mealsLoggedCount)
-        const aiMealsPhotoCount = toArray(summary.ai_meals_photo_count, MOCK.aiMealsPhotoCount)
-        const aiMealsScanCount = toArray(summary.ai_meals_scan_count, MOCK.aiMealsScanCount)
-        const coachInteractions = toArray(summary.coach_interactions, MOCK.coachInteractions)
+        const mealsLoggedCount = toArray(
+          s.meals_logged_count as number[] | null | undefined,
+          MOCK.mealsLoggedCount,
+        )
+        const aiMealsPhotoCount = toArray(
+          s.ai_meals_photo_count as number[] | null | undefined,
+          MOCK.aiMealsPhotoCount,
+        )
+        const aiMealsScanCount = toArray(
+          s.ai_meals_scan_count as number[] | null | undefined,
+          MOCK.aiMealsScanCount,
+        )
+        const coachInteractions = toArray(
+          s.coach_interactions as number[] | null | undefined,
+          MOCK.coachInteractions,
+        )
 
         const storedWeekId =
           typeof window !== 'undefined'
@@ -144,15 +262,24 @@ export function useWeeklyProgress(weekOffset: number = 0): WeeklyProgress {
 
         const hasNewInsights =
           useReal &&
-          typeof summary.week_start === 'string' &&
-          summary.week_start !== storedWeekId
+          weekStartYmd != null &&
+          weekStartYmd !== storedWeekId
 
         if (!cancelled) {
-          if (typeof window !== 'undefined' && hasNewInsights) {
-            window.localStorage.setItem('weeklySummaryWeekStart', summary.week_start)
+          console.log('[useWeeklyProgress] hasRealData ->', useReal, {
+            why: useReal
+              ? 'bodyParsed and sleepParsed are both non-null (7 numbers each; sleep may be zero-filled)'
+              : bodyParsed == null
+                ? 'body_clock_scores coerceSevenNumberArray returned null'
+                : 'sleep_hours still null after coercion/zero-fill (unexpected)',
+          })
+
+          if (typeof window !== 'undefined' && hasNewInsights && weekStartYmd) {
+            window.localStorage.setItem('weeklySummaryWeekStart', weekStartYmd)
           }
 
           setState({
+            weekStartYmd,
             days,
             bodyClockScores,
             adjustedCalories,
@@ -175,10 +302,14 @@ export function useWeeklyProgress(weekOffset: number = 0): WeeklyProgress {
             hasRealData: useReal,
           })
         }
-      } catch {
+      } catch (err) {
+        console.log('[useWeeklyProgress] hasRealData -> false, why: load() threw or early error', {
+          error: err instanceof Error ? err.message : String(err),
+        })
         if (!cancelled) {
           setState({
             ...MOCK,
+            weekStartYmd: null,
             loading: false,
             hasNewInsights: false,
             hasRealData: false,
@@ -187,10 +318,25 @@ export function useWeeklyProgress(weekOffset: number = 0): WeeklyProgress {
       }
     }
 
-    load()
+    void load()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return
+      if (
+        session?.access_token != null &&
+        (event === 'SIGNED_IN' ||
+          event === 'TOKEN_REFRESHED' ||
+          event === 'INITIAL_SESSION')
+      ) {
+        void load()
+      }
+    })
 
     return () => {
       cancelled = true
+      subscription.unsubscribe()
     }
   }, [weekOffset])
 

@@ -7,6 +7,15 @@ export type WeeklySummarySeriesPayload = {
   sleep_timing_scores: number[]
 }
 
+export function emptyWeeklySummarySeries(): WeeklySummarySeriesPayload {
+  const z = [0, 0, 0, 0, 0, 0, 0]
+  return {
+    body_clock_scores: [...z],
+    sleep_hours: [...z],
+    sleep_timing_scores: [...z],
+  }
+}
+
 function addDaysYmd(ymd: string, days: number): string {
   const [y, m, d] = ymd.split('-').map(Number)
   const t = Date.UTC(y, m - 1, d) + days * 86400000
@@ -85,14 +94,14 @@ async function fetchSleepRowsOverlappingWeek(
 
   const startIso = `${bufferStart}T00:00:00.000Z`
   const endIso = `${bufferEnd}T23:59:59.999Z`
+  // No `deleted_at` filter here: older DBs lack the column and PostgREST would error.
   const base =
-    'id, date, start_ts, end_ts, start_at, end_at, sleep_hours, duration_min, type, naps, deleted_at'
+    'id, date, start_ts, end_ts, start_at, end_at, sleep_hours, duration_min, type, naps'
 
   const { data: byEndAt, error: e1 } = await serverSupabase
     .from('sleep_logs')
     .select(base)
     .eq('user_id', userId)
-    .is('deleted_at', null)
     .gte('end_at', startIso)
     .lte('end_at', endIso)
 
@@ -106,7 +115,6 @@ async function fetchSleepRowsOverlappingWeek(
     .from('sleep_logs')
     .select(base)
     .eq('user_id', userId)
-    .is('deleted_at', null)
     .gte('end_ts', startIso)
     .lte('end_ts', endIso)
 
@@ -130,6 +138,11 @@ export async function buildWeeklySummarySeries(
 ): Promise<WeeklySummarySeriesPayload> {
   const weekDates = Array.from({ length: 7 }, (_, i) => addDaysYmd(weekStart, i))
   const weekEnd = weekDates[6]!
+  console.log('[buildWeeklySummarySeries] rolling week range', {
+    weekStart,
+    weekEndInclusive: weekEnd,
+    weekDates,
+  })
   const bufferStart = addDaysYmd(weekStart, -2)
   const bufferEnd = addDaysYmd(weekEnd, 2)
 
@@ -155,6 +168,12 @@ export async function buildWeeklySummarySeries(
   if (rhythmErr) {
     console.warn('[buildWeeklySummarySeries] shift_rhythm_scores:', rhythmErr.message)
   }
+
+  console.log('[buildWeeklySummarySeries] shift_rhythm_scores rows in date range', {
+    count: rhythmRows?.length ?? 0,
+    weekStart,
+    weekEndInclusive: weekEnd,
+  })
 
   const bodyByDate = new Map<string, number>()
   const timingByDate = new Map<string, number>()
