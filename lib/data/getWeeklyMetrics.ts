@@ -14,19 +14,29 @@ export type WeeklyMetrics = {
 }
 
 /**
- * Get weekly metrics for a user (last 7 days ending yesterday)
+ * First day (YYYY-MM-DD) of the rolling 7-day window that **includes today**
+ * (same calendar math as {@link getWeeklyMetrics}).
+ */
+export function getRollingWeekStartThroughToday(): string {
+  const today = new Date()
+  const endDate = new Date(today)
+  const startDate = new Date(endDate)
+  startDate.setDate(startDate.getDate() - 6)
+  return startDate.toISOString().slice(0, 10)
+}
+
+/**
+ * Get weekly metrics for a user (last 7 days through today, inclusive)
  * Adapted to match actual Supabase schema
  */
 export async function getWeeklyMetrics(
   serverSupabase: SupabaseClient,
   userId: string
 ): Promise<WeeklyMetrics> {
-  // Define week window: last 7 days ending yesterday
   const today = new Date()
   const endDate = new Date(today)
-  endDate.setDate(endDate.getDate() - 1) // Yesterday
   const startDate = new Date(endDate)
-  startDate.setDate(startDate.getDate() - 6) // 7 days total
+  startDate.setDate(startDate.getDate() - 6) // 7 days total including today
 
   const weekStartISO = startDate.toISOString()
   const weekEndISO = endDate.toISOString()

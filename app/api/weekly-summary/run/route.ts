@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { getWeeklyMetrics } from '@/lib/data/getWeeklyMetrics'
+import { buildWeeklySummarySeries } from '@/lib/data/buildWeeklySummarySeries'
 import { generateWeeklySummary } from '@/lib/coach/generateWeeklySummary'
 import { getBehaviorSummary } from '@/lib/data/getBehaviorSummary'
 import { generateWeeklyGoals } from '@/lib/coach/generateWeeklyGoals'
@@ -101,6 +102,8 @@ export async function POST(req: NextRequest) {
           feedbackSummary
         )
 
+        const series = await buildWeeklySummarySeries(supabase, userId, metrics.weekStart)
+
         // 7) Upsert into weekly_summaries
         const { error: upsertError } = await supabase
           .from('weekly_summaries')
@@ -114,6 +117,9 @@ export async function POST(req: NextRequest) {
               recovery_avg: metrics.avgRecovery,
               steps_avg: metrics.avgSteps,
               calories_avg: metrics.avgCalories,
+              body_clock_scores: series.body_clock_scores,
+              sleep_hours: series.sleep_hours,
+              sleep_timing_scores: series.sleep_timing_scores,
             },
             { onConflict: 'user_id,week_start' }
           )
