@@ -6,6 +6,7 @@ import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition";
 import { useTranslation } from "@/components/providers/language-provider";
 import { buildCalorieBreakdownRows } from "@/lib/nutrition/buildCalorieBreakdownRows";
 import { MacroTargetsCard } from "@/components/nutrition/MacroTargetsCard";
+import { MacroTimingInsight } from "@/components/nutrition/MacroTimingInsight";
 import { useMealTimingTodayCard } from "@/lib/hooks/useMealTimingTodayCard";
 import { getMacroTimingTip } from "@/lib/nutrition/getMacroReason";
 
@@ -1428,7 +1429,6 @@ export default function AdjustedCaloriesPage() {
         consumedMacros={data.consumedMacros}
         mealTimesData={mealTimesForMacroCard}
         highlightNextMealLabel={mealTimingCard?.nextMealLabel ?? null}
-        timingTip={macroTimingTip}
         variant="elevated"
       />
 
@@ -1864,6 +1864,7 @@ export default function AdjustedCaloriesPage() {
         </div>
       </section>
 
+      <MacroTimingInsight message={macroTimingTip} />
 
       <div className="pt-4">
         <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400 text-center">

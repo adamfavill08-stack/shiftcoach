@@ -76,6 +76,20 @@ body {
   border-color: var(--border-subtle) !important;
 }
 
+/* MacroCard: theme tokens for SVG strokes + typography (avoid duplicating light/dark trees) */
+.macro-card-theme {
+  --macro-card-ring-track: #f0f0f0;
+  --macro-card-ring-value: #111111;
+  --macro-card-ring-label: #888888;
+  --macro-card-header: #aaaaaa;
+}
+.dark .macro-card-theme {
+  --macro-card-ring-track: #3f3f46;
+  --macro-card-ring-value: #fafafa;
+  --macro-card-ring-label: #a1a1aa;
+  --macro-card-header: #737373;
+}
+
 .dark .text-slate-900 {
   color: var(--text-main) !important;
 }

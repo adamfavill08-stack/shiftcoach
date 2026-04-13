@@ -1,8 +1,10 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
+import { useAuth } from '@/components/AuthProvider'
+import { useProfile } from '@/hooks/useProfile'
 import { useTodayNutrition } from '@/lib/hooks/useTodayNutrition'
 import { useTranslation } from '@/components/providers/language-provider'
 import {
@@ -10,8 +12,10 @@ import {
   getCalorieSnapshotGrouped,
 } from '@/lib/nutrition/buildCalorieBreakdownRows'
 import { MacroTargetsCard } from '@/components/nutrition/MacroTargetsCard'
+import { MacroTimingInsight } from '@/components/nutrition/MacroTimingInsight'
+import { MealTimesScheduleCard } from '@/components/nutrition/MealTimesScheduleCard'
 import { useMealTimingTodayCard } from '@/lib/hooks/useMealTimingTodayCard'
-import { getMacroTimingTip } from '@/lib/nutrition/getMacroReason'
+import { getMacroTimingCoachMessage } from '@/lib/nutrition/getMacroReason'
 
 function mealIconFor(id?: string, label?: string) {
   const key = (id || label || '').toLowerCase()
@@ -25,8 +29,75 @@ function mealIconFor(id?: string, label?: string) {
   return '🍽️'
 }
 
+const WHY_BREAKDOWN_ID = 'adjusted-calories-why-breakdown'
+
+function shiftContextLabel(
+  shiftType: string | null | undefined,
+  t: (key: string) => string,
+): string {
+  switch (shiftType) {
+    case 'night':
+      return t('dashboard.shiftLabel.night')
+    case 'day':
+      return t('dashboard.shiftLabel.day')
+    case 'off':
+      return t('dashboard.shiftLabel.dayOff')
+    case 'late':
+      return t('dashboard.shiftLabel.late')
+    case 'early':
+      return t('dashboard.calories.shiftEarly')
+    default:
+      return t('dashboard.shiftLabel.shift')
+  }
+}
+
+function displayShiftLabel(
+  data: {
+    shiftType?: string | null
+    shiftContext?: {
+      transitionState?: string | null
+      currentShift?: { operationalKind?: string | null } | null
+    } | null
+  } | null,
+  t: (key: string) => string,
+): string {
+  const transitionState = data?.shiftContext?.transitionState
+  if (transitionState === 'off_day') return t('dashboard.shiftLabel.dayOff')
+
+  const currentKind = data?.shiftContext?.currentShift?.operationalKind
+  if (currentKind) return shiftContextLabel(currentKind, t)
+
+  return shiftContextLabel(data?.shiftType, t)
+}
+
+function resolveRotaAwareShiftType(data: {
+  shiftType?: string | null
+  shiftContext?: {
+    transitionState?: string | null
+    currentShift?: { operationalKind?: string | null } | null
+  } | null
+} | null): 'day' | 'night' | 'off' | 'early' | 'late' | 'other' {
+  if (data?.shiftContext?.transitionState === 'off_day') return 'off'
+  const currentKind = data?.shiftContext?.currentShift?.operationalKind
+  if (currentKind === 'day' || currentKind === 'night' || currentKind === 'off' || currentKind === 'early' || currentKind === 'late' || currentKind === 'other') {
+    return currentKind
+  }
+  const fallback = data?.shiftType
+  if (fallback === 'day' || fallback === 'night' || fallback === 'off' || fallback === 'early' || fallback === 'late' || fallback === 'other') {
+    return fallback
+  }
+  return 'other'
+}
+
+function fmtSignedInt(n: number) {
+  return `${n >= 0 ? '+' : ''}${n.toLocaleString('en-US')}`
+}
+
 export default function AdjustedCaloriesPage() {
   const { t } = useTranslation()
+  const [whyOpen, setWhyOpen] = useState(false)
+  const { user } = useAuth()
+  const { profile } = useProfile(user?.id ?? null)
   const { data, loading } = useTodayNutrition()
   const { data: mealTimingCard, loading: mealTimingLoading } = useMealTimingTodayCard()
   const baseKcal = data?.baseCalories ?? 0
@@ -39,12 +110,6 @@ export default function AdjustedCaloriesPage() {
   )
 
   const snapshot = useMemo(() => (data ? getCalorieSnapshotGrouped(data) : null), [data])
-
-  const fmtSignedKcal = (n: number) =>
-    `${n >= 0 ? '+' : ''}${n.toLocaleString('en-US')} kcal`
-
-  const snapshotValueClass = (n: number) =>
-    n === 0 ? 'text-slate-500' : n >= 0 ? 'text-emerald-600' : 'text-amber-600'
 
   const mealTimesData = useMemo(() => {
     const timingMeals = mealTimingCard?.meals
@@ -72,6 +137,19 @@ export default function AdjustedCaloriesPage() {
     }
     return undefined
   }, [mealTimingCard?.meals, mealTimingLoading, data?.meals])
+
+  const firstName = profile?.name?.trim().split(/\s+/)[0] ?? null
+  const timingInsightMessage = useMemo(
+    () =>
+      !loading && data
+        ? getMacroTimingCoachMessage({
+            shiftType: resolveRotaAwareShiftType(data),
+            shiftedDayKey: data.shiftedDayKey ?? null,
+            firstName,
+          })
+        : null,
+    [loading, data, firstName],
+  )
 
   return (
     <main className="min-h-screen bg-slate-100">
@@ -103,114 +181,170 @@ export default function AdjustedCaloriesPage() {
           </div>
         </header>
 
-        {/* Hero: today's adjusted target */}
-        <section
-          className="rounded-3xl backdrop-blur-2xl px-6 py-6 flex flex-col gap-4 items-center text-center"
-          style={{
-            backgroundColor: 'var(--card)',
-          }}
-        >
-          <div className="text-xs font-semibold tracking-wide" style={{ color: 'var(--text-soft)' }}>
-            {t('dashboard.calories.todayAdjustedTarget').toUpperCase()}
-          </div>
+        {/* Hero: today's target */}
+        <section className="w-full rounded-[14px] border border-slate-200/80 bg-white px-5 pb-5 pt-6 text-center dark:border-[var(--border-subtle)] dark:bg-[var(--card)]">
           {loading ? (
-            <div className="flex items-baseline gap-2 opacity-60">
-              <div className="h-8 w-24 rounded bg-white/10 animate-pulse" />
-              <span className="text-sm" style={{ color: 'var(--text-soft)' }}>kcal</span>
+            <div className="flex w-full flex-col items-center gap-4">
+              <div className="h-3 w-56 animate-pulse rounded-full bg-slate-200 dark:bg-slate-700" />
+              <div className="flex items-baseline gap-2">
+                <div className="h-14 w-36 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700" />
+                <div className="h-6 w-10 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
+              </div>
+              <div className="h-4 w-40 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
+              <div className="h-8 w-36 animate-pulse rounded-full bg-cyan-100 dark:bg-cyan-900/50" />
+              <div className="grid w-full grid-cols-3 gap-2">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-[84px] animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
+                ))}
+              </div>
+              <div className="h-4 w-40 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
             </div>
           ) : (
             <>
-              <div className="flex items-baseline justify-center gap-2">
-                <p className="text-4xl font-semibold" style={{ color: 'var(--text-main)' }}>{adjustedKcal.toLocaleString()}</p>
-                <span className="text-sm" style={{ color: 'var(--text-soft)' }}>kcal</span>
+              <p className="m-0 text-[11px] font-semibold tracking-[0.08em] text-[#aaaaaa] dark:text-[var(--text-muted)]">
+                Today's adjusted calories · {displayShiftLabel(data, t)}
+              </p>
+
+              <div className="mt-2 text-center leading-none">
+                <span
+                  className="text-[52px] font-bold tabular-nums tracking-[-0.04em]"
+                  style={{ color: 'var(--text-main)' }}
+                >
+                  {adjustedKcal.toLocaleString()}
+                </span>
+                <span className="ml-1.5 text-xl font-normal text-slate-400 dark:text-slate-500">kcal</span>
               </div>
-              {data?.shiftedDayKey ? (
-                <p className="text-[11px]" style={{ color: 'var(--text-soft)' }}>
-                  {t('dashboard.calories.shiftedDayLabel')}: {data.shiftedDayKey}
-                </p>
+
+              {baseKcal > 0 ? (
+                <div className="mb-5 mt-3 flex justify-center">
+                  <span className="inline-flex items-center rounded-full bg-[#E0F7FA] px-3.5 py-1.5 text-xs font-semibold text-[#00838F] dark:bg-cyan-950/45 dark:text-cyan-300">
+                    {deltaPct <= 0 ? '↓' : '↑'} {t('dashboard.calories.pctFromBase', { pct: Math.abs(deltaPct) })}
+                  </span>
+                </div>
               ) : null}
-              {snapshot && baseKcal > 0 && (
-                <div className="w-full max-w-[280px] text-left space-y-1 pt-1">
-                  <div className="flex justify-between gap-3 text-[11px]" style={{ color: 'var(--text-soft)' }}>
-                    <span>{t('dashboard.calories.snapshotBase')}</span>
-                    <span className="font-semibold tabular-nums" style={{ color: 'var(--text-main)' }}>
-                      {baseKcal.toLocaleString('en-US')} kcal
-                    </span>
+
+              {snapshot && baseKcal > 0 ? (
+                <div className="grid w-full grid-cols-3 gap-2.5">
+                  <div className="rounded-[10px] border border-[#F0F0F0] border-t-[3px] border-t-[#00BCD4] bg-white px-2.5 pb-2.5 pt-3 text-center dark:border-[var(--border-subtle)] dark:border-t-cyan-400 dark:bg-[var(--card)]">
+                    <p className="text-[28px] font-semibold tabular-nums leading-none tracking-[-0.02em]" style={{ color: 'var(--text-main)' }}>
+                      {baseKcal.toLocaleString('en-US')}
+                    </p>
+                    <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#aaaaaa] dark:text-slate-500">
+                      {t('dashboard.calories.snapshotBase')}
+                    </p>
                   </div>
-                  <div className="flex justify-between gap-3 text-[11px]" style={{ color: 'var(--text-soft)' }}>
-                    <span>{t('dashboard.calories.snapshotRecovery')}</span>
-                    <span className={`font-semibold tabular-nums ${snapshotValueClass(snapshot.recoveryDelta)}`}>
-                      {fmtSignedKcal(snapshot.recoveryDelta)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between gap-3 text-[11px]" style={{ color: 'var(--text-soft)' }}>
-                    <span>{t('dashboard.calories.snapshotActivity')}</span>
-                    <span className={`font-semibold tabular-nums ${snapshotValueClass(snapshot.activityDelta)}`}>
-                      {fmtSignedKcal(snapshot.activityDelta)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between gap-3 text-[11px]" style={{ color: 'var(--text-soft)' }}>
-                    <span>{t('dashboard.calories.snapshotTotalAdjustment')}</span>
-                    <span
-                      className={`font-semibold tabular-nums ${snapshot.deltaPct === 0 ? 'text-slate-500' : snapshot.deltaPct >= 0 ? 'text-emerald-600' : 'text-amber-600'}`}
+                  <div className="rounded-[10px] border border-[#F0F0F0] border-t-[3px] border-t-[#EF5350] bg-white px-2.5 pb-2.5 pt-3 text-center dark:border-[var(--border-subtle)] dark:border-t-rose-400 dark:bg-[var(--card)]">
+                    <p
+                      className={[
+                        'text-[28px] font-semibold tabular-nums leading-none tracking-[-0.02em]',
+                        snapshot.recoveryDelta === 0
+                          ? 'text-slate-900 dark:text-slate-100'
+                          : snapshot.recoveryDelta > 0
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : 'text-amber-600 dark:text-amber-400',
+                      ].join(' ')}
                     >
-                      {snapshot.deltaPct >= 0 ? '+' : ''}{snapshot.deltaPct}%
-                    </span>
+                      {fmtSignedInt(snapshot.recoveryDelta)}
+                    </p>
+                    <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#aaaaaa] dark:text-slate-500">
+                      {t('dashboard.calories.snapshotRecovery')}
+                    </p>
+                  </div>
+                  <div className="rounded-[10px] border border-[#F0F0F0] border-t-[3px] border-t-[#66BB6A] bg-white px-2.5 pb-2.5 pt-3 text-center dark:border-[var(--border-subtle)] dark:border-t-emerald-400 dark:bg-[var(--card)]">
+                    <p
+                      className={[
+                        'text-[28px] font-semibold tabular-nums leading-none tracking-[-0.02em]',
+                        snapshot.activityDelta === 0
+                          ? 'text-slate-900 dark:text-slate-100'
+                          : snapshot.activityDelta > 0
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : 'text-amber-600 dark:text-amber-400',
+                      ].join(' ')}
+                    >
+                      {fmtSignedInt(snapshot.activityDelta)}
+                    </p>
+                    <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#aaaaaa] dark:text-slate-500">
+                      {t('dashboard.calories.snapshotActivity')}
+                    </p>
                   </div>
                 </div>
-              )}
+              ) : null}
+
+              {!loading && breakdownRows.length > 0 ? (
+                <div className="mt-4 w-full">
+                  <button
+                    type="button"
+                    id={`${WHY_BREAKDOWN_ID}-trigger`}
+                    aria-expanded={whyOpen}
+                    aria-controls={WHY_BREAKDOWN_ID}
+                    onClick={() => setWhyOpen((o) => !o)}
+                    className="mx-auto flex w-full items-center justify-center gap-1 text-[13px] font-semibold text-[#00BCD4] transition-opacity hover:opacity-85 dark:text-cyan-400"
+                  >
+                    {t('dashboard.calories.seeFullBreakdown')} {whyOpen ? '▲' : '▼'}
+                  </button>
+
+                  {whyOpen ? (
+                    <div
+                      id={WHY_BREAKDOWN_ID}
+                      role="region"
+                      aria-labelledby={`${WHY_BREAKDOWN_ID}-trigger`}
+                      className="mt-4 space-y-3 border-t pt-4 text-left"
+                      style={{ borderColor: 'var(--border-subtle)' }}
+                    >
+                      <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-soft)' }}>
+                        {t('dashboard.calories.pageSubtitle')}
+                      </p>
+                      {data?.guardRailApplied ? (
+                        <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                          {t('dashboard.calories.guardRailHint')}
+                        </p>
+                      ) : null}
+                      <div className="space-y-2.5 pt-1">
+                        {breakdownRows.map((row) => (
+                          <div key={row.key} className="flex items-start justify-between gap-3 text-[13px] leading-snug">
+                            <span className="min-w-0 flex-1" style={{ color: 'var(--text-soft)' }}>
+                              {row.label}
+                            </span>
+                            <span className={`shrink-0 font-semibold tabular-nums ${row.color}`}>
+                              {row.value} kcal
+                            </span>
+                          </div>
+                        ))}
+                        <div
+                          className="flex items-center justify-between border-t pt-2.5 mt-2.5 text-sm"
+                          style={{ borderColor: 'var(--border-subtle)' }}
+                        >
+                          <span className="font-bold" style={{ color: 'var(--text-main)' }}>
+                            {t('dashboard.calories.vsBaseTarget')}
+                          </span>
+                          <span
+                            className={`font-bold tabular-nums ${
+                              deltaPct >= 0 ? 'text-emerald-600' : 'text-amber-600'
+                            }`}
+                          >
+                            {deltaPct >= 0 ? '+' : ''}
+                            {deltaPct}%
+                          </span>
+                        </div>
+                        {(data?.stepsToday != null || data?.activeMinutesToday != null) && (
+                          <p className="text-[11px] pt-1" style={{ color: 'var(--text-muted)' }}>
+                            {data.stepsToday != null && (
+                              <span>Steps today: {data.stepsToday.toLocaleString('en-US')}</span>
+                            )}
+                            {data.stepsToday != null && data.activeMinutesToday != null && ' · '}
+                            {data.activeMinutesToday != null && (
+                              <span>Active minutes: {data.activeMinutesToday}</span>
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </>
           )}
         </section>
-
-        {/* Full modifier breakdown — same math as /api/nutrition/today */}
-        {!loading && breakdownRows.length > 0 && (
-          <section className="rounded-xl bg-white border border-slate-200 px-5 py-4 flex flex-col gap-3 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-            <div className="space-y-1">
-              <h2 className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700">
-                {t('dashboard.calories.detailModifierBreakdown')}
-              </h2>
-              <p className="text-[11px] leading-relaxed text-slate-600">
-                {t('dashboard.calories.pageSubtitle')}
-              </p>
-              {data?.guardRailApplied ? (
-                <p className="text-[11px] leading-relaxed text-slate-500">{t('dashboard.calories.guardRailHint')}</p>
-              ) : null}
-            </div>
-            <div className="space-y-2">
-              {breakdownRows.map((row) => (
-                <div key={row.key} className="flex items-center justify-between text-sm gap-2">
-                  <span className="text-slate-600">{row.label}</span>
-                  <span className={`font-semibold tabular-nums flex-shrink-0 ${row.color}`}>
-                    {row.value} kcal
-                  </span>
-                </div>
-              ))}
-              <div className="flex items-center justify-between text-sm pt-2 mt-2 border-t border-slate-200/60">
-                <span className="text-slate-700 font-medium">Vs base target</span>
-                <span
-                  className={`font-semibold tabular-nums ${
-                    deltaPct >= 0 ? 'text-emerald-600' : 'text-amber-600'
-                  }`}
-                >
-                  {deltaPct >= 0 ? '+' : ''}
-                  {deltaPct}%
-                </span>
-              </div>
-              {(data?.stepsToday != null || data?.activeMinutesToday != null) && (
-                <p className="text-[11px] text-slate-500 pt-1">
-                  {data.stepsToday != null && (
-                    <span>Steps today: {data.stepsToday.toLocaleString('en-US')}</span>
-                  )}
-                  {data.stepsToday != null && data.activeMinutesToday != null && ' · '}
-                  {data.activeMinutesToday != null && (
-                    <span>Active minutes: {data.activeMinutesToday}</span>
-                  )}
-                </p>
-              )}
-            </div>
-          </section>
-        )}
 
         <MacroTargetsCard
           loading={loading}
@@ -222,17 +356,31 @@ export default function AdjustedCaloriesPage() {
           rhythmScore={data?.rhythmScore ?? null}
           sleepHoursLast24h={data?.sleepHoursLast24h ?? null}
           consumedMacros={data?.consumedMacros}
-          mealTimesData={mealTimesData}
-          highlightNextMealLabel={mealTimingCard?.nextMealLabel ?? null}
-          timingTip={!loading && data ? getMacroTimingTip(data.shiftType) : null}
           variant="compact"
         />
 
+        {mealTimesData === undefined && (mealTimingLoading || loading) ? (
+          <MealTimesScheduleCard loading title="Meal times" />
+        ) : mealTimesData && mealTimesData.length > 0 ? (
+          <MealTimesScheduleCard
+            meals={mealTimesData}
+            highlightNextMealLabel={mealTimingCard?.nextMealLabel ?? null}
+            title="Meal times"
+          />
+        ) : null}
+
+        <MacroTimingInsight message={timingInsightMessage} />
+
         {/* Disclaimer */}
         <div className="pt-4 pb-4">
-          <p className="text-[11px] leading-relaxed text-slate-500 text-center">
-            {t('detail.common.disclaimer')}
-          </p>
+          <div className="text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">ShiftCoach</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+              A coaching app only and does not replace medical advice.
+              <br />
+              Please speak to a healthcare professional about any health concerns.
+            </p>
+          </div>
         </div>
       </div>
     </main>
