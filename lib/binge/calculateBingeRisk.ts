@@ -1,3 +1,6 @@
+import { isoLocalDate } from '@/lib/shifts'
+import { addCalendarDaysToYmd } from '@/lib/sleep/utils'
+
 /**
  * Calculate binge risk score for shift workers
  * 
@@ -122,7 +125,7 @@ export function calculateBingeRisk(inputs: BingeRiskInputs): BingeRiskResult {
   }
 
   // 2. SHIFT PATTERN FACTORS (0-30 points)
-  const today = now.toISOString().slice(0, 10)
+  const today = isoLocalDate(now)
   const currentShift = shifts.find(s => s.date === today)
   const isNightShift = currentShift?.type === 'night'
   const isAfterNightShift = checkIfJustFinishedNightShift(shifts, now)
@@ -254,9 +257,7 @@ function formatHours(hours: number): string {
 }
 
 function checkIfJustFinishedNightShift(shifts: ShiftData[], now: Date): boolean {
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-  const yesterdayStr = yesterday.toISOString().slice(0, 10)
+  const yesterdayStr = addCalendarDaysToYmd(isoLocalDate(now), -1)
   
   const yesterdayShift = shifts.find(s => s.date === yesterdayStr)
   if (yesterdayShift?.type === 'night') {

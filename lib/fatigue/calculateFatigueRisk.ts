@@ -55,6 +55,11 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
+/** Ignore placeholder rows (missing duration) so we never show “0.0h sleep” as a real sample. */
+function sleepLogsWithMeasuredDuration(logs: readonly FatigueSleepLog[]): FatigueSleepLog[] {
+  return logs.filter((s) => (s.durationHours ?? 0) > 0.05)
+}
+
 function confidenceLabelFrom(value: number): FatigueConfidenceLabel {
   if (value >= 0.75) return 'high'
   if (value >= 0.45) return 'medium'
@@ -68,20 +73,26 @@ function scoreToLevel(score: number): FatigueRiskLevel {
 }
 
 function calculateSleepContribution(sleepLogs: FatigueSleepLog[], weeklyDebtHours: number): Contribution {
-  const lastSleep = sleepLogs[0]?.durationHours ?? 0
+  const measured = sleepLogsWithMeasuredDuration(sleepLogs)
+  const lastSleep = measured[0]?.durationHours ?? null
   const avgRecentSleep =
-    sleepLogs.length > 0
-      ? sleepLogs.slice(0, 3).reduce((sum, s) => sum + Math.max(0, s.durationHours || 0), 0) / Math.min(3, sleepLogs.length)
-      : 0
+    measured.length > 0
+      ? measured.slice(0, 3).reduce((sum, s) => sum + Math.max(0, s.durationHours || 0), 0) /
+        Math.min(3, measured.length)
+      : null
 
   let points = 0
-  if (lastSleep < 4) points += 15
-  else if (lastSleep < 5) points += 11
-  else if (lastSleep < 6) points += 8
-  else if (lastSleep < 7) points += 4
+  if (lastSleep != null) {
+    if (lastSleep < 4) points += 15
+    else if (lastSleep < 5) points += 11
+    else if (lastSleep < 6) points += 8
+    else if (lastSleep < 7) points += 4
+  }
 
-  if (avgRecentSleep < 5.5) points += 7
-  else if (avgRecentSleep < 6.5) points += 4
+  if (avgRecentSleep != null) {
+    if (avgRecentSleep < 5.5) points += 7
+    else if (avgRecentSleep < 6.5) points += 4
+  }
 
   if (weeklyDebtHours > 12) points += 10
   else if (weeklyDebtHours > 8) points += 8
@@ -91,7 +102,8 @@ function calculateSleepContribution(sleepLogs: FatigueSleepLog[], weeklyDebtHour
   points = clamp(points, 0, 35)
   if (points <= 0) return { key: 'sleep', points }
   if (weeklyDebtHours > 8) return { key: 'sleep', points, driver: `High sleep debt (${weeklyDebtHours.toFixed(1)}h)` }
-  if (lastSleep < 6) return { key: 'sleep', points, driver: `Short recent sleep (${lastSleep.toFixed(1)}h)` }
+  if (lastSleep != null && lastSleep < 6)
+    return { key: 'sleep', points, driver: `Short recent sleep (${lastSleep.toFixed(1)}h)` }
   return { key: 'sleep', points, driver: 'Mild sleep debt is building' }
 }
 
@@ -128,7 +140,8 @@ function calculateShiftSequenceContribution(
   const recent = shifts.slice(0, 7)
   const consecutiveNights = countConsecutiveNights(recent)
   const workedStreak = recent.filter((s) => s.type !== 'off').length
-  const shortSleep = sleepLogs.slice(0, 2).some((s) => (s.durationHours ?? 0) < 6)
+  const measured = sleepLogsWithMeasuredDuration(sleepLogs)
+  const shortSleep = measured.slice(0, 2).some((s) => (s.durationHours ?? 0) < 6)
   const lastShift = recent[0]?.type
   const secondShift = recent[1]?.type
   let points = 0
@@ -231,7 +244,7 @@ function calculateShiftDemandContribution(
   sleepLogs: FatigueSleepLog[],
 ): Contribution {
   if (!shiftGuidance) return { key: 'shiftDemand', points: 0 }
-  const lastSleep = sleepLogs[0]?.durationHours ?? 0
+  const lastSleep = sleepLogsWithMeasuredDuration(sleepLogs)[0]?.durationHours ?? 0
   const gm = shiftGuidance.guidanceMode
   const ts = shiftGuidance.transitionState
   let points = 0
@@ -298,17 +311,20 @@ function effectiveOperationalShiftType(inputs: CalculateFatigueRiskInputs): Fati
 }
 
 function classifyRecoveryPhase(inputs: CalculateFatigueRiskInputs, scoreBeforePhase: number): RecoveryPhase {
-  const lastSleep = inputs.sleepLogs[0]?.durationHours ?? 0
+  const measured = sleepLogsWithMeasuredDuration(inputs.sleepLogs)
+  const lastSleep = measured[0]?.durationHours ?? null
   const avg2 =
-    inputs.sleepLogs.length > 0
-      ? inputs.sleepLogs.slice(0, 2).reduce((sum, s) => sum + Math.max(0, s.durationHours || 0), 0) / Math.min(2, inputs.sleepLogs.length)
-      : 0
+    measured.length > 0
+      ? measured.slice(0, 2).reduce((sum, s) => sum + Math.max(0, s.durationHours || 0), 0) /
+        Math.min(2, measured.length)
+      : null
   const debt = Math.max(0, inputs.weeklySleepDebtHours ?? 0)
   const latestShift = effectiveOperationalShiftType(inputs)
 
-  if ((latestShift === 'night' && lastSleep < 6) || scoreBeforePhase >= 72) return 'active_strain'
-  if (latestShift === 'night' && lastSleep >= 6.5) return 'post_shift_recovery'
-  if (debt > 4 || avg2 < 6.5) return 'incomplete_recovery'
+  if ((latestShift === 'night' && lastSleep != null && lastSleep < 6) || scoreBeforePhase >= 72)
+    return 'active_strain'
+  if (latestShift === 'night' && lastSleep != null && lastSleep >= 6.5) return 'post_shift_recovery'
+  if (debt > 4 || (avg2 != null && avg2 < 6.5)) return 'incomplete_recovery'
   return 'recovered'
 }
 

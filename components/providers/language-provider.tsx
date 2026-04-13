@@ -697,6 +697,11 @@ const messageBundles: Partial<Record<AppLocaleCode, Record<string, string>>> & {
     'detail.fatigueRisk.curveFootnote':
       'Risk is lowest after aligned recovery sleep and rises into late biological-night hours.',
     'detail.fatigueRisk.driversTitle': "What's driving your risk",
+    'detail.fatigueRisk.driversIntro': 'Tap a factor to expand. Shown in order of impact on your score.',
+    'detail.fatigueRisk.driverExpandAria': 'Show more about this factor',
+    'detail.fatigueRisk.driverCollapseAria': 'Hide details for this factor',
+    'detail.fatigueRisk.driverFooterHint':
+      'These signals refresh as you log sleep, shifts, and recovery.',
     'detail.fatigueRisk.howToLowerTitle': 'How to lower fatigue risk',
     'detail.fatigueRisk.tip1Title': 'Protect post-shift sleep',
     'detail.fatigueRisk.tip1Body':
@@ -713,6 +718,29 @@ const messageBundles: Partial<Record<AppLocaleCode, Record<string, string>>> & {
     'detail.fatigueRisk.confidenceLow': 'Low',
     'detail.fatigueRisk.confidenceMedium': 'Medium',
     'detail.fatigueRisk.confidenceHigh': 'High',
+    'detail.fatigueRisk.motivationLoading': '{prefix}Checking your fatigue signals…',
+    'detail.fatigueRisk.motivationNoData':
+      '{prefix}Log sleep and shifts so this note can match how you actually feel on duty.',
+    'detail.fatigueRisk.motivationHigh':
+      '{prefix}Fatigue risk is elevated—prioritize protected sleep or a short nap before your next busy stretch.',
+    'detail.fatigueRisk.motivationModerate':
+      '{prefix}Moderate fatigue today—steady meals, hydration, and sleep timing will help you stay sharper.',
+    'detail.fatigueRisk.motivationLow':
+      '{prefix}Fatigue risk looks manageable right now—keep protecting recovery sleep through the week.',
+    'detail.fatigueRisk.motivationCurveRise':
+      '{prefix}Your risk curve climbs later today—protected sleep or a short nap now can keep your week on track.',
+    'detail.fatigueRisk.motivationConfidenceLow':
+      '{prefix}We need a bit more data—keep logging sleep and shifts so this stays personal.',
+    'detail.fatigueRisk.motivationDriverSleep':
+      '{prefix}Sleep is the main drag—aim for a solid wind-down block before your next duty window.',
+    'detail.fatigueRisk.motivationDriverCircadian':
+      '{prefix}Rhythm strain is in the mix—consistent sleep and wake times will ease the load.',
+    'detail.fatigueRisk.motivationDriverShift':
+      '{prefix}Shift pattern load is showing up—squeeze rest between duties, even in short blocks.',
+    'detail.fatigueRisk.motivationDriverTiming':
+      '{prefix}The biological low window matters today—extra care with focus and driving late night.',
+    'detail.fatigueRisk.motivationDriverPhysiology':
+      '{prefix}Recovery signals are noisy—favor sleep, hydration, and lighter exertion until you feel steadier.',
 
     'detail.shiftRhythm.title': 'Shift Rhythm',
     'detail.adjustedCalories.title': 'Adjusted Calories',
@@ -1312,6 +1340,12 @@ const messageBundles: Partial<Record<AppLocaleCode, Record<string, string>>> & {
     'detail.fatigueRisk.curveFootnote':
       'El riesgo es menor tras un sueño de recuperación alineado y sube en la noche biológica tardía.',
     'detail.fatigueRisk.driversTitle': 'Qué impulsa tu riesgo',
+    'detail.fatigueRisk.driversIntro':
+      'Toca un factor para ampliar. Ordenados por impacto en tu puntuación.',
+    'detail.fatigueRisk.driverExpandAria': 'Ver más sobre este factor',
+    'detail.fatigueRisk.driverCollapseAria': 'Ocultar detalles de este factor',
+    'detail.fatigueRisk.driverFooterHint':
+      'Estas señales se actualizan al registrar sueño, turnos y recuperación.',
     'detail.fatigueRisk.howToLowerTitle': 'Cómo reducir el riesgo de fatiga',
     'detail.fatigueRisk.tip1Title': 'Protege el sueño tras el turno',
     'detail.fatigueRisk.tip1Body':
@@ -1328,6 +1362,29 @@ const messageBundles: Partial<Record<AppLocaleCode, Record<string, string>>> & {
     'detail.fatigueRisk.confidenceLow': 'Baja',
     'detail.fatigueRisk.confidenceMedium': 'Media',
     'detail.fatigueRisk.confidenceHigh': 'Alta',
+    'detail.fatigueRisk.motivationLoading': '{prefix}Revisando tus señales de fatiga…',
+    'detail.fatigueRisk.motivationNoData':
+      '{prefix}Registra sueño y turnos para que este mensaje refleje cómo te sientes en el trabajo.',
+    'detail.fatigueRisk.motivationHigh':
+      '{prefix}El riesgo de fatiga está alto: prioriza sueño protegido o una siesta corta antes del próximo tramo exigente.',
+    'detail.fatigueRisk.motivationModerate':
+      '{prefix}Fatiga moderada hoy: comidas regulares, hidratación y horarios de sueño te ayudarán a mantener la claridad.',
+    'detail.fatigueRisk.motivationLow':
+      '{prefix}El riesgo parece manejable ahora: sigue cuidando el sueño de recuperación durante la semana.',
+    'detail.fatigueRisk.motivationCurveRise':
+      '{prefix}Tu curva sube más tarde hoy—un sueño protegido o una siesta ahora puede mantener la semana bajo control.',
+    'detail.fatigueRisk.motivationConfidenceLow':
+      '{prefix}Hace falta un poco más de datos: sigue registrando sueño y turnos para personalizar esto.',
+    'detail.fatigueRisk.motivationDriverSleep':
+      '{prefix}El sueño es el principal freno: busca un bloque de descanso sólido antes del próximo turno.',
+    'detail.fatigueRisk.motivationDriverCircadian':
+      '{prefix}Hay tensión del ritmo: horarios de sueño y despertar más estables alivian la carga.',
+    'detail.fatigueRisk.motivationDriverShift':
+      '{prefix}La carga de turnos se nota: encaja descanso entre servicios, aunque sea en bloques cortos.',
+    'detail.fatigueRisk.motivationDriverTiming':
+      '{prefix}La ventana biológica baja importa hoy: más cuidado con la concentración y conducción a altas horas.',
+    'detail.fatigueRisk.motivationDriverPhysiology':
+      '{prefix}Las señales de recuperación fluctúan: prioriza sueño, hidratación y esfuerzo más ligero hasta estabilizarte.',
 
     'detail.shiftRhythm.title': 'Ritmo de turnos',
     'detail.adjustedCalories.title': 'Calorías ajustadas',
@@ -1929,6 +1986,12 @@ const messageBundles: Partial<Record<AppLocaleCode, Record<string, string>>> & {
     'detail.fatigueRisk.curveFootnote':
       'Das Risiko ist nach erholsamem Schlaf am niedrigsten und steigt in späten biologischen Nachtstunden.',
     'detail.fatigueRisk.driversTitle': 'Was dein Risiko treibt',
+    'detail.fatigueRisk.driversIntro':
+      'Tippe auf einen Faktor für Details. Sortiert nach Einfluss auf deinen Score.',
+    'detail.fatigueRisk.driverExpandAria': 'Mehr zu diesem Faktor anzeigen',
+    'detail.fatigueRisk.driverCollapseAria': 'Details zu diesem Faktor ausblenden',
+    'detail.fatigueRisk.driverFooterHint':
+      'Diese Signale aktualisieren sich mit Schlaf-, Schicht- und Erholungsdaten.',
     'detail.fatigueRisk.howToLowerTitle': 'So senkst du das Ermüdungsrisiko',
     'detail.fatigueRisk.tip1Title': 'Schlaf nach der Schicht schützen',
     'detail.fatigueRisk.tip1Body':
@@ -1945,6 +2008,29 @@ const messageBundles: Partial<Record<AppLocaleCode, Record<string, string>>> & {
     'detail.fatigueRisk.confidenceLow': 'Niedrig',
     'detail.fatigueRisk.confidenceMedium': 'Mittel',
     'detail.fatigueRisk.confidenceHigh': 'Hoch',
+    'detail.fatigueRisk.motivationLoading': '{prefix}Wir prüfen deine Ermüdungssignale…',
+    'detail.fatigueRisk.motivationNoData':
+      '{prefix}Trag Schlaf und Schichten ein, damit dieser Hinweis zu deinem Alltag passt.',
+    'detail.fatigueRisk.motivationHigh':
+      '{prefix}Das Ermüdungsrisiko ist hoch – priorisiere geschützten Schlaf oder ein kurzes Nickerchen vor der nächsten belastenden Phase.',
+    'detail.fatigueRisk.motivationModerate':
+      '{prefix}Heute mittlere Fatigue – regelmäßige Mahlzeiten, Flüssigkeit und feste Schlafzeiten helfen dir wach zu bleiben.',
+    'detail.fatigueRisk.motivationLow':
+      '{prefix}Das Risiko wirkt gerade beherrschbar – schütze weiterhin Erholungsschlaf über die Woche.',
+    'detail.fatigueRisk.motivationCurveRise':
+      '{prefix}Deine Kurve steigt später – geschützter Schlaf oder ein kurzer Schlaf jetzt hält die Woche stabil.',
+    'detail.fatigueRisk.motivationConfidenceLow':
+      '{prefix}Noch etwas wenig Daten – logge Schlaf und Schichten, damit das persönlicher wird.',
+    'detail.fatigueRisk.motivationDriverSleep':
+      '{prefix}Schlaf zieht am stärksten – plane vor dem nächsten Dienst einen klaren Runterfahr- und Schlafblock.',
+    'detail.fatigueRisk.motivationDriverCircadian':
+      '{prefix}Rhythmus-Stress mischt mit – gleichmäßige Schlaf- und Aufstehzeiten entlasten.',
+    'detail.fatigueRisk.motivationDriverShift':
+      '{prefix}Schichtmuster belasten – hol dir Pausen zwischen den Diensten, auch kurze reichen.',
+    'detail.fatigueRisk.motivationDriverTiming':
+      '{prefix}Das biologische Tief zählt heute – vorsichtig bei Konzentration und Nachtfahrten.',
+    'detail.fatigueRisk.motivationDriverPhysiology':
+      '{prefix}Erholungssignale sind unruhig – Schlaf, Wasser und leichtere Belastung, bis es ruhiger wirkt.',
 
     'detail.shiftRhythm.title': 'Schichtrhythmus',
     'detail.adjustedCalories.title': 'Angepasste Kalorien',
