@@ -113,19 +113,28 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
               style={{ width: `${progress}%`, backgroundColor: meta.accent }}
             />
           </div>
-          <div className="flex items-center justify-between px-[18px] py-[10px]">
+          <div className="grid grid-cols-3 items-center px-[18px] py-[10px]">
             <Link
               href="/blog"
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] text-[var(--text-soft)]"
+              className="flex h-8 w-8 items-center justify-center justify-self-start rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] text-[var(--text-soft)]"
               aria-label={t('blog.backToBlogAria')}
             >
               <ChevronLeft className="h-4 w-4" />
             </Link>
-            <span className="text-[12px] font-semibold tracking-[0.3px] text-[var(--text-muted)]">ShiftCoach</span>
+            <div className="relative mx-auto h-7 w-[5.25rem] min-w-0 justify-self-center">
+              <Image
+                src="/logo.svg"
+                alt="ShiftCoach"
+                fill
+                sizes="120px"
+                className="object-contain"
+                priority
+              />
+            </div>
             <button
               type="button"
               onClick={() => setBookmarked((v) => !v)}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[15px] transition-colors"
+              className="flex h-8 w-8 items-center justify-center justify-self-end rounded-full border border-[var(--border-subtle)] text-[15px] transition-colors"
               style={{
                 backgroundColor: bookmarked ? `${meta.accent}18` : 'var(--card-subtle)',
                 color: bookmarked ? meta.accent : 'var(--text-muted)',
