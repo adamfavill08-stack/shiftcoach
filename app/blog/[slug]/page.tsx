@@ -38,8 +38,14 @@ const FALLBACK_META: Meta = {
   readTime: '6 min read',
 }
 
-/** Full-bleed hero image on the article header card (path under /public). */
+/** Full-bleed hero on the article header: same art as /blog row thumbnails. */
 const ARTICLE_HERO_IMAGE_BY_SLUG: Record<string, string> = {
+  'manage-fatigue': '/blog/thumbnails/fatigue.svg',
+  'impact-of-shift-work': '/blog/thumbnails/health.svg',
+  'meal-timing-tips': '/blog/thumbnails/nutrition.svg',
+  'sleep-quality-rotating-shifts': '/blog/thumbnails/sleep.svg',
+  'shift-work-and-age': '/blog/thumbnails/longevity.svg',
+  'shift-work-and-families': '/blog/thumbnails/family.svg',
   'why-shift-workers-matter': '/blog/thumbnails/nightworker.svg',
 }
 
