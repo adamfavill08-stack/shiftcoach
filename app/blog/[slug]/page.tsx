@@ -49,8 +49,9 @@ const ARTICLE_HERO_IMAGE_BY_SLUG: Record<string, string> = {
   'why-shift-workers-matter': '/blog/thumbnails/nightworker.svg',
 }
 
-function formatTodayDate(): string {
-  return new Date().toLocaleDateString(undefined, {
+/** Fixed locale so SSR and browser match (undefined locale caused en-GB vs en-US hydration errors). */
+function formatArticleDateLabel(): string {
+  return new Date().toLocaleDateString('en-US', {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
@@ -106,7 +107,7 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
     .map((s) => s.trim())
     .filter(Boolean)
   const related = posts.filter((p) => p.slug !== post.slug).slice(0, 3)
-  const articleDate = formatTodayDate()
+  const articleDate = formatArticleDateLabel()
   const heroImage = ARTICLE_HERO_IMAGE_BY_SLUG[post.slug]
 
   return (
