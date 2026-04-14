@@ -90,7 +90,7 @@ export default function WelcomePage() {
               {/* Logo */}
               <div className="flex justify-center mb-6">
                 <Image
-                  src="/scnew-logo.svg"
+                  src="/logo.svg"
                   alt={t('welcome.logoAlt')}
                   width={140}
                   height={56}

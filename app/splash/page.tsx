@@ -58,11 +58,11 @@ export default function SplashPage() {
         }`}
       >
         <Image
-          src="/scpremium-logo.svg"
+          src="/logo.svg"
           alt={t('splash.logoAlt')}
           width={200}
           height={80}
-          className="h-20 w-auto dark:brightness-0 dark:invert"
+          className="h-20 w-auto object-contain"
           priority
         />
       </div>

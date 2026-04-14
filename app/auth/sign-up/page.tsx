@@ -54,11 +54,11 @@ function SignUpContent() {
             <div className="text-center">
               <div className="flex justify-center">
                 <Image
-                  src="/scpremium-logo.svg"
+                  src="/logo.svg"
                   alt="ShiftCoach Logo"
                   width={200}
                   height={60}
-                  className="object-contain h-12 dark:brightness-0 dark:invert"
+                  className="object-contain h-12"
                   priority
                 />
               </div>

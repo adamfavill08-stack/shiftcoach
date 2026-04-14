@@ -20,9 +20,9 @@ export const metadata: Metadata = {
   title: 'ShiftCoach - Health App for Shift Workers',
   description: 'Health and wellbeing app designed for shift workers. Track sleep, nutrition, body clock, and shift schedules.',
   icons: {
-    icon: '/faviconsvg.svg',
-    shortcut: '/faviconsvg.svg',
-    apple: '/faviconsvg.svg',
+    icon: '/logo.svg',
+    shortcut: '/logo.svg',
+    apple: '/logo.svg',
   },
   robots: {
     index: false,
