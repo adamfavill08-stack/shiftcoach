@@ -205,7 +205,7 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
                     : 'flex items-center justify-between border-t border-[var(--border-subtle)] py-[14px] pb-5'
                 }
               >
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0">
                   <div className="relative h-8 w-11 shrink-0 sm:h-9 sm:w-[3.25rem]">
                     <Image
                       src="/logo.svg"
@@ -216,7 +216,7 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
                       draggable={false}
                     />
                   </div>
-                  <div>
+                  <div className="-ml-1.5 sm:-ml-2">
                     <div
                       className={
                         heroImage ? 'text-[12px] font-bold text-white' : 'text-[12px] font-bold text-[var(--text-main)]'
