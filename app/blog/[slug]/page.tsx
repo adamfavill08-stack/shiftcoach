@@ -37,6 +37,11 @@ const FALLBACK_META: Meta = {
   readTime: '6 min read',
 }
 
+/** Full-bleed hero image on the article header card (path under /public). */
+const ARTICLE_HERO_IMAGE_BY_SLUG: Record<string, string> = {
+  'why-shift-workers-matter': '/blog/thumbnails/nightworker.svg',
+}
+
 function formatTodayDate(): string {
   return new Date().toLocaleDateString(undefined, {
     month: 'long',
@@ -95,6 +100,7 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
     .filter(Boolean)
   const related = posts.filter((p) => p.slug !== post.slug).slice(0, 3)
   const articleDate = formatTodayDate()
+  const heroImage = ARTICLE_HERO_IMAGE_BY_SLUG[post.slug]
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
@@ -131,42 +137,104 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
         </div>
 
         <article className="px-[22px] pt-20">
-          <header className="-mx-[22px] border-b border-[var(--border-subtle)] bg-[var(--card)] px-[22px] pb-0 pt-6">
-            <div className="mb-5 inline-flex items-center gap-1.5">
-              <span className="text-[13px]" aria-hidden>
-                {meta.tag}
-              </span>
-              <span className="text-[11px] font-extrabold uppercase tracking-[1.2px]" style={{ color: meta.accent }}>
-                {meta.category}
-              </span>
-            </div>
-
-            <h1 className="mb-4 text-[26px] font-bold leading-[1.22] tracking-[-0.4px] text-[var(--text-main)]">{post.title}</h1>
-
-            <p className="mb-6 text-[16px] italic leading-[1.55] text-[var(--text-soft)]">{subtitle}</p>
-
-            <div className="flex items-center justify-between border-t border-[var(--border-subtle)] py-[14px] pb-5">
-              <div className="flex items-center gap-[10px]">
+          <header
+            className={
+              heroImage
+                ? 'relative isolate -mx-[22px] overflow-hidden border-b border-white/10 px-[22px] pb-0 pt-6'
+                : '-mx-[22px] border-b border-[var(--border-subtle)] bg-[var(--card)] px-[22px] pb-0 pt-6'
+            }
+          >
+            {heroImage ? (
+              <>
                 <div
-                  className="flex h-[34px] w-[34px] items-center justify-center rounded-full text-[16px]"
-                  style={{ backgroundColor: `${meta.accent}18` }}
+                  className="pointer-events-none absolute inset-0 bg-cover bg-center"
+                  style={{ backgroundImage: `url(${heroImage})` }}
                   aria-hidden
-                >
-                  ⚙️
-                </div>
-                <div>
-                  <div className="text-[12px] font-bold text-[var(--text-main)]">ShiftCoach Team</div>
-                  <div className="text-[11px] text-[var(--text-muted)]">
-                    {articleDate} · {meta.readTime}
+                />
+                <div
+                  className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/50 via-black/72 to-black/88"
+                  aria-hidden
+                />
+              </>
+            ) : null}
+
+            <div className={heroImage ? 'relative z-10' : undefined}>
+              <div className="mb-5 inline-flex items-center gap-1.5">
+                <span className="text-[13px]" aria-hidden>
+                  {meta.tag}
+                </span>
+                <span className="text-[11px] font-extrabold uppercase tracking-[1.2px]" style={{ color: meta.accent }}>
+                  {meta.category}
+                </span>
+              </div>
+
+              <h1
+                className={
+                  heroImage
+                    ? 'mb-4 text-[26px] font-bold leading-[1.22] tracking-[-0.4px] text-white'
+                    : 'mb-4 text-[26px] font-bold leading-[1.22] tracking-[-0.4px] text-[var(--text-main)]'
+                }
+              >
+                {post.title}
+              </h1>
+
+              <p
+                className={
+                  heroImage
+                    ? 'mb-6 text-[16px] italic leading-[1.55] text-white/78'
+                    : 'mb-6 text-[16px] italic leading-[1.55] text-[var(--text-soft)]'
+                }
+              >
+                {subtitle}
+              </p>
+
+              <div
+                className={
+                  heroImage
+                    ? 'flex items-center justify-between border-t border-white/15 py-[14px] pb-5'
+                    : 'flex items-center justify-between border-t border-[var(--border-subtle)] py-[14px] pb-5'
+                }
+              >
+                <div className="flex items-center gap-[10px]">
+                  <div
+                    className={
+                      heroImage
+                        ? 'flex h-[34px] w-[34px] items-center justify-center rounded-full border border-white/15 bg-white/10 text-[16px] text-white'
+                        : 'flex h-[34px] w-[34px] items-center justify-center rounded-full text-[16px]'
+                    }
+                    style={heroImage ? undefined : { backgroundColor: `${meta.accent}18` }}
+                    aria-hidden
+                  >
+                    ⚙️
+                  </div>
+                  <div>
+                    <div
+                      className={
+                        heroImage ? 'text-[12px] font-bold text-white' : 'text-[12px] font-bold text-[var(--text-main)]'
+                      }
+                    >
+                      ShiftCoach Team
+                    </div>
+                    <div
+                      className={
+                        heroImage ? 'text-[11px] text-white/55' : 'text-[11px] text-[var(--text-muted)]'
+                      }
+                    >
+                      {articleDate} · {meta.readTime}
+                    </div>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  className={
+                    heroImage
+                      ? 'rounded-[20px] border border-white/20 bg-black/30 px-[14px] py-[6px] text-[12px] font-semibold text-white backdrop-blur-[8px]'
+                      : 'rounded-[20px] border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-[14px] py-[6px] text-[12px] font-semibold text-[var(--text-soft)]'
+                  }
+                >
+                  Share ↗
+                </button>
               </div>
-              <button
-                type="button"
-                className="rounded-[20px] border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-[14px] py-[6px] text-[12px] font-semibold text-[var(--text-soft)]"
-              >
-                Share ↗
-              </button>
             </div>
           </header>
 
