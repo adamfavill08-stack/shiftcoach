@@ -96,7 +96,7 @@ function RiskGauge({ score }: { score: number }) {
           <path
             d="M 10 100 A 90 90 0 0 1 190 100"
             fill="none"
-            stroke="#E5E5EA"
+            stroke="var(--border-subtle)"
             strokeWidth="14"
             strokeLinecap="round"
           />
@@ -117,7 +117,7 @@ function RiskGauge({ score }: { score: number }) {
             const y = 100 - 90 * Math.sin(angle)
             const ix = 100 + 76 * Math.cos(angle)
             const iy = 100 - 76 * Math.sin(angle)
-            return <line key={pct} x1={x} y1={y} x2={ix} y2={iy} stroke="white" strokeWidth="2" />
+            return <line key={pct} x1={x} y1={y} x2={ix} y2={iy} stroke="var(--card)" strokeWidth="2" />
           })}
 
           {(() => {
@@ -169,7 +169,7 @@ function RiskGauge({ score }: { score: number }) {
       </div>
 
       <div style={{ marginTop: 8, textAlign: 'center' }}>
-        <div style={{ fontSize: 42, fontWeight: 700, color: '#1C1C1E', lineHeight: 1 }}>{clamp}</div>
+        <div style={{ fontSize: 42, fontWeight: 700, color: 'var(--text-main)', lineHeight: 1 }}>{clamp}</div>
         <div style={{ fontSize: 15, fontWeight: 600, color, marginTop: 4 }}>{getLabel(clamp)}</div>
       </div>
     </div>
@@ -188,11 +188,11 @@ function FactorBar({ factor, delay }: { factor: Factor; delay: number }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 18 }}>{factor.icon}</span>
-          <span style={{ fontSize: 14, fontWeight: 500, color: '#1C1C1E' }}>{factor.label}</span>
+          <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-main)' }}>{factor.label}</span>
         </div>
         <span style={{ fontSize: 13, fontWeight: 600, color: factor.color }}>{factor.value}</span>
       </div>
-      <div style={{ height: 6, background: '#E5E5EA', borderRadius: 3, overflow: 'hidden' }}>
+      <div style={{ height: 6, background: 'var(--border-subtle)', borderRadius: 3, overflow: 'hidden' }}>
         <div
           style={{
             height: '100%',
@@ -216,7 +216,7 @@ function ActionPill({ item }: { item: QuickAction }) {
         display: 'flex',
         alignItems: 'center',
         gap: 10,
-        background: tapped ? '#007AFF' : '#F2F2F7',
+        background: tapped ? '#007AFF' : 'var(--card-subtle)',
         border: 'none',
         borderRadius: 12,
         padding: '12px 16px',
@@ -228,7 +228,7 @@ function ActionPill({ item }: { item: QuickAction }) {
       }}
     >
       <span style={{ fontSize: 20 }}>{item.icon}</span>
-      <span style={{ fontSize: 14, fontWeight: 500, color: tapped ? 'white' : '#1C1C1E' }}>{item.text}</span>
+      <span style={{ fontSize: 14, fontWeight: 500, color: tapped ? 'white' : 'var(--text-main)' }}>{item.text}</span>
       {tapped ? <span style={{ marginLeft: 'auto', fontSize: 14, color: 'white' }}>✓</span> : null}
     </button>
   )
@@ -240,7 +240,7 @@ function WhyCard({ card }: { card: WhyCardItem }) {
     <button
       onClick={() => setOpen(!open)}
       style={{
-        background: '#F2F2F7',
+        background: 'var(--card-subtle)',
         borderRadius: 12,
         padding: '14px 16px',
         border: 'none',
@@ -252,11 +252,11 @@ function WhyCard({ card }: { card: WhyCardItem }) {
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ fontSize: 24 }}>{card.icon}</span>
-        <span style={{ fontSize: 15, fontWeight: 600, color: '#1C1C1E', flex: 1 }}>{card.title}</span>
+        <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-main)', flex: 1 }}>{card.title}</span>
         <span
           style={{
             fontSize: 12,
-            color: '#8E8E93',
+            color: 'var(--text-muted)',
             transform: open ? 'rotate(180deg)' : 'rotate(0)',
             transition: 'transform 0.2s',
           }}
@@ -265,7 +265,7 @@ function WhyCard({ card }: { card: WhyCardItem }) {
         </span>
       </div>
       {open ? (
-        <p style={{ margin: '10px 0 0 34px', fontSize: 13, color: '#3C3C43', lineHeight: 1.5 }}>{card.desc}</p>
+        <p style={{ margin: '10px 0 0 34px', fontSize: 13, color: 'var(--text-soft)', lineHeight: 1.5 }}>{card.desc}</p>
       ) : null}
     </button>
   )
@@ -283,7 +283,6 @@ export default function BingeRiskPage() {
         if (!res.ok || cancelled) return
         const json = (await res.json().catch(() => ({}))) as { bingeRisk?: BingeRiskPayload | null }
         const nextScore = json?.bingeRisk?.score
-        const nextLevel = json?.bingeRisk?.level
         if (!cancelled && typeof nextScore === 'number' && Number.isFinite(nextScore)) {
           setRiskScore(Math.max(0, Math.min(100, Math.round(nextScore))))
         }
@@ -306,7 +305,7 @@ export default function BingeRiskPage() {
     <div
       style={{
         fontFamily: "-apple-system, 'SF Pro Display', BlinkMacSystemFont, sans-serif",
-        background: '#F2F2F7',
+        background: 'var(--bg)',
         minHeight: '100vh',
         maxWidth: '100%',
         margin: '0 auto',
@@ -315,12 +314,12 @@ export default function BingeRiskPage() {
     >
       <div
         style={{
-          background: '#F2F2F7',
+          background: 'var(--bg)',
           padding: '16px 20px 0',
           position: 'sticky',
           top: 0,
           zIndex: 10,
-          boxShadow: '0 1px 0 rgba(0,0,0,0.04)',
+          boxShadow: '0 1px 0 var(--border-subtle)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
@@ -340,7 +339,7 @@ export default function BingeRiskPage() {
           </h1>
         </div>
 
-        <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #E5E5EA' }}>
+        <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border-subtle)' }}>
           {tabs.map((t) => (
             <button
               key={t.id}
@@ -353,7 +352,7 @@ export default function BingeRiskPage() {
                 cursor: 'pointer',
                 fontSize: 14,
                 fontWeight: tab === t.id ? 600 : 400,
-                color: tab === t.id ? '#007AFF' : '#8E8E93',
+                color: tab === t.id ? '#007AFF' : 'var(--text-muted)',
                 borderBottom: tab === t.id ? '2px solid #007AFF' : '2px solid transparent',
                 transition: 'all 0.2s',
                 marginBottom: -1,
@@ -368,17 +367,17 @@ export default function BingeRiskPage() {
       <div style={{ padding: '16px 16px 0' }}>
         {tab === 'overview' ? (
           <>
-            <div style={{ background: 'white', borderRadius: 12, padding: '20px 20px 24px', marginBottom: 12 }}>
+            <div style={{ background: 'var(--card)', borderRadius: 12, padding: '20px 20px 24px', marginBottom: 12 }}>
               <RiskGauge score={riskScore} />
             </div>
 
-            <div style={{ background: 'white', borderRadius: 12, padding: '16px 20px', marginBottom: 12 }}>
+            <div style={{ background: 'var(--card)', borderRadius: 12, padding: '16px 20px', marginBottom: 12 }}>
               <p
                 style={{
                   margin: '0 0 12px',
                   fontSize: 12,
                   fontWeight: 600,
-                  color: '#8E8E93',
+                  color: 'var(--text-muted)',
                   textTransform: 'uppercase',
                   letterSpacing: 0.5,
                 }}
@@ -392,19 +391,19 @@ export default function BingeRiskPage() {
               ].map((r) => (
                 <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
                   <div style={{ width: 10, height: 10, borderRadius: '50%', background: r.dot, flexShrink: 0 }} />
-                  <span style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E', width: 54 }}>{r.label}</span>
-                  <span style={{ fontSize: 13, color: '#636366' }}>{r.desc}</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-main)', width: 54 }}>{r.label}</span>
+                  <span style={{ fontSize: 13, color: 'var(--text-soft)' }}>{r.desc}</span>
                 </div>
               ))}
             </div>
 
-            <div style={{ background: 'white', borderRadius: 12, padding: '16px 20px', marginBottom: 12 }}>
+            <div style={{ background: 'var(--card)', borderRadius: 12, padding: '16px 20px', marginBottom: 12 }}>
               <p
                 style={{
                   margin: '0 0 14px',
                   fontSize: 12,
                   fontWeight: 600,
-                  color: '#8E8E93',
+                  color: 'var(--text-muted)',
                   textTransform: 'uppercase',
                   letterSpacing: 0.5,
                 }}
@@ -426,7 +425,7 @@ export default function BingeRiskPage() {
                       width: 36,
                       height: 36,
                       borderRadius: 10,
-                      background: '#F2F2F7',
+                      background: 'var(--card-subtle)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -436,7 +435,7 @@ export default function BingeRiskPage() {
                   >
                     {item.icon}
                   </div>
-                  <p style={{ margin: 0, fontSize: 14, color: '#3C3C43', lineHeight: 1.4, paddingTop: 8 }}>{item.text}</p>
+                  <p style={{ margin: 0, fontSize: 14, color: 'var(--text-soft)', lineHeight: 1.4, paddingTop: 8 }}>{item.text}</p>
                 </div>
               ))}
             </div>
@@ -445,13 +444,13 @@ export default function BingeRiskPage() {
 
         {tab === 'factors' ? (
           <>
-            <div style={{ background: 'white', borderRadius: 12, padding: '20px', marginBottom: 12 }}>
+            <div style={{ background: 'var(--card)', borderRadius: 12, padding: '20px', marginBottom: 12 }}>
               <p
                 style={{
                   margin: '0 0 20px',
                   fontSize: 12,
                   fontWeight: 600,
-                  color: '#8E8E93',
+                  color: 'var(--text-muted)',
                   textTransform: 'uppercase',
                   letterSpacing: 0.5,
                 }}
@@ -463,13 +462,13 @@ export default function BingeRiskPage() {
               ))}
             </div>
 
-            <div style={{ background: 'white', borderRadius: 12, padding: '20px', marginBottom: 12 }}>
+            <div style={{ background: 'var(--card)', borderRadius: 12, padding: '20px', marginBottom: 12 }}>
               <p
                 style={{
                   margin: '0 0 14px',
                   fontSize: 12,
                   fontWeight: 600,
-                  color: '#8E8E93',
+                  color: 'var(--text-muted)',
                   textTransform: 'uppercase',
                   letterSpacing: 0.5,
                 }}
@@ -487,12 +486,12 @@ export default function BingeRiskPage() {
 
         {tab === 'actions' ? (
           <>
-            <div style={{ background: 'white', borderRadius: 12, padding: '20px', marginBottom: 12 }}>
+            <div style={{ background: 'var(--card)', borderRadius: 12, padding: '20px', marginBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                 <span style={{ fontSize: 22 }}>🌿</span>
-                <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1C1C1E' }}>Quick actions</p>
+                <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-main)' }}>Quick actions</p>
               </div>
-              <p style={{ margin: '0 0 16px', fontSize: 13, color: '#8E8E93' }}>
+              <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)' }}>
                 Tap to mark done. Works best on medium or high risk days.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -518,12 +517,12 @@ export default function BingeRiskPage() {
               fontWeight: 700,
               letterSpacing: '0.18em',
               textTransform: 'uppercase',
-              color: '#94A3B8',
+              color: 'var(--text-muted)',
             }}
           >
             SHIFTCOACH
           </p>
-          <p style={{ margin: 0, fontSize: 11, color: '#94A3B8', lineHeight: 1.5 }}>
+          <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
             A coaching app only and does not replace medical advice. Please speak to a healthcare professional about
             any health concerns.
           </p>
