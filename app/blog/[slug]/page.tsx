@@ -196,21 +196,14 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
                     : 'flex items-center justify-between border-t border-[var(--border-subtle)] py-[14px] pb-5'
                 }
               >
-                <div className="flex items-center gap-[10px]">
-                  <div
-                    className={
-                      heroImage
-                        ? 'relative h-[34px] w-[34px] shrink-0 overflow-hidden rounded-full border border-white/15 bg-white/10'
-                        : 'relative h-[34px] w-[34px] shrink-0 overflow-hidden rounded-full border border-[var(--border-subtle)] bg-[var(--card)]'
-                    }
-                    style={heroImage ? undefined : { backgroundColor: `${meta.accent}12` }}
-                  >
+                <div className="flex items-center gap-3">
+                  <div className="relative h-12 w-[4.25rem] shrink-0 sm:h-14 sm:w-[5rem]">
                     <Image
                       src="/logo.svg"
                       alt=""
                       fill
-                      sizes="34px"
-                      className="pointer-events-none object-cover object-center"
+                      sizes="(max-width: 640px) 68px, 80px"
+                      className="pointer-events-none object-contain object-left"
                       draggable={false}
                     />
                   </div>
