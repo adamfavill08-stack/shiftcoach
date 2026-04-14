@@ -140,7 +140,7 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
           <header
             className={
               heroImage
-                ? 'relative isolate -mx-[22px] overflow-hidden border-b border-white/10 px-[22px] pb-0 pt-6'
+                ? 'blog-hero relative isolate -mx-[22px] overflow-hidden border-b border-white/10 px-[22px] pb-0 pt-6'
                 : '-mx-[22px] border-b border-[var(--border-subtle)] bg-[var(--card)] px-[22px] pb-0 pt-6'
             }
           >

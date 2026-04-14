@@ -455,3 +455,12 @@ h4, .h4 {
 html[data-cap-android-statusbar] .app-main-shell {
   padding-top: max(env(safe-area-inset-top, 0px), 12px);
 }
+
+/* Blog article hero over photography: unlayered `h1 {}` in this file overrides layered
+   Tailwind utilities in light mode; scope + specificity fixes title contrast. */
+.blog-hero h1 {
+  color: #ffffff;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.45),
+    0 2px 28px rgba(0, 0, 0, 0.35);
+}
