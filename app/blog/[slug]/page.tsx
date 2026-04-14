@@ -208,8 +208,8 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
               <div
                 className={
                   heroImage
-                    ? 'flex items-center justify-between border-t border-white/15 py-[14px] pb-5'
-                    : 'flex items-center justify-between border-t border-[var(--border-subtle)] py-[14px] pb-5'
+                    ? 'border-t border-white/15 py-[14px] pb-5'
+                    : 'border-t border-[var(--border-subtle)] py-[14px] pb-5'
                 }
               >
                 <div className="flex items-center gap-0">
@@ -240,16 +240,6 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
                     </div>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className={
-                    heroImage
-                      ? 'rounded-[20px] border border-white/20 bg-black/30 px-[14px] py-[6px] text-[12px] font-semibold text-white backdrop-blur-[8px]'
-                      : 'rounded-[20px] border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-[14px] py-[6px] text-[12px] font-semibold text-[var(--text-soft)]'
-                  }
-                >
-                  Share ↗
-                </button>
               </div>
             </div>
           </header>
