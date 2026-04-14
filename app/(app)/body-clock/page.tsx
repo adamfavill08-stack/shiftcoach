@@ -180,14 +180,18 @@ export default function BodyClockPage() {
           return
         }
         const json = (await res.json().catch(() => ({}))) as ShiftRhythmResponse
-        const nutritionRes = await authedFetch("/api/nutrition/today", { cache: "no-store" }).catch(() => null)
-        const nutritionJson = nutritionRes?.ok
-          ? ((await nutritionRes.json().catch(() => ({}))) as NutritionTodayResponse)
-          : null
-        const activityRes = await authedFetch("/api/activity/today", { cache: "no-store" }).catch(() => null)
-        const activityJson = activityRes?.ok
-          ? ((await activityRes.json().catch(() => ({}))) as ActivityTodayResponse)
-          : null
+        const [nutritionRes, activityRes] = await Promise.all([
+          authedFetch("/api/nutrition/today", { cache: "no-store" }).catch(() => null),
+          authedFetch("/api/activity/today", { cache: "no-store" }).catch(() => null),
+        ])
+        const [nutritionJson, activityJson] = await Promise.all([
+          nutritionRes?.ok
+            ? ((nutritionRes.json().catch(() => ({}))) as Promise<NutritionTodayResponse>)
+            : Promise.resolve(null),
+          activityRes?.ok
+            ? ((activityRes.json().catch(() => ({}))) as Promise<ActivityTodayResponse>)
+            : Promise.resolve(null),
+        ])
         if (!cancelled) {
           setHasRhythmData(json?.hasRhythmData)
           setDetail(parseScore(json))

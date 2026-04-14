@@ -29,7 +29,6 @@ import { riskScaleBarMarkerFill } from "@/lib/riskScaleBarMarker";
 
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import type { CircadianState } from '@/lib/circadian/calculateCircadianScore'
-import type { ShiftLagMetrics } from '@/lib/circadian/calculateShiftLag'
 import type { HeartRateApiStatus } from '@/lib/wearables/heartRateApi'
 
 const inter = Inter({ subsets: ["latin"] });
@@ -50,8 +49,6 @@ type ShiftRhythmCardProps = {
     baselineMidpointClock?: number;
     currentMidpointClock?: number;
   } | null;
-  // ShiftLag data
-  shiftLag?: ShiftLagMetrics | null;
   // Binge risk data
   bingeRisk?: {
     score: number;
@@ -73,7 +70,6 @@ function ShiftRhythmCard({
   score,
   circadian,
   socialJetlag,
-  shiftLag,
   bingeRisk,
   fatigueRisk,
   hasRhythmData,
@@ -94,12 +90,30 @@ function ShiftRhythmCard({
   const [isLoadingMood, setIsLoadingMood] = useState(true);
   const [showSecondaryCards, setShowSecondaryCards] = useState(false);
 
-  // Defer secondary cards by one frame so primary dashboard content paints first.
+  // Defer secondary cards until idle so primary dashboard content paints first.
   useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      setShowSecondaryCards(true);
-    });
-    return () => cancelAnimationFrame(id);
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let idleId: number | null = null;
+    const win = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    const reveal = () => setShowSecondaryCards(true);
+    if (typeof win.requestIdleCallback === "function") {
+      idleId = win.requestIdleCallback(reveal, { timeout: 1200 });
+    } else {
+      timeoutId = setTimeout(reveal, 400);
+    }
+
+    return () => {
+      if (idleId != null && typeof win.cancelIdleCallback === "function") {
+        win.cancelIdleCallback(idleId);
+      }
+      if (timeoutId != null) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, []);
 
   // Fetch current mood and focus values
@@ -242,11 +256,16 @@ function ShiftRhythmCard({
 
       <HomeFatigueRiskCard sleepDeficit={sleepDeficit} fatigueRisk={fatigueRisk} />
 
-      {/* Adjusted calories summary above meal timings */}
-      <HomeAdjustedCaloriesCard />
+      {/* Delay secondary cards to keep initial dashboard paint fast */}
+      {showSecondaryCards ? (
+        <>
+          {/* Adjusted calories summary above meal timings */}
+          <HomeAdjustedCaloriesCard />
 
-      {/* Compact meal times summary card */}
-      <HomeMealTimesCard />
+          {/* Compact meal times summary card */}
+          <HomeMealTimesCard />
+        </>
+      ) : null}
 
       {/* Binge risk + Shift lag — stacked full width */}
       <div className="grid w-full grid-cols-1 gap-6 items-stretch">
@@ -265,54 +284,58 @@ function ShiftRhythmCard({
           )}
         </div>
         <div className="flex w-full min-h-0 min-w-0">
-          <ShiftLagCard />
+          {showSecondaryCards ? <ShiftLagCard /> : null}
         </div>
       </div>
 
-      {/* LOG SLEEP TILE */}
-      <HomeLogSleepCard />
+      {showSecondaryCards ? (
+        <>
+          {/* LOG SLEEP TILE */}
+          <HomeLogSleepCard />
 
-      {/* ACTIVITY TILE */}
-      <HomeActivityCard />
+          {/* ACTIVITY TILE */}
+          <HomeActivityCard />
 
-      {/* HEART RECOVERY TILE */}
-      <HeartRecoveryCard />
+          {/* HEART RECOVERY TILE */}
+          <HeartRecoveryCard />
 
-      {/* HYDRATION TILE */}
-      <HydrationCard />
+          {/* HYDRATION TILE */}
+          <HydrationCard />
 
-      {/* EXPLORE TITLE */}
-      <div className="pt-2">
-        <h2 className="flex items-center gap-1 text-[7px] font-medium tracking-[0.2em] text-slate-200 uppercase">
-          <span>Explore</span>
-        </h2>
-      </div>
+          {/* EXPLORE TITLE */}
+          <div className="pt-2">
+            <h2 className="flex items-center gap-1 text-[7px] font-medium tracking-[0.2em] text-slate-200 uppercase">
+              <span>Explore</span>
+            </h2>
+          </div>
 
-      <ExploreCarousel
-        items={[
-          {
-            href: "/shift-worker-health",
-            imageSrc: "/images/explore/shift-worker-health.jpg",
-            title: "Shift worker health explained",
-            description:
-              "How shifts, sleep debt and activity affect your energy, cravings and long-term health.",
-          },
-          {
-            href: "/shift-worker-diet",
-            imageSrc: "/images/explore/diet.jpg",
-            title: "Healthy diet explained",
-            description:
-              "Shift-worker diets, common health issues, and how the right food timing helps protect you.",
-          },
-          {
-            href: "/shift-worker-goals",
-            imageSrc: "/images/explore/goals.jpg",
-            title: "Set my goals",
-            description:
-              "Create specific targets and time frames that fit your shifts, sleep and health challenges.",
-          },
-        ]}
-      />
+          <ExploreCarousel
+            items={[
+              {
+                href: "/shift-worker-health",
+                imageSrc: "/images/explore/shift-worker-health.jpg",
+                title: "Shift worker health explained",
+                description:
+                  "How shifts, sleep debt and activity affect your energy, cravings and long-term health.",
+              },
+              {
+                href: "/shift-worker-diet",
+                imageSrc: "/images/explore/diet.jpg",
+                title: "Healthy diet explained",
+                description:
+                  "Shift-worker diets, common health issues, and how the right food timing helps protect you.",
+              },
+              {
+                href: "/shift-worker-goals",
+                imageSrc: "/images/explore/goals.jpg",
+                title: "Set my goals",
+                description:
+                  "Create specific targets and time frames that fit your shifts, sleep and health challenges.",
+              },
+            ]}
+          />
+        </>
+      ) : null}
 
       {/* ShiftCoach logo footer */}
       <div className="pt-6 pb-4 flex flex-col items-center gap-1">

@@ -36,7 +36,6 @@ function DashboardContent() {
 
   const [circadian, setCircadian] = useState<CircadianOutput | null>(null)
   const [socialJetlag, setSocialJetlag] = useState<any>(null)
-  const [shiftLag, setShiftLag] = useState<any>(null)
 
   // Track the last time we did a heavy refetch triggered by focus/refresh events,
   // so we don't repeat work when quickly navigating back from Settings.
@@ -89,12 +88,11 @@ function DashboardContent() {
   const [fatigueRisk, setFatigueRisk] = useState<FatigueRiskResult | null>(null)
 
   const cacheDashboardState = useCallback(
-    (partial: { circadian?: CircadianOutput | null; socialJetlag?: any; shiftLag?: any; bingeRisk?: any; fatigueRisk?: FatigueRiskResult | null }) => {
+    (partial: { circadian?: CircadianOutput | null; socialJetlag?: any; bingeRisk?: any; fatigueRisk?: FatigueRiskResult | null }) => {
       if (typeof window === 'undefined') return
       const snapshot = {
         circadian,
         socialJetlag,
-        shiftLag,
         bingeRisk,
         fatigueRisk,
         ...partial,
@@ -102,7 +100,7 @@ function DashboardContent() {
       }
       window.localStorage.setItem('dashboard:lastKnownState', JSON.stringify(snapshot))
     },
-    [circadian, socialJetlag, shiftLag, bingeRisk, fatigueRisk],
+    [circadian, socialJetlag, bingeRisk, fatigueRisk],
   )
 
   // Keep the dashboard's social/binge state in sync with the consolidated
@@ -132,7 +130,6 @@ function DashboardContent() {
       const cached = JSON.parse(raw)
       setCircadian(cached.circadian ?? null)
       setSocialJetlag(cached.socialJetlag ?? null)
-      setShiftLag(cached.shiftLag ?? null)
       setBingeRisk(cached.bingeRisk ?? null)
       setFatigueRisk(cached.fatigueRisk ?? null)
       setIsUsingCachedData(true)
@@ -183,48 +180,11 @@ function DashboardContent() {
     }
   }, [cacheDashboardState, loadCachedDashboardState])
 
-  const fetchShiftLag = useCallback(async () => {
-    try {
-      const res = await authedFetch('/api/shiftlag', { cache: 'no-store' })
-      if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-          console.warn('[dashboard] shiftlag fetch - auth not ready yet', res.status)
-        } else {
-          console.error('[dashboard] shiftlag fetch failed', res.status)
-        }
-        setShiftLag(null)
-        return
-      }
-      const json = await res.json()
-      if (json.error) {
-        console.warn('[dashboard] shiftlag error:', json.error)
-        setShiftLag(null)
-        return
-      }
-      setShiftLag(json)
-      cacheDashboardState({ shiftLag: json })
-      setIsUsingCachedData(false)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
-      const isNetwork = msg.includes('Failed to fetch') || msg.includes('fetch') || msg.includes('network')
-      if (isNetwork) {
-        console.warn('[dashboard] shiftlag fetch - network error (using cache if available)')
-        const hadCache = loadCachedDashboardState()
-        if (!hadCache) setShiftLag(null)
-        return
-      }
-      console.error('[dashboard] shiftlag fetch error', err)
-      setShiftLag(null)
-    }
-  }, [cacheDashboardState, loadCachedDashboardState])
-
   // These callbacks change when dashboard slice state updates (via cacheDashboardState deps).
   // The bootstrap effect must not list them as deps or we loop: fetch → setState → new callback → effect → fetch…
   const fetchCircadianRef = useRef(fetchCircadian)
-  const fetchShiftLagRef = useRef(fetchShiftLag)
   const refetchShiftRhythmRef = useRef(refetchShiftRhythm)
   fetchCircadianRef.current = fetchCircadian
-  fetchShiftLagRef.current = fetchShiftLag
   refetchShiftRhythmRef.current = refetchShiftRhythm
 
   // Google Fit redirect params — read from the URL on mount only (avoids useSearchParams + Suspense hydration mismatches).
@@ -262,7 +222,6 @@ function DashboardContent() {
       // Avoid "Failed to fetch" noise when offline — cache was loaded above
       if (isOnline) {
         void fetchCircadianRef.current()
-        void fetchShiftLagRef.current()
       }
     })()
   }, [isOnline, loadCachedDashboardState, loadUser, fetchSleep])
@@ -289,7 +248,6 @@ function DashboardContent() {
         // Refetch sleep, circadian, and shift rhythm data
         void fetchSleep(userId)
         void fetchCircadianRef.current()
-        void fetchShiftLagRef.current()
         void refetchShiftRhythmRef.current() // Refresh shift rhythm score
       }
     }
@@ -308,10 +266,6 @@ function DashboardContent() {
       lastFocusRefetchRef.current = now
       void fetchSleep(userId)
       void fetchCircadianRef.current()
-      // Add delay for ShiftLag to ensure sleep data is saved to database
-      setTimeout(() => {
-        void fetchShiftLagRef.current()
-      }, 800)
       // Force recalculation of shift rhythm score since sleep data changed
       setTimeout(() => {
         void refetchShiftRhythmRef.current(true) // Force recalculation
@@ -326,7 +280,6 @@ function DashboardContent() {
       lastFocusRefetchRef.current = now
       // Add delay to ensure shifts are saved to database
       setTimeout(() => {
-        void fetchShiftLagRef.current()
         void refetchShiftRhythmRef.current(true)
       }, 800)
     }
@@ -357,7 +310,6 @@ function DashboardContent() {
             score={totalScore != null ? totalScore * 10 : undefined}
             circadian={circadian}
             socialJetlag={resolvedSocialJetlag}
-            shiftLag={shiftLag}
             bingeRisk={resolvedBingeRisk}
             fatigueRisk={resolvedFatigueRisk}
             isBingeRiskLoading={isOnline ? shiftRhythmLoading : false}
@@ -367,7 +319,7 @@ function DashboardContent() {
         ),
       },
     ],
-    [totalScore, circadian, resolvedSocialJetlag, shiftLag, resolvedBingeRisk, resolvedFatigueRisk, isOnline, shiftRhythmLoading, hasShiftRhythmData, sleepDeficit, t]
+    [totalScore, circadian, resolvedSocialJetlag, resolvedBingeRisk, resolvedFatigueRisk, isOnline, shiftRhythmLoading, hasShiftRhythmData, sleepDeficit, t]
   )
 
   if (loading) {
