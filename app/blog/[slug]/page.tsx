@@ -153,7 +153,7 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
                   aria-hidden
                 />
                 <div
-                  className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/50 via-black/72 to-black/88"
+                  className="blog-hero-bg-scrim pointer-events-none absolute inset-0 bg-gradient-to-b from-black/55 via-black/76 to-black/92"
                   aria-hidden
                 />
               </>
@@ -172,7 +172,7 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
               <h1
                 className={
                   heroImage
-                    ? 'mb-4 text-[26px] font-bold leading-[1.22] tracking-[-0.4px] text-white'
+                    ? 'blog-hero-title mb-4 text-[26px] font-bold leading-[1.22] tracking-[-0.4px] text-white'
                     : 'mb-4 text-[26px] font-bold leading-[1.22] tracking-[-0.4px] text-[var(--text-main)]'
                 }
               >
@@ -182,7 +182,7 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
               <p
                 className={
                   heroImage
-                    ? 'mb-6 text-[16px] italic leading-[1.55] text-white/78'
+                    ? 'blog-hero-lede mb-6 text-[16px] italic leading-[1.55] text-white/78'
                     : 'mb-6 text-[16px] italic leading-[1.55] text-[var(--text-soft)]'
                 }
               >

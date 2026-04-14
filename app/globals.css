@@ -456,11 +456,27 @@ html[data-cap-android-statusbar] .app-main-shell {
   padding-top: max(env(safe-area-inset-top, 0px), 12px);
 }
 
-/* Blog article hero over photography: unlayered `h1 {}` in this file overrides layered
-   Tailwind utilities in light mode; scope + specificity fixes title contrast. */
-.blog-hero h1 {
-  color: #ffffff;
+/* Blog article hero over photography: unlayered `h1 {}` + Tailwind layers can still tint
+   the title in light mode; force high-contrast type on the scrim. */
+.blog-hero h1.blog-hero-title {
+  color: #ffffff !important;
   text-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.45),
-    0 2px 28px rgba(0, 0, 0, 0.35);
+    0 1px 3px rgba(0, 0, 0, 0.65),
+    0 2px 14px rgba(0, 0, 0, 0.45),
+    0 0 40px rgba(0, 0, 0, 0.35);
+}
+
+.blog-hero p.blog-hero-lede {
+  color: rgba(255, 255, 255, 0.92) !important;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.55);
+}
+
+/* Light theme: canvas is pale; strengthen photo dimming so hero type stays crisp. */
+html:not(.dark) .blog-hero .blog-hero-bg-scrim {
+  background-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.62) 0%,
+    rgba(0, 0, 0, 0.78) 45%,
+    rgba(0, 0, 0, 0.92) 100%
+  ) !important;
 }
