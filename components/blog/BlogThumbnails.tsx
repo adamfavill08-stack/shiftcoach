@@ -11,7 +11,7 @@ const THUMB_SRC: Record<ThumbKind, string> = {
   family: '/blog/thumbnails/family.svg',
 }
 
-export function BlogThumbnail({ kind }: { kind: ThumbKind; uid: string }) {
+export function BlogThumbnail({ kind }: { kind: ThumbKind }) {
   return (
     <img
       src={THUMB_SRC[kind]}
