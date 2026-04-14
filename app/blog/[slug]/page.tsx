@@ -16,24 +16,22 @@ interface BlogPostPageProps {
 
 type Meta = {
   category: string
-  tag: string
   accent: string
   readTime: string
 }
 
 const META_BY_SLUG: Record<string, Meta> = {
-  'manage-fatigue': { category: 'Fatigue', tag: '⚡', accent: '#FF9500', readTime: '5 min read' },
-  'impact-of-shift-work': { category: 'Health', tag: '🫀', accent: '#FF3B30', readTime: '8 min read' },
-  'meal-timing-tips': { category: 'Nutrition', tag: '🍽️', accent: '#34C759', readTime: '6 min read' },
-  'sleep-quality-rotating-shifts': { category: 'Sleep', tag: '😴', accent: '#007AFF', readTime: '7 min read' },
-  'shift-work-and-age': { category: 'Longevity', tag: '🧬', accent: '#BF5AF2', readTime: '10 min read' },
-  'shift-work-and-families': { category: 'Family', tag: '👨‍👩‍👧', accent: '#FF2D55', readTime: '9 min read' },
-  'why-shift-workers-matter': { category: 'Perspective', tag: '🌍', accent: '#5856D6', readTime: '9 min read' },
+  'manage-fatigue': { category: 'Fatigue', accent: '#FF9500', readTime: '5 min read' },
+  'impact-of-shift-work': { category: 'Health', accent: '#FF3B30', readTime: '8 min read' },
+  'meal-timing-tips': { category: 'Nutrition', accent: '#34C759', readTime: '6 min read' },
+  'sleep-quality-rotating-shifts': { category: 'Sleep', accent: '#007AFF', readTime: '7 min read' },
+  'shift-work-and-age': { category: 'Longevity', accent: '#BF5AF2', readTime: '10 min read' },
+  'shift-work-and-families': { category: 'Family', accent: '#FF2D55', readTime: '9 min read' },
+  'why-shift-workers-matter': { category: 'Perspective', accent: '#5856D6', readTime: '9 min read' },
 }
 
 const FALLBACK_META: Meta = {
   category: 'Guide',
-  tag: '📖',
   accent: '#007AFF',
   readTime: '6 min read',
 }
@@ -176,10 +174,7 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
             ) : null}
 
             <div className={heroImage ? 'relative z-10' : undefined}>
-              <div className="mb-5 inline-flex items-center gap-1.5">
-                <span className="text-[13px]" aria-hidden>
-                  {meta.tag}
-                </span>
+              <div className="mb-5">
                 <span className="text-[11px] font-extrabold uppercase tracking-[1.2px]" style={{ color: meta.accent }}>
                   {meta.category}
                 </span>
@@ -319,11 +314,10 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
                     className={`flex cursor-pointer items-center gap-3.5 ${isLast ? 'pb-0' : 'mb-[18px] border-b border-[var(--border-subtle)] pb-[18px]'}`}
                   >
                     <div
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[22px]"
-                      style={{ backgroundColor: `${relatedMeta.accent}12` }}
-                    >
-                      {relatedMeta.tag}
-                    </div>
+                      className="h-11 w-1 shrink-0 self-center rounded-full"
+                      style={{ backgroundColor: relatedMeta.accent }}
+                      aria-hidden
+                    />
                     <div className="flex-1">
                       <div
                         className="mb-[3px] text-[10px] font-extrabold uppercase tracking-[0.8px]"
