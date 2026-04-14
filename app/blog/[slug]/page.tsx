@@ -27,6 +27,7 @@ const META_BY_SLUG: Record<string, Meta> = {
   'sleep-quality-rotating-shifts': { category: 'Sleep', tag: '😴', accent: '#007AFF', readTime: '7 min read' },
   'shift-work-and-age': { category: 'Longevity', tag: '🧬', accent: '#BF5AF2', readTime: '10 min read' },
   'shift-work-and-families': { category: 'Family', tag: '👨‍👩‍👧', accent: '#FF2D55', readTime: '9 min read' },
+  'why-shift-workers-matter': { category: 'Perspective', tag: '🌍', accent: '#5856D6', readTime: '9 min read' },
 }
 
 const FALLBACK_META: Meta = {
@@ -171,6 +172,18 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
 
           <section className="pt-[30px]">
             {blocks.map((block, i) => {
+              if (block.startsWith('# ')) {
+                const heading = block.slice(2).trim()
+                return (
+                  <h2
+                    key={`${post.slug}-mdh-${i}`}
+                    className="mb-4 mt-9 text-[21px] font-bold leading-[1.28] tracking-[-0.3px] text-[var(--text-main)]"
+                  >
+                    {heading}
+                  </h2>
+                )
+              }
+
               if (/^\d+\.\s/.test(block)) {
                 return (
                   <h2

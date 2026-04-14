@@ -346,5 +346,154 @@ Understanding the impact of irregular schedules can help families adapt rather t
 Shift work may change when families spend time together, but it does not have to reduce the quality of that time or the strength of their relationships.
 
 With awareness, support, and intentional habits, families can stay connected and resilient while navigating the demands of shift work.`
+  },
+  {
+    slug: 'why-shift-workers-matter',
+    title: 'Why the World Needs Shift Workers — And Why What You Do Truly Matters',
+    description:
+      'A grounded reminder of what shift work actually keeps running — and why the people who do it deserve more recognition (including from themselves).',
+    content: `There is a version of the world most people never see.
+
+It exists in the quiet hours of the night, in the early moments before sunrise, and in the long stretches of time when the majority of society is resting. It is a world that doesn’t pause, doesn’t slow down, and doesn’t wait until morning.
+
+This world runs because of shift workers.
+
+While others sleep, switch off, or spend time with their families, shift workers step into roles that are not only necessary, but essential. They carry responsibility at times when fewer people are available, fewer resources are accessible, and when the margin for error is often at its smallest.
+
+And yet, despite how critical this work is, it is often overlooked.
+
+This needs to change.
+
+# The Reality of a 24-Hour World
+
+Modern society is built on the assumption that everything will always be available.
+
+Healthcare, emergency response, transport systems, food supply chains, utilities, manufacturing, and security all operate around the clock. We expect hospitals to be staffed at 3am, ambulances to arrive within minutes, shelves to be stocked by morning, and infrastructure to keep running without interruption.
+
+But these expectations don’t fulfil themselves.
+
+They are met by real people working real hours, often at personal cost.
+
+Shift workers are the reason the world feels continuous. They bridge the gaps between day and night, ensuring that life does not stop simply because the clock says it should.
+
+Without them, the idea of a 24-hour society would collapse almost instantly.
+
+# The Hidden Cost of Keeping the World Running
+
+What makes shift work unique is not just when it happens, but what it demands.
+
+Working outside of traditional hours goes against human biology. The body is naturally wired to follow a circadian rhythm — to be awake during daylight and asleep at night. Shift workers are constantly required to override that system.
+
+This leads to challenges that go far beyond simple tiredness.
+
+Sleep becomes fragmented or inconsistent. Energy levels fluctuate. Social lives are harder to maintain. Family routines are often disrupted. Even something as simple as attending events or being present at key moments can become difficult.
+
+Over time, this creates a lifestyle that requires constant adjustment.
+
+And yet, shift workers continue.
+
+They learn to function in ways that most people never have to consider. They develop routines that fit into unconventional hours. They build resilience not just physically, but mentally and emotionally.
+
+This is not accidental. It is a result of commitment.
+
+# Responsibility at the Most Critical Times
+
+There is another aspect of shift work that is rarely discussed: the level of responsibility carried during off-peak hours.
+
+At night or during less staffed periods, there are often fewer people available to share the load. This means that decisions, actions, and responses can carry even greater weight.
+
+A nurse working overnight may be responsible for multiple patients with limited immediate support. A driver on a late shift must remain alert in conditions where fatigue is at its highest. A security worker may be the only line of defence in a quiet but vulnerable environment.
+
+These are not low-impact roles.
+
+They are moments where focus, judgment, and reliability matter deeply.
+
+Shift workers are trusted to perform when conditions are not ideal — when the body is tired, when the environment is quieter, and when mistakes can have serious consequences.
+
+That level of trust is not given lightly.
+
+# The Backbone of Everyday Life
+
+It is easy to take for granted how much of daily life depends on work done outside of typical hours.
+
+The food available in shops each morning has often been transported, sorted, and stocked overnight. Hospitals continue to operate regardless of time or day. Public transport begins running before many people wake up and continues long after others go to bed.
+
+Cleaners restore environments so they are ready for the next day. Engineers maintain systems while usage is low. Emergency services remain ready at all times.
+
+These contributions are rarely visible, but they are foundational.
+
+Without shift workers, the systems people rely on would quickly become unreliable. Delays would increase. Safety would be compromised. Access to essential services would be limited.
+
+In a very real sense, shift workers hold society together in the hours when it is most vulnerable.
+
+# A Different Kind of Strength
+
+Shift work requires a kind of strength that is not always recognised.
+
+It is not just about working hard. It is about working under conditions that are inherently more challenging.
+
+It requires discipline to maintain routines when schedules are constantly changing. It requires mental resilience to stay focused during periods of fatigue. It requires emotional strength to manage the impact on personal life and relationships.
+
+It also requires adaptability.
+
+Shift workers often move between different schedules, adjusting sleep patterns and daily habits in ways that most people never experience. They learn to operate effectively in environments where consistency is limited.
+
+This builds a level of resilience that goes beyond the workplace.
+
+It shapes character.
+
+# Changing How We See Shift Work
+
+For a long time, shift work has been undervalued.
+
+It is sometimes seen as something temporary, something people do out of necessity rather than choice, or something that sits outside of “normal” working life.
+
+But this perspective fails to recognise its importance.
+
+Shift work is not secondary. It is not less important. It is not something that exists on the edges of society.
+
+It is central to how modern life functions.
+
+Without it, many of the systems people depend on simply would not work.
+
+There needs to be a shift not just in how society views this kind of work, but also in how shift workers view themselves.
+
+# A Reminder to Be Proud
+
+If you are a shift worker, it is worth taking a moment to recognise what you actually do.
+
+You operate in conditions that are more demanding than most. You contribute to systems that people rely on every day. You make sacrifices that often go unseen.
+
+And you do it consistently.
+
+It is easy to overlook this, especially when the work becomes routine. But routine does not make it insignificant.
+
+The fact that something is done regularly does not reduce its value. In many cases, it increases it.
+
+The reliability of shift workers is one of the reasons society functions as smoothly as it does.
+
+That is not something to dismiss.
+
+It is something to respect.
+
+# Final Thoughts
+
+The world does not run only during the day.
+
+It runs continuously, across every hour, because there are people willing to work outside of what is comfortable or conventional.
+
+Shift workers are not on the outside of society. They are at its core.
+
+They ensure that help is available when it is needed most. They maintain systems that others depend on without thinking. They carry responsibility in moments that are often unseen but always important.
+
+So if you are one of those people, understand this clearly:
+
+What you do matters.
+
+Not occasionally. Not in small ways.
+
+But every single day.
+
+And whether or not it is always recognised, it is essential.`
   }
 ]

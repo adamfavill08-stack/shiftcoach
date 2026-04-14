@@ -8,7 +8,15 @@ import { localizeBlogPosts } from '@/lib/i18n/blog'
 import { BLOG_POSTS_SOURCE } from '@/lib/i18n/blog/postsSource'
 import { BlogThumbnail, type ThumbKind } from '@/components/blog/BlogThumbnails'
 
-type BlogCategory = 'Fatigue' | 'Health' | 'Nutrition' | 'Sleep' | 'Longevity' | 'Family' | 'General'
+type BlogCategory =
+  | 'Fatigue'
+  | 'Health'
+  | 'Nutrition'
+  | 'Sleep'
+  | 'Longevity'
+  | 'Family'
+  | 'Perspective'
+  | 'General'
 
 type Meta = {
   category: BlogCategory
@@ -24,6 +32,7 @@ const META_BY_SLUG: Record<string, Meta> = {
   'sleep-quality-rotating-shifts': { category: 'Sleep', accent: '#007AFF', readTime: '7 min', thumb: 'sleep' },
   'shift-work-and-age': { category: 'Longevity', accent: '#BF5AF2', readTime: '10 min', thumb: 'longevity' },
   'shift-work-and-families': { category: 'Family', accent: '#FF2D55', readTime: '9 min', thumb: 'family' },
+  'why-shift-workers-matter': { category: 'Perspective', accent: '#5856D6', readTime: '9 min', thumb: 'health' },
 }
 
 const FALLBACK_META: Meta = {
@@ -58,7 +67,7 @@ function writeFavSet(set: Set<string>) {
 }
 
 function badgeForSlug(slug: string): { label: string; color: string } | null {
-  if (slug === 'manage-fatigue' || slug === 'shift-work-and-families') {
+  if (slug === 'manage-fatigue' || slug === 'shift-work-and-families' || slug === 'why-shift-workers-matter') {
     return { label: 'New Article', color: META_BY_SLUG[slug]?.accent ?? '#007AFF' }
   }
   if (slug === 'impact-of-shift-work' || slug === 'sleep-quality-rotating-shifts') {
