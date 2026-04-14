@@ -200,17 +200,17 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
                   <div
                     className={
                       heroImage
-                        ? 'flex h-[34px] w-[34px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-white/10'
-                        : 'flex h-[34px] w-[34px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--border-subtle)] bg-[var(--card)]'
+                        ? 'relative h-[34px] w-[34px] shrink-0 overflow-hidden rounded-full border border-white/15 bg-white/10'
+                        : 'relative h-[34px] w-[34px] shrink-0 overflow-hidden rounded-full border border-[var(--border-subtle)] bg-[var(--card)]'
                     }
                     style={heroImage ? undefined : { backgroundColor: `${meta.accent}12` }}
                   >
                     <Image
                       src="/logo.svg"
                       alt=""
-                      width={26}
-                      height={26}
-                      className="object-contain"
+                      fill
+                      sizes="34px"
+                      className="pointer-events-none object-cover object-center"
                       draggable={false}
                     />
                   </div>
