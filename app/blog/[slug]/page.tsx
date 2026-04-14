@@ -196,7 +196,7 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
                     : 'flex items-center justify-between border-t border-[var(--border-subtle)] py-[14px] pb-5'
                 }
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5">
                   <div className="relative h-12 w-[4.25rem] shrink-0 sm:h-14 sm:w-[5rem]">
                     <Image
                       src="/logo.svg"
