@@ -32,7 +32,7 @@ const META_BY_SLUG: Record<string, Meta> = {
   'sleep-quality-rotating-shifts': { category: 'Sleep', accent: '#007AFF', readTime: '7 min', thumb: 'sleep' },
   'shift-work-and-age': { category: 'Longevity', accent: '#BF5AF2', readTime: '10 min', thumb: 'longevity' },
   'shift-work-and-families': { category: 'Family', accent: '#FF2D55', readTime: '9 min', thumb: 'family' },
-  'why-shift-workers-matter': { category: 'Perspective', accent: '#5856D6', readTime: '9 min', thumb: 'health' },
+  'why-shift-workers-matter': { category: 'Perspective', accent: '#5856D6', readTime: '9 min', thumb: 'nightworker' },
 }
 
 const FALLBACK_META: Meta = {

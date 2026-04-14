@@ -1,6 +1,13 @@
 'use client'
 
-export type ThumbKind = 'fatigue' | 'health' | 'nutrition' | 'sleep' | 'longevity' | 'family'
+export type ThumbKind =
+  | 'fatigue'
+  | 'health'
+  | 'nutrition'
+  | 'sleep'
+  | 'longevity'
+  | 'family'
+  | 'nightworker'
 
 const THUMB_SRC: Record<ThumbKind, string> = {
   fatigue: '/blog/thumbnails/fatigue.svg',
@@ -9,6 +16,7 @@ const THUMB_SRC: Record<ThumbKind, string> = {
   sleep: '/blog/thumbnails/sleep.svg',
   longevity: '/blog/thumbnails/longevity.svg',
   family: '/blog/thumbnails/family.svg',
+  nightworker: '/blog/thumbnails/nightworker.svg',
 }
 
 export function BlogThumbnail({ kind }: { kind: ThumbKind }) {
