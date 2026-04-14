@@ -1,6 +1,7 @@
 'use client'
 
 import { use, useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { useTranslation } from '@/components/providers/language-provider'
@@ -199,13 +200,19 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
                   <div
                     className={
                       heroImage
-                        ? 'flex h-[34px] w-[34px] items-center justify-center rounded-full border border-white/15 bg-white/10 text-[16px] text-white'
-                        : 'flex h-[34px] w-[34px] items-center justify-center rounded-full text-[16px]'
+                        ? 'flex h-[34px] w-[34px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-white/10'
+                        : 'flex h-[34px] w-[34px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--border-subtle)] bg-[var(--card)]'
                     }
-                    style={heroImage ? undefined : { backgroundColor: `${meta.accent}18` }}
-                    aria-hidden
+                    style={heroImage ? undefined : { backgroundColor: `${meta.accent}12` }}
                   >
-                    ⚙️
+                    <Image
+                      src="/logo.svg"
+                      alt=""
+                      width={26}
+                      height={26}
+                      className="object-contain"
+                      draggable={false}
+                    />
                   </div>
                   <div>
                     <div
