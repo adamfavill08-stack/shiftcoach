@@ -12,6 +12,7 @@ import { calculateBingeRisk } from '@/lib/binge/calculateBingeRisk'
 import { calculateFatigueRisk, type FatigueRiskResult } from '@/lib/fatigue/calculateFatigueRisk'
 import { fetchShiftContext, fatigueGuidanceFromContext } from '@/lib/shift-context'
 import type { ShiftRhythmScores } from '@/lib/shift-rhythm/scoring'
+import { getRollingWeekStartThroughUtcToday } from '@/lib/date/utcCalendar'
 // Cache for 60 seconds - shift rhythm scores update daily
 export const revalidate = 60
 type ApiShiftScore = ShiftRhythmScores & { date: string; activity_score: number | null }
@@ -80,7 +81,8 @@ export async function GET(req: NextRequest) {
     const forceRecalculate = searchParams.get('force') === 'true'
 
     // Try to get today's score and yesterday's score for comparison
-    const [{ data: existing, error: fetchErr }, { data: yesterdayScore }, { data: profile }] = await Promise.all([
+    const rollingWeekStart = getRollingWeekStartThroughUtcToday()
+    const [{ data: existing, error: fetchErr }, { data: yesterdayScore }, { data: profile }, { data: dailyScores }] = await Promise.all([
       supabase
         .from('shift_rhythm_scores')
         .select('*')
@@ -98,6 +100,13 @@ export async function GET(req: NextRequest) {
         .select('shift_pattern')
         .eq('user_id', userId)
         .maybeSingle(),
+      supabase
+        .from('shift_rhythm_scores')
+        .select('date,total_score')
+        .eq('user_id', userId)
+        .gte('date', rollingWeekStart)
+        .lte('date', today)
+        .order('date', { ascending: true }),
     ])
     const applyShiftWorkerCap = isLongTermShiftWorkerProfile((profile as any)?.shift_pattern ?? null)
 
@@ -646,6 +655,14 @@ export async function GET(req: NextRequest) {
     if (yesterdayScore?.total_score !== undefined) {
       response.yesterdayScore = yesterdayScore.total_score
     }
+    response.dailyScores = Array.isArray(dailyScores)
+      ? dailyScores
+          .map((r: any) => ({
+            date: typeof r?.date === 'string' ? r.date.slice(0, 10) : null,
+            total_score: typeof r?.total_score === 'number' && Number.isFinite(r.total_score) ? r.total_score : null,
+          }))
+          .filter((r: any) => r.date)
+      : []
 
     // Double-check that bingeRisk is in the response (should never be null now)
     if (response.bingeRisk === null || response.bingeRisk === undefined) {

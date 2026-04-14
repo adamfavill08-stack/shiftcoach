@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { authedFetch } from '@/lib/supabase/authedFetch'
 import { useShiftRhythm } from '@/lib/hooks/useShiftRhythm'
 import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus'
+import { LoadingIndicator } from '@/components/ui/LoadingIndicator'
 import { DashboardPager } from '@/components/dashboard/DashboardPager'
 import DashboardHeader from '@/components/dashboard/DashboardHeader'
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
@@ -324,8 +325,10 @@ function DashboardContent() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-100 pb-6 pt-10 text-center text-sm text-slate-500">
-        {t('dashboard.loading')}
+      <main className="min-h-screen bg-slate-100 pb-6 pt-10">
+        <div className="mx-auto flex min-h-[70vh] w-full max-w-md items-center justify-center">
+          <LoadingIndicator message={t('dashboard.loading')} size="md" />
+        </div>
       </main>
     )
   }

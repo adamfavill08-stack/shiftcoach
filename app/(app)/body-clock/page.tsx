@@ -16,6 +16,7 @@ import { authedFetch } from "@/lib/supabase/authedFetch"
 import { cn } from "@/lib/utils"
 import { useCircadianState } from "@/components/providers/circadian-state-provider"
 import { useShiftState } from "@/components/providers/shift-state-provider"
+import { LoadingIndicator } from "@/components/ui/LoadingIndicator"
 import {
   BodyClockScoreCard,
   type BodyClockScoreDay,
@@ -32,6 +33,8 @@ const inter = Inter({ subsets: ["latin"] })
 
 type ShiftRhythmResponse = {
   score?: Partial<ShiftRhythmScores> & { total_score?: number }
+  yesterdayScore?: number | null
+  dailyScores?: Array<{ date?: string; total_score?: number | null }>
   hasRhythmData?: boolean
   socialJetlag?: {
     currentMisalignmentHours?: number
@@ -137,6 +140,8 @@ export default function BodyClockPage() {
   const [sleepDeficit, setSleepDeficit] = useState<ShiftRhythmResponse["sleepDeficit"]>(null)
   const [fatigueRisk, setFatigueRisk] = useState<ShiftRhythmResponse["fatigueRisk"]>(null)
   const [bingeRisk, setBingeRisk] = useState<ShiftRhythmResponse["bingeRisk"]>(null)
+  const [yesterdayScore, setYesterdayScore] = useState<number | null>(null)
+  const [dailyScores, setDailyScores] = useState<Array<{ date: string; total_score: number | null }>>([])
   const [hydrationScore, setHydrationScore] = useState<number | null>(null)
   const [isActivityEstimated, setIsActivityEstimated] = useState(false)
   const weekly = useWeeklyProgress()
@@ -176,6 +181,8 @@ export default function BodyClockPage() {
             setSleepDeficit(null)
             setFatigueRisk(null)
             setBingeRisk(null)
+            setYesterdayScore(null)
+            setDailyScores([])
           }
           return
         }
@@ -199,6 +206,24 @@ export default function BodyClockPage() {
           setSleepDeficit(json?.sleepDeficit ?? null)
           setFatigueRisk(json?.fatigueRisk ?? null)
           setBingeRisk(json?.bingeRisk ?? null)
+          setYesterdayScore(
+            typeof json?.yesterdayScore === "number" && Number.isFinite(json.yesterdayScore)
+              ? json.yesterdayScore
+              : null,
+          )
+          setDailyScores(
+            Array.isArray(json?.dailyScores)
+              ? json.dailyScores
+                  .map((r) => ({
+                    date: typeof r?.date === "string" ? r.date.slice(0, 10) : "",
+                    total_score:
+                      typeof r?.total_score === "number" && Number.isFinite(r.total_score)
+                        ? r.total_score
+                        : null,
+                  }))
+                  .filter((r) => r.date.length > 0)
+              : [],
+          )
           const waterTarget = nutritionJson?.nutrition?.hydrationTargets?.water_ml
           const waterConsumed = nutritionJson?.nutrition?.hydrationIntake?.water_ml
           const caffeineLimit = nutritionJson?.nutrition?.hydrationTargets?.caffeine_mg
@@ -235,6 +260,8 @@ export default function BodyClockPage() {
           setSleepDeficit(null)
           setFatigueRisk(null)
           setBingeRisk(null)
+          setYesterdayScore(null)
+          setDailyScores([])
           setHydrationScore(null)
           setIsActivityEstimated(false)
         }
@@ -356,6 +383,12 @@ export default function BodyClockPage() {
     if (!dayLabels.length || scores.length !== 7 || !weekStart) return []
 
     const todayYmd = utcTodayYmd()
+    const yesterdayYmd = addUtcCalendarDays(todayYmd, -1)
+    const directDailyByDate = new Map(
+      dailyScores
+        .filter((r) => typeof r.date === "string")
+        .map((r) => [r.date, r.total_score] as const),
+    )
     const heroRaw =
       !loading && detail != null
         ? detail.total_score
@@ -370,7 +403,19 @@ export default function BodyClockPage() {
     return dayLabels.map((label, idx) => {
       const ymd = addUtcCalendarDays(weekStart, idx)
       const isToday = ymd === todayYmd
-      let score = Math.min(100, Math.max(0, Math.round(scores[idx] ?? 0)))
+      const direct = directDailyByDate.get(ymd)
+      let score =
+        typeof direct === "number" && Number.isFinite(direct)
+          ? Math.min(100, Math.max(0, Math.round(direct)))
+          : Math.min(100, Math.max(0, Math.round(scores[idx] ?? 0)))
+      if (
+        ymd === yesterdayYmd &&
+        score === 0 &&
+        typeof yesterdayScore === "number" &&
+        Number.isFinite(yesterdayScore)
+      ) {
+        score = Math.min(100, Math.max(0, Math.round(yesterdayScore)))
+      }
       if (isToday && hero != null) score = hero
       return { day: label, score, isToday }
     })
@@ -383,6 +428,8 @@ export default function BodyClockPage() {
     circadianState,
     loading,
     detail,
+    yesterdayScore,
+    dailyScores,
     legacyGaugeScore,
   ])
 
@@ -501,6 +548,8 @@ export default function BodyClockPage() {
     fatigueRisk?.level ? `${fatigueRisk.level[0].toUpperCase()}${fatigueRisk.level.slice(1)} (${fatigueRisk.score ?? "—"})` : "—"
   const bingeLevelLabel =
     bingeRisk?.level ? `${bingeRisk.level[0].toUpperCase()}${bingeRisk.level.slice(1)} (${bingeRisk.score ?? "—"})` : "—"
+
+  const showPageSpinner = loading && detail == null
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
@@ -627,6 +676,11 @@ export default function BodyClockPage() {
           </p>
         </footer>
       </div>
+      {showPageSpinner ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-[var(--bg)]/70 backdrop-blur-[1px]">
+          <LoadingIndicator message="Loading body clock..." size="md" />
+        </div>
+      ) : null}
     </main>
   )
 }
