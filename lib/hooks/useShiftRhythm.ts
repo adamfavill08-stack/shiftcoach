@@ -61,6 +61,7 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
   const [bingeRisk, setBingeRisk] = useState<BingeRisk>(null)
   const [fatigueRisk, setFatigueRisk] = useState<FatigueRiskResult | null>(null)
   const [loading, setLoading] = useState(true)
+  const [initialFetchComplete, setInitialFetchComplete] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasData, setHasData] = useState<boolean>(true)
   const previousScoreIdRef = useRef<string | null>(null)
@@ -185,6 +186,7 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
       }
     } finally {
       setLoading(false)
+      setInitialFetchComplete(true)
       inFlightRef.current = false
     }
   }
@@ -224,6 +226,18 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
 
   const refetch = (force = false) => fetchScore(force)
 
-  return { score, total, loading, error, refetch, sleepDeficit, hasData, socialJetlag, bingeRisk, fatigueRisk }
+  return {
+    score,
+    total,
+    loading,
+    initialFetchComplete,
+    error,
+    refetch,
+    sleepDeficit,
+    hasData,
+    socialJetlag,
+    bingeRisk,
+    fatigueRisk,
+  }
 }
 

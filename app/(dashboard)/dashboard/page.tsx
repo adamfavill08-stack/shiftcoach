@@ -45,6 +45,7 @@ function DashboardContent() {
   const {
     total: totalScore,
     loading: shiftRhythmLoading,
+    initialFetchComplete: shiftRhythmInitialFetchComplete,
     refetch: refetchShiftRhythm,
     hasData: hasShiftRhythmData,
     sleepDeficit,
@@ -323,7 +324,10 @@ function DashboardContent() {
     [totalScore, circadian, resolvedSocialJetlag, resolvedBingeRisk, resolvedFatigueRisk, isOnline, shiftRhythmLoading, hasShiftRhythmData, sleepDeficit, t]
   )
 
-  if (loading) {
+  const shouldShowDashboardSpinner =
+    loading || !shiftRhythmInitialFetchComplete || shiftRhythmLoading
+
+  if (shouldShowDashboardSpinner) {
     return (
       <main className="min-h-screen bg-slate-100 pb-6 pt-10">
         <div className="mx-auto flex min-h-[70vh] w-full max-w-md items-center justify-center">
