@@ -35,6 +35,19 @@ type SleepDeficit = {
   category: 'surplus' | 'low' | 'medium' | 'high'
 } | null
 
+type ShiftRhythmCache = {
+  score: ShiftRhythmScore | null
+  sleepDeficit: SleepDeficit
+  socialJetlag: SocialJetlag
+  bingeRisk: BingeRisk
+  fatigueRisk: FatigueRiskResult | null
+  hasData: boolean
+  cachedAt: number
+}
+
+const SHIFT_RHYTHM_CACHE_KEY = 'shiftRhythm:lastPayload'
+const SHIFT_RHYTHM_CACHE_MAX_AGE_MS = 10 * 60 * 1000
+
 /**
  * Hook to fetch shift rhythm score
  * GET /api/shift-rhythm automatically calculates if missing
@@ -54,14 +67,14 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
   const inFlightRef = useRef(false)
   const lastFetchRef = useRef(0)
 
-  const fetchScore = async (force = false) => {
+  const fetchScore = async (force = false, suppressLoading = false) => {
     try {
       const now = Date.now()
       if (inFlightRef.current && !force) return
       if (now - lastFetchRef.current < 5000 && !force) return // throttle within 5s (unless forced)
       inFlightRef.current = true
       lastFetchRef.current = now
-      setLoading(true)
+      if (!suppressLoading) setLoading(true)
       setError(null)
       
       const url = force ? '/api/shift-rhythm?force=true' : '/api/shift-rhythm'
@@ -72,11 +85,13 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
         // Treat auth errors as a transient no-data state instead of a hard failure log.
         if (res.status === 401 || res.status === 403) {
           setError(null)
-          setScore(null)
-          setSleepDeficit(null)
-          setSocialJetlag(null)
-          setBingeRisk(null)
-          setFatigueRisk(null)
+          if (!suppressLoading) {
+            setScore(null)
+            setSleepDeficit(null)
+            setSocialJetlag(null)
+            setBingeRisk(null)
+            setFatigueRisk(null)
+          }
           setLoading(false)
           return
         }
@@ -86,22 +101,26 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
           const errorData = await res.json().catch(() => ({}))
           console.warn('[useShiftRhythm] Server error:', errorData.error || res.status)
           setError('Unable to load score')
-          setScore(null)
-          setSleepDeficit(null)
-          setSocialJetlag(null)
-          setBingeRisk(null)
-          setFatigueRisk(null)
+          if (!suppressLoading) {
+            setScore(null)
+            setSleepDeficit(null)
+            setSocialJetlag(null)
+            setBingeRisk(null)
+            setFatigueRisk(null)
+          }
           setLoading(false)
           return
         }
         
         console.error('[useShiftRhythm] Failed to fetch:', res.status)
         setError('Failed to load score')
-        setScore(null)
-        setSleepDeficit(null)
-        setSocialJetlag(null)
-        setBingeRisk(null)
-        setFatigueRisk(null)
+        if (!suppressLoading) {
+          setScore(null)
+          setSleepDeficit(null)
+          setSocialJetlag(null)
+          setBingeRisk(null)
+          setFatigueRisk(null)
+        }
         setLoading(false)
         return
       }
@@ -123,6 +142,22 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
       setSocialJetlag(socialJetlagValue)
       setBingeRisk(bingeRiskValue)
       setFatigueRisk(fatigueRiskValue)
+      try {
+        if (typeof window !== 'undefined') {
+          const payload: ShiftRhythmCache = {
+            score: newScore,
+            sleepDeficit: deficitValue,
+            socialJetlag: socialJetlagValue,
+            bingeRisk: bingeRiskValue,
+            fatigueRisk: fatigueRiskValue,
+            hasData: typeof hasRhythmData === 'boolean' ? hasRhythmData : true,
+            cachedAt: Date.now(),
+          }
+          window.localStorage.setItem(SHIFT_RHYTHM_CACHE_KEY, JSON.stringify(payload))
+        }
+      } catch {
+        // Ignore cache write failures
+      }
       
       // Check for significant score change (>1 point on 0-10 scale) compared to yesterday
       if (newScore && yesterdayScore !== null) {
@@ -141,11 +176,13 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
     } catch (err) {
       console.error('[useShiftRhythm] Error:', err)
       setError('Network error')
-      setScore(null)
-      setSleepDeficit(null)
-      setSocialJetlag(null)
-      setBingeRisk(null)
-      setFatigueRisk(null)
+      if (!suppressLoading) {
+        setScore(null)
+        setSleepDeficit(null)
+        setSocialJetlag(null)
+        setBingeRisk(null)
+        setFatigueRisk(null)
+      }
     } finally {
       setLoading(false)
       inFlightRef.current = false
@@ -154,8 +191,30 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
 
   useEffect(() => {
     let isCancelled = false
+    let hadFreshCache = false
+    try {
+      if (typeof window !== 'undefined') {
+        const raw = window.localStorage.getItem(SHIFT_RHYTHM_CACHE_KEY)
+        if (raw) {
+          const cached = JSON.parse(raw) as ShiftRhythmCache
+          const isFresh = Date.now() - (cached.cachedAt ?? 0) < SHIFT_RHYTHM_CACHE_MAX_AGE_MS
+          if (isFresh && cached) {
+            hadFreshCache = true
+            setScore(cached.score ?? null)
+            setSleepDeficit(cached.sleepDeficit ?? null)
+            setSocialJetlag(cached.socialJetlag ?? null)
+            setBingeRisk(cached.bingeRisk ?? null)
+            setFatigueRisk(cached.fatigueRisk ?? null)
+            setHasData(typeof cached.hasData === 'boolean' ? cached.hasData : true)
+            setLoading(false)
+          }
+        }
+      }
+    } catch {
+      // Ignore cache parse/read errors
+    }
     const run = async () => {
-      if (!isCancelled) await fetchScore()
+      if (!isCancelled) await fetchScore(false, hadFreshCache)
     }
     run()
     return () => { isCancelled = true }
