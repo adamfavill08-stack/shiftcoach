@@ -171,7 +171,6 @@ function RiskGauge({ score }: { score: number }) {
       <div style={{ marginTop: 8, textAlign: 'center' }}>
         <div style={{ fontSize: 42, fontWeight: 700, color: '#1C1C1E', lineHeight: 1 }}>{clamp}</div>
         <div style={{ fontSize: 15, fontWeight: 600, color, marginTop: 4 }}>{getLabel(clamp)}</div>
-        <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>Binge risk level</div>
       </div>
     </div>
   )
@@ -275,8 +274,6 @@ function WhyCard({ card }: { card: WhyCardItem }) {
 export default function BingeRiskPage() {
   const [tab, setTab] = useState('overview')
   const [riskScore, setRiskScore] = useState<number>(RISK_SCORE)
-  const [riskLevel, setRiskLevel] = useState<'low' | 'medium' | 'high'>('low')
-  const [hasLiveRisk, setHasLiveRisk] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -289,10 +286,6 @@ export default function BingeRiskPage() {
         const nextLevel = json?.bingeRisk?.level
         if (!cancelled && typeof nextScore === 'number' && Number.isFinite(nextScore)) {
           setRiskScore(Math.max(0, Math.min(100, Math.round(nextScore))))
-          setHasLiveRisk(true)
-        }
-        if (!cancelled && (nextLevel === 'low' || nextLevel === 'medium' || nextLevel === 'high')) {
-          setRiskLevel(nextLevel)
         }
       } catch {
         // keep fallback demo score when fetch fails
@@ -377,37 +370,6 @@ export default function BingeRiskPage() {
           <>
             <div style={{ background: 'white', borderRadius: 12, padding: '20px 20px 24px', marginBottom: 12 }}>
               <RiskGauge score={riskScore} />
-              <div
-                style={{
-                  marginTop: 16,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  background: '#F2F2F7',
-                  borderRadius: 12,
-                  padding: '10px 14px',
-                }}
-              >
-                <span style={{ fontSize: 18 }}>📊</span>
-                <div>
-                  <div style={{ fontSize: 12, color: '#8E8E93' }}>Shift data</div>
-                  {hasLiveRisk ? (
-                    <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: riskLevel === 'high' ? '#FF3B30' : riskLevel === 'medium' ? '#FF9500' : '#34C759',
-                      }}
-                    >
-                      Live score synced with dashboard
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#FF9500' }}>
-                      No recent data — log a shift to refine your score
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
 
             <div style={{ background: 'white', borderRadius: 12, padding: '16px 20px', marginBottom: 12 }}>
