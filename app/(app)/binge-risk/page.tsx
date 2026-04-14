@@ -1,369 +1,572 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Briefcase, ChevronLeft, Moon, Utensils } from 'lucide-react'
-import { useTranslation } from '@/components/providers/language-provider'
+import { useEffect, useState } from 'react'
+import { ChevronLeft } from 'lucide-react'
 import { authedFetch } from '@/lib/supabase/authedFetch'
-import { riskScaleBarMarkerFill } from '@/lib/riskScaleBarMarker'
-import { cn } from '@/lib/utils'
+import { BodyClockMotivationCard } from '@/components/body-clock/BodyClockMotivationCard'
 
-type BingeRisk = {
+const RISK_SCORE = 0
+
+type Factor = {
+  id: string
+  icon: string
+  label: string
+  value: string
+  color: string
   score: number
-  level: 'low' | 'medium' | 'high'
-  drivers: string[]
-  explanation: string
 }
 
-type SleepDeficitPayload = {
-  weeklyDeficit: number
-  category: 'surplus' | 'low' | 'medium' | 'high'
+type QuickAction = {
+  icon: string
+  text: string
 }
 
-type RhythmScorePayload = {
-  shift_pattern_score?: number
-  meal_timing_score?: number | null
-  nutrition_score?: number | null
+type WhyCardItem = {
+  icon: string
+  title: string
+  desc: string
 }
 
-type StrainLevel = 'low' | 'medium' | 'high' | 'unknown'
-
-function inferShiftStrainFromDrivers(drivers?: string[]): StrainLevel | null {
-  if (!drivers?.length) return null
-  const text = drivers.join(' ').toLowerCase()
-  if (/intense shift|very low sleep|high sleep debt/i.test(text)) return 'high'
-  if (
-    /night shift|post-night|quick shift turnaround|high shift lag|busy shift|elevated activity/i.test(text)
-  ) {
-    return 'medium'
-  }
-  if (/shift|turnaround|activity/i.test(text)) return 'low'
-  return null
+type BingeRiskPayload = {
+  score?: number
+  level?: 'low' | 'medium' | 'high'
 }
 
-function strainFromShiftPattern(
-  shiftPattern: number | undefined,
-  hasRhythmData: boolean | undefined,
-  drivers: string[] | undefined,
-): StrainLevel {
-  if (typeof shiftPattern === 'number' && hasRhythmData === true) {
-    if (shiftPattern >= 58) return 'low'
-    if (shiftPattern >= 32) return 'medium'
-    return 'high'
-  }
-  const inferred = inferShiftStrainFromDrivers(drivers)
-  if (inferred) return inferred
-  return 'unknown'
-}
+const factors: Factor[] = [
+  { id: 'sleep', icon: '😴', label: 'Sleep Debt', value: 'Low', color: '#34C759', score: 10 },
+  { id: 'circadian', icon: '🕐', label: 'Circadian Sync', value: 'On track', color: '#34C759', score: 15 },
+  { id: 'stress', icon: '💼', label: 'Shift Stress', value: 'Moderate', color: '#FF9500', score: 45 },
+  { id: 'meals', icon: '🍽️', label: 'Meal Timing', value: 'Good', color: '#34C759', score: 20 },
+]
 
-function eatingStabilityFromScores(score: RhythmScorePayload | null): 'stable' | 'watch' | 'irregular' {
-  const parts = [score?.meal_timing_score, score?.nutrition_score].filter(
-    (x): x is number => typeof x === 'number' && !Number.isNaN(x),
+const quickActions: QuickAction[] = [
+  { icon: '🥜', text: 'Protein snack before home' },
+  { icon: '🚪', text: 'Set kitchen closed time' },
+  { icon: '🎮', text: 'Non-food reward after work' },
+  { icon: '😴', text: 'Prioritise solid sleep' },
+]
+
+const whyCards: WhyCardItem[] = [
+  {
+    icon: '🧬',
+    title: 'Hormones',
+    desc: 'Less sleep = more ghrelin (hunger) and less leptin (fullness).',
+  },
+  {
+    icon: '🕓',
+    title: 'Circadian Mismatch',
+    desc: 'Eating at 3–4am when your body expects sleep stores more fat.',
+  },
+  {
+    icon: '⚡',
+    title: 'Stress & Reward',
+    desc: 'Long shifts with no breaks make food the easiest reward.',
+  },
+  {
+    icon: '🏪',
+    title: 'Environment',
+    desc: 'Vending machines and energy drinks are always available on nights.',
+  },
+]
+
+function RiskGauge({ score }: { score: number }) {
+  const [animated, setAnimated] = useState(false)
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setAnimated(true), 200)
+    return () => window.clearTimeout(id)
+  }, [])
+
+  const clamp = Math.min(Math.max(score, 0), 100)
+  const fillPct = animated ? clamp : 0
+  const endAngle = Math.PI - (fillPct / 100) * Math.PI
+  const endX = 100 + 90 * Math.cos(endAngle)
+  const endY = 100 - 90 * Math.sin(endAngle)
+  const largeArc = fillPct > 50 ? 1 : 0
+
+  const getColor = (s: number) => (s < 33 ? '#34C759' : s < 66 ? '#FF9500' : '#FF3B30')
+  const getLabel = (s: number) => (s < 33 ? 'Low' : s < 66 ? 'Moderate' : 'High')
+  const color = getColor(clamp)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '8px 0 0' }}>
+      <div style={{ position: 'relative', width: 200, height: 110 }}>
+        <svg width="200" height="110" viewBox="0 0 200 110">
+          <path
+            d="M 10 100 A 90 90 0 0 1 190 100"
+            fill="none"
+            stroke="#E5E5EA"
+            strokeWidth="14"
+            strokeLinecap="round"
+          />
+          {fillPct > 0 ? (
+            <path
+              d={`M 10 100 A 90 90 0 ${largeArc} 1 ${endX} ${endY}`}
+              fill="none"
+              stroke={color}
+              strokeWidth="14"
+              strokeLinecap="round"
+              style={{ transition: 'stroke 0.5s' }}
+            />
+          ) : null}
+
+          {[33, 66].map((pct) => {
+            const angle = Math.PI - (pct / 100) * Math.PI
+            const x = 100 + 90 * Math.cos(angle)
+            const y = 100 - 90 * Math.sin(angle)
+            const ix = 100 + 76 * Math.cos(angle)
+            const iy = 100 - 76 * Math.sin(angle)
+            return <line key={pct} x1={x} y1={y} x2={ix} y2={iy} stroke="white" strokeWidth="2" />
+          })}
+
+          {(() => {
+            const angle = Math.PI - (clamp / 100) * Math.PI
+            const nx = 100 + 72 * Math.cos(angle)
+            const ny = 100 - 72 * Math.sin(angle)
+            return (
+              <g
+                style={{
+                  transition: 'transform 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  transformOrigin: '100px 100px',
+                }}
+              >
+                <line
+                  x1="100"
+                  y1="100"
+                  x2={nx}
+                  y2={ny}
+                  stroke={color}
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  style={{
+                    transformOrigin: '100px 100px',
+                    transform: `rotate(${animated ? 0 : 180}deg)`,
+                    transition: 'transform 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  }}
+                />
+                <circle cx="100" cy="100" r="5" fill={color} />
+              </g>
+            )
+          })()}
+        </svg>
+
+        <div
+          style={{
+            position: 'absolute',
+            bottom: -10,
+            left: 0,
+            right: 0,
+            display: 'flex',
+            justifyContent: 'space-between',
+            padding: '0 4px',
+          }}
+        >
+          <span style={{ fontSize: 10, color: '#34C759', fontWeight: 600 }}>Low</span>
+          <span style={{ fontSize: 10, color: '#FF9500', fontWeight: 600 }}>Moderate</span>
+          <span style={{ fontSize: 10, color: '#FF3B30', fontWeight: 600 }}>High</span>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 8, textAlign: 'center' }}>
+        <div style={{ fontSize: 42, fontWeight: 700, color: '#1C1C1E', lineHeight: 1 }}>{clamp}</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color, marginTop: 4 }}>{getLabel(clamp)}</div>
+        <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>Binge risk level</div>
+      </div>
+    </div>
   )
-  if (parts.length === 0) return 'stable'
-  const avg = parts.reduce((a, b) => a + b, 0) / parts.length
-  if (avg >= 62) return 'stable'
-  if (avg >= 38) return 'watch'
-  return 'irregular'
+}
+
+function FactorBar({ factor, delay }: { factor: Factor; delay: number }) {
+  const [animated, setAnimated] = useState(false)
+  useEffect(() => {
+    const id = window.setTimeout(() => setAnimated(true), delay)
+    return () => window.clearTimeout(id)
+  }, [delay])
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 18 }}>{factor.icon}</span>
+          <span style={{ fontSize: 14, fontWeight: 500, color: '#1C1C1E' }}>{factor.label}</span>
+        </div>
+        <span style={{ fontSize: 13, fontWeight: 600, color: factor.color }}>{factor.value}</span>
+      </div>
+      <div style={{ height: 6, background: '#E5E5EA', borderRadius: 3, overflow: 'hidden' }}>
+        <div
+          style={{
+            height: '100%',
+            background: factor.color,
+            borderRadius: 3,
+            width: animated ? `${factor.score}%` : '0%',
+            transition: `width 0.9s cubic-bezier(0.34, 1.2, 0.64, 1) ${delay}ms`,
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function ActionPill({ item }: { item: QuickAction }) {
+  const [tapped, setTapped] = useState(false)
+  return (
+    <button
+      onClick={() => setTapped(!tapped)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        background: tapped ? '#007AFF' : '#F2F2F7',
+        border: 'none',
+        borderRadius: 12,
+        padding: '12px 16px',
+        cursor: 'pointer',
+        width: '100%',
+        textAlign: 'left',
+        transition: 'all 0.2s ease',
+        transform: tapped ? 'scale(0.98)' : 'scale(1)',
+      }}
+    >
+      <span style={{ fontSize: 20 }}>{item.icon}</span>
+      <span style={{ fontSize: 14, fontWeight: 500, color: tapped ? 'white' : '#1C1C1E' }}>{item.text}</span>
+      {tapped ? <span style={{ marginLeft: 'auto', fontSize: 14, color: 'white' }}>✓</span> : null}
+    </button>
+  )
+}
+
+function WhyCard({ card }: { card: WhyCardItem }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <button
+      onClick={() => setOpen(!open)}
+      style={{
+        background: '#F2F2F7',
+        borderRadius: 12,
+        padding: '14px 16px',
+        border: 'none',
+        cursor: 'pointer',
+        width: '100%',
+        textAlign: 'left',
+        transition: 'background 0.2s',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 24 }}>{card.icon}</span>
+        <span style={{ fontSize: 15, fontWeight: 600, color: '#1C1C1E', flex: 1 }}>{card.title}</span>
+        <span
+          style={{
+            fontSize: 12,
+            color: '#8E8E93',
+            transform: open ? 'rotate(180deg)' : 'rotate(0)',
+            transition: 'transform 0.2s',
+          }}
+        >
+          ▼
+        </span>
+      </div>
+      {open ? (
+        <p style={{ margin: '10px 0 0 34px', fontSize: 13, color: '#3C3C43', lineHeight: 1.5 }}>{card.desc}</p>
+      ) : null}
+    </button>
+  )
 }
 
 export default function BingeRiskPage() {
-  const { t } = useTranslation()
-  const [risk, setRisk] = useState<BingeRisk | null>(null)
-  const [sleepDeficit, setSleepDeficit] = useState<SleepDeficitPayload | null>(null)
-  const [rhythmScore, setRhythmScore] = useState<RhythmScorePayload | null>(null)
-  const [hasRhythmData, setHasRhythmData] = useState<boolean | undefined>(undefined)
-  const [loaded, setLoaded] = useState(false)
+  const [tab, setTab] = useState('overview')
+  const [riskScore, setRiskScore] = useState<number>(RISK_SCORE)
+  const [riskLevel, setRiskLevel] = useState<'low' | 'medium' | 'high'>('low')
+  const [hasLiveRisk, setHasLiveRisk] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    const load = async () => {
+    ;(async () => {
       try {
         const res = await authedFetch('/api/shift-rhythm', { cache: 'no-store' })
-        if (!res.ok) {
-          if (!cancelled) setLoaded(true)
-          return
+        if (!res.ok || cancelled) return
+        const json = (await res.json().catch(() => ({}))) as { bingeRisk?: BingeRiskPayload | null }
+        const nextScore = json?.bingeRisk?.score
+        const nextLevel = json?.bingeRisk?.level
+        if (!cancelled && typeof nextScore === 'number' && Number.isFinite(nextScore)) {
+          setRiskScore(Math.max(0, Math.min(100, Math.round(nextScore))))
+          setHasLiveRisk(true)
         }
-        const json = (await res.json().catch(() => ({}))) as {
-          bingeRisk?: BingeRisk
-          sleepDeficit?: SleepDeficitPayload | null
-          score?: RhythmScorePayload | null
-          hasRhythmData?: boolean
-        }
-        if (cancelled) return
-        if (json?.bingeRisk) setRisk(json.bingeRisk)
-        setSleepDeficit(json?.sleepDeficit ?? null)
-        setRhythmScore(json?.score ?? null)
-        if (typeof json?.hasRhythmData === 'boolean') {
-          setHasRhythmData(json.hasRhythmData)
+        if (!cancelled && (nextLevel === 'low' || nextLevel === 'medium' || nextLevel === 'high')) {
+          setRiskLevel(nextLevel)
         }
       } catch {
-        // keep null – page stays readable
-      } finally {
-        if (!cancelled) setLoaded(true)
+        // keep fallback demo score when fetch fails
       }
-    }
-    load()
+    })()
     return () => {
       cancelled = true
     }
   }, [])
 
-  const score = risk?.score ?? 0
-  const level = risk?.level ?? 'low'
-
-  const levelLabel =
-    level === 'low'
-      ? t('detail.bingeRisk.levelLow')
-      : level === 'medium'
-        ? t('detail.bingeRisk.levelMedium')
-        : t('detail.bingeRisk.levelHigh')
-
-  const riskBand =
-    level === 'low'
-      ? t('detail.bingeRisk.bandLow')
-      : level === 'medium'
-        ? t('detail.bingeRisk.bandMedium')
-        : t('detail.bingeRisk.bandHigh')
-
-  const headline =
-    level === 'low'
-      ? t('detail.bingeRisk.headlineLow')
-      : level === 'medium'
-        ? t('detail.bingeRisk.headlineMedium')
-        : t('detail.bingeRisk.headlineHigh')
-
-  const scorePct = Math.max(0, Math.min(100, score))
-  const markerLeft = `${Math.max(3, Math.min(97, scorePct))}%`
-  const markerFill = riskScaleBarMarkerFill(scorePct)
-
-  const chipClass =
-    level === 'low'
-      ? 'bg-emerald-50/90 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-200'
-      : level === 'medium'
-        ? 'bg-amber-50/90 text-amber-600 dark:bg-amber-950/20 dark:text-amber-200'
-        : 'bg-rose-50/90 text-rose-600 dark:bg-rose-950/20 dark:text-rose-200'
-
-  const { sleepSub, strainSub, eatingSub } = useMemo(() => {
-    if (!loaded) {
-      return {
-        sleepSub: t('detail.bingeRisk.chipLoading'),
-        strainSub: t('detail.bingeRisk.chipLoading'),
-        eatingSub: t('detail.bingeRisk.chipLoading'),
-      }
-    }
-
-    let sleepSub = t('detail.bingeRisk.chipSleepNoData')
-    if (sleepDeficit) {
-      const { weeklyDeficit, category } = sleepDeficit
-      if (category === 'surplus' || weeklyDeficit < -0.25) {
-        sleepSub = t('detail.bingeRisk.chipSleepSurplus')
-      } else if (category === 'low' && weeklyDeficit <= 1) {
-        sleepSub = t('detail.bingeRisk.chipSleepBalanced')
-      } else if (weeklyDeficit > 0.05) {
-        sleepSub = t('detail.bingeRisk.chipSleepDebt', { h: weeklyDeficit.toFixed(1) })
-      } else {
-        sleepSub = t('detail.bingeRisk.chipSleepBalanced')
-      }
-    }
-
-    const strain = strainFromShiftPattern(
-      rhythmScore?.shift_pattern_score,
-      hasRhythmData,
-      risk?.drivers,
-    )
-    let strainSub = t('detail.bingeRisk.chipShiftUnknown')
-    if (strain === 'low') strainSub = t('detail.bingeRisk.levelLow')
-    else if (strain === 'medium') strainSub = t('detail.bingeRisk.levelMedium')
-    else if (strain === 'high') strainSub = t('detail.bingeRisk.levelHigh')
-
-    const eat = eatingStabilityFromScores(rhythmScore)
-    let eatingSub = t('detail.bingeRisk.chipEatingStable')
-    if (eat === 'watch') eatingSub = t('detail.bingeRisk.chipEatingWatch')
-    else if (eat === 'irregular') eatingSub = t('detail.bingeRisk.chipEatingIrregular')
-
-    return { sleepSub, strainSub, eatingSub }
-  }, [loaded, sleepDeficit, rhythmScore, hasRhythmData, risk?.drivers, t])
+  const tabs = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'factors', label: 'Factors' },
+    { id: 'actions', label: 'Actions' },
+  ]
 
   return (
-    <main className="min-h-screen bg-[var(--bg)]">
-      <div className="max-w-[430px] mx-auto min-h-screen px-4 pb-8 pt-4 flex flex-col gap-5">
-        <header className="flex items-center gap-2 mb-2">
+    <div
+      style={{
+        fontFamily: "-apple-system, 'SF Pro Display', BlinkMacSystemFont, sans-serif",
+        background: '#F2F2F7',
+        minHeight: '100vh',
+        maxWidth: '100%',
+        margin: '0 auto',
+        paddingBottom: 80,
+      }}
+    >
+      <div
+        style={{
+          background: '#F2F2F7',
+          padding: '16px 20px 0',
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          boxShadow: '0 1px 0 rgba(0,0,0,0.04)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <Link
             href="/dashboard"
-            className="rounded-full border border-[var(--border-subtle)] bg-[var(--card)] p-2 text-[var(--text-soft)] shadow-none"
-            aria-label={t('detail.common.backToDashboard')}
+            className="rounded-full border border-[var(--border-subtle)] bg-[var(--card)] p-2 text-[var(--text-soft)] shadow-none transition-colors hover:bg-[var(--card-subtle)]"
+            aria-label="Back to dashboard"
+            style={{ textDecoration: 'none' }}
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-xl font-semibold tracking-tight text-[var(--text-main)]">
-            {t('detail.bingeRisk.title')}
+          <h1
+            className="text-xl font-semibold tracking-tight text-[var(--text-main)]"
+            style={{ margin: 0 }}
+          >
+            Binge Risk
           </h1>
-        </header>
+        </div>
 
-        <section className="flex flex-col gap-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-5 shadow-none">
-          <div className="w-full space-y-3">
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-                {t('detail.bingeRisk.scoreLabel')}
-              </span>
-              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                <span className="text-3xl font-semibold tabular-nums text-[var(--text-main)]">{score}</span>
-                <span className="text-sm font-medium text-[var(--text-soft)]">{riskBand}</span>
-              </div>
-            </div>
-            <div className="relative w-full pb-0.5 pt-1">
-              <div className="h-3 w-full overflow-hidden rounded-full">
-                <div className="grid h-full w-full grid-cols-3">
-                  <div className="bg-emerald-200" />
-                  <div className="bg-emerald-300" />
-                  <div className="bg-gradient-to-r from-amber-300 to-orange-300" />
+        <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #E5E5EA' }}>
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              style={{
+                flex: 1,
+                padding: '10px 0',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: 14,
+                fontWeight: tab === t.id ? 600 : 400,
+                color: tab === t.id ? '#007AFF' : '#8E8E93',
+                borderBottom: tab === t.id ? '2px solid #007AFF' : '2px solid transparent',
+                transition: 'all 0.2s',
+                marginBottom: -1,
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ padding: '16px 16px 0' }}>
+        {tab === 'overview' ? (
+          <>
+            <div style={{ background: 'white', borderRadius: 12, padding: '20px 20px 24px', marginBottom: 12 }}>
+              <RiskGauge score={riskScore} />
+              <div
+                style={{
+                  marginTop: 16,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  background: '#F2F2F7',
+                  borderRadius: 12,
+                  padding: '10px 14px',
+                }}
+              >
+                <span style={{ fontSize: 18 }}>📊</span>
+                <div>
+                  <div style={{ fontSize: 12, color: '#8E8E93' }}>Shift data</div>
+                  {hasLiveRisk ? (
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: riskLevel === 'high' ? '#FF3B30' : riskLevel === 'medium' ? '#FF9500' : '#34C759',
+                      }}
+                    >
+                      Live score synced with dashboard
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#FF9500' }}>
+                      No recent data — log a shift to refine your score
+                    </div>
+                  )}
                 </div>
               </div>
-              <span
-                className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white box-border"
-                style={{ left: markerLeft, backgroundColor: markerFill }}
-                aria-hidden
-              />
             </div>
-            <div className="flex items-center justify-between text-[10px] font-medium text-[var(--text-muted)]">
-              <span>{t('detail.bingeRisk.axisLow')}</span>
-              <span>{t('detail.bingeRisk.axisHigh')}</span>
-            </div>
-          </div>
 
-          <div className="w-full flex-1 space-y-3">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="text-sm font-semibold text-[var(--text-main)]">{headline}</p>
-              </div>
-              <span
-                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-medium ${chipClass}`}
+            <div style={{ background: 'white', borderRadius: 12, padding: '16px 20px', marginBottom: 12 }}>
+              <p
+                style={{
+                  margin: '0 0 12px',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#8E8E93',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                }}
               >
-                {risk ? levelLabel : t('detail.bingeRisk.noRecentData')}
-              </span>
+                What your score means
+              </p>
+              {[
+                { dot: '#34C759', label: 'Low', desc: 'Balanced, stable pattern' },
+                { dot: '#FF9500', label: 'Medium', desc: 'Watch your triggers' },
+                { dot: '#FF3B30', label: 'High', desc: 'Extra support & planning needed' },
+              ].map((r) => (
+                <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: r.dot, flexShrink: 0 }} />
+                  <span style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E', width: 54 }}>{r.label}</span>
+                  <span style={{ fontSize: 13, color: '#636366' }}>{r.desc}</span>
+                </div>
+              ))}
             </div>
-          </div>
 
-          <div className="flex gap-2 border-t border-[var(--border-subtle)] pt-4">
-            <div
-              className={cn(
-                'flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-teal-50/85 px-2.5 py-2 dark:bg-teal-950/20',
-              )}
-            >
-              <Moon className="h-5 w-5 shrink-0 text-teal-400 dark:text-teal-300" strokeWidth={2} aria-hidden />
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold leading-tight text-[var(--text-main)]">
-                  {t('detail.bingeRisk.chipSleepLabel')}
-                </p>
-                <p className="truncate text-[10px] leading-tight text-[var(--text-muted)]">{sleepSub}</p>
-              </div>
+            <div style={{ background: 'white', borderRadius: 12, padding: '16px 20px', marginBottom: 12 }}>
+              <p
+                style={{
+                  margin: '0 0 14px',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#8E8E93',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                }}
+              >
+                How ShiftCoach helps
+              </p>
+              {[
+                { icon: '😴', text: 'Nudges you toward enough sleep for your shifts' },
+                { icon: '🕐', text: 'Plans protein-focused meals when you are most alert' },
+                { icon: '🚨', text: 'Flags danger windows on your dashboard' },
+                { icon: '🍱', text: 'Suggests small, regular meals to prevent binges' },
+              ].map((item, i) => (
+                <div
+                  key={`${item.icon}-${i}`}
+                  style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: i < 3 ? 12 : 0 }}
+                >
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 10,
+                      background: '#F2F2F7',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 18,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {item.icon}
+                  </div>
+                  <p style={{ margin: 0, fontSize: 14, color: '#3C3C43', lineHeight: 1.4, paddingTop: 8 }}>{item.text}</p>
+                </div>
+              ))}
             </div>
-            <div
-              className={cn(
-                'flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-amber-50/80 px-2.5 py-2 dark:bg-amber-950/18',
-              )}
-            >
-              <Briefcase className="h-5 w-5 shrink-0 text-amber-500 dark:text-amber-300" strokeWidth={2} aria-hidden />
-              <div className="min-w-0">
-                <p className="text-[10px] leading-tight text-[var(--text-muted)]">
-                  {t('detail.bingeRisk.chipShiftLabel')}
-                </p>
-                <p className="truncate text-[11px] font-semibold leading-tight text-[var(--text-main)]">
-                  {strainSub}
-                </p>
-              </div>
-            </div>
-            <div
-              className={cn(
-                'flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-violet-50/85 px-2.5 py-2 dark:bg-violet-950/20',
-              )}
-            >
-              <Utensils className="h-5 w-5 shrink-0 text-violet-400 dark:text-violet-300" strokeWidth={2} aria-hidden />
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold leading-tight text-[var(--text-main)]">
-                  {t('detail.bingeRisk.chipEatingLabel')}
-                </p>
-                <p className="truncate text-[10px] leading-tight text-[var(--text-muted)]">{eatingSub}</p>
-              </div>
-            </div>
-          </div>
-        </section>
+          </>
+        ) : null}
 
-        <section className="flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-soft)]">
-            {t('detail.bingeRisk.colorsTitle')}
+        {tab === 'factors' ? (
+          <>
+            <div style={{ background: 'white', borderRadius: 12, padding: '20px', marginBottom: 12 }}>
+              <p
+                style={{
+                  margin: '0 0 20px',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#8E8E93',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                }}
+              >
+                Contributing factors
+              </p>
+              {factors.map((f, i) => (
+                <FactorBar key={f.id} factor={f} delay={i * 120 + 200} />
+              ))}
+            </div>
+
+            <div style={{ background: 'white', borderRadius: 12, padding: '20px', marginBottom: 12 }}>
+              <p
+                style={{
+                  margin: '0 0 14px',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#8E8E93',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                }}
+              >
+                Why shift workers binge more
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {whyCards.map((c) => (
+                  <WhyCard key={c.title} card={c} />
+                ))}
+              </div>
+            </div>
+          </>
+        ) : null}
+
+        {tab === 'actions' ? (
+          <>
+            <div style={{ background: 'white', borderRadius: 12, padding: '20px', marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                <span style={{ fontSize: 22 }}>🌿</span>
+                <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1C1C1E' }}>Quick actions</p>
+              </div>
+              <p style={{ margin: '0 0 16px', fontSize: 13, color: '#8E8E93' }}>
+                Tap to mark done. Works best on medium or high risk days.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {quickActions.map((item, i) => (
+                  <ActionPill key={`${item.icon}-${i}`} item={item} />
+                ))}
+              </div>
+            </div>
+
+            <BodyClockMotivationCard
+              className="mb-3"
+              message="The goal is not to be perfect — it is to stack the odds in your favour so binges become rare slips, not your normal pattern."
+            />
+          </>
+        ) : null}
+
+        <div style={{ paddingTop: 8, paddingBottom: 8, textAlign: 'center' }}>
+          <p
+            style={{
+              margin: 0,
+              marginBottom: 6,
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: '#94A3B8',
+            }}
+          >
+            SHIFTCOACH
           </p>
-          <div className="flex flex-col gap-2 text-[13px] text-[var(--text-soft)]">
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-300 dark:bg-emerald-400" />
-              <span className="font-semibold">{t('detail.bingeRisk.colorLow')}</span>
-              <span className="text-[12px] text-[var(--text-muted)]">{t('detail.bingeRisk.colorLowDesc')}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-300 dark:bg-amber-400" />
-              <span className="font-semibold">{t('detail.bingeRisk.colorMedium')}</span>
-              <span className="text-[12px] text-[var(--text-muted)]">
-                {t('detail.bingeRisk.colorMediumDesc')}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-rose-300 dark:bg-rose-400" />
-              <span className="font-semibold">{t('detail.bingeRisk.colorHigh')}</span>
-              <span className="text-[12px] text-[var(--text-muted)]">{t('detail.bingeRisk.colorHighDesc')}</span>
-            </div>
-          </div>
-        </section>
-
-        <section className="flex flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-lg">🤍</span>
-            <p className="text-sm font-semibold text-[var(--text-main)]">{t('detail.bingeRisk.whyTitle')}</p>
-          </div>
-          <ul className="list-disc list-inside space-y-1.5 text-[13px] text-[var(--text-soft)]">
-            <li>{t('detail.bingeRisk.whyLi1')}</li>
-            <li>{t('detail.bingeRisk.whyLi2')}</li>
-            <li>{t('detail.bingeRisk.whyLi3')}</li>
-            <li>{t('detail.bingeRisk.whyLi4')}</li>
-          </ul>
-        </section>
-
-        <section className="flex flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-lg">📋</span>
-            <p className="text-sm font-semibold text-[var(--text-main)]">{t('detail.bingeRisk.helpsTitle')}</p>
-          </div>
-          <ul className="list-disc list-inside space-y-1.5 text-[13px] text-[var(--text-soft)]">
-            <li>{t('detail.bingeRisk.helpsLi1')}</li>
-            <li>{t('detail.bingeRisk.helpsLi2')}</li>
-            <li>{t('detail.bingeRisk.helpsLi3')}</li>
-            <li>{t('detail.bingeRisk.helpsLi4')}</li>
-          </ul>
-        </section>
-
-        <section className="flex flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-lg">🌿</span>
-            <p className="text-sm font-semibold text-[var(--text-main)]">{t('detail.bingeRisk.tipsTitle')}</p>
-          </div>
-          <ul className="list-disc list-inside space-y-1.5 text-[13px] text-[var(--text-soft)]">
-            <li>{t('detail.bingeRisk.tipsLi1')}</li>
-            <li>{t('detail.bingeRisk.tipsLi2')}</li>
-            <li>{t('detail.bingeRisk.tipsLi3')}</li>
-            <li>{t('detail.bingeRisk.tipsLi4')}</li>
-          </ul>
-          <p className="text-[13px] text-[var(--text-soft)]">{t('detail.bingeRisk.tipsFooter')}</p>
-        </section>
-
-        <div className="pt-6 pb-4 flex flex-col items-center gap-1">
-          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-            {t('welcome.logoAlt')}
-          </div>
-          <p className="max-w-[260px] text-center text-[10px] text-[var(--text-muted)]">
-            {t('detail.common.disclaimer')}
+          <p style={{ margin: 0, fontSize: 11, color: '#94A3B8', lineHeight: 1.5 }}>
+            A coaching app only and does not replace medical advice. Please speak to a healthcare professional about
+            any health concerns.
           </p>
         </div>
       </div>
-    </main>
+    </div>
   )
 }
