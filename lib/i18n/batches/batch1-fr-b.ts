@@ -137,7 +137,7 @@ export const batch1FrB: Record<string, string> = {
   'detail.bodyClock.factorRecovery': 'Récupération du sommeil',
   'detail.bodyClock.hintRecovery':
     'Durée, qualité et léger ajustement après les nuits.',
-  'detail.bodyClock.bundleSleep': 'Sommeil et rythme (dans le score principal)',
+  'detail.bodyClock.bundleSleep': 'Sommeil et rythme',
   'detail.bodyClock.hintBundleSleep':
     'Combiné à partir des quatre lignes — la partie 60 %.',
   'detail.bodyClock.factorNutrition': 'Nutrition et hydratation',

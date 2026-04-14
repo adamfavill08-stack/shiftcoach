@@ -13,7 +13,9 @@ const COLLAPSED_COUNT = 3
 export type BodyClockBreakdownRow = {
   id: string
   label: string
-  value: number
+  tag?: string
+  /** Null = insufficient data (e.g. bedtime consistency not computable). */
+  value: number | null
   group: "sleepRhythm" | "day"
   fill: "green" | "cyan" | "amber" | "sky" | "slate"
   /** Slate bar even when value &gt; 0 (e.g. meal timing context) */
@@ -33,33 +35,42 @@ function clampPct(n: number): number {
 }
 
 function BreakdownRowView({ row }: { row: BodyClockBreakdownRow }) {
-  const v = clampPct(row.value)
-  const empty = v === 0
+  const raw = row.value
+  const missing = raw === null
+  const v = missing ? 0 : clampPct(raw)
+  const empty = missing || v === 0
   const fillKey = row.barMuted ? "slate" : row.fill
   const fillColor = FILL[fillKey]
 
   return (
     <div className={cn("space-y-2", inter.className)}>
       <div className="flex items-baseline justify-between gap-3">
-        <span
-          className={cn(
-            "text-sm font-medium",
-            empty ? "text-[#CCC] dark:text-neutral-600" : "text-[var(--text-main)]",
-          )}
-        >
-          {row.label}
-        </span>
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className={cn(
+              "text-sm font-medium",
+              empty ? "text-[#CCC] dark:text-neutral-600" : "text-[var(--text-main)]",
+            )}
+          >
+            {row.label}
+          </span>
+          {row.tag ? (
+            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-500 ring-1 ring-inset ring-slate-200">
+              {row.tag}
+            </span>
+          ) : null}
+        </div>
         <span
           className={cn(
             "shrink-0 text-sm font-bold tabular-nums",
             empty ? "text-[#CCC] dark:text-neutral-600" : "text-[var(--text-main)]",
           )}
         >
-          {v}
+          {missing ? "—" : v}
         </span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--ring-bg)]">
-        {v > 0 ? (
+        {!missing && v > 0 ? (
           <div
             className="h-full rounded-full transition-[width] duration-300"
             style={{ width: `${v}%`, backgroundColor: fillColor }}

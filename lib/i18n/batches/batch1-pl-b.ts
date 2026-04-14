@@ -137,7 +137,7 @@ export const batch1PlB: Record<string, string> = {
   'detail.bodyClock.factorRecovery': 'Regeneracja ze snu',
   'detail.bodyClock.hintRecovery':
     'Czas, jakość i drobna korekta po zmianach nocnych.',
-  'detail.bodyClock.bundleSleep': 'Sen i rytm (w głównym wyniku)',
+  'detail.bodyClock.bundleSleep': 'Sen i rytm',
   'detail.bodyClock.hintBundleSleep':
     'Z czterech wierszy powyżej — część 60%.',
   'detail.bodyClock.factorNutrition': 'Odżywianie i nawodnienie',

@@ -11,8 +11,10 @@ import { getSocialJetlagMetrics } from '@/lib/circadian/socialJetlag'
 import { calculateBingeRisk } from '@/lib/binge/calculateBingeRisk'
 import { calculateFatigueRisk, type FatigueRiskResult } from '@/lib/fatigue/calculateFatigueRisk'
 import { fetchShiftContext, fatigueGuidanceFromContext } from '@/lib/shift-context'
+import type { ShiftRhythmScores } from '@/lib/shift-rhythm/scoring'
 // Cache for 60 seconds - shift rhythm scores update daily
 export const revalidate = 60
+type ApiShiftScore = ShiftRhythmScores & { date: string; activity_score: number | null }
 const DEFAULT_FATIGUE_RISK: FatigueRiskResult = {
   score: 20,
   level: 'low',
@@ -20,6 +22,49 @@ const DEFAULT_FATIGUE_RISK: FatigueRiskResult = {
   explanation: 'Low fatigue risk for now. Keep logging sleep and shifts to improve accuracy.',
   confidence: 0.25,
   confidenceLabel: 'low',
+}
+
+function deriveRecoveryFromSleepDeficitDaily(
+  daily: Array<{ actual?: number }> | undefined | null,
+): number | null {
+  if (!Array.isArray(daily) || daily.length === 0) return null
+  const actuals = daily
+    .map((d) => (typeof d?.actual === 'number' && Number.isFinite(d.actual) ? d.actual : null))
+    .filter((v): v is number => v !== null && v > 0)
+  if (actuals.length === 0) return null
+  const recent = actuals.slice(0, Math.min(3, actuals.length))
+  const avg = recent.reduce((a, b) => a + b, 0) / recent.length
+  const clamped = Math.min(Math.max(avg, 4), 9)
+  const pct = (clamped - 4) / 5
+  return Math.round(35 + pct * 55) // 4h=>35, 9h=>90
+}
+
+function deriveShiftFitFromJetlagCategory(
+  category: 'low' | 'moderate' | 'high' | undefined,
+): number | null {
+  if (category === 'low') return 80
+  if (category === 'moderate') return 55
+  if (category === 'high') return 30
+  return null
+}
+
+function deriveRegularityFromJetlag(
+  category: 'low' | 'moderate' | 'high' | undefined,
+  misalignmentHours: number | undefined,
+): number | null {
+  if (typeof misalignmentHours === 'number' && Number.isFinite(misalignmentHours)) {
+    const clamped = Math.min(Math.max(misalignmentHours, 0), 6)
+    const ratio = clamped / 6
+    return Math.round(85 - ratio * 60) // 0h=>85, 6h=>25
+  }
+  if (category === 'low') return 78
+  if (category === 'moderate') return 52
+  if (category === 'high') return 30
+  return null
+}
+
+function isLongTermShiftWorkerProfile(shiftPattern: string | null | undefined): boolean {
+  return shiftPattern === 'rotating' || shiftPattern === 'mostly_nights' || shiftPattern === 'custom'
 }
 
 export async function GET(req: NextRequest) {
@@ -35,7 +80,7 @@ export async function GET(req: NextRequest) {
     const forceRecalculate = searchParams.get('force') === 'true'
 
     // Try to get today's score and yesterday's score for comparison
-    const [{ data: existing, error: fetchErr }, { data: yesterdayScore }] = await Promise.all([
+    const [{ data: existing, error: fetchErr }, { data: yesterdayScore }, { data: profile }] = await Promise.all([
       supabase
         .from('shift_rhythm_scores')
         .select('*')
@@ -48,7 +93,13 @@ export async function GET(req: NextRequest) {
         .eq('user_id', userId)
         .eq('date', yesterday)
         .maybeSingle(),
+      supabase
+        .from('profiles')
+        .select('shift_pattern')
+        .eq('user_id', userId)
+        .maybeSingle(),
     ])
+    const applyShiftWorkerCap = isLongTermShiftWorkerProfile((profile as any)?.shift_pattern ?? null)
 
     if (fetchErr) {
       const { logSupabaseError } = await import('@/lib/supabase/error-handler')
@@ -61,27 +112,59 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    let score = existing && !forceRecalculate
+    let score: ApiShiftScore | null = existing && !forceRecalculate
       ? {
           date: existing.date,
           sleep_score: existing.sleep_score ?? 0,
-          regularity_score: existing.regularity_score ?? 0,
+          regularity_score:
+            existing.regularity_score === null || existing.regularity_score === undefined
+              ? null
+              : Number(existing.regularity_score),
           shift_pattern_score: existing.shift_pattern_score ?? 0,
-          recovery_score: existing.recovery_score ?? 0,
+          recovery_score: existing.recovery_score ?? null,
           nutrition_score: existing.nutrition_score ?? null,
           activity_score: existing.activity_score ?? null,
+          movement_score: existing.movement_score ?? null,
           meal_timing_score: existing.meal_timing_score ?? null,
+          sleep_composite: existing.sleep_composite ?? null,
+          circadian_debt: existing.circadian_debt ?? 0,
+          circadian_debt_trend: existing.circadian_debt_trend ?? 'stable',
           total_score: existing.total_score ?? 0,
         }
       : null
 
+    // Self-heal old cached rows from earlier duration parsing issues:
+    // if today's cached recovery is zero but recent sleep exists, force recalculation.
+    let forceRecalculateFromSuspiciousCache = false
+    if (existing && !forceRecalculate) {
+      const suspiciousRecovery = existing.recovery_score === 0 || existing.recovery_score == null
+
+      if (suspiciousRecovery) {
+        try {
+          const probeInputs = await buildShiftRhythmInputs(supabaseServer, userId)
+          const hasRecentSleepForRecalc = probeInputs.sleepLogs.some(
+            (s: SleepLogInput) => s.durationHours > 0,
+          )
+          if (hasRecentSleepForRecalc) {
+            forceRecalculateFromSuspiciousCache = true
+            score = null
+            console.log(
+              '[/api/shift-rhythm] Suspicious cached recovery=0 detected with real sleep logs, forcing recalculation',
+            )
+          }
+        } catch (probeErr) {
+          console.warn('[/api/shift-rhythm] Probe recalc check failed, keeping cached score', probeErr)
+        }
+      }
+    }
+
     let hasRhythmData = true
 
     // If no score or force recalculation, calculate and store it
-    if (!score || forceRecalculate) {
+    if (!score || forceRecalculate || forceRecalculateFromSuspiciousCache) {
       console.log('[/api/shift-rhythm] No score for today, calculating…')
       try {
-        const inputs = await buildShiftRhythmInputs(supabase, userId)
+        const inputs = await buildShiftRhythmInputs(supabaseServer, userId)
 
         const hasMeaningfulSleep = inputs.sleepLogs.some((s: SleepLogInput) => s.durationHours > 0)
         const hasMeaningfulShifts = inputs.shiftDays.length > 0
@@ -93,25 +176,31 @@ export async function GET(req: NextRequest) {
           score = {
             date: today,
             sleep_score: 0,
-            regularity_score: 0,
+            regularity_score: null,
             shift_pattern_score: 0,
-            recovery_score: 0,
+            recovery_score: null,
             nutrition_score: null,
             activity_score: null,
+            movement_score: null,
             meal_timing_score: null,
+            sleep_composite: null,
+            circadian_debt: 0,
+            circadian_debt_trend: 'stable' as const,
             total_score: 0,
           }
         } else {
-          const result = calculateShiftRhythm(inputs)
+          const scores = calculateShiftRhythm(inputs)
 
           const upsertPayload = {
             user_id: userId,
             date: today,
-            sleep_score: result.sleep_score,
-            regularity_score: result.regularity_score,
-            shift_pattern_score: result.shift_pattern_score,
-            recovery_score: result.recovery_score,
-            total_score: result.total_score,
+            sleep_score: scores.sleep_score,
+            regularity_score: scores.regularity_score,
+            shift_pattern_score: scores.shift_pattern_score,
+            recovery_score: scores.recovery_score,
+            total_score: scores.total_score,
+            circadian_debt: scores.circadian_debt,
+            circadian_debt_trend: scores.circadian_debt_trend,
           }
 
           const { data: inserted, error: upsertErr } = await supabase
@@ -143,14 +232,18 @@ export async function GET(req: NextRequest) {
 
           score = {
             date: inserted?.date ?? today,
-            sleep_score: result.sleep_score,
-            regularity_score: result.regularity_score,
-            shift_pattern_score: result.shift_pattern_score,
-            recovery_score: result.recovery_score,
-            nutrition_score: result.nutrition_score,
-            activity_score: result.activity_score,
-            meal_timing_score: result.meal_timing_score,
-            total_score: result.total_score,
+            sleep_score: scores.sleep_score,
+            regularity_score: scores.regularity_score,
+            shift_pattern_score: scores.shift_pattern_score,
+            recovery_score: scores.recovery_score,
+            nutrition_score: scores.nutrition_score,
+            activity_score: scores.activity_score,
+            movement_score: scores.movement_score,
+            meal_timing_score: scores.meal_timing_score,
+            sleep_composite: scores.sleep_composite,
+            circadian_debt: scores.circadian_debt,
+            circadian_debt_trend: scores.circadian_debt_trend,
+            total_score: scores.total_score,
           }
         }
       } catch (calcErr: any) {
@@ -300,10 +393,46 @@ export async function GET(req: NextRequest) {
       // Continue without deficit data
     }
 
+    // Recovery fallback: when rhythm engine couldn't ingest sleep rows but sleep-deficit has
+    // real daily actual sleep values, derive recovery from that observed sleep.
+    if (score && (score.recovery_score === null || score.recovery_score === undefined)) {
+      const derivedRecovery = deriveRecoveryFromSleepDeficitDaily(sleepDeficit?.daily)
+      if (derivedRecovery != null) {
+        score.recovery_score = derivedRecovery
+      }
+    }
+
+    // Shift-fit fallback: if native shift_pattern_score is missing/zero but social jetlag has
+    // a valid category, derive a conservative alignment score so UI doesn't show a false empty state.
+    if (score && (score.shift_pattern_score === null || score.shift_pattern_score <= 0)) {
+      const derivedShiftFit = deriveShiftFitFromJetlagCategory(
+        (socialJetlag?.category as 'low' | 'moderate' | 'high' | undefined),
+      )
+      if (derivedShiftFit != null) {
+        score.shift_pattern_score = derivedShiftFit
+      }
+    }
+
+    // Bedtime consistency fallback: if native regularity scoring is unavailable,
+    // derive from social jetlag alignment so the row reflects real circadian data.
+    if (score && (score.regularity_score === null || score.regularity_score === undefined)) {
+      const derivedRegularity = deriveRegularityFromJetlag(
+        (socialJetlag?.category as 'low' | 'moderate' | 'high' | undefined),
+        socialJetlag?.currentMisalignmentHours,
+      )
+      if (derivedRegularity != null) {
+        score.regularity_score = derivedRegularity
+      }
+    }
+
+    if (score && typeof score.total_score === 'number' && applyShiftWorkerCap) {
+      score.total_score = Math.min(score.total_score, 75)
+    }
+
     // Calculate fatigue risk from consolidated sleep/shift/circadian signals
     let fatigueRisk: FatigueRiskResult = DEFAULT_FATIGUE_RISK
     try {
-      const fatigueInputs = await buildShiftRhythmInputs(supabase, userId)
+      const fatigueInputs = await buildShiftRhythmInputs(supabaseServer, userId)
       fatigueRisk = calculateFatigueRisk({
         sleepLogs: fatigueInputs.sleepLogs.map((s: any) => ({
           durationHours: s.durationHours,
@@ -558,17 +687,19 @@ export async function POST(req: NextRequest) {
   if (!userId) return buildUnauthorizedResponse()
 
   try {
-    const inputs = await buildShiftRhythmInputs(supabase, userId)
-    const resultScores = calculateShiftRhythm(inputs)
+    const inputs = await buildShiftRhythmInputs(supabaseServer, userId)
+    const scores = calculateShiftRhythm(inputs)
 
     const upsertPayload = {
       user_id: userId,
       date: new Date().toISOString().slice(0, 10),
-      sleep_score: resultScores.sleep_score,
-      regularity_score: resultScores.regularity_score,
-      shift_pattern_score: resultScores.shift_pattern_score,
-      recovery_score: resultScores.recovery_score,
-      total_score: resultScores.total_score,
+      sleep_score: scores.sleep_score,
+      regularity_score: scores.regularity_score,
+      shift_pattern_score: scores.shift_pattern_score,
+      recovery_score: scores.recovery_score,
+      total_score: scores.total_score,
+      circadian_debt: scores.circadian_debt,
+      circadian_debt_trend: scores.circadian_debt_trend,
     }
 
     const { data: upserted, error: upsertErr } = await supabase
@@ -603,7 +734,7 @@ export async function POST(req: NextRequest) {
         success: true,
         score: {
           date: upserted?.date ?? new Date().toISOString().slice(0, 10),
-          ...resultScores,
+          ...scores,
         },
       },
       { status: 200 }

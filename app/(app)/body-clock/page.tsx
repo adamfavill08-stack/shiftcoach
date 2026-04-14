@@ -17,15 +17,10 @@ import { cn } from "@/lib/utils"
 import { useCircadianState } from "@/components/providers/circadian-state-provider"
 import { useShiftState } from "@/components/providers/shift-state-provider"
 import {
-  buildForecastRecoveryLine,
-  buildTransitionForecastNote,
-} from "@/lib/body-clock/bodyClockCircadianUi"
-import {
   BodyClockScoreCard,
   type BodyClockScoreDay,
 } from "@/components/body-clock/BodyClockScoreCard"
 import { BodyClockMetricStrip } from "@/components/body-clock/BodyClockMetricStrip"
-import { BodyClockScoreForecastCard } from "@/components/body-clock/BodyClockScoreForecastCard"
 import {
   BodyClockBreakdownCard,
   type BodyClockBreakdownRow,
@@ -38,20 +33,94 @@ const inter = Inter({ subsets: ["latin"] })
 type ShiftRhythmResponse = {
   score?: Partial<ShiftRhythmScores> & { total_score?: number }
   hasRhythmData?: boolean
+  socialJetlag?: {
+    currentMisalignmentHours?: number
+    weeklyAverageMisalignmentHours?: number
+    category?: "low" | "moderate" | "high"
+    explanation?: string
+  } | null
+  sleepDeficit?: {
+    weeklyDeficit?: number
+    category?: "surplus" | "low" | "medium" | "high"
+    daily?: Array<{ actual?: number }>
+  } | null
+  fatigueRisk?: {
+    score?: number
+    level?: "low" | "moderate" | "high"
+    explanation?: string
+    confidenceLabel?: "low" | "medium" | "high"
+  } | null
+  bingeRisk?: {
+    score?: number
+    level?: "low" | "medium" | "high"
+    explanation?: string
+  } | null
+}
+
+type NutritionTodayResponse = {
+  nutrition?: {
+    hydrationTargets?: {
+      water_ml?: number
+      caffeine_mg?: number
+    }
+    hydrationIntake?: {
+      water_ml?: number
+      caffeine_mg?: number
+    }
+  }
+}
+
+type ActivityTodayResponse = {
+  activity?: {
+    steps?: number
+    activeMinutes?: number
+  }
+}
+
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
+const mapRange = (value: number, inMin: number, inMax: number, outMin: number, outMax: number) => {
+  const clamped = Math.min(Math.max(value, inMin), inMax)
+  const ratio = (clamped - inMin) / (inMax - inMin || 1)
+  return outMin + ratio * (outMax - outMin)
 }
 
 function parseScore(json: ShiftRhythmResponse): ShiftRhythmScores | null {
   const s = json?.score
   if (!s || typeof s.total_score !== "number") return null
   const n = (v: unknown, d = 0) => (typeof v === "number" && !Number.isNaN(v) ? v : d)
+  const regularity =
+    s.regularity_score === null || s.regularity_score === undefined
+      ? null
+      : typeof s.regularity_score === "number" && !Number.isNaN(s.regularity_score)
+        ? s.regularity_score
+        : null
   return {
     sleep_score: n(s.sleep_score),
-    regularity_score: n(s.regularity_score),
+    regularity_score: regularity,
     shift_pattern_score: n(s.shift_pattern_score),
-    recovery_score: n(s.recovery_score),
+    recovery_score:
+      typeof s.recovery_score === "number" && !Number.isNaN(s.recovery_score)
+        ? s.recovery_score
+        : null,
     nutrition_score: n(s.nutrition_score),
     activity_score: n(s.activity_score),
+    movement_score:
+      typeof s.movement_score === "number" && !Number.isNaN(s.movement_score)
+        ? s.movement_score
+        : null,
     meal_timing_score: n(s.meal_timing_score),
+    sleep_composite:
+      typeof s.sleep_composite === "number" && !Number.isNaN(s.sleep_composite)
+        ? s.sleep_composite
+        : null,
+    circadian_debt:
+      typeof s.circadian_debt === "number" && !Number.isNaN(s.circadian_debt)
+        ? s.circadian_debt
+        : 0,
+    circadian_debt_trend:
+      s.circadian_debt_trend === "improving" || s.circadian_debt_trend === "worsening" || s.circadian_debt_trend === "stable"
+        ? s.circadian_debt_trend
+        : "stable",
     total_score: s.total_score,
   }
 }
@@ -64,6 +133,12 @@ export default function BodyClockPage() {
   const [detail, setDetail] = useState<ShiftRhythmScores | null>(null)
   const [hasRhythmData, setHasRhythmData] = useState<boolean | undefined>(undefined)
   const [displayName, setDisplayName] = useState<string | null>(null)
+  const [socialJetlag, setSocialJetlag] = useState<ShiftRhythmResponse["socialJetlag"]>(null)
+  const [sleepDeficit, setSleepDeficit] = useState<ShiftRhythmResponse["sleepDeficit"]>(null)
+  const [fatigueRisk, setFatigueRisk] = useState<ShiftRhythmResponse["fatigueRisk"]>(null)
+  const [bingeRisk, setBingeRisk] = useState<ShiftRhythmResponse["bingeRisk"]>(null)
+  const [hydrationScore, setHydrationScore] = useState<number | null>(null)
+  const [isActivityEstimated, setIsActivityEstimated] = useState(false)
   const weekly = useWeeklyProgress()
 
   useEffect(() => {
@@ -97,18 +172,67 @@ export default function BodyClockPage() {
           if (!cancelled) {
             setDetail(null)
             setHasRhythmData(false)
+            setSocialJetlag(null)
+            setSleepDeficit(null)
+            setFatigueRisk(null)
+            setBingeRisk(null)
           }
           return
         }
         const json = (await res.json().catch(() => ({}))) as ShiftRhythmResponse
+        const nutritionRes = await authedFetch("/api/nutrition/today", { cache: "no-store" }).catch(() => null)
+        const nutritionJson = nutritionRes?.ok
+          ? ((await nutritionRes.json().catch(() => ({}))) as NutritionTodayResponse)
+          : null
+        const activityRes = await authedFetch("/api/activity/today", { cache: "no-store" }).catch(() => null)
+        const activityJson = activityRes?.ok
+          ? ((await activityRes.json().catch(() => ({}))) as ActivityTodayResponse)
+          : null
         if (!cancelled) {
           setHasRhythmData(json?.hasRhythmData)
           setDetail(parseScore(json))
+          setSocialJetlag(json?.socialJetlag ?? null)
+          setSleepDeficit(json?.sleepDeficit ?? null)
+          setFatigueRisk(json?.fatigueRisk ?? null)
+          setBingeRisk(json?.bingeRisk ?? null)
+          const waterTarget = nutritionJson?.nutrition?.hydrationTargets?.water_ml
+          const waterConsumed = nutritionJson?.nutrition?.hydrationIntake?.water_ml
+          const caffeineLimit = nutritionJson?.nutrition?.hydrationTargets?.caffeine_mg
+          const caffeineConsumed = nutritionJson?.nutrition?.hydrationIntake?.caffeine_mg
+          if (
+            typeof waterTarget === "number" &&
+            Number.isFinite(waterTarget) &&
+            waterTarget > 0 &&
+            typeof waterConsumed === "number" &&
+            Number.isFinite(waterConsumed)
+          ) {
+            const hydrated = mapRange(waterConsumed / waterTarget, 0.6, 1.0, 55, 100)
+            const caffeineScore =
+              typeof caffeineLimit === "number" && Number.isFinite(caffeineLimit) && caffeineLimit > 0 && typeof caffeineConsumed === "number" && Number.isFinite(caffeineConsumed)
+                ? mapRange(caffeineConsumed / caffeineLimit, 0.2, 1.1, 100, 50)
+                : 85
+            setHydrationScore(Math.round(clamp(hydrated * 0.7 + caffeineScore * 0.3, 40, 100)))
+          } else {
+            setHydrationScore(null)
+          }
+          const hasStepsData =
+            typeof activityJson?.activity?.steps === "number" &&
+            Number.isFinite(activityJson.activity.steps)
+          const hasActiveMinutesData =
+            typeof activityJson?.activity?.activeMinutes === "number" &&
+            Number.isFinite(activityJson.activity.activeMinutes)
+          setIsActivityEstimated((hasStepsData && !hasActiveMinutesData) || (!hasStepsData && hasActiveMinutesData))
         }
       } catch {
         if (!cancelled) {
           setDetail(null)
           setHasRhythmData(false)
+          setSocialJetlag(null)
+          setSleepDeficit(null)
+          setFatigueRisk(null)
+          setBingeRisk(null)
+          setHydrationScore(null)
+          setIsActivityEstimated(false)
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -128,19 +252,26 @@ export default function BodyClockPage() {
   const noData = hasRhythmData === false || (!loading && detail == null)
 
   const headingText = useMemo(() => {
-    if (circadianState != null) return circadianState.status
-    if (loading) return t("detail.bodyClock.loading")
-    if (noData || detail == null) return t("dashboard.bodyClock.comingSoon")
-    if (legacyGaugeScore >= 80) return t("dashboard.bodyClock.stronglyAligned")
-    if (legacyGaugeScore >= 70) return t("dashboard.bodyClock.inSync")
-    if (legacyGaugeScore >= 55) return t("dashboard.bodyClock.slightlyOut")
-    return t("dashboard.bodyClock.outOfSync")
-  }, [circadianState, loading, noData, detail, legacyGaugeScore, t])
+    const category = socialJetlag?.category
+    if (category === "low") return "Well aligned"
+    if (category === "moderate") return "Moderate misalignment"
+    if (category === "high") return "High misalignment"
+    return "Calculating..."
+  }, [socialJetlag?.category])
 
-  const sleepComposite = detail ? computeSleepComposite(detail) : 0
+  const sleepComposite = detail ? computeSleepComposite(detail) : null
 
   const breakdownRows = useMemo((): BodyClockBreakdownRow[] => {
     if (detail == null) return []
+    const rawRecovery = detail.recovery_score
+    const recoveryHasMeasuredValue =
+      typeof rawRecovery === "number" && rawRecovery > 0 && hasRhythmData !== false
+    const recoveryValue = recoveryHasMeasuredValue ? rawRecovery : 45
+    const recoveryTag = recoveryHasMeasuredValue ? undefined : "Estimated"
+    const rawActivity = detail.activity_score
+    const activityHasMeasuredValue = typeof rawActivity === "number" && rawActivity > 0
+    const activityValue = activityHasMeasuredValue ? rawActivity : 50
+    const activityTag = !activityHasMeasuredValue || isActivityEstimated ? "Estimated" : undefined
     return [
       {
         id: "sleep_amount",
@@ -159,14 +290,15 @@ export default function BodyClockPage() {
       {
         id: "shift_fit",
         label: t("detail.bodyClock.factorShiftFit"),
-        value: detail.shift_pattern_score,
+        value: detail.shift_pattern_score === 0 ? null : detail.shift_pattern_score,
         group: "sleepRhythm",
         fill: "cyan",
       },
       {
         id: "recovery",
         label: t("detail.bodyClock.factorRecovery"),
-        value: detail.recovery_score,
+        tag: recoveryTag,
+        value: recoveryValue,
         group: "sleepRhythm",
         fill: "green",
       },
@@ -179,39 +311,27 @@ export default function BodyClockPage() {
       },
       {
         id: "nutrition",
-        label: t("detail.bodyClock.factorNutrition"),
-        value: detail.nutrition_score,
+        label: "Hydration",
+        value: hydrationScore,
         group: "day",
         fill: "amber",
       },
       {
         id: "activity",
-        label: t("detail.bodyClock.factorActivity"),
-        value: detail.activity_score,
+        label: "Activity",
+        tag: activityTag,
+        value: activityValue,
         group: "day",
         fill: "sky",
       },
-      {
-        id: "meal_timing",
-        label: t("detail.bodyClock.factorMealTiming"),
-        value: detail.meal_timing_score,
-        group: "day",
-        fill: "slate",
-        barMuted: true,
-      },
     ]
-  }, [detail, sleepComposite, t])
+  }, [detail, hasRhythmData, hydrationScore, isActivityEstimated, sleepComposite, t])
 
   const trustWeekly = weekly?.hasRealData === true
 
-  const transitionForecastNote = useMemo(
-    () => buildTransitionForecastNote(userShiftState),
-    [userShiftState],
-  )
-
-  const forecastRecoveryLine = useMemo(
-    () => (circadianState != null ? buildForecastRecoveryLine(circadianState.forecast) : null),
-    [circadianState],
+  const breakdownMissingCount = useMemo(
+    () => breakdownRows.filter((r) => r.value === null).length,
+    [breakdownRows],
   )
 
   const scoreForecastTomorrowDelta = useMemo(() => {
@@ -233,8 +353,10 @@ export default function BodyClockPage() {
 
     const todayYmd = utcTodayYmd()
     const heroRaw =
-      circadianState != null
-        ? circadianState.score
+      !loading && detail != null
+        ? detail.total_score
+        : circadianState != null
+          ? circadianState.score
         : !loading && detail != null
           ? legacyGaugeScore
           : null
@@ -253,6 +375,7 @@ export default function BodyClockPage() {
     weekly?.days,
     weekly?.bodyClockScores,
     weekly?.weekStartYmd,
+    detail?.total_score,
     circadianState,
     loading,
     detail,
@@ -279,7 +402,7 @@ export default function BodyClockPage() {
       return t("detail.bodyClock.motivationGeneric", { prefix })
     }
 
-    if (hero < 58 || (detail != null && detail.sleep_score < 48 && hero < 68)) {
+    if (hero < 58 || (detail != null && (detail.sleep_score ?? 0) < 48 && hero < 68)) {
       return t("detail.bodyClock.motivationUnderTarget", { prefix })
     }
 
@@ -325,34 +448,55 @@ export default function BodyClockPage() {
   }, [chartDays, chartReady])
 
   const heroScorePresentation = useMemo(() => {
-    if (circadianAgentLoading && !circadianState) return { loading: true as const, value: null as number | null }
-    if (circadianState != null) return { loading: false as const, value: Math.round(circadianState.score) }
-    if (loading) return { loading: true as const, value: null as number | null }
-    if (noData || detail == null) return { loading: false as const, value: null as number | null }
-    return { loading: false as const, value: Math.round(legacyGaugeScore) }
-  }, [
-    circadianAgentLoading,
-    circadianState,
-    loading,
-    noData,
-    detail,
-    legacyGaugeScore,
-  ])
+    if (loading) return { loading: true as const, value: null as number | null, text: null as string | null }
+    const raw = detail?.total_score
+    if (typeof raw === "number" && !Number.isNaN(raw)) {
+      const v = Math.round(Math.min(100, Math.max(0, raw)))
+      return { loading: false as const, value: v, text: `${v}/100` }
+    }
+    return { loading: false as const, value: null as number | null, text: "—" }
+  }, [loading, detail?.total_score])
+
+  const avgSleepDisplay = useMemo(() => {
+    const daily = sleepDeficit?.daily ?? []
+    const vals = daily
+      .map((d) => (typeof d?.actual === "number" && !Number.isNaN(d.actual) ? d.actual : null))
+      .filter((v): v is number => v !== null)
+    if (!vals.length) return "—"
+    const avg = vals.reduce((a, b) => a + b, 0) / vals.length
+    return `${avg.toFixed(1)}h`
+  }, [sleepDeficit?.daily])
+
+  const weeklyOffsetDisplay = useMemo(() => {
+    const w = socialJetlag?.weeklyAverageMisalignmentHours
+    return typeof w === "number" && !Number.isNaN(w) ? `${w.toFixed(1)}h` : "—"
+  }, [socialJetlag?.weeklyAverageMisalignmentHours])
+
+  const alignmentDisplay = useMemo(() => {
+    const c = socialJetlag?.category
+    if (c === "low") return { value: "Low", cls: "text-green-500" }
+    if (c === "moderate") return { value: "Moderate", cls: "text-amber-500" }
+    if (c === "high") return { value: "High", cls: "text-red-500" }
+    return { value: "—", cls: "" }
+  }, [socialJetlag?.category])
 
   const statusPillClass =
-    circadianState != null
-      ? circadianState.score >= 75
-        ? "bg-emerald-50 text-emerald-900 ring-emerald-100"
-        : circadianState.score >= 55
-          ? "bg-amber-50 text-amber-900 ring-amber-100"
-          : "bg-rose-50 text-rose-900 ring-rose-100"
-      : loading || noData || detail == null
-        ? "bg-slate-100 text-slate-700 ring-slate-200"
-        : legacyGaugeScore >= 70
-          ? "bg-emerald-50 text-emerald-900 ring-emerald-100"
-          : legacyGaugeScore >= 55
-            ? "bg-amber-50 text-amber-900 ring-amber-100"
-            : "bg-rose-50 text-rose-900 ring-rose-100"
+    socialJetlag?.category === "low"
+      ? "bg-green-50 text-green-500 ring-green-100"
+      : socialJetlag?.category === "moderate"
+        ? "bg-amber-50 text-amber-500 ring-amber-100"
+        : socialJetlag?.category === "high"
+          ? "bg-rose-50 text-red-500 ring-rose-100"
+          : "bg-slate-100 text-slate-700 ring-slate-200"
+
+  const fatigueTone =
+    fatigueRisk?.level === "low" ? "bg-green-500" : fatigueRisk?.level === "moderate" ? "bg-amber-500" : "bg-red-500"
+  const bingeTone =
+    bingeRisk?.level === "low" ? "bg-green-500" : bingeRisk?.level === "medium" ? "bg-amber-500" : "bg-red-500"
+  const fatigueLevelLabel =
+    fatigueRisk?.level ? `${fatigueRisk.level[0].toUpperCase()}${fatigueRisk.level.slice(1)} (${fatigueRisk.score ?? "—"})` : "—"
+  const bingeLevelLabel =
+    bingeRisk?.level ? `${bingeRisk.level[0].toUpperCase()}${bingeRisk.level.slice(1)} (${bingeRisk.score ?? "—"})` : "—"
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
@@ -366,7 +510,7 @@ export default function BodyClockPage() {
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <h1 className={`text-xl font-semibold tracking-tight text-[var(--text-main)] ${inter.className}`}>
-            {t("detail.bodyClock.title")}
+            Circadian Rhythm
           </h1>
         </header>
 
@@ -377,6 +521,8 @@ export default function BodyClockPage() {
               days={chartDays}
               chartReady={chartReady}
               todayScore={heroScorePresentation.value}
+              todayDisplayText={heroScorePresentation.text}
+              sourceLine="Data source: sleep logs + wearable sleep fallback."
               isLoadingScore={heroScorePresentation.loading}
               badgeLabel={headingText}
               badgeClassName={statusPillClass}
@@ -389,6 +535,11 @@ export default function BodyClockPage() {
               labelBestDay={t("detail.bodyClock.statBestDay")}
               labelTrend={t("detail.bodyClock.statTrend")}
               waitingLabel={t("detail.bodyClock.waitingData")}
+              customStats={[
+                { label: "Avg sleep", value: avgSleepDisplay },
+                { label: "Weekly offset", value: weeklyOffsetDisplay },
+                { label: "Alignment", value: alignmentDisplay.value, valueClassName: alignmentDisplay.cls },
+              ]}
             />
             {circadianState != null || (circadianAgentLoading && !circadianState) ? (
               <BodyClockMetricStrip
@@ -405,48 +556,48 @@ export default function BodyClockPage() {
             ) : null}
           </div>
 
-          {circadianState ? (
-            <BodyClockScoreForecastCard
-              todayScore={circadianState.score}
-              tomorrowRaw={circadianState.forecast.tomorrow}
-              threeDaysRaw={circadianState.forecast.threeDays}
-              heading={t("detail.bodyClock.scoreForecastHeading")}
-              labelToday={t("detail.bodyClock.forecastLabelToday")}
-              labelTomorrow={t("detail.bodyClock.forecastLabelTomorrow")}
-              labelPlusThree={t("detail.bodyClock.forecastLabelPlusThree")}
-              tomorrowDeltaLabel={scoreForecastTomorrowDelta.label}
-              tomorrowDeltaTone={scoreForecastTomorrowDelta.tone}
-              bannerText={transitionForecastNote ?? forecastRecoveryLine ?? null}
-            />
-          ) : (
-            <section
-              className={cn(
-                "w-full rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--card-subtle)] px-5 py-4 text-left shadow-none",
-              )}
-            >
-              <h2
-                className={`text-[11px] font-bold uppercase tracking-[0.14em] text-[#A0A0A0] dark:text-neutral-500 ${inter.className}`}
-              >
-                {t("detail.bodyClock.scoreForecastHeading")}
-              </h2>
-              <p className={`text-xs text-[var(--text-muted)] mt-3 leading-relaxed ${inter.className}`}>
-                {circadianAgentLoading
-                  ? "Loading circadian projections…"
-                  : "Forecast appears once your circadian score is calculated."}
-              </p>
-            </section>
-          )}
+          <section className={cn("w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 text-left shadow-none", inter.className)}>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] p-4">
+                <div className="flex items-center gap-2">
+                  <span className={cn("h-2.5 w-2.5 rounded-full", fatigueTone)} />
+                  <p className="text-sm font-semibold text-[var(--text-main)]">Fatigue Risk</p>
+                </div>
+                <p className="mt-2 text-sm font-medium text-[var(--text-main)]">{fatigueLevelLabel}</p>
+                <p className="mt-2 text-xs leading-relaxed text-[var(--text-soft)]">{fatigueRisk?.explanation ?? "—"}</p>
+                <p className="mt-2 text-[11px] text-[var(--text-muted)]">Confidence: {fatigueRisk?.confidenceLabel ?? "—"}</p>
+                {(fatigueRisk?.confidenceLabel === "medium" || fatigueRisk?.confidenceLabel === "high") ? (
+                  <p className="mt-2 text-[11px] text-[var(--text-soft)]">Tip: prioritize recovery sleep before your next heavy demand period.</p>
+                ) : null}
+              </div>
+              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] p-4">
+                <div className="flex items-center gap-2">
+                  <span className={cn("h-2.5 w-2.5 rounded-full", bingeTone)} />
+                  <p className="text-sm font-semibold text-[var(--text-main)]">Binge Risk</p>
+                </div>
+                <p className="mt-2 text-sm font-medium text-[var(--text-main)]">{bingeLevelLabel}</p>
+                <p className="mt-2 text-xs leading-relaxed text-[var(--text-soft)]">{bingeRisk?.explanation ?? "—"}</p>
+              </div>
+            </div>
+          </section>
         </section>
 
         {/* Why this score — full breakdown from API */}
         {detail != null && !noData ? (
-          <BodyClockBreakdownCard
-            title={t("detail.bodyClock.breakdownTitle")}
-            rows={breakdownRows}
-            expandLabel={t("detail.bodyClock.breakdownFilterAll")}
-            collapseLabel={t("detail.bodyClock.breakdownShowLess")}
-            toggleAriaLabel={t("detail.bodyClock.breakdownToggleAria")}
-          />
+          <>
+            <BodyClockBreakdownCard
+              title={t("detail.bodyClock.breakdownTitle")}
+              rows={breakdownRows}
+              expandLabel={t("detail.bodyClock.breakdownFilterAll")}
+              collapseLabel={t("detail.bodyClock.breakdownShowLess")}
+              toggleAriaLabel={t("detail.bodyClock.breakdownToggleAria")}
+            />
+            {breakdownMissingCount >= 3 ? (
+              <p className="text-xs text-slate-400 mt-3 text-center">
+                Log your shifts and hydration to unlock full scoring
+              </p>
+            ) : null}
+          </>
         ) : null}
 
         <BodyClockSimpleHabitsCard

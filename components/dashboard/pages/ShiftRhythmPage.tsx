@@ -35,9 +35,9 @@ export function ShiftRhythmPage({
             {renderSubScore('Sleep', subScores.sleep_score)}
             {renderSubScore('Regularity', subScores.regularity_score)}
             {renderSubScore('Shift align', subScores.shift_pattern_score)}
-            {renderSubScore('Recovery', subScores.recovery_score)}
+            {renderSubScore('Recovery', subScores.recovery_score, 45)}
             {renderSubScore('Nutrition', subScores.nutrition_score)}
-            {renderSubScore('Activity', subScores.activity_score)}
+            {renderSubScore('Activity', subScores.activity_score, 50)}
             {renderSubScore('Meals', subScores.meal_timing_score)}
           </div>
         </div>
@@ -106,12 +106,21 @@ function GaugeCard({ score, loading }: { score: number | null; loading: boolean 
   )
 }
 
-function renderSubScore(label: string, value?: number | null) {
-  if (value == null) return null
+function renderSubScore(label: string, value?: number | null, conservativeFallback?: number) {
+  const hasRealValue = typeof value === 'number' && value > 0
+  const shown = hasRealValue ? Math.round(value) : conservativeFallback
+  const isEstimated = !hasRealValue && typeof conservativeFallback === 'number'
   return (
     <div className="rounded-xl bg-slate-900/30 px-3 py-2 text-slate-200">
       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{label}</p>
-      <p className="text-base font-semibold">{Math.round(value)}</p>
+      <div className="flex items-center gap-1.5">
+        <p className="text-base font-semibold">{shown == null ? '—' : shown}</p>
+        {isEstimated ? (
+          <span className="rounded-full bg-slate-700/70 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-200">
+            est
+          </span>
+        ) : null}
+      </div>
     </div>
   )
 }

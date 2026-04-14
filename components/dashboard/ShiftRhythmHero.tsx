@@ -1,18 +1,39 @@
 'use client'
 
-type ShiftRhythmHeroProps = { score?: number }
+type ShiftRhythmHeroProps = {
+  misalignmentHours?: number
+  category?: 'low' | 'moderate' | 'high'
+  label?: string
+}
 
-const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n))
-
-export const ShiftRhythmHero: React.FC<ShiftRhythmHeroProps> = ({ score = 82 }) => {
-  const clamped = clamp(Math.round(score), 0, 100)
+export const ShiftRhythmHero: React.FC<ShiftRhythmHeroProps> = ({
+  misalignmentHours,
+  category,
+  label,
+}) => {
 
   // Gauge geometry (drawn in a 120x120 viewBox for crispness)
   const r = 44
   const c = 2 * Math.PI * r
-  // We map 0..100 → 0..75% arc length to match the reference (not a full circle)
+  const fillPct = category === 'low' ? 85 : category === 'moderate' ? 50 : 20
+  // We map fill percentage to 75% arc length to match the reference (not a full circle)
   const arcLen = 0.78 * c
-  const dashOffset = arcLen * (1 - clamped / 100)
+  const dashOffset = arcLen * (1 - fillPct / 100)
+  const arcStops =
+    category === 'low'
+      ? { start: '#22d3ee', end: '#34C759' }
+      : category === 'moderate'
+        ? { start: '#FFD60A', end: '#FF9500' }
+        : { start: '#FF6B6B', end: '#FF3B30' }
+  const pillText =
+    label ??
+    (category === 'low'
+      ? 'Well aligned'
+      : category === 'moderate'
+        ? 'Moderate misalignment'
+        : category === 'high'
+          ? 'High misalignment'
+          : 'Circadian Rhythm')
 
   // Helper to render subtle lower-half tick marks
   const ticks: { x1: number; y1: number; x2: number; y2: number; key: string }[] = []
@@ -60,9 +81,8 @@ export const ShiftRhythmHero: React.FC<ShiftRhythmHeroProps> = ({ score = 82 }) 
             <svg viewBox="0 0 120 120" className="h-28 w-28 -rotate-45">
               <defs>
                 <linearGradient id="arc-grad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#22d3ee" />
-                  <stop offset="60%" stopColor="#0b63f3" />
-                  <stop offset="100%" stopColor="#f97316" />
+                  <stop offset="0%" stopColor={arcStops.start} />
+                  <stop offset="100%" stopColor={arcStops.end} />
                 </linearGradient>
                 <radialGradient id="disc-grad" cx="50%" cy="45%" r="60%">
                   <stop offset="0%" stopColor="#0b63f3" />
@@ -110,7 +130,12 @@ export const ShiftRhythmHero: React.FC<ShiftRhythmHeroProps> = ({ score = 82 }) 
               </defs>
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-4xl font-semibold text-white drop-shadow-[0_3px_8px_rgba(0,0,0,0.45)]">{clamped}</span>
+              <div className="flex flex-col items-center">
+                <span className="text-2xl font-bold text-white drop-shadow-[0_3px_8px_rgba(0,0,0,0.45)]">
+                  {misalignmentHours?.toFixed(1) ?? '—'}h
+                </span>
+                <span className="text-[10px] text-white/70 font-medium">offset</span>
+              </div>
             </div>
           </div>
         </div>
@@ -118,7 +143,7 @@ export const ShiftRhythmHero: React.FC<ShiftRhythmHeroProps> = ({ score = 82 }) 
 
       {/* Pill */}
       <div className="mt-4 w-full flex justify-center">
-        <span className="rounded-2xl bg-white/70 backdrop-blur-xl px-6 py-2 shadow-[0_10px_24px_rgba(15,23,42,0.08)] text-base font-medium text-slate-600">Shift Rhythm™</span>
+        <span className="rounded-2xl bg-white/70 backdrop-blur-xl px-6 py-2 shadow-[0_10px_24px_rgba(15,23,42,0.08)] text-base font-medium text-slate-600">{pillText}</span>
       </div>
     </div>
   )

@@ -7,7 +7,8 @@ import {
   applyHolidayAsOffToShiftRows,
   fetchHolidayLocalDatesSet,
 } from '@/lib/rota/holidayRotaPriority'
-import { addCalendarDaysToYmd } from '@/lib/sleep/utils'
+import { addCalendarDaysToYmd, rowCountsAsPrimarySleep } from '@/lib/sleep/utils'
+import { fetchMergedPhoneHealthSleepSessionsOverlapping } from '@/lib/sleep/sleepRecordsSummaryFallback'
 import { isoLocalDate } from '@/lib/shifts'
 import { toShiftType as toStandardShiftType, toShiftRhythmType } from '@/lib/shifts/toShiftType'
 
@@ -19,28 +20,101 @@ async function fetchRecentSleepRows(
   userId: string,
   rangeStartIso: string,
 ): Promise<Record<string, unknown>[]> {
-  let res = await supabase
-    .from('sleep_logs')
-    .select('start_at,end_at,start_ts,end_ts,sleep_hours,duration_min,quality,date,created_at')
-    .eq('user_id', userId)
-    .gte('start_at', rangeStartIso)
-    .order('start_at', { ascending: false })
-    .limit(40)
+  const baseSelect = 'start_at,end_at,start_ts,end_ts,sleep_hours,duration_min,quality,date,created_at'
+  const rangeStartDate = rangeStartIso.slice(0, 10)
+  const attempts: Array<{ name: string; run: () => Promise<any> }> = [
+    {
+      name: 'start_at+deleted_at',
+      run: () =>
+      supabase
+        .from('sleep_logs')
+        .select(baseSelect)
+        .eq('user_id', userId)
+        .is('deleted_at', null)
+        .gte('start_at', rangeStartIso)
+        .order('start_at', { ascending: false })
+        .limit(40),
+    },
+    {
+      name: 'start_at',
+      run: () =>
+      supabase
+        .from('sleep_logs')
+        .select(baseSelect)
+        .eq('user_id', userId)
+        .gte('start_at', rangeStartIso)
+        .order('start_at', { ascending: false })
+        .limit(40),
+    },
+    {
+      name: 'date-window',
+      run: () =>
+      supabase
+        .from('sleep_logs')
+        .select(baseSelect)
+        .eq('user_id', userId)
+        .gte('date', rangeStartDate)
+        .order('date', { ascending: false })
+        .limit(40),
+    },
+    {
+      name: 'start_ts-legacy',
+      run: () =>
+      supabase
+        .from('sleep_logs')
+        .select(baseSelect)
+        .eq('user_id', userId)
+        .gte('start_ts', rangeStartIso)
+        .order('start_ts', { ascending: false })
+        .limit(40),
+    },
+    {
+      name: 'latest-by-date',
+      run: () =>
+      supabase
+        .from('sleep_logs')
+        .select(baseSelect)
+        .eq('user_id', userId)
+        .order('date', { ascending: false })
+        .limit(40),
+    },
+  ]
 
-  if (
-    res.error &&
-    (res.error.code === 'PGRST204' || String(res.error.message ?? '').includes('start_at'))
-  ) {
-    res = await supabase
-      .from('sleep_logs')
-      .select('start_at,end_at,start_ts,end_ts,sleep_hours,duration_min,quality,date,created_at')
-      .eq('user_id', userId)
-      .gte('start_ts', rangeStartIso)
-      .order('start_ts', { ascending: false })
-      .limit(40)
+  let lastError: any = null
+  for (let i = 0; i < attempts.length; i++) {
+    const attempt = attempts[i]!
+    const res = await attempt.run()
+    if (res.error) {
+      lastError = res.error
+      // Keep production logs concise: only emit failures on fallback attempts.
+      if (i > 0) {
+        console.info('[buildShiftRhythmInputs] sleep fetch fallback attempt failed', {
+          userId,
+          attempt: attempt.name,
+          code: res.error.code,
+        })
+      }
+      continue
+    }
+    const rows = (res.data ?? []) as Record<string, unknown>[]
+    // Primary attempt is expected and silent; log only when fallback path produced data.
+    if (i > 0 && rows.length > 0) {
+      console.info('[buildShiftRhythmInputs] sleep fetch recovered via fallback', {
+        userId,
+        attempt: attempt.name,
+        rows: rows.length,
+      })
+    }
+    if (rows.length > 0) return rows
   }
 
-  return (res.data ?? []) as Record<string, unknown>[]
+  if (lastError) {
+    console.warn('[buildShiftRhythmInputs] sleep row fetch attempts exhausted', {
+      code: lastError.code,
+      message: lastError.message,
+    })
+  }
+  return []
 }
 
 function mapSleepRowToLog(row: Record<string, unknown>) {
@@ -48,12 +122,17 @@ function mapSleepRowToLog(row: Record<string, unknown>) {
   const end = (row.end_at ?? row.end_ts ?? start) as string | undefined
   let durationHours: number | null =
     typeof row.sleep_hours === 'number' && Number.isFinite(row.sleep_hours) ? row.sleep_hours : null
-  if (durationHours == null && typeof row.duration_min === 'number' && Number.isFinite(row.duration_min)) {
-    durationHours = Math.max(0, row.duration_min / 60)
+  if (
+    durationHours == null &&
+    typeof row.duration_min === 'number' &&
+    Number.isFinite(row.duration_min) &&
+    row.duration_min > 0
+  ) {
+    durationHours = row.duration_min / 60
   }
   if (durationHours == null && start && end) {
     const ms = new Date(end).getTime() - new Date(start).getTime()
-    durationHours = ms > 0 ? ms / 3600000 : 0
+    durationHours = ms > 0 ? ms / 3600000 : null
   }
   const endAnchor = (row.end_at ?? row.end_ts ?? end ?? start) as string | undefined
   return {
@@ -142,7 +221,21 @@ export async function buildShiftRhythmInputs(supabase: any, userId: string) {
       fetchHolidayLocalDatesSet(supabase as SupabaseClient, userId, startYmd, todayYmd),
     ])
 
-  const sleepLogs = sleepRows
+  const shifts = (shiftQuery.data ?? []) as { date: string; label?: string | null; start_ts?: string | null }[]
+  const recentSleepRows = (sleepRows as any[]).filter((row) =>
+    rowCountsAsPrimarySleep({ type: row?.type ?? null, naps: row?.naps ?? null }),
+  )
+  const shiftByDate = new Map(shifts.map((s: any) => [s.date, s.label]))
+
+  let sleepLogsWithContext = recentSleepRows.map((row: any) => {
+    const sleepDate = (row.start_at ?? row.start_ts ?? '').slice(0, 10)
+    return {
+      start:      row.start_at ?? row.start_ts,
+      shiftLabel: shiftByDate.get(sleepDate) ?? null,
+    }
+  })
+
+  let sleepLogs = sleepRows
     .map((row) => mapSleepRowToLog(row))
     .sort(
       (a, b) =>
@@ -150,12 +243,54 @@ export async function buildShiftRhythmInputs(supabase: any, userId: string) {
     )
     .map(({ endMs: _e, ...rest }) => rest)
 
+  if (!sleepLogs.some((s) => typeof s.durationHours === 'number' && s.durationHours > 0)) {
+    const mergedWearable = await fetchMergedPhoneHealthSleepSessionsOverlapping(
+      supabase as SupabaseClient,
+      userId,
+      sleepFromBoundary.toISOString(),
+      now.toISOString(),
+    )
+
+    if (mergedWearable.length > 0) {
+      sleepLogs = mergedWearable
+        .map((s) => {
+          const start = s.start_at
+          const end = s.end_at
+          const ms = new Date(end).getTime() - new Date(start).getTime()
+          return {
+            date: end.slice(0, 10),
+            start,
+            end,
+            durationHours: ms > 0 ? ms / 3600000 : 0,
+            quality: null as number | null,
+          }
+        })
+        .filter((s) => s.durationHours > 0)
+        .sort((a, b) => +new Date(b.end) - +new Date(a.end))
+
+      sleepLogsWithContext = sleepLogs.map((s) => ({
+        start: s.start,
+        shiftLabel: shiftByDate.get(s.start.slice(0, 10)) ?? null,
+      }))
+    }
+  }
+
   const shiftDays = buildShiftDaysForRollingWeek(
-    (shiftQuery.data ?? []) as { date: string; label?: string | null; start_ts?: string | null }[],
+    shifts,
     holidayDates,
     startYmd,
     todayYmd,
   )
+
+  const { data: prevScore } = await supabase
+    .from('shift_rhythm_scores')
+    .select('circadian_debt')
+    .eq('user_id', userId)
+    .order('score_date', { ascending: false })
+    .limit(1)
+    .single()
+
+  const previousCircadianDebt = prevScore?.circadian_debt ?? 0
 
   const consumedCalories = 0
   const mealTimingActual: any[] = []
@@ -233,7 +368,11 @@ export async function buildShiftRhythmInputs(supabase: any, userId: string) {
 
   return {
     sleepLogs,
+    sleepLogsWithContext,
     shiftDays,
+    shifts,
+    previousCircadianDebt,
+    midpointOffsets: [] as number[],
     nutrition: nutritionSnapshot,
     activity: activitySnapshot,
     mealTiming: mealTimingSnapshot,

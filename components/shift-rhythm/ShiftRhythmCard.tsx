@@ -83,9 +83,12 @@ function ShiftRhythmCard({
   const { t } = useTranslation();
   const router = useRouter();
   const { circadianState, isLoading: circadianAgentLoading } = useCircadianState();
-  const legacyDisplayScore = circadian?.circadianPhase ?? normalizeScore(score);
+  const hasShiftRhythmScore = typeof score === "number" && Number.isFinite(score);
+  const legacyDisplayScore = hasShiftRhythmScore
+    ? normalizeScore(score)
+    : (circadian?.circadianPhase ?? 0);
   const displayScore =
-    circadianState != null ? circadianState.score : legacyDisplayScore;
+    hasShiftRhythmScore ? legacyDisplayScore : (circadianState != null ? circadianState.score : legacyDisplayScore);
   const [mood, setMood] = useState<number>(3);
   const [focus, setFocus] = useState<number>(3);
   const [isLoadingMood, setIsLoadingMood] = useState(true);
@@ -230,6 +233,7 @@ function ShiftRhythmCard({
         score={displayScore}
         legacyScore={legacyDisplayScore}
         circadian={circadian}
+        socialJetlag={socialJetlag}
         circadianState={circadianState}
         circadianAgentLoading={circadianAgentLoading}
         hasRhythmData={hasRhythmData}
@@ -337,6 +341,7 @@ function BodyClockCard({
   score,
   legacyScore,
   circadian,
+  socialJetlag,
   circadianState,
   circadianAgentLoading,
   hasRhythmData,
@@ -345,6 +350,7 @@ function BodyClockCard({
   score: number;
   legacyScore: number;
   circadian?: CircadianOutput | null;
+  socialJetlag?: ShiftRhythmCardProps["socialJetlag"];
   circadianState: CircadianState | null;
   circadianAgentLoading: boolean;
   hasRhythmData?: boolean;
@@ -355,19 +361,29 @@ function BodyClockCard({
   const fallbackNoData =
     hasRhythmData === false || (!circadian && legacyScore <= 0);
   const noData = useAgent ? false : fallbackNoData;
-  const capped = Math.max(0, Math.min(100, useAgent ? circadianState!.score : score));
+  const capped = Math.max(
+    0,
+    Math.min(
+      100,
+      score,
+    ),
+  );
 
   const statusLabel = useMemo(() => {
+    if (socialJetlag?.category === "low") return "Well aligned";
+    if (socialJetlag?.category === "moderate") return "Moderate misalignment";
+    if (socialJetlag?.category === "high") return "High misalignment";
     if (useAgent) return circadianState!.status;
     if (noData) return t("dashboard.bodyClock.statusShortLearning");
     if (capped >= 80) return t("dashboard.bodyClock.statusShortWellAligned");
     if (capped >= 65) return t("dashboard.bodyClock.statusShortSlightlyOut");
     return t("dashboard.bodyClock.statusShortMisaligned");
-  }, [useAgent, circadianState, noData, capped, t]);
-
-  const trendForGauge = useAgent ? circadianState!.trend : null;
+  }, [socialJetlag?.category, useAgent, circadianState, noData, capped, t]);
 
   const statusColorClass = useMemo(() => {
+    if (socialJetlag?.category === "low") return "text-emerald-600";
+    if (socialJetlag?.category === "moderate") return "text-amber-600";
+    if (socialJetlag?.category === "high") return "text-rose-600";
     if (!useAgent) {
       return noData ? "text-slate-500" : capped >= 80 ? "text-emerald-600" : capped >= 65 ? "text-amber-600" : "text-rose-600";
     }
@@ -375,7 +391,7 @@ function BodyClockCard({
     if (s >= 75) return "text-emerald-600";
     if (s >= 55) return "text-amber-600";
     return "text-rose-600";
-  }, [useAgent, circadianState, noData, capped]);
+  }, [socialJetlag?.category, useAgent, circadianState, noData, capped]);
 
   return (
     <button
@@ -393,7 +409,9 @@ function BodyClockCard({
         ].join(" ")}
       >
         <div className="relative z-10 flex w-full flex-col items-center text-center gap-6">
-          <CircadianGauge score={score} trend={trendForGauge} />
+          <CircadianGauge
+            score={score}
+          />
 
           <div className="mt-10 space-y-2 max-w-xs">
             <h3 className={`text-[18px] font-semibold tracking-tight text-[var(--text-main)] ${inter.className}`}>
@@ -1496,10 +1514,8 @@ const CIRCADIAN_BODY_BASE_SRC = "/assets/circadian-body-base.svg";
 
 function CircadianGauge({
   score,
-  trend,
 }: {
   score: number;
-  trend?: "improving" | "stable" | "declining" | null;
 }) {
   /** Taller slot + zoomed art so the silhouette fills the area (not a small figure in gray margin). */
   const portraitH = 280;
@@ -1662,13 +1678,7 @@ function CircadianGauge({
               >
                 {Math.round(capped)}
               </p>
-              {trend === "improving" ? (
-                <ArrowUp className="h-[1.35rem] w-[1.35rem] shrink-0 text-emerald-500 drop-shadow-sm" strokeWidth={2.5} aria-hidden />
-              ) : trend === "declining" ? (
-                <ArrowDown className="h-[1.35rem] w-[1.35rem] shrink-0 text-rose-500 drop-shadow-sm" strokeWidth={2.5} aria-hidden />
-              ) : trend === "stable" ? (
-                <Minus className="h-5 w-5 shrink-0 text-slate-400 drop-shadow-sm" strokeWidth={2.5} aria-hidden />
-              ) : null}
+              <span className={`text-sm font-medium leading-none text-slate-600 dark:text-slate-300 ${inter.className}`}>/100</span>
             </div>
           </div>
         </div>

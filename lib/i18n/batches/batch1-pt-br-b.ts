@@ -137,7 +137,7 @@ export const batch1PtBrB: Record<string, string> = {
   'detail.bodyClock.factorRecovery': 'Recuperação do sono',
   'detail.bodyClock.hintRecovery':
     'Duração, qualidade e pequeno ajuste após turnos noturnos.',
-  'detail.bodyClock.bundleSleep': 'Sono e ritmo (no principal)',
+  'detail.bodyClock.bundleSleep': 'Sono e ritmo',
   'detail.bodyClock.hintBundleSleep':
     'Combinado das quatro linhas — a parte de 60%.',
   'detail.bodyClock.factorNutrition': 'Nutrição e hidratação',

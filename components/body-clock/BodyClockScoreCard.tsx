@@ -23,6 +23,8 @@ type BodyClockScoreCardProps = {
   days: BodyClockScoreDay[]
   chartReady: boolean
   todayScore: number | null
+  todayDisplayText?: string | null
+  sourceLine?: string | null
   isLoadingScore?: boolean
   badgeLabel: string
   badgeClassName: string
@@ -35,12 +37,15 @@ type BodyClockScoreCardProps = {
   labelBestDay: string
   labelTrend: string
   waitingLabel: string
+  customStats?: Array<{ label: string; value: string; valueClassName?: string }>
 }
 
 export function BodyClockScoreCard({
   days,
   chartReady,
   todayScore,
+  todayDisplayText,
+  sourceLine,
   isLoadingScore,
   badgeLabel,
   badgeClassName,
@@ -53,6 +58,7 @@ export function BodyClockScoreCard({
   labelBestDay,
   labelTrend,
   waitingLabel,
+  customStats,
 }: BodyClockScoreCardProps) {
   const trendDisplay =
     trend == null || !chartReady
@@ -75,11 +81,22 @@ export function BodyClockScoreCard({
           <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
             {scoreTitle}
           </div>
+          {sourceLine ? (
+            <div className="mb-1 text-[10px] font-medium text-[var(--text-muted)]">{sourceLine}</div>
+          ) : null}
           <div className="flex items-baseline gap-1.5">
-            <span className="text-[36px] font-extrabold leading-none tracking-[-1.5px] text-[var(--text-main)] tabular-nums">
-              {isLoadingScore ? "…" : todayScore == null ? "—" : todayScore}
-            </span>
-            <span className="text-[13px] text-[var(--text-muted)]">{todaySuffix}</span>
+            {todayDisplayText != null ? (
+              <span className="text-[30px] font-extrabold leading-none tracking-[-1.2px] text-[var(--text-main)]">
+                {todayDisplayText}
+              </span>
+            ) : (
+              <>
+                <span className="text-[36px] font-extrabold leading-none tracking-[-1.5px] text-[var(--text-main)] tabular-nums">
+                  {isLoadingScore ? "…" : todayScore == null ? "—" : todayScore}
+                </span>
+                <span className="text-[13px] text-[var(--text-muted)]">{todaySuffix}</span>
+              </>
+            )}
           </div>
         </div>
         <span
@@ -136,24 +153,37 @@ export function BodyClockScoreCard({
       )}
 
       <div className="mt-3.5 flex justify-between border-t border-[var(--border-subtle)] pt-3.5">
-        <div className="text-center">
-          <div className="mb-0.5 text-[11px] text-[var(--text-muted)]">{labelSevenDayAvg}</div>
-          <div className="text-base font-bold tabular-nums text-[var(--text-main)]">
-            {avg != null && chartReady ? Math.round(avg) : "—"}
-          </div>
-        </div>
-        <div className="text-center">
-          <div className="mb-0.5 text-[11px] text-[var(--text-muted)]">{labelBestDay}</div>
-          <div className="text-base font-bold tabular-nums text-[#2E7D32]">
-            {best != null && chartReady ? Math.round(best) : "—"}
-          </div>
-        </div>
-        <div className="text-center">
-          <div className="mb-0.5 text-[11px] text-[var(--text-muted)]">{labelTrend}</div>
-          <div className="text-base font-bold tabular-nums" style={{ color: trendDisplay.color }}>
-            {trendDisplay.text}
-          </div>
-        </div>
+        {customStats && customStats.length === 3 ? (
+          customStats.map((s) => (
+            <div key={s.label} className="text-center">
+              <div className="mb-0.5 text-[11px] text-[var(--text-muted)]">{s.label}</div>
+              <div className={cn("text-base font-bold tabular-nums text-[var(--text-main)]", s.valueClassName)}>
+                {s.value}
+              </div>
+            </div>
+          ))
+        ) : (
+          <>
+            <div className="text-center">
+              <div className="mb-0.5 text-[11px] text-[var(--text-muted)]">{labelSevenDayAvg}</div>
+              <div className="text-base font-bold tabular-nums text-[var(--text-main)]">
+                {avg != null && chartReady ? Math.round(avg) : "—"}
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="mb-0.5 text-[11px] text-[var(--text-muted)]">{labelBestDay}</div>
+              <div className="text-base font-bold tabular-nums text-[#2E7D32]">
+                {best != null && chartReady ? Math.round(best) : "—"}
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="mb-0.5 text-[11px] text-[var(--text-muted)]">{labelTrend}</div>
+              <div className="text-base font-bold tabular-nums" style={{ color: trendDisplay.color }}>
+                {trendDisplay.text}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

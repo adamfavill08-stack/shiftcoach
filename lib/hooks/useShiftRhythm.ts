@@ -5,7 +5,7 @@ import { authedFetch } from '@/lib/supabase/authedFetch'
 type ShiftRhythmScore = {
   date: string
   sleep_score: number
-  regularity_score: number
+  regularity_score: number | null
   shift_pattern_score: number
   recovery_score: number
   nutrition_score: number | null

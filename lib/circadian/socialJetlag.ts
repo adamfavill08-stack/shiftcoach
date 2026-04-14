@@ -13,6 +13,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ShiftContextResult } from '@/lib/shift-context/types'
 import { jetlagExplanationWithShiftContext } from '@/lib/shift-context/jetlagNarrative'
+import { fetchMergedPhoneHealthSleepSessionsOverlapping } from '@/lib/sleep/sleepRecordsSummaryFallback'
 
 export type SocialJetlagCategory = "low" | "moderate" | "high"
 
@@ -194,7 +195,7 @@ export async function getSocialJetlagMetrics(
   }
 
   // Filter for main sleep only (not naps)
-  const mainSleepSessions = sleepData
+  let mainSleepSessions = sleepData
     .filter((s: any) => {
       const isMainSleep = s.type === 'sleep' || s.type === 'main' || 
                          (s.naps === 0 || s.naps === null || !s.naps)
@@ -212,11 +213,32 @@ export async function getSocialJetlagMetrics(
     })
     .filter((s: any): s is { start: Date; end: Date } => s !== null)
 
+  // Wearable fallback: if no usable main sleep logs, use merged Health Connect / Apple Health sessions.
+  if (mainSleepSessions.length === 0) {
+    const wearableSessions = await fetchMergedPhoneHealthSleepSessionsOverlapping(
+      supabase,
+      userId,
+      fourteenDaysAgo.toISOString(),
+      now.toISOString(),
+    )
+    mainSleepSessions = wearableSessions
+      .map((s) => {
+        const start = new Date(s.start_at)
+        const end = new Date(s.end_at)
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null
+        return { start, end }
+      })
+      .filter((s): s is { start: Date; end: Date } => s !== null)
+    if (mainSleepSessions.length > 0) {
+      console.log('[getSocialJetlagMetrics] Using wearable sleep_records fallback:', mainSleepSessions.length)
+    }
+  }
+
   console.log('[getSocialJetlagMetrics] Main sleep sessions:', mainSleepSessions.length)
-  
+
   if (mainSleepSessions.length === 0) {
     console.log('[getSocialJetlagMetrics] No main sleep sessions found (only naps or no valid sessions)')
-    return getDefaultMetrics('No main sleep sessions found. Log main sleep (not just naps) to calculate social jetlag.')
+    return getDefaultMetrics('No main sleep sessions found. Log main sleep (not just naps), or sync wearable sleep, to calculate social jetlag.')
   }
   
   if (mainSleepSessions.length < 2) {
