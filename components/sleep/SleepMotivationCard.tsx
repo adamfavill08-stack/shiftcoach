@@ -71,10 +71,10 @@ export function SleepMotivationCard({ profileFirstName, band }: Props) {
     >
       <div className="flex items-center gap-5">
         <div
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-200/90 dark:bg-slate-600/35"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-cyan-500 dark:bg-cyan-400"
           aria-hidden
         >
-          <Sparkles className="h-5 w-5 text-slate-700 dark:text-slate-200" strokeWidth={1.75} />
+          <Sparkles className="h-5 w-5 text-white" strokeWidth={1.75} />
         </div>
         <p className="min-w-0 flex-1 text-left text-[15px] font-normal leading-[1.55] text-[var(--text-main)]">
           {body}

@@ -3,15 +3,19 @@ import { createBrowserClient } from '@supabase/ssr'
 // Get environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const isTest = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
 
 // Debug: Log env vars (only in development)
 if (process.env.NODE_ENV === 'development') {
   console.log('[lib/supabase] Environment check:')
-  console.log('  NEXT_PUBLIC_SUPABASE_URL:', supabaseUrl ? '✓ Found' : '✗ Missing')
-  console.log('  NEXT_PUBLIC_SUPABASE_ANON_KEY:', supabaseKey ? '✓ Found' : '✗ Missing')
+  console.log('  NEXT_PUBLIC_SUPABASE_URL:', supabaseUrl ? '✓ Found' : isTest ? '✓ Test fallback' : '✗ Missing')
+  console.log('  NEXT_PUBLIC_SUPABASE_ANON_KEY:', supabaseKey ? '✓ Found' : isTest ? '✓ Test fallback' : '✗ Missing')
 }
 
-if (!supabaseUrl || !supabaseKey) {
+const effectiveSupabaseUrl = supabaseUrl ?? (isTest ? 'http://localhost:54321' : undefined)
+const effectiveSupabaseKey = supabaseKey ?? (isTest ? 'test-anon-key' : undefined)
+
+if (!effectiveSupabaseUrl || !effectiveSupabaseKey) {
   const errorMsg = `
 ❌ Missing Supabase environment variables!
 
@@ -30,7 +34,7 @@ Current working directory: ${process.cwd()}
 }
 
 // Create singleton browser client.
-const supabaseClient = createBrowserClient(supabaseUrl, supabaseKey)
+const supabaseClient = createBrowserClient(effectiveSupabaseUrl, effectiveSupabaseKey)
 
 // Wrap auth.getUser to catch AuthSessionMissingError silently
 const originalGetUser = supabaseClient.auth.getUser.bind(supabaseClient.auth)

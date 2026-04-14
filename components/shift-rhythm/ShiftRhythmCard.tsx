@@ -393,28 +393,18 @@ function BodyClockCard({
   );
 
   const statusLabel = useMemo(() => {
-    if (socialJetlag?.category === "low") return "Well aligned";
-    if (socialJetlag?.category === "moderate") return "Moderate misalignment";
-    if (socialJetlag?.category === "high") return "High misalignment";
-    if (useAgent) return circadianState!.status;
     if (noData) return t("dashboard.bodyClock.statusShortLearning");
-    if (capped >= 80) return t("dashboard.bodyClock.statusShortWellAligned");
-    if (capped >= 65) return t("dashboard.bodyClock.statusShortSlightlyOut");
-    return t("dashboard.bodyClock.statusShortMisaligned");
-  }, [socialJetlag?.category, useAgent, circadianState, noData, capped, t]);
+    if (capped >= 80) return "Well aligned";
+    if (capped >= 65) return "Moderate misalignment";
+    return "High misalignment";
+  }, [noData, capped, t]);
 
   const statusColorClass = useMemo(() => {
-    if (socialJetlag?.category === "low") return "text-emerald-600";
-    if (socialJetlag?.category === "moderate") return "text-amber-600";
-    if (socialJetlag?.category === "high") return "text-rose-600";
-    if (!useAgent) {
-      return noData ? "text-slate-500" : capped >= 80 ? "text-emerald-600" : capped >= 65 ? "text-amber-600" : "text-rose-600";
-    }
-    const s = circadianState!.score;
-    if (s >= 75) return "text-emerald-600";
-    if (s >= 55) return "text-amber-600";
+    if (noData) return "text-slate-500";
+    if (capped >= 80) return "text-emerald-600";
+    if (capped >= 65) return "text-amber-600";
     return "text-rose-600";
-  }, [socialJetlag?.category, useAgent, circadianState, noData, capped]);
+  }, [noData, capped]);
 
   return (
     <button

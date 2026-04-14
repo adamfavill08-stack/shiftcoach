@@ -92,7 +92,6 @@ const parseTime = (timestamp: string) => new Date(timestamp)
 export function calculateShiftRhythm(inputs: ShiftRhythmInputs): ShiftRhythmScores {
   const targets = { ...DEFAULT_TARGETS, ...inputs.targets }
   const sleepLogs = inputs.sleepLogs ?? []
-  const sleepLogsWithContext = inputs.sleepLogsWithContext ?? []
   const shiftDays = inputs.shiftDays ?? []
   const shifts = inputs.shifts ?? []
   const previousCircadianDebt = inputs.previousCircadianDebt ?? 0
@@ -103,6 +102,34 @@ export function calculateShiftRhythm(inputs: ShiftRhythmInputs): ShiftRhythmScor
 
   const shiftMap = new Map<string, ShiftType>()
   shiftDays.forEach((shift) => shiftMap.set(shift.date, shift.type))
+
+  const sleepLogsWithContext: SleepLogWithContext[] = (() => {
+    if (inputs.sleepLogsWithContext && inputs.sleepLogsWithContext.length > 0) {
+      return inputs.sleepLogsWithContext
+    }
+    if (!sleepLogs.length) return []
+
+    return sleepLogs.map((log) => {
+      const shiftType = shiftMap.get(log.date)
+      const label =
+        shiftType === 'night'
+          ? 'night'
+          : shiftType === 'day'
+            ? 'day'
+            : shiftType === 'morning'
+              ? 'morning'
+              : shiftType === 'afternoon'
+                ? 'afternoon'
+                : shiftType === 'off'
+                  ? 'off'
+                  : null
+
+      return {
+        start: log.start,
+        shiftLabel: label,
+      }
+    })
+  })()
 
   const recentSleep = sleepLogs.slice(0, 7)
   const avgSleepHours = getAverage(recentSleep.map((s) => s.durationHours))
