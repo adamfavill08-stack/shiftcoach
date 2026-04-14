@@ -205,13 +205,13 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
                     : 'flex items-center justify-between border-t border-[var(--border-subtle)] py-[14px] pb-5'
                 }
               >
-                <div className="flex items-center gap-1.5">
-                  <div className="relative h-12 w-[4.25rem] shrink-0 sm:h-14 sm:w-[5rem]">
+                <div className="flex items-center gap-1">
+                  <div className="relative h-8 w-11 shrink-0 sm:h-9 sm:w-[3.25rem]">
                     <Image
                       src="/logo.svg"
                       alt=""
                       fill
-                      sizes="(max-width: 640px) 68px, 80px"
+                      sizes="(max-width: 640px) 44px, 52px"
                       className="pointer-events-none object-contain object-left"
                       draggable={false}
                     />
