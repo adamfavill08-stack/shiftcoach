@@ -79,7 +79,7 @@ export const ExploreCarousel = memo(function ExploreCarousel({ items }: ExploreC
               aria-label={item.title}
               className="block"
             >
-              <article className="overflow-hidden rounded-[28px] border border-slate-200/70 bg-white shadow-[0_6px_24px_rgba(15,23,42,0.08)] transition-transform duration-150 active:scale-[0.985]">
+              <article className="overflow-hidden rounded-xl border border-slate-200/70 bg-white shadow-[0_6px_24px_rgba(15,23,42,0.08)] transition-transform duration-150 active:scale-[0.985]">
                 <div className="relative h-[150px] w-full">
                   <Image
                     src={item.imageSrc}

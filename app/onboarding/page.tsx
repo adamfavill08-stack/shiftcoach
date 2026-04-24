@@ -1,1124 +1,760 @@
-'use client'
+"use client"
 
-import React, { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/components/AuthProvider'
-import { cmToFeetInches, feetInchesToCm, kgToLb, lbToKg, mlToFloz, flozToMl } from '@/lib/units'
-import { DEV_USER_ID } from '@/lib/dev-user'
-import { ChevronRight, ChevronLeft } from 'lucide-react'
-import { useTranslation } from '@/components/providers/language-provider'
-import { CompactLanguagePicker } from '@/components/i18n/CompactLanguagePicker'
+import { useState, useEffect, useMemo } from "react"
+import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase"
+
+type WorkerType = "fixed" | "rotating" | "variable" | "oncall"
+type ShiftType = "off" | "day" | "night"
+type VariableShiftType = "morning" | "afternoon" | "night"
+type AnyShiftType = ShiftType | VariableShiftType
+type WeekendExtension = "yes" | "no" | "varies"
+interface ShiftTime { start: string; end: string }
+interface ShiftTimes { day: ShiftTime; night: ShiftTime }
+interface VariableShiftTimes { morning: ShiftTime; afternoon: ShiftTime; night: ShiftTime }
+
+const SS: Record<ShiftType, { label: string; short: string; icon: string; bg: string; color: string; border: string }> = {
+  off: { label: "OFF", short: "OFF", icon: "—", bg: "var(--card-subtle)", color: "var(--text-muted)", border: "var(--border-subtle)" },
+  day: { label: "DAY", short: "DAY", icon: "☀", bg: "rgba(0,188,212,0.15)", color: "#00BCD4", border: "rgba(0,188,212,0.4)" },
+  night: { label: "NIGHT", short: "NGT", icon: "◑", bg: "rgba(239,68,68,0.15)", color: "#EF4444", border: "rgba(239,68,68,0.4)" },
+}
+
+const VAR_SS: Record<VariableShiftType, { label: string; short: string; icon: string; bg: string; color: string; border: string }> = {
+  morning: { label: "MORNING", short: "MOR", icon: "🌅", bg: "rgba(0,188,212,0.15)", color: "#00BCD4", border: "rgba(0,188,212,0.4)" },
+  afternoon: { label: "AFTERNOON", short: "AFT", icon: "☀", bg: "rgba(245,158,11,0.15)", color: "#F59E0B", border: "rgba(245,158,11,0.4)" },
+  night: { label: "NIGHT", short: "NGT", icon: "◑", bg: "rgba(239,68,68,0.15)", color: "#EF4444", border: "rgba(239,68,68,0.4)" },
+}
+
+const CYCLE_ORDER: ShiftType[] = ["off", "day", "night"]
+
+const WORKER_TYPES = [
+  { id: "fixed" as const, icon: "⟳", title: "Fixed Rotation", desc: "4on 4off, 3×3, continental…" },
+  { id: "rotating" as const, icon: "⇄", title: "Rotating Shifts", desc: "Mornings, afternoons, nights cycle" },
+  { id: "variable" as const, icon: "∿", title: "Variable / Agency", desc: "Different every week" },
+  { id: "oncall" as const, icon: "◎", title: "On-Call", desc: "Respond at unpredictable times" },
+]
+
+const TRANSITION_RISK: Record<string, { level: "low" | "moderate" | "critical"; label: string; body: string }> = {
+  "day-night": { level: "moderate", label: "Day → Night transition", body: "Going from days to nights in the same block. Your body clock will need time to adjust — your first night carries elevated risk." },
+  "night-day": { level: "moderate", label: "Night → Day transition", body: "Coming off nights back to days. Sleep debt from the night block may carry into your first day shift." },
+}
+
+const RISK_COLOR = { low: "#00BCD4", moderate: "#F59E0B", critical: "#EF4444" }
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+function shiftDur(s: string, e: string): number {
+  const [sh, sm] = s.split(":").map(Number)
+  const [eh, em] = e.split(":").map(Number)
+  let m = (eh * 60 + em) - (sh * 60 + sm)
+  if (m <= 0) m += 1440
+  return m / 60
+}
+function findTransitions(rot: ShiftType[]) {
+  const out: { from: number; to: number; key: string; risk: typeof TRANSITION_RISK[string] }[] = []
+  for (let i = 0; i < rot.length; i++) {
+    const a = rot[i]
+    const b = rot[(i + 1) % rot.length]
+    if (a !== "off" && b !== "off" && a !== b) {
+      const key = a + "-" + b
+      if (TRANSITION_RISK[key]) out.push({ from: i, to: (i + 1) % rot.length, key, risk: TRANSITION_RISK[key] })
+    }
+  }
+  return out
+}
+function maxConsecutiveWork(rot: ShiftType[]): number {
+  let max = 0
+  let cur = 0
+  const doubled = [...rot, ...rot]
+  for (const r of doubled) {
+    if (r !== "off") {
+      cur++
+      max = Math.max(max, cur)
+    } else {
+      cur = 0
+    }
+  }
+  return Math.min(max, rot.length)
+}
+
+function isVariableShiftType(value: AnyShiftType): value is VariableShiftType {
+  return value === "morning" || value === "afternoon" || value === "night"
+}
+
+const LBL: React.CSSProperties = {
+  fontSize: 9, letterSpacing: "2.4px", color: "var(--text-muted)",
+  textTransform: "uppercase", fontWeight: 500,
+}
+
+function TimeUnit({ value, label, onUp, onDown }: {
+  value: number; label: string; onUp: () => void; onDown: () => void
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+      <button type="button" onClick={onUp} style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 13, cursor: "pointer", padding: "4px 14px" }}>▲</button>
+      <div style={{ fontSize: 36, fontWeight: 300, lineHeight: 1, minWidth: 48, textAlign: "center" }}>
+        {String(value).padStart(2, "0")}
+      </div>
+      <button type="button" onClick={onDown} style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 13, cursor: "pointer", padding: "4px 14px" }}>▼</button>
+      <div style={{ fontSize: 8, letterSpacing: "1.5px", color: "var(--text-muted)", marginTop: 2 }}>{label}</div>
+    </div>
+  )
+}
+
+function TimePicker({ value, onChange, label, caption }: {
+  value: string; onChange: (v: string) => void; label: string; caption?: string
+}) {
+  const [hh, mm] = value.split(":").map(Number)
+  const sH = (d: number) => onChange(String(((hh + d) + 24) % 24).padStart(2, "0") + ":" + String(mm).padStart(2, "0"))
+  const sM = (d: number) => onChange(String(hh).padStart(2, "0") + ":" + String(((mm + d) + 60) % 60).padStart(2, "0"))
+  return (
+    <div style={{ flex: 1 }}>
+      <div style={{ fontSize: 9, letterSpacing: "2px", color: "var(--text-muted)", marginBottom: 8, textTransform: "uppercase", fontWeight: 500 }}>
+        {label}
+      </div>
+      <div style={{ background: "var(--card-subtle)", border: "1px solid var(--border-subtle)", borderRadius: 14, padding: "8px 10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <TimeUnit value={hh} label="HR" onUp={() => sH(1)} onDown={() => sH(-1)} />
+        <div style={{ fontSize: 28, color: "var(--text-muted)", marginBottom: 10, padding: "0 4px" }}>:</div>
+        <TimeUnit value={mm} label="MIN" onUp={() => sM(15)} onDown={() => sM(-15)} />
+      </div>
+      {caption && (
+        <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 5, textAlign: "center" }}>{caption}</div>
+      )}
+    </div>
+  )
+}
+
+function Block({ type, index, size, onTap, isToday }: {
+  type: ShiftType; index: number; size: number; onTap?: (i: number) => void; isToday?: boolean
+}) {
+  const s = SS[type]
+  const [tapped, setTapped] = useState(false)
+  const go = () => {
+    if (!onTap) return
+    setTapped(true)
+    setTimeout(() => setTapped(false), 160)
+    onTap(index)
+  }
+  return (
+    <div onClick={go} style={{
+      width: size, height: size * 1.28,
+      background: s.bg,
+      border: (isToday ? "2.5" : "1.5") + "px solid " + s.border,
+      borderRadius: 10,
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      cursor: onTap ? "pointer" : "default",
+      userSelect: "none",
+      transform: tapped ? "scale(0.88)" : isToday ? "scale(1.06)" : "scale(1)",
+      transition: "transform 0.15s ease, box-shadow 0.18s ease",
+      position: "relative",
+      boxShadow: isToday ? "0 0 18px " + s.color + "50" : "none",
+    }}>
+      <div style={{ fontSize: 6, color: "var(--text-muted)", letterSpacing: "0.8px", marginBottom: 2 }}>D{index + 1}</div>
+      <div style={{ fontSize: size > 55 ? 15 : 11, marginBottom: 2 }}>{s.icon}</div>
+      <div style={{ fontSize: size > 55 ? 7 : 6, color: s.color, letterSpacing: "0.5px", fontWeight: 700, textAlign: "center", lineHeight: 1.1 }}>
+        {type === "off" ? "—" : s.short}
+      </div>
+      {isToday && (
+        <div style={{ position: "absolute", top: -11, left: "50%", transform: "translateX(-50%)", background: s.color, borderRadius: 5, padding: "2px 7px", fontSize: 7, fontWeight: 700, color: type === "night" ? "#fff" : "#000", whiteSpace: "nowrap" }}>
+          TODAY
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ProgressDots({ total, current }: { total: number; current: number }) {
+  return (
+    <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+      {Array.from({ length: total }).map((_, i) => (
+        <div key={i} style={{
+          width: i === current ? 20 : 6, height: 6, borderRadius: 3,
+          background: i === current ? "#00BCD4" : i < current ? "rgba(0,188,212,0.4)" : "var(--ring-bg)",
+          transition: "all 0.3s ease",
+        }} />
+      ))}
+    </div>
+  )
+}
+
+function PBtn({ children, onClick, disabled }: {
+  children: React.ReactNode; onClick: () => void; disabled?: boolean
+}) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} style={{
+      width: "100%", padding: 16,
+      background: disabled ? "var(--card-subtle)" : "#00BCD4",
+      color: disabled ? "var(--text-muted)" : "#000",
+      border: "none", borderRadius: 14, fontSize: 14, fontWeight: 600,
+      fontFamily: "Inter,sans-serif", letterSpacing: "0.4px",
+      cursor: disabled ? "default" : "pointer", transition: "all 0.2s ease",
+    }}>
+      {children}
+    </button>
+  )
+}
+
+function Insight({ color, title, body }: { color: string; title: string; body: string }) {
+  return (
+    <div style={{ background: "var(--card-subtle)", border: "1px solid " + color + "44", borderRadius: 14, padding: "14px 16px" }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+        <div style={{ width: 6, height: 6, borderRadius: "50%", background: color, marginTop: 4, flexShrink: 0 }} />
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: color, marginBottom: 3 }}>{title}</div>
+          <div style={{ fontSize: 12, color: "var(--text-soft)", lineHeight: 1.55, fontWeight: 300 }}>{body}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function OptionCard({ selected, onClick, title, desc }: {
+  selected: boolean; onClick: () => void; title: string; desc: string
+}) {
+  return (
+    <div onClick={onClick} style={{
+      background: selected ? "rgba(0,188,212,0.08)" : "var(--card-subtle)",
+      border: "1px solid " + (selected ? "rgba(0,188,212,0.5)" : "var(--border-subtle)"),
+      borderRadius: 12, padding: "16px 18px", cursor: "pointer", transition: "all 0.2s ease",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <div style={{ fontSize: 14, fontWeight: 500 }}>{title}</div>
+        {selected && (
+          <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#00BCD4", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <span style={{ fontSize: 10, color: "#000", fontWeight: 700 }}>✓</span>
+          </div>
+        )}
+      </div>
+      <div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 300, lineHeight: 1.5 }}>{desc}</div>
+    </div>
+  )
+}
 
 export default function OnboardingPage() {
-  const { t } = useTranslation()
-  const { user, loading } = useAuth()
   const router = useRouter()
-  const [step, setStep] = useState(1)
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState<string | undefined>()
+  const [screen, setScreen] = useState(0)
+  const [visible, setVisible] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [workerType, setWorkerType] = useState<WorkerType | null>(null)
+  const [cycleLen, setCycleLen] = useState(4)
+  const [rotation, setRotation] = useState<ShiftType[]>(["off", "off", "off", "off"])
+  const [times, setTimes] = useState<ShiftTimes>({ day: { start: "07:00", end: "19:00" }, night: { start: "19:00", end: "07:00" } })
+  const [varTimes, setVarTimes] = useState<VariableShiftTimes>({ morning: { start: "06:00", end: "14:00" }, afternoon: { start: "14:00", end: "22:00" }, night: { start: "22:00", end: "06:00" } })
+  const [postSleep, setPostSleep] = useState("07:00")
+  const [varT, setVarT] = useState({ morning: false, afternoon: false, night: true })
+  const [todayPos, setTodayPos] = useState<number | string | null>(null)
+  const [wkndExt, setWkndExt] = useState<WeekendExtension | null>(null)
+  const [customLen, setCustomLen] = useState("")
 
-  // In development, allow viewing the page even without auth (for testing)
-  const isDev = process.env.NODE_ENV !== 'production'
-  
-  // Redirect to sign-in if not authenticated (after loading completes)
-  // Skip redirect in dev mode for testing
+  useEffect(() => { setVisible(false); const t = setTimeout(() => setVisible(true), 80); return () => clearTimeout(t) }, [screen])
   useEffect(() => {
-    if (!loading && !user && !isDev) {
-      router.replace('/auth/sign-in')
+    if (typeof document === "undefined") return
+    const savedTheme = window.localStorage.getItem("theme")
+    if (savedTheme === "light") {
+      document.documentElement.classList.remove("dark")
+    } else if (savedTheme === "dark") {
+      document.documentElement.classList.add("dark")
     }
-  }, [loading, user, router, isDev])
+  }, [])
 
-  // Form state
-  const [name, setName] = useState('')
-  const [sex, setSex] = useState<'male' | 'female' | 'other'>('other')
-  const [dateOfBirth, setDateOfBirth] = useState<string>('')
-  const [age, setAge] = useState<number | ''>('')
-  const [height_cm, setHeight_cm] = useState<number | ''>('')
-  const [weight_kg, setWeight_kg] = useState<number | ''>('')
-  const [goal, setGoal] = useState<'lose' | 'maintain' | 'gain'>('maintain')
-  const [units, setUnits] = useState<'metric' | 'imperial'>('imperial')
-  const [sleep_goal_h, setSleep_goal_h] = useState<number>(7.5)
-  const [water_goal_ml, setWater_goal_ml] = useState<number>(2500)
+  const isVar = workerType === "variable" || workerType === "oncall"
+  const usedTypes: AnyShiftType[] = isVar
+    ? (Object.keys(varT) as VariableShiftType[]).filter((k) => varT[k as keyof typeof varT])
+    : ([...new Set(rotation.filter((r) => r !== "off"))] as ShiftType[])
+  const hasNights = usedTypes.includes("night")
+  const trans = findTransitions(rotation)
+  const maxConsec = useMemo(() => maxConsecutiveWork(rotation), [rotation])
+  const needsWknd = !isVar && maxConsec >= 5
+  const worstTrans = trans
+    .slice()
+    .sort(
+      (a, b) =>
+        ({ critical: 2, moderate: 1, low: 0 }[b.risk.level] -
+          { critical: 2, moderate: 1, low: 0 }[a.risk.level])
+    )[0]
 
-  // Field-level errors
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const SCREEN_WKND = needsWknd ? 5 : -1
+  const SCREEN_SLEEP = hasNights ? (needsWknd ? 6 : 5) : -1
+  const SCREEN_READY = needsWknd ? (hasNights ? 7 : 6) : (hasNights ? 6 : 5)
+  const totalScreens = SCREEN_READY + 1
 
-  // Imperial UI state
-  const [heightFt, setHeightFt] = useState<number | ''>('')
-  const [heightIn, setHeightIn] = useState<number | ''>('')
-  const [weightLb, setWeightLb] = useState<number | ''>('')
-  const [waterOz, setWaterOz] = useState<number | ''>('')
-  
-  // Weight unit selection (kg, lb, st+lb) - default to stone + pounds for UK-style users
-  const [weightUnit, setWeightUnit] = useState<'kg' | 'lb' | 'st+lb'>('st+lb')
-  const [stoneInput, setStoneInput] = useState<number | ''>('')
-  const [poundsInput, setPoundsInput] = useState<number | ''>('')
-  // Local state for kg input to allow free typing
-  const [kgInputValue, setKgInputValue] = useState<string>('')
-  
-  // Sync kgInputValue with weight_kg only when switching TO kg unit
-  const prevWeightUnitRef = useRef(weightUnit)
-  useEffect(() => {
-    if (weightUnit === 'kg' && prevWeightUnitRef.current !== 'kg') {
-      // User just switched to kg, initialize the input value
-      if (weight_kg !== '' && weight_kg !== null) {
-        setKgInputValue(String(weight_kg))
-      } else {
-        setKgInputValue('')
-      }
-    }
-    prevWeightUnitRef.current = weightUnit
-  }, [weightUnit, weight_kg])
+  const next = () => setScreen((s) => s + 1)
+  const back = () => setScreen((s) => Math.max(0, s - 1))
 
-  // For dev mode without user, use a valid UUID from dev-user.ts
-  // In production or with a real user, use the actual user
-  const mockUser = isDev && !user 
-    ? { id: process.env.NEXT_PUBLIC_DEV_USER_ID || DEV_USER_ID } as { id: string }
-    : user
-
-  // Validation functions
-  const validateStep1 = (): boolean => {
-    const errors: Record<string, string> = {}
-    
-    // Name is optional, no validation needed
-    
-    // Age validation
-    if (age !== '' && (typeof age !== 'number' || age < 13 || age > 120)) {
-      errors.age = t('onboarding.validation.ageRange')
-    }
-    
-    // Date of birth validation
-    if (dateOfBirth) {
-      const dob = new Date(dateOfBirth)
-      const today = new Date()
-      const ageFromDob = today.getFullYear() - dob.getFullYear()
-      const monthDiff = today.getMonth() - dob.getMonth()
-      const calculatedAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate()) 
-        ? ageFromDob - 1 
-        : ageFromDob
-      
-      if (calculatedAge < 13) {
-        errors.dateOfBirth = t('onboarding.validation.dobMin')
-      }
-      
-      // Check if age matches DOB (if both provided)
-      if (age !== '' && typeof age === 'number') {
-        if (Math.abs(calculatedAge - age) > 1) {
-          errors.age = t('onboarding.validation.ageMismatch').replace('{age}', String(calculatedAge))
-        }
-      }
-    }
-    
-    setFieldErrors(errors)
-    return Object.keys(errors).length === 0
+  const resizeCycle = (len: number) => {
+    setCycleLen(len)
+    setTodayPos(null)
+    setRotation((p) => len > p.length ? [...p, ...(Array(len - p.length).fill("off") as ShiftType[])] : p.slice(0, len))
   }
+  const tapBlock = (i: number) => setRotation((p) => {
+    const n = [...p]
+    n[i] = CYCLE_ORDER[(CYCLE_ORDER.indexOf(n[i]) + 1) % CYCLE_ORDER.length]
+    return n
+  })
+  const updTime = (type: keyof ShiftTimes, field: "start" | "end", val: string) =>
+    setTimes((p) => ({ ...p, [type]: { ...p[type], [field]: val } }))
+  const updVarTime = (type: keyof VariableShiftTimes, field: "start" | "end", val: string) =>
+    setVarTimes((p) => ({ ...p, [type]: { ...p[type], [field]: val } }))
 
-  const validateStep2 = (): boolean => {
-    const errors: Record<string, string> = {}
-    
-    // Height validation
-    if (units === 'metric') {
-      if (height_cm === '' || (typeof height_cm === 'number' && (height_cm < 100 || height_cm > 250))) {
-        errors.height_cm = t('onboarding.validation.heightCm')
-      }
-    } else {
-      if (heightFt === '' || heightIn === '') {
-        errors.height = t('onboarding.validation.heightBoth')
-      } else {
-        const totalInches = Number(heightFt) * 12 + Number(heightIn)
-        if (totalInches < 39 || totalInches > 98) {
-          errors.height = t('onboarding.validation.heightRange')
-        }
-      }
-    }
-    
-    // Weight validation
-    if (weight_kg === '' || (typeof weight_kg === 'number' && (weight_kg < 30 || weight_kg > 300))) {
-      errors.weight = t('onboarding.validation.weightRange')
-    }
-    
-    setFieldErrors(errors)
-    return Object.keys(errors).length === 0
-  }
+  const bSize = cycleLen <= 4 ? 68 : cycleLen <= 7 ? 52 : cycleLen <= 9 ? 44 : 38
+  const bRow = cycleLen <= 8 ? cycleLen : cycleLen <= 12 ? 6 : 7
 
-  const validateStep3 = (): boolean => {
-    const errors: Record<string, string> = {}
-    
-    // Sleep goal validation
-    if (sleep_goal_h < 4 || sleep_goal_h > 12) {
-      errors.sleep_goal_h = t('onboarding.validation.sleepRange')
-    }
-    
-    // Water goal validation
-    if (water_goal_ml < 1000 || water_goal_ml > 5000) {
-      errors.water_goal_ml = t('onboarding.validation.waterRange')
-    }
-    
-    setFieldErrors(errors)
-    return Object.keys(errors).length === 0
-  }
+  const todayType: ShiftType | null = !isVar && typeof todayPos === "number" ? rotation[todayPos] : null
+  const todayDesc = (() => {
+    if (!todayType || todayType === "off") return "Day off"
+    const t = times[todayType as keyof ShiftTimes]
+    if (!t) return SS[todayType]?.label ?? "Unknown"
+    return `${SS[todayType].label} ${t.start}–${t.end}`
+  })()
 
-  const handleNextStep = () => {
-    setFieldErrors({})
-    
-    if (step === 1 && !validateStep1()) {
-      return
-    }
-    if (step === 2 && !validateStep2()) {
-      return
-    }
-    
-    setStep(step + 1)
-  }
+  const rv = (d = 0): React.CSSProperties => ({
+    opacity: visible ? 1 : 0,
+    transform: visible ? "translateY(0)" : "translateY(14px)",
+    transition: `opacity 0.5s cubic-bezier(.16,1,.3,1) ${d}s, transform 0.5s cubic-bezier(.16,1,.3,1) ${d}s`,
+  })
 
-  const submit = async () => {
-    if (!mockUser) return
-
-    // Final validation
-    if (!validateStep3()) {
-      return
-    }
-
-    setBusy(true)
-    setErr(undefined)
-    setFieldErrors({})
-
-    const profile = {
-      name: name || null,
-      sex: sex || null, // sex can be 'male', 'female', 'other', or null
-      date_of_birth: dateOfBirth || null,
-      age: (typeof age === 'number' && age > 0) ? age : (age === '' ? null : age),
-      height_cm: (typeof height_cm === 'number' && height_cm > 0) ? height_cm : null,
-      weight_kg: (typeof weight_kg === 'number' && weight_kg > 0) ? weight_kg : null,
-      goal: goal || null, // goal can be 'lose', 'maintain', 'gain', or null
-      units: units || null,
-      sleep_goal_h: sleep_goal_h || null,
-      water_goal_ml: water_goal_ml || null,
-      tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      theme: 'system',
-      default_activity_level: 'medium', // Default activity level
-    }
-    
-    console.log('[onboarding] Profile data being sent:', {
-      sex: profile.sex,
-      goal: profile.goal,
-      weight_kg: profile.weight_kg,
-      height_cm: profile.height_cm,
-      age: profile.age,
-    })
-
-    console.log('[onboarding] Submitting profile:', JSON.stringify(profile, null, 2))
-    console.log('[onboarding] Age value:', age, 'Type:', typeof age)
-
-    // Use API route to handle RLS properly
-    let response: Response
-    let data: any
-    
+  const handleSubmit = async () => {
+    setSaving(true)
+    setError(null)
     try {
-      response = await fetch('/api/profile', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(profile),
-      })
+      // Use getSession first — more reliable than getUser during onboarding flow
+      let { data: { session } } = await supabase.auth.getSession()
 
-      // Try to parse JSON, but handle cases where response might not be JSON
-      const text = await response.text()
-      try {
-        data = text ? JSON.parse(text) : {}
-      } catch (parseError) {
-        console.error('[onboarding] Failed to parse response as JSON:', text)
-        data = { error: text || 'Unknown error', rawResponse: text }
+      // If no session, try refreshing once
+      if (!session) {
+        const { data: refreshed } = await supabase.auth.refreshSession()
+        session = refreshed.session
       }
-    } catch (fetchError: any) {
-      console.error('[onboarding] Fetch error:', fetchError)
-      setErr(fetchError.message || t('onboarding.networkError'))
-      setBusy(false)
-      return
+
+      if (!session?.user) throw new Error("Session not found — please sign in again.")
+      const user = session.user
+      const { error: err } = await supabase.from("profiles").update({
+        worker_type: workerType,
+        cycle_length: cycleLen,
+        rotation_pattern: rotation,
+        shift_times: isVar ? varTimes : times,
+        rotation_anchor_date: new Date().toISOString().split("T")[0],
+        rotation_anchor_day: typeof todayPos === "number" ? todayPos : null,
+        weekend_extension: wkndExt,
+        post_night_sleep: postSleep || null,
+        shift_pattern: workerType,
+        onboarding_completed: true,
+      }).eq("user_id", user.id)
+      if (err) throw err
+      sessionStorage.setItem("fromOnboarding", "true")
+      router.push("/welcome")
+    } catch (e: any) {
+      setError(e.message || "Something went wrong. Please try again.")
+      setSaving(false)
     }
-
-    if (!response.ok) {
-      // Extract error message from response
-      let errorMessage = `${t('onboarding.saveFailed')} (${response.status})`
-      
-      if (data) {
-        if (data.error) {
-          errorMessage = data.error
-        } else if (data.message) {
-          errorMessage = data.message
-        } else if (data.details) {
-          errorMessage = typeof data.details === 'string' ? data.details : JSON.stringify(data.details)
-        } else if (data.hint) {
-          errorMessage = data.hint
-        }
-      }
-      
-      // Log for debugging (but don't let it break the UI)
-      try {
-        console.error('[onboarding] Save failed')
-        console.error('[onboarding] Response status:', response.status)
-        console.error('[onboarding] Response data:', data)
-      } catch (e) {
-        // Ignore console errors
-      }
-      
-      setErr(errorMessage)
-      setBusy(false)
-      return
-    }
-
-    console.log('[onboarding] Profile saved successfully:', data)
-    console.log('[onboarding] Saved profile data:', {
-      sex: data.profile?.sex,
-      goal: data.profile?.goal,
-      weight_kg: data.profile?.weight_kg,
-      height_cm: data.profile?.height_cm,
-      age: data.profile?.age,
-    })
-
-    // Store the saved profile data in sessionStorage so profile page can use it immediately
-    if (typeof window !== 'undefined') {
-      if (data.profile) {
-        sessionStorage.setItem('onboardingProfileData', JSON.stringify(data.profile))
-        console.log('[onboarding] Stored profile in sessionStorage')
-      }
-      // Set flag to show welcome page
-      sessionStorage.setItem('fromOnboarding', 'true')
-      console.log('[onboarding] Set fromOnboarding flag, redirecting to welcome page...')
-      
-      // Dispatch event to refresh profile data (in case profile page is already open)
-      if (data.profile) {
-        window.dispatchEvent(new CustomEvent('profile-updated', { detail: data.profile }))
-        console.log('[onboarding] Dispatched profile-updated event')
-      }
-    }
-
-    // Small delay to ensure sessionStorage is set, then redirect
-    setTimeout(() => {
-      console.log('[onboarding] Redirecting to /welcome')
-      router.replace('/welcome')
-    }, 100)
   }
-
-  // Show loading state while checking authentication
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
-        <div className="text-slate-500">{t('onboarding.loading')}</div>
-      </main>
-    )
-  }
-
-  // In dev mode, allow viewing without user (for testing)
-  // In production, redirect if no user
-  if (!user && !isDev) {
-    return null
-  }
-
-  const totalSteps = 3
-  const progress = (step / totalSteps) * 100
 
   return (
-    <main className="min-h-screen bg-slate-100 flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-md">
-        {/* Main onboarding card */}
-        <div className="rounded-xl bg-white border border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-          <div>
-            {/* Header */}
-            <div className="pt-7 pb-5 px-6 text-center border-b border-slate-200/60">
-              <h1 className="text-[20px] font-semibold tracking-tight text-slate-900 mb-1.5">
-                {t('onboarding.title')}
-              </h1>
-              <p className="text-sm leading-relaxed text-slate-600">
-                {t('onboarding.subtitle')}
-              </p>
-              <div className="mt-4 text-left max-w-sm mx-auto">
-                <CompactLanguagePicker variant="compact" id="onboarding-language" />
-              </div>
-            </div>
+      <div style={{ background: "var(--bg)", width: "100%", minHeight: "100vh", display: "flex", justifyContent: "center" }}>
+        <div style={{ width: "100%", maxWidth: 390, background: "var(--bg)", color: "var(--text-main)", fontFamily: "Inter,sans-serif", display: "flex", flexDirection: "column", overflowY: "auto", overflowX: "hidden", minHeight: "100vh" }}>
 
-            {/* Progress Bar */}
-            <div className="px-6 pt-6 pb-5">
-              <div className="flex items-center justify-between mb-2.5">
-                <span className="text-xs font-medium text-slate-500 tabular-nums">
-                  {t('onboarding.stepOf').replace('{step}', String(step)).replace('{total}', String(totalSteps))}
-                </span>
-                <span className="text-xs font-medium text-slate-500 tabular-nums">
-                  {Math.round(progress)}%
-                </span>
-              </div>
-              <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                <div 
-                  className="h-full rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-emerald-400 via-sky-500 to-violet-500"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
+          {/* Header */}
+          <div style={{ padding: "52px 24px 0", position: "relative", display: "flex", justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
+            <div style={{ fontSize: 14, letterSpacing: "0.12em", fontWeight: 700, color: "var(--text-main)" }}>SHIFTCOACH</div>
+            {screen > 0 && screen < SCREEN_READY && (
+              <button type="button" onClick={back} style={{ position: "absolute", left: 24, background: "none", border: "none", color: "var(--text-muted)", fontSize: 11, cursor: "pointer", fontFamily: "Inter,sans-serif" }}>← Back</button>
+            )}
+          </div>
 
-            {/* Form Content */}
-            <div className="px-6 pb-6">
-              {step === 1 && (
-                <div className="space-y-5">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-800 mb-2">
-                      {t('onboarding.name')}
-                    </label>
-                    <input
-                      className="w-full rounded-xl px-4 py-3 bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/60 focus:border-emerald-400 transition-all text-sm"
-                      type="text"
-                      placeholder={t('onboarding.namePlaceholder')}
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                    />
+          {screen > 0 && (
+            <div style={{ padding: "16px 24px 0" }}>
+              <ProgressDots total={totalScreens} current={screen} />
+            </div>
+          )}
+
+          <div style={{ flex: 1, padding: "0 20px", display: "flex", flexDirection: "column" }}>
+
+            {/* ══ 0: Worker type ══════════════════════════════════ */}
+            {screen === 0 && (
+              <div style={{ flex: 1, paddingTop: 40 }}>
+                <div style={rv(0)}>
+                  <div style={{ ...LBL, marginBottom: 10 }}>WELCOME</div>
+                  <div style={{ fontSize: 32, fontWeight: 300, lineHeight: 1.1, marginBottom: 8 }}>How do<br />you work?</div>
+                  <div style={{ fontSize: 13, color: "var(--text-soft)", fontWeight: 300, marginBottom: 32 }}>This shapes everything ShiftCoach does for you.</div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {WORKER_TYPES.map((wt, i) => {
+                    const sel = workerType === wt.id
+                    return (
+                      <div key={wt.id}
+                        onClick={() => { setWorkerType(wt.id); setTimeout(next, 220) }}
+                        style={{ ...rv(0.04 + i * 0.06), background: sel ? "rgba(0,188,212,0.08)" : "var(--card-subtle)", border: "1px solid " + (sel ? "rgba(0,188,212,0.5)" : "var(--border-subtle)"), borderRadius: 12, padding: "15px 18px", display: "flex", alignItems: "center", gap: 16, cursor: "pointer", transition: "all 0.2s ease" }}>
+                        <div style={{ width: 42, height: 42, borderRadius: 12, background: "var(--card)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{wt.icon}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{wt.title}</div>
+                          <div style={{ fontSize: 11, color: "var(--text-soft)", fontWeight: 300 }}>{wt.desc}</div>
+                        </div>
+                        {sel && (
+                          <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#00BCD4", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                            <span style={{ fontSize: 10, color: "#000", fontWeight: 700 }}>✓</span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ══ 1a: Pattern builder ═════════════════════════════ */}
+            {screen === 1 && !isVar && (
+              <div style={{ flex: 1, paddingTop: 28 }}>
+                <div style={rv(0)}>
+                  <div style={{ ...LBL, marginBottom: 10 }}>YOUR ROTATION</div>
+                  <div style={{ fontSize: 28, fontWeight: 300, lineHeight: 1.1, marginBottom: 6 }}>Build your pattern</div>
+                  <div style={{ fontSize: 13, color: "var(--text-soft)", fontWeight: 300, marginBottom: 20 }}>Tap each block to set the shift type</div>
+                </div>
+
+                <div style={{ marginBottom: 18, ...rv(0.06) }}>
+                  <div style={{ ...LBL, marginBottom: 10 }}>CYCLE LENGTH (DAYS)</div>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                    {[4, 7, 8, 9, 12, 14].map((l) => (
+                      <button key={l} type="button" onClick={() => resizeCycle(l)} style={{ flex: 1, padding: "8px 0", borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease", background: cycleLen === l ? "#00BCD4" : "var(--card-subtle)", color: cycleLen === l ? "#000" : "var(--text-soft)", border: "1px solid " + (cycleLen === l ? "#00BCD4" : "var(--border-subtle)") }}>
+                        {l}
+                      </button>
+                    ))}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-800 mb-2.5">
-                      {t('onboarding.gender')}
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(['male', 'female', 'other'] as const).map((option) => (
-                        <button
-                          key={option}
-                          type="button"
-                          onClick={() => setSex(option)}
-                          className={`py-3 px-4 rounded-2xl border font-medium text-sm transition-all ${
-                            sex === option
-                              ? 'border-emerald-400 bg-emerald-50 text-slate-900'
-                              : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          {option === 'male' ? t('onboarding.male') : option === 'female' ? t('onboarding.female') : t('onboarding.other')}
-                        </button>
-                      ))}
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <input
+                      type="number" min={2} max={28} placeholder="Custom…"
+                      value={customLen}
+                      onChange={(e) => setCustomLen(e.target.value)}
+                      onBlur={() => { const v = parseInt(customLen); if (v >= 2 && v <= 28) resizeCycle(v) }}
+                      style={{ flex: 1, background: "var(--card-subtle)", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: "8px 12px", color: "var(--text-main)", fontSize: 12, fontFamily: "Inter,sans-serif", outline: "none" }}
+                    />
+                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>2–28 days</span>
+                  </div>
+                </div>
+
+                <div style={{ ...rv(0.1), marginBottom: 8 }}>
+                  {Array.from({ length: Math.ceil(cycleLen / bRow) }).map((_, row) => (
+                    <div key={row} style={{ display: "flex", gap: 5, marginBottom: 5 }}>
+                      {rotation.slice(row * bRow, (row + 1) * bRow).map((type, col) => {
+                        const idx = row * bRow + col
+                        return <Block key={idx} type={type} index={idx} size={bSize} onTap={tapBlock} />
+                      })}
                     </div>
+                  ))}
+                </div>
+
+                {maxConsec >= 5 && (
+                  <div style={{ background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 12, padding: "10px 14px", marginBottom: 12, ...rv(0.12) }}>
+                    <div style={{ fontSize: 11, color: "#F59E0B", fontWeight: 600, marginBottom: 2 }}>{maxConsec} consecutive shifts detected</div>
+                    <div style={{ fontSize: 11, color: "var(--text-soft)", lineHeight: 1.5 }}>Cumulative fatigue tracking will be enabled. By day {Math.max(5, maxConsec - 1)} your risk is compounded regardless of shift type.</div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-800 mb-2">
-                      {t('onboarding.dateOfBirth')} <span className="text-slate-400 font-normal">{t('onboarding.optional')}</span>
-                    </label>
-                    <input
-                      className={`w-full rounded-xl px-4 py-3 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm ${
-                        fieldErrors.dateOfBirth 
-                          ? 'border-red-300 focus:ring-red-400/60 focus:border-red-300' 
-                          : 'border-slate-200 focus:ring-emerald-400/60 focus:border-emerald-400'
-                      }`}
-                      type="date"
-                      value={dateOfBirth}
-                      onChange={(e) => {
-                        setDateOfBirth(e.target.value)
-                        setFieldErrors(prev => ({ ...prev, dateOfBirth: '' }))
-                        // Auto-calculate age if DOB provided
-                        if (e.target.value) {
-                          const dob = new Date(e.target.value)
-                          const today = new Date()
-                          let calculatedAge = today.getFullYear() - dob.getFullYear()
-                          const monthDiff = today.getMonth() - dob.getMonth()
-                          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
-                            calculatedAge--
-                          }
-                          if (calculatedAge >= 13 && calculatedAge <= 120) {
-                            setAge(calculatedAge)
-                          }
-                        }
-                      }}
-                      max={new Date(new Date().setFullYear(new Date().getFullYear() - 13)).toISOString().split('T')[0]}
-                      min={new Date(new Date().setFullYear(new Date().getFullYear() - 120)).toISOString().split('T')[0]}
-                    />
-                    {fieldErrors.dateOfBirth && (
-                      <p className="text-xs text-red-600 mt-1.5">{fieldErrors.dateOfBirth}</p>
-                    )}
-                    {!fieldErrors.dateOfBirth && (
-                      <p className="text-xs text-slate-500 mt-1.5">{t('onboarding.dobHint')}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-800 mb-2">
-                      {t('onboarding.age')} <span className="text-slate-400 font-normal">{t('onboarding.optional')}</span>
-                    </label>
-                    <input
-                      className={`w-full rounded-xl px-4 py-3 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
-                        fieldErrors.age 
-                          ? 'border-red-300 focus:ring-red-400/60 focus:border-red-300' 
-                          : 'border-slate-200 focus:ring-emerald-400/60 focus:border-emerald-400'
-                      }`}
-                      type="number"
-                      value={age}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        setFieldErrors(prev => ({ ...prev, age: '' }))
-                        if (value === '') {
-                          setAge('')
-                        } else {
-                          const num = parseInt(value, 10)
-                          if (!isNaN(num)) {
-                            if (num >= 13 && num <= 120) {
-                              setAge(num)
-                            } else if (num < 13) {
-                              setFieldErrors(prev => ({ ...prev, age: t('onboarding.validation.ageMin') }))
+                )}
+
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 24, ...rv(0.14) }}>
+                  {(["off", "day", "night"] as ShiftType[]).map((t) => (
+                    <div key={t} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: 3, background: SS[t].bg, border: "1px solid " + SS[t].border }} />
+                      <span style={{ fontSize: 9, color: "var(--text-muted)" }}>{SS[t].label}</span>
+                    </div>
+                  ))}
+                </div>
+                <PBtn onClick={next} disabled={rotation.every((r) => r === "off")}>Continue</PBtn>
+              </div>
+            )}
+
+            {/* ══ 1b: Variable shift types ════════════════════════ */}
+            {screen === 1 && isVar && (
+              <div style={{ flex: 1, paddingTop: 28 }}>
+                <div style={rv(0)}>
+                  <div style={{ ...LBL, marginBottom: 10 }}>SHIFT TYPES</div>
+                  <div style={{ fontSize: 28, fontWeight: 300, lineHeight: 1.1, marginBottom: 6 }}>What shifts do<br />you typically work?</div>
+                  <div style={{ fontSize: 13, color: "var(--text-soft)", fontWeight: 300, marginBottom: 28 }}>Select all that apply</div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28, ...rv(0.06) }}>
+                  {([
+                    { key: "morning" as const, label: "Morning Shifts", icon: "🌅", desc: "Early starts, finish early afternoon", ac: "#00BCD4", abg: "rgba(0,188,212,0.1)", abdr: "rgba(0,188,212,0.4)" },
+                    { key: "afternoon" as const, label: "Afternoon Shifts", icon: "☀", desc: "Mid-day start, finish evening", ac: "#F59E0B", abg: "rgba(245,158,11,0.1)", abdr: "rgba(245,158,11,0.4)" },
+                    { key: "night" as const, label: "Night Shifts", icon: "◑", desc: "Evening start, finish early morning", ac: "#EF4444", abg: "rgba(239,68,68,0.1)", abdr: "rgba(239,68,68,0.4)" },
+                  ]).map(({ key, label, icon, desc, ac, abg, abdr }) => {
+                    const on = varT[key]
+                    return (
+                      <div key={key} onClick={() => setVarT((p) => ({ ...p, [key]: !p[key] }))}
+                        style={{ background: on ? abg : "var(--card-subtle)", border: "1px solid " + (on ? abdr : "var(--border-subtle)"), borderRadius: 12, padding: "15px 18px", display: "flex", alignItems: "center", gap: 16, cursor: "pointer", transition: "all 0.2s ease" }}>
+                        <div style={{ fontSize: 22, width: 34, textAlign: "center", color: on ? ac : "var(--text-muted)" }}>{icon}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2, color: on ? ac : "var(--text-main)" }}>{label}</div>
+                          <div style={{ fontSize: 11, color: "var(--text-soft)", fontWeight: 300 }}>{desc}</div>
+                        </div>
+                        {on && (
+                          <div style={{ width: 20, height: 20, borderRadius: "50%", background: ac, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                            <span style={{ fontSize: 10, color: "var(--text-main)", fontWeight: 700 }}>✓</span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+                <PBtn onClick={next} disabled={Object.values(varT).every((v) => !v)}>Continue</PBtn>
+              </div>
+            )}
+
+            {/* ══ 2: Shift times ══════════════════════════════════ */}
+            {screen === 2 && (
+              <div style={{ flex: 1, paddingTop: 28 }}>
+                <div style={rv(0)}>
+                  <div style={{ ...LBL, marginBottom: 10 }}>YOUR HOURS</div>
+                  <div style={{ fontSize: 28, fontWeight: 300, lineHeight: 1.1, marginBottom: 6 }}>Set your shift times</div>
+                  <div style={{ fontSize: 13, color: "var(--text-soft)", fontWeight: 300, marginBottom: 24 }}>Tap the arrows to adjust</div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 22, marginBottom: 28 }}>
+                  {(isVar
+                    ? (["morning", "afternoon", "night"] as const).filter((t) => usedTypes.includes(t))
+                    : (["day", "night"] as const).filter((t) => usedTypes.includes(t))
+                  ).map((type, i) => {
+                    const isVariable = type === "morning" || type === "afternoon"
+                    const s = isVariable ? VAR_SS[type] : SS[type]
+                    const t = isVariable ? varTimes[type] : times[type as keyof ShiftTimes]
+                    return (
+                      <div key={type} style={rv(0.05 + i * 0.06)}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: "50%", background: s.color }} />
+                          <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "1px", color: s.color }}>{s.label}</div>
+                          <div style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: "auto" }}>{shiftDur(t.start, t.end)}h</div>
+                        </div>
+                        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                          <TimePicker value={t.start} onChange={(v) => {
+                            if (isVariable) {
+                              updVarTime(type, "start", v)
                             } else {
-                              setFieldErrors(prev => ({ ...prev, age: t('onboarding.validation.ageMax') }))
+                              updTime(type as keyof ShiftTimes, "start", v)
                             }
-                          }
-                        }
-                      }}
-                      placeholder={t('onboarding.agePlaceholder')}
-                      min={13}
-                      max={120}
-                    />
-                    {fieldErrors.age && (
-                      <p className="text-xs text-red-600 mt-1.5">{fieldErrors.age}</p>
-                    )}
-                    {!fieldErrors.age && (
-                      <p className="text-xs text-slate-500 mt-1.5">{t('onboarding.ageRange')}</p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {step === 2 && (
-                <div className="space-y-5">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-800 mb-2.5">
-                      {t('onboarding.units')}
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(['metric', 'imperial'] as const).map((unit) => (
-                        <button
-                          key={unit}
-                          type="button"
-                          onClick={() => setUnits(unit)}
-                          className={`py-3 px-4 rounded-2xl border font-medium text-sm transition-all ${
-                            units === unit
-                              ? 'border-emerald-400 bg-emerald-50 text-slate-900'
-                              : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          {unit === 'metric' ? t('onboarding.metric') : t('onboarding.imperial')}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {units === 'metric' ? (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-800 mb-2">
-                          {t('onboarding.heightCm')}
-                        </label>
-                        <input
-                          className={`w-full rounded-xl px-4 py-3 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
-                            fieldErrors.height_cm 
-                              ? 'border-red-300 focus:ring-red-400/60 focus:border-red-300' 
-                              : 'border-slate-200 focus:ring-emerald-400/60 focus:border-emerald-400'
-                          }`}
-                          type="number"
-                          placeholder={t('onboarding.heightCmPlaceholder')}
-                          value={height_cm}
-                          onChange={(e) => {
-                            setFieldErrors(prev => ({ ...prev, height_cm: '' }))
-                            const value = e.target.value
-                            if (value === '') {
-                              setHeight_cm('')
-                              return
+                          }} label="Starts" />
+                          <div style={{ color: "var(--text-muted)", fontSize: 18, paddingTop: 22 }}>→</div>
+                          <TimePicker value={t.end} onChange={(v) => {
+                            if (isVariable) {
+                              updVarTime(type, "end", v)
+                            } else {
+                              updTime(type as keyof ShiftTimes, "end", v)
                             }
-                            const num = parseInt(value, 10)
-                            if (isNaN(num)) {
-                              setHeight_cm('')
-                              return
-                            }
-                            setHeight_cm(num)
-                            if (num < 100 || num > 250) {
-                              setFieldErrors(prev => ({ ...prev, height_cm: t('onboarding.validation.heightCm') }))
-                            }
-                          }}
-                          min={100}
-                          max={250}
-                          step={1}
-                        />
-                        {fieldErrors.height_cm && (
-                          <p className="text-xs text-red-600 mt-1.5">{fieldErrors.height_cm}</p>
-                        )}
-                        {!fieldErrors.height_cm && (
-                          <p className="text-xs text-slate-500 mt-1.5">{t('onboarding.validation.heightCmHint')}</p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-slate-900 mb-2">
-                          {t('onboarding.weight')}
-                        </label>
-                        {/* Weight Unit Selector */}
-                        <div className="flex gap-2 mb-3">
-                          {(['kg', 'lb', 'st+lb'] as const).map((unit) => (
-                            <button
-                              key={unit}
-                              type="button"
-                              onClick={() => {
-                                setWeightUnit(unit)
-                                setFieldErrors(prev => ({ ...prev, weight: '' }))
-                                if (unit === 'kg') {
-                                  setWeightLb('')
-                                  setStoneInput('')
-                                  setPoundsInput('')
-                                  setKgInputValue(weight_kg === '' ? '' : String(weight_kg))
-                                } else if (unit === 'lb') {
-                                  setStoneInput('')
-                                  setPoundsInput('')
-                                } else {
-                                  setWeightLb('')
-                                }
-                              }}
-                              className={`flex-1 py-2 px-3 text-sm font-medium rounded-2xl border transition-all ${
-                                weightUnit === unit
-                                  ? 'border-emerald-400 bg-emerald-50 text-slate-900'
-                                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                              }`}
-                            >
-                              {unit === 'st+lb' ? 'st+lb' : unit.toUpperCase()}
-                            </button>
-                          ))}
+                          }} label="Ends" />
                         </div>
-                        
-                        {/* Weight Input Fields */}
-                        {weightUnit === 'st+lb' ? (
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-xs text-slate-600 mb-1">{t('onboarding.stone')}</label>
-                              <input
-                                className={`w-full rounded-xl px-3 py-2.5 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
-                                  fieldErrors.weight 
-                                    ? 'border-red-300 focus:ring-red-400/60 focus:border-red-300' 
-                                    : 'border-slate-200 focus:ring-emerald-400/60 focus:border-emerald-400'
-                                }`}
-                                type="number"
-                                placeholder="10"
-                                value={stoneInput}
-                                min={0}
-                                max={30}
-                                onChange={(e) => {
-                                  setFieldErrors(prev => ({ ...prev, weight: '' }))
-                                  const stone = e.target.value ? parseInt(e.target.value) : ''
-                                  setStoneInput(stone)
-                                  if (stone !== '' && poundsInput !== '') {
-                                    const totalPounds = (Number(stone) * 14) + Number(poundsInput)
-                                    const kg = lbToKg(totalPounds)
-                                    if (kg >= 30 && kg <= 300) {
-                                      setWeight_kg(kg)
-                                    } else {
-                                      setFieldErrors(prev => ({ ...prev, weight: t('onboarding.validation.weightKg') }))
-                                    }
-                                  } else if (stone === '' || poundsInput === '') {
-                                    setWeight_kg('')
-                                  }
-                                }}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-slate-600 mb-1">{t('onboarding.pounds')}</label>
-                              <input
-                                className={`w-full rounded-xl px-3 py-2.5 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
-                                  fieldErrors.weight 
-                                    ? 'border-red-300 focus:ring-red-400/60 focus:border-red-300' 
-                                    : 'border-slate-200 focus:ring-emerald-400/60 focus:border-emerald-400'
-                                }`}
-                                type="number"
-                                placeholder="5"
-                                value={poundsInput}
-                                min={0}
-                                max={13}
-                                onChange={(e) => {
-                                  setFieldErrors(prev => ({ ...prev, weight: '' }))
-                                  const pounds = e.target.value ? parseInt(e.target.value) : ''
-                                  setPoundsInput(pounds)
-                                  if (stoneInput !== '' && pounds !== '') {
-                                    const totalPounds = (Number(stoneInput) * 14) + Number(pounds)
-                                    const kg = lbToKg(totalPounds)
-                                    if (kg >= 30 && kg <= 300) {
-                                      setWeight_kg(kg)
-                                    } else {
-                                      setFieldErrors(prev => ({ ...prev, weight: t('onboarding.validation.weightKg') }))
-                                    }
-                                  } else if (stoneInput === '' || pounds === '') {
-                                    setWeight_kg('')
-                                  }
-                                }}
-                              />
-                            </div>
-                          </div>
-                        ) : weightUnit === 'lb' ? (
-                          <>
-                            <input
-                              className={`w-full rounded-xl px-4 py-3 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
-                                fieldErrors.weight 
-                                  ? 'border-red-300 focus:ring-red-400/60 focus:border-red-300' 
-                                  : 'border-slate-200 focus:ring-emerald-400/60 focus:border-emerald-400'
-                              }`}
-                              type="number"
-                              placeholder="154"
-                              value={weightLb}
-                              min={66}
-                              max={660}
-                              step={0.1}
-                              onChange={(e) => {
-                                setFieldErrors(prev => ({ ...prev, weight: '' }))
-                                const lb = e.target.value ? parseFloat(e.target.value) : ''
-                                setWeightLb(lb)
-                                if (lb !== '') {
-                                  const kg = lbToKg(lb)
-                                  if (kg >= 30 && kg <= 300) {
-                                    setWeight_kg(kg)
-                                  } else {
-                                    setFieldErrors(prev => ({ ...prev, weight: t('onboarding.validation.weightLb') }))
-                                  }
-                                } else {
-                                  setWeight_kg('')
-                                }
-                              }}
-                            />
-                          </>
-                        ) : (
-                          <>
-                            <input
-                              key={`kg-input-${weightUnit}`}
-                              className={`w-full rounded-xl px-4 py-3 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
-                                fieldErrors.weight 
-                                  ? 'border-red-300 focus:ring-red-400/60 focus:border-red-300' 
-                                  : 'border-slate-200 focus:ring-emerald-400/60 focus:border-emerald-400'
-                              }`}
-                              type="number"
-                              placeholder="70"
-                              value={kgInputValue}
-                              min={30}
-                              max={300}
-                              step={0.1}
-                              autoComplete="off"
-                              onChange={(e) => {
-                                const value = e.target.value
-                                // Always update the input value immediately
-                                setKgInputValue(value)
-                                setFieldErrors(prev => ({ ...prev, weight: '' }))
-                                
-                                if (value === '' || value === '.') {
-                                  setWeight_kg('')
-                                  return
-                                }
-                                
-                                // Parse and update weight_kg for validation
-                                const kg = parseFloat(value)
-                                if (!isNaN(kg) && isFinite(kg)) {
-                                  setWeight_kg(kg)
-                                  if (kg < 30 || kg > 300) {
-                                    setFieldErrors(prev => ({ ...prev, weight: t('onboarding.validation.weightKg') }))
-                                  }
-                                }
-                              }}
-                              onBlur={(e) => {
-                                // Validate on blur
-                                const value = e.target.value
-                                const kg = parseFloat(value)
-                                if (!isNaN(kg) && (kg < 30 || kg > 300)) {
-                                  setFieldErrors(prev => ({ ...prev, weight: t('onboarding.validation.weightKg') }))
-                                }
-                              }}
-                            />
-                          </>
-                        )}
-                        {fieldErrors.weight && (
-                          <p className="text-xs text-red-600 mt-1.5">{fieldErrors.weight}</p>
-                        )}
                       </div>
-                    </>
-                  ) : (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-800 mb-2">
-                          {t('onboarding.height')}
-                        </label>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs text-slate-600 mb-1">{t('onboarding.feet')}</label>
-                            <input
-                              className={`w-full rounded-xl px-4 py-3 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
-                                fieldErrors.height 
-                                  ? 'border-red-300 focus:ring-red-400/60 focus:border-red-300' 
-                                  : 'border-slate-200 focus:ring-emerald-400/60 focus:border-emerald-400'
-                              }`}
-                              type="number"
-                              placeholder="5"
-                              value={heightFt}
-                              min={3}
-                              max={8}
-                              onChange={(e) => {
-                                setFieldErrors(prev => ({ ...prev, height: '' }))
-                                const ft = e.target.value ? parseInt(e.target.value) : ''
-                                setHeightFt(ft)
-                                if (ft !== '' && heightIn !== '') {
-                                  const totalInches = Number(ft) * 12 + Number(heightIn)
-                                  if (totalInches >= 39 && totalInches <= 98) {
-                                    setHeight_cm(feetInchesToCm(Number(ft), Number(heightIn)))
-                                  } else {
-                                    setFieldErrors(prev => ({ ...prev, height: t('onboarding.validation.heightRange') }))
-                                  }
-                                }
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-slate-600 mb-1">{t('onboarding.inches')}</label>
-                            <input
-                              className={`w-full rounded-xl px-4 py-3 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
-                                fieldErrors.height 
-                                  ? 'border-red-300 focus:ring-red-400/60 focus:border-red-300' 
-                                  : 'border-slate-200 focus:ring-emerald-400/60 focus:border-emerald-400'
-                              }`}
-                              type="number"
-                              placeholder="10"
-                              value={heightIn}
-                              min={0}
-                              max={11}
-                              onChange={(e) => {
-                                setFieldErrors(prev => ({ ...prev, height: '' }))
-                                const inches = e.target.value ? parseInt(e.target.value) : ''
-                                setHeightIn(inches)
-                                if (heightFt !== '' && inches !== '') {
-                                  const totalInches = Number(heightFt) * 12 + Number(inches)
-                                  if (totalInches >= 39 && totalInches <= 98) {
-                                    setHeight_cm(feetInchesToCm(Number(heightFt), Number(inches)))
-                                  } else {
-                                    setFieldErrors(prev => ({ ...prev, height: t('onboarding.validation.heightRange') }))
-                                  }
-                                }
-                              }}
-                            />
-                          </div>
-                        </div>
-                        {fieldErrors.height && (
-                          <p className="text-xs text-red-600 mt-1.5">{fieldErrors.height}</p>
-                        )}
-                        {!fieldErrors.height && (
-                          <p className="text-xs text-slate-500 mt-1.5">{t('onboarding.validation.heightHint')}</p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-slate-900 mb-2">
-                          {t('onboarding.weight')}
-                        </label>
-                        {/* Weight Unit Selector */}
-                        <div className="flex gap-2 mb-3">
-                          {(['kg', 'lb', 'st+lb'] as const).map((unit) => (
-                            <button
-                              key={unit}
-                              type="button"
-                              onClick={() => {
-                                setWeightUnit(unit)
-                                setFieldErrors(prev => ({ ...prev, weight: '' }))
-                                if (unit === 'kg') {
-                                  setWeightLb('')
-                                  setStoneInput('')
-                                  setPoundsInput('')
-                                  setKgInputValue(weight_kg === '' ? '' : String(weight_kg))
-                                } else if (unit === 'lb') {
-                                  setStoneInput('')
-                                  setPoundsInput('')
-                                } else {
-                                  setWeightLb('')
-                                }
-                              }}
-                              className={`flex-1 py-2 px-3 text-sm font-medium rounded-2xl border transition-all ${
-                                weightUnit === unit
-                                  ? 'border-emerald-400 bg-emerald-50 text-slate-900'
-                                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                              }`}
-                            >
-                              {unit === 'st+lb' ? 'st+lb' : unit.toUpperCase()}
-                            </button>
-                          ))}
-                        </div>
-                        
-                        {/* Weight Input Fields */}
-                        {weightUnit === 'st+lb' ? (
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-xs text-slate-600 mb-1">{t('onboarding.stone')}</label>
-                              <input
-                                className={`w-full rounded-xl px-3 py-2.5 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
-                                  fieldErrors.weight 
-                                    ? 'border-red-300 focus:ring-red-400/60 focus:border-red-300' 
-                                    : 'border-slate-200 focus:ring-emerald-400/60 focus:border-emerald-400'
-                                }`}
-                                type="number"
-                                placeholder="10"
-                                value={stoneInput}
-                                min={0}
-                                max={30}
-                                onChange={(e) => {
-                                  setFieldErrors(prev => ({ ...prev, weight: '' }))
-                                  const stone = e.target.value ? parseInt(e.target.value) : ''
-                                  setStoneInput(stone)
-                                  if (stone !== '' && poundsInput !== '') {
-                                    const totalPounds = (Number(stone) * 14) + Number(poundsInput)
-                                    const kg = lbToKg(totalPounds)
-                                    if (kg >= 30 && kg <= 300) {
-                                      setWeight_kg(kg)
-                                    } else {
-                                      setFieldErrors(prev => ({ ...prev, weight: t('onboarding.validation.weightKg') }))
-                                    }
-                                  } else if (stone === '' || poundsInput === '') {
-                                    setWeight_kg('')
-                                  }
-                                }}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-slate-600 mb-1">{t('onboarding.pounds')}</label>
-                              <input
-                                className={`w-full rounded-xl px-3 py-2.5 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
-                                  fieldErrors.weight 
-                                    ? 'border-red-300 focus:ring-red-400/60 focus:border-red-300' 
-                                    : 'border-slate-200 focus:ring-emerald-400/60 focus:border-emerald-400'
-                                }`}
-                                type="number"
-                                placeholder="5"
-                                value={poundsInput}
-                                min={0}
-                                max={13}
-                                onChange={(e) => {
-                                  setFieldErrors(prev => ({ ...prev, weight: '' }))
-                                  const pounds = e.target.value ? parseInt(e.target.value) : ''
-                                  setPoundsInput(pounds)
-                                  if (stoneInput !== '' && pounds !== '') {
-                                    const totalPounds = (Number(stoneInput) * 14) + Number(pounds)
-                                    const kg = lbToKg(totalPounds)
-                                    if (kg >= 30 && kg <= 300) {
-                                      setWeight_kg(kg)
-                                    } else {
-                                      setFieldErrors(prev => ({ ...prev, weight: t('onboarding.validation.weightKg') }))
-                                    }
-                                  } else if (stoneInput === '' || pounds === '') {
-                                    setWeight_kg('')
-                                  }
-                                }}
-                              />
-                            </div>
-                          </div>
-                        ) : weightUnit === 'lb' ? (
-                          <>
-                            <input
-                              className={`w-full rounded-xl px-4 py-3 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
-                                fieldErrors.weight 
-                                  ? 'border-red-300 focus:ring-red-400/60 focus:border-red-300' 
-                                  : 'border-slate-200 focus:ring-emerald-400/60 focus:border-emerald-400'
-                              }`}
-                              type="number"
-                              placeholder="154"
-                              value={weightLb}
-                              min={66}
-                              max={660}
-                              step={0.1}
-                              onChange={(e) => {
-                                setFieldErrors(prev => ({ ...prev, weight: '' }))
-                                const lb = e.target.value ? parseFloat(e.target.value) : ''
-                                setWeightLb(lb)
-                                if (lb !== '') {
-                                  const kg = lbToKg(lb)
-                                  if (kg >= 30 && kg <= 300) {
-                                    setWeight_kg(kg)
-                                  } else {
-                                    setFieldErrors(prev => ({ ...prev, weight: t('onboarding.validation.weightLb') }))
-                                  }
-                                } else {
-                                  setWeight_kg('')
-                                }
-                              }}
-                            />
-                          </>
-                        ) : (
-                          <>
-                            <input
-                              className={`w-full rounded-xl px-4 py-3 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
-                                fieldErrors.weight 
-                                  ? 'border-red-300 focus:ring-red-400/60 focus:border-red-300' 
-                                  : 'border-slate-200 focus:ring-emerald-400/60 focus:border-emerald-400'
-                              }`}
-                              type="number"
-                              placeholder="70"
-                              value={weight_kg}
-                              min={30}
-                              max={300}
-                              step={0.1}
-                              onChange={(e) => {
-                                setFieldErrors(prev => ({ ...prev, weight: '' }))
-                                const value = e.target.value
-                                if (value === '') {
-                                  setWeight_kg('')
-                                } else {
-                                  const kg = parseFloat(value)
-                                  if (!isNaN(kg)) {
-                                    if (kg >= 30 && kg <= 300) {
-                                      setWeight_kg(kg)
-                                    } else {
-                                      setFieldErrors(prev => ({ ...prev, weight: t('onboarding.validation.weightKg') }))
-                                    }
-                                  }
-                                }
-                              }}
-                            />
-                          </>
-                        )}
-                        {fieldErrors.weight && (
-                          <p className="text-xs text-red-600 mt-1.5">{fieldErrors.weight}</p>
-                        )}
-                      </div>
-                    </>
-                  )}
+                    )
+                  })}
                 </div>
-              )}
-
-              {step === 3 && (
-                <div className="space-y-5">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-800 mb-2.5">
-                      {t('onboarding.goal')}
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(['lose', 'maintain', 'gain'] as const).map((option) => (
-                        <button
-                          key={option}
-                          type="button"
-                          onClick={() => setGoal(option)}
-                          className={`py-3 px-4 rounded-2xl border font-medium text-sm transition-all ${
-                            goal === option
-                              ? 'border-emerald-400 bg-emerald-50 text-slate-900'
-                              : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          {option === 'lose' ? t('onboarding.lose') : option === 'maintain' ? t('onboarding.maintain') : t('onboarding.gain')}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-800 mb-2">
-                      {t('onboarding.sleepGoal')}
-                    </label>
-                    <input
-                      className={`w-full rounded-xl px-4 py-3 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
-                        fieldErrors.sleep_goal_h 
-                          ? 'border-red-300 focus:ring-red-400/60 focus:border-red-300' 
-                          : 'border-slate-200 focus:ring-emerald-400/60 focus:border-emerald-400'
-                      }`}
-                      type="number"
-                      step="0.5"
-                      min="4"
-                      max="12"
-                      value={sleep_goal_h}
-                      onChange={(e) => {
-                        setFieldErrors(prev => ({ ...prev, sleep_goal_h: '' }))
-                        const value = parseFloat(e.target.value)
-                        if (!isNaN(value)) {
-                          if (value >= 4 && value <= 12) {
-                            setSleep_goal_h(value)
-                          } else {
-                            setFieldErrors(prev => ({ ...prev, sleep_goal_h: t('onboarding.validation.sleepRange') }))
-                          }
-                        }
-                      }}
-                    />
-                    {fieldErrors.sleep_goal_h && (
-                      <p className="text-xs text-red-600 mt-1.5">{fieldErrors.sleep_goal_h}</p>
-                    )}
-                    {!fieldErrors.sleep_goal_h && (
-                      <p className="text-xs text-slate-500 mt-1.5">{t('onboarding.sleepHint')}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-800 mb-2">
-                      {t('onboarding.waterGoal')}
-                    </label>
-                    <input
-                      className={`w-full rounded-xl px-4 py-3 bg-white border text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all text-sm tabular-nums ${
-                        fieldErrors.water_goal_ml 
-                          ? 'border-red-300 focus:ring-red-400/60 focus:border-red-300' 
-                          : 'border-slate-200 focus:ring-emerald-400/60 focus:border-emerald-400'
-                      }`}
-                      type="number"
-                      step="0.1"
-                      min="1"
-                      max="5"
-                      value={(water_goal_ml / 1000).toFixed(1)}
-                      onChange={(e) => {
-                        setFieldErrors(prev => ({ ...prev, water_goal_ml: '' }))
-                        const value = e.target.value
-                        if (value === '') {
-                          setWater_goal_ml(0)
-                          return
-                        }
-                        const litres = parseFloat(value)
-                        if (!isNaN(litres)) {
-                          const ml = litres * 1000
-                          if (ml >= 1000 && ml <= 5000) {
-                            setWater_goal_ml(ml)
-                          } else {
-                            setWater_goal_ml(ml)
-                            setFieldErrors(prev => ({ ...prev, water_goal_ml: t('onboarding.validation.waterRange') }))
-                          }
-                        }
-                      }}
-                    />
-                    {fieldErrors.water_goal_ml && (
-                      <p className="text-xs text-red-600 mt-1.5">{fieldErrors.water_goal_ml}</p>
-                    )}
-                    {!fieldErrors.water_goal_ml && (
-                      <p className="text-xs text-slate-500 mt-1.5">
-                        {t('onboarding.waterHint')}
-                      </p>
-                    )}
-                  </div>
-                  {err && (
-                    <div className="p-4 rounded-2xl bg-red-50/70 dark:bg-red-950/30 border border-red-200/50 dark:border-red-800/40">
-                      <p className="text-sm text-red-700 dark:text-red-300 leading-relaxed">{err}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Navigation Buttons */}
-              <div className="flex items-center justify-between gap-3 mt-6 pt-6 border-t border-slate-200/50 dark:border-slate-700/40">
-                {step > 1 ? (
-                  <button
-                    onClick={() => setStep(step - 1)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-full border border-slate-200 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                    {t('onboarding.back')}
-                  </button>
-                ) : (
-                  <div />
-                )}
-                {step < totalSteps ? (
-                  <button
-                    onClick={handleNextStep}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-slate-900 text-white text-sm font-semibold shadow-[0_10px_26px_-14px_rgba(15,23,42,0.35)] hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all ml-auto"
-                  >
-                    {t('onboarding.continue')}
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                ) : (
-                  <button
-                    onClick={submit}
-                    disabled={busy}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-slate-900 text-white text-sm font-semibold shadow-[0_10px_26px_-14px_rgba(15,23,42,0.35)] hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
-                  >
-                    {busy ? t('onboarding.saving') : t('onboarding.complete')}
-                    {!busy && <ChevronRight className="w-4 h-4" />}
-                  </button>
-                )}
+                <PBtn onClick={next}>Continue</PBtn>
               </div>
-            </div>
+            )}
+
+            {/* ══ 3: Analysis ═════════════════════════════════════ */}
+            {screen === 3 && (
+              <div style={{ flex: 1, paddingTop: 28 }}>
+                <div style={rv(0)}>
+                  <div style={{ ...LBL, marginBottom: 10 }}>{isVar ? "READY TO LEARN" : "PATTERN DETECTED"}</div>
+                  <div style={{ fontSize: 28, fontWeight: 300, lineHeight: 1.1, marginBottom: 6 }}>{isVar ? "ShiftCoach adapts to you" : "We understand your rotation"}</div>
+                  <div style={{ fontSize: 13, color: "var(--text-soft)", fontWeight: 300, marginBottom: 22 }}>Here&apos;s what we found</div>
+                </div>
+                {!isVar && (
+                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 18, ...rv(0.06) }}>
+                    {rotation.map((type, i) => {
+                      const s = SS[type]
+                      return (
+                        <div key={i} style={{ width: 40, height: 48, borderRadius: 8, background: s.bg, border: "1.5px solid " + s.border, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                          <div style={{ fontSize: 6, color: "var(--text-muted)", marginBottom: 1 }}>D{i + 1}</div>
+                          <div style={{ fontSize: 10 }}>{s.icon}</div>
+                          <div style={{ fontSize: 6, color: s.color, marginTop: 1 }}>{type === "off" ? "—" : s.short}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28 }}>
+                  {!isVar && trans.map((t, i) => (
+                    <Insight key={i} color={RISK_COLOR[t.risk.level]} title={t.risk.label} body={t.risk.body} />
+                  ))}
+                  {!isVar && maxConsec >= 5 && (
+                    <Insight color="#F59E0B"
+                      title={maxConsec + " consecutive shifts"}
+                      body={"By days " + (maxConsec - 2) + "–" + maxConsec + " cumulative sleep debt compounds every shift. Your " + rotation.filter((r) => r === "off").length + " days off may not fully clear this debt."}
+                    />
+                  )}
+                  {!isVar && (
+                    <Insight color="#00BCD4"
+                      title={cycleLen + "-day rotation recognised"}
+                      body="ShiftCoach will project your pattern forward and alert you before high-risk windows." />
+                  )}
+                  {isVar && (
+                    <Insight color="#00BCD4"
+                      title="Learning from your first week"
+                      body="We'll build your personal profile as you log shifts. By week two risk predictions will be personalised to your biology." />
+                  )}
+                  {hasNights && (
+                    <Insight color="var(--text-muted)"
+                      title="Night shift trough around 03:00 body clock time"
+                      body="Your biological low point. We'll calculate your personal version as your sleep data builds." />
+                  )}
+                </div>
+                <PBtn onClick={next}>Looks right</PBtn>
+              </div>
+            )}
+
+            {/* ══ 4: Where today ══════════════════════════════════ */}
+            {screen === 4 && (
+              <div style={{ flex: 1, paddingTop: 28 }}>
+                <div style={rv(0)}>
+                  <div style={{ ...LBL, marginBottom: 10 }}>ANCHOR TODAY</div>
+                  <div style={{ fontSize: 28, fontWeight: 300, lineHeight: 1.1, marginBottom: 6 }}>Where are you in<br />your rotation today?</div>
+                  <div style={{ fontSize: 13, color: "var(--text-soft)", fontWeight: 300, marginBottom: 5 }}>
+                    Today is <span style={{ color: "var(--text-main)", fontWeight: 500 }}>{DAYS[new Date().getDay()]}</span>. Tap the block that matches today.
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 24 }}>
+                    This anchors your pattern to the calendar so ShiftCoach knows what&apos;s coming.
+                  </div>
+                </div>
+                {!isVar && (
+                  <div style={{ ...rv(0.06), paddingTop: 10 }}>
+                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 16 }}>
+                      {rotation.map((type, i) => (
+                        <Block key={i} type={type} index={i} size={bSize}
+                          onTap={(idx) => setTodayPos(idx)}
+                          isToday={todayPos === i}
+                        />
+                      ))}
+                    </div>
+                    {typeof todayPos === "number" && (
+                      <div style={{ background: "var(--card-subtle)", border: "1px solid " + SS[rotation[todayPos]].border, borderRadius: 14, padding: "14px 16px", marginBottom: 16 }}>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Today — Day {todayPos + 1} of {cycleLen}</div>
+                        <div style={{ fontSize: 18, fontWeight: 300, color: SS[rotation[todayPos]].color }}>
+                          {SS[rotation[todayPos]].label}{" "}
+                          {times[rotation[todayPos] as keyof ShiftTimes]?.start}–{times[rotation[todayPos] as keyof ShiftTimes]?.end}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {isVar && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20, ...rv(0.06) }}>
+                    {[
+                      ...usedTypes.map((type) => {
+                        const s = isVariableShiftType(type) ? VAR_SS[type] : SS[type]
+                        const t = isVariableShiftType(type) ? varTimes[type] : times[type as keyof ShiftTimes]
+                        return { key: type, icon: s.icon, label: s.label + " (" + t.start + "–" + t.end + ")", ac: s.color, abg: s.bg, abdr: s.border }
+                      }),
+                      { key: "off", icon: "—", label: "Day off", ac: "var(--text-muted)", abg: "var(--card-subtle)", abdr: "var(--border-subtle)" },
+                    ].map(({ key, icon, label, ac, abg, abdr }) => {
+                      const sel = todayPos === key
+                      return (
+                        <div key={key} onClick={() => setTodayPos(key)}
+                          style={{ background: sel ? abg : "var(--card-subtle)", border: "1.5px solid " + (sel ? abdr : "var(--border-subtle)"), borderRadius: 14, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14, cursor: "pointer", transition: "all 0.2s ease" }}>
+                          <div style={{ fontSize: 18, color: sel ? ac : "var(--text-muted)", width: 24, textAlign: "center" }}>{icon}</div>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: sel ? ac : "var(--text-main)", flex: 1 }}>{label}</div>
+                          {sel && (
+                            <div style={{ width: 20, height: 20, borderRadius: "50%", background: ac, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                              <span style={{ fontSize: 9, color: "var(--text-main)", fontWeight: 700 }}>✓</span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                <PBtn onClick={next} disabled={todayPos === null}>Continue</PBtn>
+              </div>
+            )}
+
+            {/* ══ 5: Weekend extension ════════════════════════════ */}
+            {screen === SCREEN_WKND && needsWknd && (
+              <div style={{ flex: 1, paddingTop: 28 }}>
+                <div style={rv(0)}>
+                  <div style={{ ...LBL, marginBottom: 10 }}>DAYS OFF</div>
+                  <div style={{ fontSize: 28, fontWeight: 300, lineHeight: 1.1, marginBottom: 6 }}>When your days off<br />land on a weekend...</div>
+                  <div style={{ fontSize: 13, color: "var(--text-soft)", fontWeight: 300, marginBottom: 28 }}>
+                    Your {cycleLen}-day cycle means your days off shift each rotation. Does your employer extend your time off when this happens?
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24, ...rv(0.06) }}>
+                  <OptionCard selected={wkndExt === "yes"} onClick={() => setWkndExt("yes")} title="Yes — I get the full weekend off" desc="ShiftCoach will extend your recovery period when weekends fall in your off window." />
+                  <OptionCard selected={wkndExt === "no"} onClick={() => setWkndExt("no")} title="No — I follow the fixed cycle" desc="Your pattern stays consistent. ShiftCoach tracks recovery based on your standard off days." />
+                  <OptionCard selected={wkndExt === "varies"} onClick={() => setWkndExt("varies")} title="It varies" desc="ShiftCoach will ask you to confirm your off period at the start of each rotation block." />
+                </div>
+                {wkndExt && (
+                  <div style={{ background: "rgba(0,188,212,0.06)", border: "1px solid rgba(0,188,212,0.15)", borderRadius: 14, padding: "14px 16px", marginBottom: 24 }}>
+                    <div style={{ fontSize: 12, color: "var(--text-soft)", lineHeight: 1.6, fontWeight: 300 }}>
+                      {wkndExt === "yes" && "Good. ShiftCoach will flag any residual debt going into your next block even with the extended break."}
+                      {wkndExt === "no" && "Understood. ShiftCoach will track whether your debt is fully clearing between blocks — for many people on this pattern, it doesn't."}
+                      {wkndExt === "varies" && "We'll prompt you at the start of each rotation so predictions stay accurate."}
+                    </div>
+                  </div>
+                )}
+                <PBtn onClick={next} disabled={!wkndExt}>Continue</PBtn>
+              </div>
+            )}
+
+            {/* ══ Post-night sleep ════════════════════════════════ */}
+            {screen === SCREEN_SLEEP && hasNights && (
+              <div style={{ flex: 1, paddingTop: 28 }}>
+                <div style={rv(0)}>
+                  <div style={{ ...LBL, marginBottom: 10 }}>SLEEP ANCHOR</div>
+                  <div style={{ fontSize: 28, fontWeight: 300, lineHeight: 1.1, marginBottom: 6 }}>After a night shift,<br />when do you sleep?</div>
+                  <div style={{ fontSize: 13, color: "var(--text-soft)", fontWeight: 300, marginBottom: 28 }}>Roughly — you can always adjust this later.</div>
+                </div>
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 14, ...rv(0.06) }}>
+                  <TimePicker value={postSleep} onChange={setPostSleep} label="Usually asleep by" caption={"after finishing at " + times.night.end} />
+                </div>
+                <div style={{ background: "var(--card-subtle)", border: "1px solid var(--border-subtle)", borderRadius: 12, padding: "12px 14px", marginBottom: 28, ...rv(0.1) }}>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.6 }}>We use this to calculate your sleep midpoint — the core of your circadian alignment score.</div>
+                </div>
+                <PBtn onClick={next}>Continue</PBtn>
+              </div>
+            )}
+
+            {/* ══ Ready ════════════════════════════════════════════ */}
+            {screen === SCREEN_READY && (
+              <div style={{ flex: 1, paddingTop: 28, display: "flex", flexDirection: "column" }}>
+                <div style={rv(0)}>
+                  <div style={{ ...LBL, color: "#00BCD4", marginBottom: 10 }}>ALL SET</div>
+                  <div style={{ fontSize: 34, fontWeight: 300, lineHeight: 1.1, marginBottom: 8 }}>ShiftCoach knows<br />your pattern</div>
+                  <div style={{ fontSize: 13, color: "var(--text-soft)", fontWeight: 300, marginBottom: 24, lineHeight: 1.6 }}>We&apos;ll get smarter every week as we learn how your body responds to your rotation.</div>
+                </div>
+                <div style={{ background: "var(--card-subtle)", border: "1px solid var(--border-subtle)", borderRadius: 16, padding: 18, marginBottom: 12, ...rv(0.06) }}>
+                  <div style={{ ...LBL, marginBottom: 14 }}>WHAT WE KNOW</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {([
+                      { label: "Worker type", value: WORKER_TYPES.find((w) => w.id === workerType)?.title },
+                      !isVar && { label: "Rotation", value: cycleLen + " days" },
+                      !isVar && maxConsec >= 5 && { label: "Consecutive shifts", value: maxConsec + " on, " + rotation.filter((r) => r === "off").length + " off", color: "#F59E0B" },
+                      ...usedTypes.map((t) => (
+                        isVariableShiftType(t)
+                          ? { label: VAR_SS[t].label, value: varTimes[t].start + " – " + varTimes[t].end, color: VAR_SS[t].color }
+                          : { label: SS[t].label, value: times[t as keyof ShiftTimes].start + " – " + times[t as keyof ShiftTimes].end, color: SS[t].color }
+                      )),
+                      hasNights && { label: "Post-night sleep", value: "~" + postSleep },
+                      !isVar && typeof todayPos === "number" && { label: "Today", value: "Day " + (todayPos + 1) + " of " + cycleLen + " — " + SS[rotation[todayPos as number]].label + " " + times[rotation[todayPos as number] as keyof ShiftTimes]?.start + "–" + times[rotation[todayPos as number] as keyof ShiftTimes]?.end },
+                      needsWknd && wkndExt && { label: "Weekend extension", value: wkndExt === "yes" ? "Yes — extended" : wkndExt === "no" ? "No — fixed" : "Varies" },
+                      worstTrans && { label: "Highest risk transition", value: worstTrans.risk.label, color: "#EF4444" },
+                    ] as any[]).filter(Boolean).map((item, i) => (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: 12, color: "var(--text-soft)" }}>{item.label}</span>
+                        <span style={{ fontSize: 12, fontWeight: 500, color: item.color || "var(--text-main)" }}>{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ background: "rgba(0,188,212,0.06)", border: "1px solid rgba(0,188,212,0.15)", borderRadius: 14, padding: "14px 16px", marginBottom: 28, ...rv(0.1) }}>
+                  <div style={{ fontSize: 12, color: "var(--text-soft)", lineHeight: 1.6, fontWeight: 300 }}>Your circadian and fatigue scores are calibrated to your pattern, not a generic 9–5 worker.</div>
+                </div>
+                {error && (
+                  <div style={{ color: "#EF4444", fontSize: 12, textAlign: "center", marginBottom: 16 }}>{error}</div>
+                )}
+                <div style={{ marginTop: "auto", paddingBottom: 32, ...rv(0.14) }}>
+                  <PBtn onClick={handleSubmit} disabled={saving}>
+                    {saving ? "Saving…" : "Start ShiftCoach →"}
+                  </PBtn>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       </div>
-    </main>
   )
 }

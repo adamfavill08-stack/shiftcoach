@@ -114,7 +114,7 @@ export function LastWorkBlockCard({ timeZone, authedFetch }: Props) {
     >
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 id="last-work-block-heading" className="text-xs font-medium tracking-wide text-[var(--text-muted)]">
-          Last work block
+          Sleep over last work block
         </h2>
         <p className="text-xs tabular-nums text-[var(--text-muted)]">{dateRange}</p>
       </div>

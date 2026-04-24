@@ -9,6 +9,8 @@ import { apiErrorMessageFromJson } from "@/lib/api/clientErrorMessage";
 import { authedFetch } from "@/lib/supabase/authedFetch";
 import { riskScaleBarMarkerFill } from "@/lib/riskScaleBarMarker";
 import { BodyClockMotivationCard } from "@/components/body-clock/BodyClockMotivationCard";
+import { supabase } from "@/lib/supabase";
+import { getCircadianData } from "@/lib/circadian/circadianCache";
 
 export default function ShiftLagInfoPage() {
   const { t } = useTranslation();
@@ -35,7 +37,28 @@ export default function ShiftLagInfoPage() {
         }
 
         if (typeof json.score === "number" && json.level) {
-          setData(json as ShiftLagMetrics);
+          const nextData: ShiftLagMetrics = {
+            ...(json as ShiftLagMetrics),
+            explanation: json.explanation ?? "",
+            sleepDebtScore: json.sleepDebtScore ?? 0,
+            misalignmentScore: json.misalignmentScore ?? 0,
+            instabilityScore: json.instabilityScore ?? 0,
+          };
+
+          // Match dashboard card: display Shift Lag score using Circadian alignment score.
+          const { data: auth } = await supabase.auth.getSession();
+          const accessToken = auth.session?.access_token;
+          if (accessToken) {
+            const circadian = await getCircadianData(accessToken);
+            if (circadian && typeof circadian.alignmentScore === "number") {
+              nextData.score = Math.max(
+                0,
+                Math.min(100, Math.round(circadian.alignmentScore))
+              );
+            }
+          }
+
+          setData(nextData);
         } else {
           setError("Shift Lag data not available");
         }

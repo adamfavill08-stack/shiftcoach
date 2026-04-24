@@ -46,7 +46,6 @@ type ShiftRhythmCache = {
 }
 
 const SHIFT_RHYTHM_CACHE_KEY = 'shiftRhythm:lastPayload'
-const SHIFT_RHYTHM_CACHE_MAX_AGE_MS = 10 * 60 * 1000
 
 /**
  * Hook to fetch shift rhythm score
@@ -193,33 +192,34 @@ export function useShiftRhythm(onScoreChange?: (change: number, newScore: number
 
   useEffect(() => {
     let isCancelled = false
-    let hadFreshCache = false
+    /** Any parseable cache: paint immediately, then refresh in the background (suppress loading flash). */
+    let hadCacheToShow = false
     try {
       if (typeof window !== 'undefined') {
         const raw = window.localStorage.getItem(SHIFT_RHYTHM_CACHE_KEY)
         if (raw) {
           const cached = JSON.parse(raw) as ShiftRhythmCache
-          const isFresh = Date.now() - (cached.cachedAt ?? 0) < SHIFT_RHYTHM_CACHE_MAX_AGE_MS
-          if (isFresh && cached) {
-            hadFreshCache = true
-            setScore(cached.score ?? null)
-            setSleepDeficit(cached.sleepDeficit ?? null)
-            setSocialJetlag(cached.socialJetlag ?? null)
-            setBingeRisk(cached.bingeRisk ?? null)
-            setFatigueRisk(cached.fatigueRisk ?? null)
-            setHasData(typeof cached.hasData === 'boolean' ? cached.hasData : true)
-            setLoading(false)
-          }
+          hadCacheToShow = true
+          setScore(cached.score ?? null)
+          setSleepDeficit(cached.sleepDeficit ?? null)
+          setSocialJetlag(cached.socialJetlag ?? null)
+          setBingeRisk(cached.bingeRisk ?? null)
+          setFatigueRisk(cached.fatigueRisk ?? null)
+          setHasData(typeof cached.hasData === 'boolean' ? cached.hasData : true)
+          setLoading(false)
+          setInitialFetchComplete(true)
         }
       }
     } catch {
       // Ignore cache parse/read errors
     }
     const run = async () => {
-      if (!isCancelled) await fetchScore(false, hadFreshCache)
+      if (!isCancelled) await fetchScore(false, hadCacheToShow)
     }
     run()
-    return () => { isCancelled = true }
+    return () => {
+      isCancelled = true
+    }
   }, [])
 
   const total = score?.total_score ?? null

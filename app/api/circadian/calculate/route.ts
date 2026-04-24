@@ -5,6 +5,7 @@ import { calculateCircadianPhase, type ShiftType } from '@/lib/circadian/calcCir
 import { getSleepDeficitForCircadian } from '@/lib/circadian/sleep'
 import { circadianOk, circadianUnavailable } from '@/lib/circadian/circadianCalculateApi'
 import { isoLocalDate } from '@/lib/shifts'
+import { toShiftType } from '@/lib/shifts/toShiftType'
 import {
   applyHolidayAsOffToShiftRows,
   fetchHolidayLocalDatesSet,
@@ -43,8 +44,6 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    if (!userId) return buildUnauthorizedResponse()
-    
     // Use service role client (bypasses RLS) when in dev fallback mode
     // This is needed because RLS policies check auth.uid(), which is null without a real session
     let dbClient: any
@@ -71,6 +70,22 @@ export async function GET(req: NextRequest) {
       )
     }
 
+    // Fallback: read Bearer token from Authorization header
+    // This handles client components that pass the token explicitly
+    if (!userId) {
+      const authHeader = req.headers.get("Authorization")
+      if (authHeader?.startsWith("Bearer ")) {
+        const token = authHeader.slice(7)
+        const { data: { user } } = await supabase.auth.getUser(token)
+        if (user) {
+          userId = user.id
+          dbClient = supabaseServer // use service client since we're verifying manually
+        }
+      }
+    }
+
+    if (!userId) return buildUnauthorizedResponse()
+
     const today = new Date()
     const todayDateString = isoLocalDate(today)
 
@@ -83,7 +98,7 @@ export async function GET(req: NextRequest) {
       precomputed = await dbClient
         .from('circadian_logs')
         .select(
-          'sleep_midpoint_minutes,deviation_hours,circadian_phase,alignment_score,latest_shift,sleep_duration,sleep_timing,sleep_debt,inconsistency,created_at',
+          'sleep_midpoint_minutes,deviation_hours,circadian_phase,alignment_score,latest_shift,sleep_duration,sleep_timing,sleep_debt,inconsistency,misalignment_hours,fatigue_score,created_at',
         )
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
@@ -165,7 +180,58 @@ export async function GET(req: NextRequest) {
           },
         }
 
-        return NextResponse.json(circadianOk(circadian, 'cached_today'), { status: 200 })
+        // For cached responses, recalculate the real-time fields
+        // since alertness and body clock hour change throughout the day
+        const nowH = new Date().getHours() + new Date().getMinutes() / 60
+        const cachedMisalign = precomputed.data.deviation_hours ?? 0
+        const cachedMidpointMin = precomputed.data.sleep_midpoint_minutes ?? (3 * 60)
+
+        // Reconstruct body clock hour from cached midpoint
+        let cachedOffset = cachedMidpointMin - (3 * 60)
+        if (cachedOffset >  720) cachedOffset -= 1440
+        if (cachedOffset < -720) cachedOffset += 1440
+        const cachedBodyClockHour = ((nowH - cachedOffset / 60) % 24 + 24) % 24
+
+        // Recalculate alertness from current body clock position
+        const h = cachedBodyClockHour
+        const main  = Math.sin((2 * Math.PI * (h - 10)) / 24)
+        const ultra = 0.38 * Math.sin((2 * Math.PI * (h - 6)) / 12)
+        const cachedAlertnessScore = Math.max(6, Math.min(96, 50 + 30 * main + 11 * ultra))
+        const cachedAlertnessPhase: "PEAK" | "ELEVATED" | "MODERATE" | "LOW" =
+          cachedAlertnessScore >= 70 ? "PEAK" :
+          cachedAlertnessScore >= 55 ? "ELEVATED" :
+          cachedAlertnessScore >= 40 ? "MODERATE" : "LOW"
+
+        // Next trough and peak in actual clock time
+        const troughs = [3.5, 14]
+        const peaks   = [10, 19]
+        const misalignH = cachedOffset / 60
+        const nextTrough = (() => {
+          for (const t of troughs) {
+            const actual = ((t + misalignH) % 24 + 24) % 24
+            if (actual > nowH) return actual
+          }
+          return ((troughs[0] + misalignH) % 24 + 24) % 24 + 24
+        })()
+        const nextPeak = (() => {
+          for (const p of peaks) {
+            const actual = ((p + misalignH) % 24 + 24) % 24
+            if (actual > nowH) return actual
+          }
+          return ((peaks[0] + misalignH) % 24 + 24) % 24 + 24
+        })()
+
+        const cachedCircadian = {
+          ...circadian,
+          misalignmentHours: Math.round(cachedMisalign * 10) / 10,
+          bodyClockHour:     Math.round(cachedBodyClockHour * 100) / 100,
+          alertnessScore:    Math.round(cachedAlertnessScore),
+          alertnessPhase:    cachedAlertnessPhase,
+          nextTroughHour:    Math.round(nextTrough * 100) / 100,
+          nextPeakHour:      Math.round(nextPeak   * 100) / 100,
+          fatigueScore:      precomputed.data.fatigue_score ?? circadian.alignmentScore,
+        }
+        return NextResponse.json(circadianOk(cachedCircadian, 'cached_today'), { status: 200 })
       }
     }
 
@@ -206,6 +272,7 @@ export async function GET(req: NextRequest) {
         }
       } else {
         console.log('[api/circadian/calculate] New schema result:', newSchemaResult.data?.length || 0, 'records')
+        console.log('[api/circadian/calculate] New schema types:', newSchemaResult.data?.map((l: any) => l.type))
       }
     } catch (newSchemaException: any) {
       const errorMessage = newSchemaException?.message || String(newSchemaException)
@@ -233,9 +300,15 @@ export async function GET(req: NextRequest) {
         type: log.type,
         start_ts: log.start_at,
         end_ts: log.end_at,
-        isMain: log.type === 'sleep',
+        isMain: log.type === 'sleep'
+          || log.type === 'main_sleep'
+          || log.type === 'post_shift_sleep'
+          || log.type === 'recovery_sleep',
         isNap: log.type === 'nap',
       }))
+      console.log('[api/circadian/calculate] Normalised sleepLogs:', sleepLogs.length, 'total')
+      console.log('[api/circadian/calculate] Main sleep logs:', sleepLogs.filter((l: any) => l.isMain).length)
+      console.log('[api/circadian/calculate] Nap logs:', sleepLogs.filter((l: any) => l.isNap).length)
     } else {
       // Try old schema (start_ts, end_ts, naps, sleep_hours)
       console.log('[api/circadian/calculate] Trying old schema (start_ts, end_ts)...')
@@ -456,17 +529,14 @@ export async function GET(req: NextRequest) {
       
       if (latestShift) {
         try {
-          // Use shared utility for consistent classification
-          const { toShiftType } = await import('@/lib/shifts/toShiftType')
           shiftType = toShiftType(
             latestShift.label,
             latestShift.start_ts,
             true, // check for rotating pattern
             shiftsAdjusted,
           ) as ShiftType
-        } catch (importError: any) {
-          console.warn('[api/circadian/calculate] Failed to import toShiftType:', importError?.message || importError)
-          // Fallback: use simple classification based on label
+        } catch (classifyError: any) {
+          console.warn('[api/circadian/calculate] toShiftType failed:', classifyError?.message || classifyError)
           const labelLower = (latestShift.label || '').toLowerCase()
           if (labelLower.includes('night')) {
             shiftType = 'night'
@@ -510,27 +580,32 @@ export async function GET(req: NextRequest) {
       deviation = Math.min(deviation, 1440 - deviation)
       const deviationHours = deviation / 60
 
-      const { error: logError } = await dbClient
-        .from('circadian_logs')
-        .insert({
-          user_id: userId,
-          sleep_midpoint_minutes: Math.round(midpointMod),
-          deviation_hours: Math.round(deviationHours * 10) / 10,
-          circadian_phase: circadian.circadianPhase,
-          alignment_score: circadian.alignmentScore,
-          latest_shift: circadian.factors.latestShift,
-          sleep_duration: circadian.factors.sleepDuration,
-          sleep_timing: circadian.factors.sleepTiming,
-          sleep_debt: circadian.factors.sleepDebt,
-          inconsistency: circadian.factors.inconsistency,
-        })
+      // Only cache if we have a valid result — never cache error states
+      if (circadian.alignmentScore > 0) {
+        const { error: logError } = await dbClient
+          .from('circadian_logs')
+          .insert({
+            user_id:                userId,
+            sleep_midpoint_minutes: Math.round(midpointMod),
+            deviation_hours:        Math.round(deviationHours * 10) / 10,
+            circadian_phase:        circadian.circadianPhase,
+            alignment_score:        circadian.alignmentScore,
+            latest_shift:           circadian.factors.latestShift,
+            sleep_duration:         circadian.factors.sleepDuration,
+            sleep_timing:           circadian.factors.sleepTiming,
+            sleep_debt:             circadian.factors.sleepDebt,
+            inconsistency:          circadian.factors.inconsistency,
+            // Enhanced fields — stored so cache path returns accurate data
+            misalignment_hours:     circadian.misalignmentHours,
+            fatigue_score:          circadian.fatigueScore,
+          })
 
-      if (logError) {
-        // Non-blocking - table might not exist yet
-        console.log(
-          '[api/circadian/calculate] Failed to log circadian data (table may not exist):',
-          logError.message
-        )
+        if (logError) {
+          console.log(
+            '[api/circadian/calculate] Failed to log circadian data:',
+            logError.message
+          )
+        }
       }
     } catch (err: any) {
       // Non-blocking - unexpected error
@@ -540,8 +615,20 @@ export async function GET(req: NextRequest) {
       )
     }
 
+    // Attach enhanced fields to the circadian object for the client
+    const enhancedCircadian = {
+      ...circadian,
+      misalignmentHours: circadian.misalignmentHours,
+      bodyClockHour:     circadian.bodyClockHour,
+      alertnessScore:    circadian.alertnessScore,
+      alertnessPhase:    circadian.alertnessPhase,
+      nextTroughHour:    circadian.nextTroughHour,
+      nextPeakHour:      circadian.nextPeakHour,
+      fatigueScore:      circadian.fatigueScore,
+    }
+
     return NextResponse.json(
-      circadianOk(circadian, 'recalculated', sleepDebtAssumedZero || undefined),
+      circadianOk(enhancedCircadian, 'recalculated', sleepDebtAssumedZero || undefined),
       { status: 200 },
     )
   } catch (err: any) {

@@ -1,9 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { Info, X, Sparkles, Droplet, Sun, UtensilsCrossed, Apple, Clock, Timer, Zap, Sunrise, RefreshCw, Moon, Droplets, Check } from "lucide-react";
 import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition";
 import { useTranslation } from "@/components/providers/language-provider";
+import { useAuth } from "@/components/AuthProvider";
+import { useProfile } from "@/hooks/useProfile";
 import { buildCalorieBreakdownRows } from "@/lib/nutrition/buildCalorieBreakdownRows";
 import { MacroTargetsCard } from "@/components/nutrition/MacroTargetsCard";
 import { MacroTimingInsight } from "@/components/nutrition/MacroTimingInsight";
@@ -233,6 +236,41 @@ function RiskChip({
         {value}
       </span>
     </div>
+  );
+}
+
+function ProfileRequiredCard() {
+  return (
+    <section
+      className={[
+        "relative overflow-hidden rounded-3xl",
+        "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
+        "border border-slate-200/50 dark:border-slate-700/40",
+        "text-slate-900 dark:text-slate-100",
+        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)]",
+        "dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
+        "p-6",
+      ].join(" ")}
+    >
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+      <div className="relative z-10 space-y-4">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+          Adjusted Calories
+        </p>
+        <h2 className="text-[22px] leading-tight font-semibold text-slate-900 dark:text-slate-100">
+          Need profile information
+        </h2>
+        <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+          Add your weight, height, biological sex, and goal to unlock personalised calorie targets.
+        </p>
+        <Link
+          href="/settings/profile"
+          className="inline-flex w-full items-center justify-center rounded-2xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-slate-900 transition-opacity hover:opacity-90"
+        >
+          Set up health profile →
+        </Link>
+      </div>
+    </section>
   );
 }
 
@@ -907,6 +945,8 @@ function ShiftCoachCard({
 
 export default function AdjustedCaloriesPage() {
   const { t } = useTranslation();
+  const { user, loading: authLoading } = useAuth();
+  const { profile, loading: profileLoading } = useProfile(user?.id ?? null);
   const { data, loading } = useTodayNutrition();
   const { data: mealTimingCard, loading: mealTimingLoading } = useMealTimingTodayCard();
   const [showInfo, setShowInfo] = useState(false);
@@ -919,6 +959,11 @@ export default function AdjustedCaloriesPage() {
   const [todayShift, setTodayShift] = useState<any>(null);
   const [sleepData, setSleepData] = useState<any>(null);
   const [loadingEnergyData, setLoadingEnergyData] = useState(true);
+  const profileComplete =
+    !!profile?.weight_kg &&
+    !!profile?.height_cm &&
+    !!profile?.sex &&
+    !!profile?.goal;
 
   // Fetch circadian data for biological night
   useEffect(() => {
@@ -1132,7 +1177,7 @@ export default function AdjustedCaloriesPage() {
 
   const currentHour = currentTime.getHours() + currentTime.getMinutes() / 60;
 
-  if (loading) {
+  if (loading || authLoading || profileLoading) {
     return (
       <div className="w-full max-w-md mx-auto px-4 py-6 space-y-6">
         <Card>
@@ -1142,6 +1187,14 @@ export default function AdjustedCaloriesPage() {
             <div className="h-32 bg-slate-200 rounded" />
           </div>
         </Card>
+      </div>
+    );
+  }
+
+  if (!profileComplete) {
+    return (
+      <div className="w-full max-w-md mx-auto px-4 py-6 space-y-6">
+        <ProfileRequiredCard />
       </div>
     );
   }

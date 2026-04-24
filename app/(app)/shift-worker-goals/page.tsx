@@ -1,142 +1,64 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
-import { useTranslation } from '@/components/providers/language-provider'
+import { ShiftWorkerGuideArticleLayout } from "@/components/shift-worker/ShiftWorkerGuideArticleLayout";
+import { useTranslation } from "@/components/providers/language-provider";
+
+const SHIFT_WORKER_GOALS_HERO = "/images/explore/goals.jpg";
+const ARTICLE_ACCENT = "#BF5AF2";
 
 export default function ShiftWorkerGoalsPage() {
-  const { t } = useTranslation()
+  const { t } = useTranslation();
+
   return (
-    <main
-      style={{
-        backgroundImage: 'radial-gradient(circle at top, var(--bg-soft), var(--bg))',
-      }}
+    <ShiftWorkerGuideArticleLayout
+      heroSrc={SHIFT_WORKER_GOALS_HERO}
+      heroAltKey="shiftWorker.goals.heroAlt"
+      kickerKey="shiftWorker.goals.kicker"
+      titleKey="shiftWorker.goals.title"
+      ledeKey="shiftWorker.goals.lede"
+      readTimeKey="shiftWorker.goals.readTime"
+      accentHex={ARTICLE_ACCENT}
+      footerTipKey="shiftWorker.goals.footerTip"
     >
-      <div className="max-w-[430px] mx-auto min-h-screen px-4 pb-8 pt-4 flex flex-col gap-5">
-        <header className="flex items-center gap-2 mb-2">
-          <Link
-            href="/dashboard"
-            className="p-2 rounded-full backdrop-blur-xl border transition-all"
-            style={{
-              backgroundColor: 'var(--card)',
-              borderColor: 'var(--border-subtle)',
-              color: 'var(--text-main)',
-            }}
-            aria-label={t('shiftWorker.health.backAria')}
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </Link>
-          <h1
-            className="text-xl font-semibold tracking-tight"
-            style={{ color: 'var(--text-main)' }}
-          >
-            {t('shiftWorker.goals.title')}
-          </h1>
-        </header>
+      <p className="mb-10 text-[17px] leading-[1.78] text-[var(--text-soft)]">{t("shiftWorker.goals.intro")}</p>
 
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-2"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-main)' }}>
-            {t('shiftWorker.goals.intro')}
-          </p>
-        </section>
+      <h2 className="mb-2 text-[21px] font-bold leading-[1.28] tracking-[-0.3px] text-[var(--text-main)]">
+        {t("shiftWorker.goals.sleepTitle")}
+      </h2>
+      <p className="mb-4 text-[15px] italic leading-relaxed text-[var(--text-muted)]">{t("shiftWorker.goals.sleepHint")}</p>
+      <ul className="mb-10 list-disc space-y-3 pl-5 text-[17px] leading-[1.75] text-[var(--text-soft)]">
+        <li>{t("shiftWorker.goals.sleepLi1")}</li>
+        <li>{t("shiftWorker.goals.sleepLi2")}</li>
+        <li>{t("shiftWorker.goals.sleepLi3")}</li>
+      </ul>
 
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <h2 className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
-            {t('shiftWorker.goals.sleepTitle')}
-          </h2>
-          <p className="text-xs" style={{ color: 'var(--text-soft)' }}>
-            {t('shiftWorker.goals.sleepHint')}
-          </p>
-          <ul
-            className="text-sm list-disc list-inside space-y-2"
-            style={{ color: 'var(--text-main)' }}
-          >
-            <li>{t('shiftWorker.goals.sleepLi1')}</li>
-            <li>{t('shiftWorker.goals.sleepLi2')}</li>
-            <li>{t('shiftWorker.goals.sleepLi3')}</li>
-          </ul>
-        </section>
+      <h2 className="mb-4 mt-9 text-[21px] font-bold leading-[1.28] tracking-[-0.3px] text-[var(--text-main)]">
+        {t("shiftWorker.goals.activityTitle")}
+      </h2>
+      <ul className="mb-10 list-disc space-y-3 pl-5 text-[17px] leading-[1.75] text-[var(--text-soft)]">
+        <li>{t("shiftWorker.goals.activityLi1")}</li>
+        <li>{t("shiftWorker.goals.activityLi2")}</li>
+        <li>{t("shiftWorker.goals.activityLi3")}</li>
+      </ul>
 
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <h2 className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
-            {t('shiftWorker.goals.activityTitle')}
-          </h2>
-          <ul
-            className="text-sm list-disc list-inside space-y-2"
-            style={{ color: 'var(--text-main)' }}
-          >
-            <li>{t('shiftWorker.goals.activityLi1')}</li>
-            <li>{t('shiftWorker.goals.activityLi2')}</li>
-            <li>{t('shiftWorker.goals.activityLi3')}</li>
-          </ul>
-        </section>
+      <h2 className="mb-4 mt-9 text-[21px] font-bold leading-[1.28] tracking-[-0.3px] text-[var(--text-main)]">
+        {t("shiftWorker.goals.eatingTitle")}
+      </h2>
+      <ul className="mb-10 list-disc space-y-3 pl-5 text-[17px] leading-[1.75] text-[var(--text-soft)]">
+        <li>{t("shiftWorker.goals.eatingLi1")}</li>
+        <li>{t("shiftWorker.goals.eatingLi2")}</li>
+        <li>{t("shiftWorker.goals.eatingLi3")}</li>
+      </ul>
 
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <h2 className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
-            {t('shiftWorker.goals.eatingTitle')}
-          </h2>
-          <ul
-            className="text-sm list-disc list-inside space-y-2"
-            style={{ color: 'var(--text-main)' }}
-          >
-            <li>{t('shiftWorker.goals.eatingLi1')}</li>
-            <li>{t('shiftWorker.goals.eatingLi2')}</li>
-            <li>{t('shiftWorker.goals.eatingLi3')}</li>
-          </ul>
-        </section>
-
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <h2 className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
-            {t('shiftWorker.goals.timeTitle')}
-          </h2>
-          <ul
-            className="text-sm list-disc list-inside space-y-2"
-            style={{ color: 'var(--text-main)' }}
-          >
-            <li>{t('shiftWorker.goals.timeLi1')}</li>
-            <li>{t('shiftWorker.goals.timeLi2')}</li>
-            <li>{t('shiftWorker.goals.timeLi3')}</li>
-          </ul>
-          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-main)' }}>
-            {t('shiftWorker.goals.timeFooter')}
-          </p>
-        </section>
-      </div>
-    </main>
-  )
+      <h2 className="mb-4 mt-9 text-[21px] font-bold leading-[1.28] tracking-[-0.3px] text-[var(--text-main)]">
+        {t("shiftWorker.goals.timeTitle")}
+      </h2>
+      <ul className="mb-4 list-disc space-y-3 pl-5 text-[17px] leading-[1.75] text-[var(--text-soft)]">
+        <li>{t("shiftWorker.goals.timeLi1")}</li>
+        <li>{t("shiftWorker.goals.timeLi2")}</li>
+        <li>{t("shiftWorker.goals.timeLi3")}</li>
+      </ul>
+      <p className="text-[17px] leading-[1.78] text-[var(--text-soft)]">{t("shiftWorker.goals.timeFooter")}</p>
+    </ShiftWorkerGuideArticleLayout>
+  );
 }

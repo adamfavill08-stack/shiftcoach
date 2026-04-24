@@ -5,6 +5,7 @@ import { ChevronRight, ChevronDown } from 'lucide-react'
 import { useSettings } from '@/lib/hooks/useSettings'
 import { ToggleSwitch } from '@/components/settings/ToggleSwitch'
 import { useTranslation } from '@/components/providers/language-provider'
+import { THEME_STORAGE_EVENT } from '@/components/providers/theme-provider'
 
 export function AppearanceSection() {
   const { t } = useTranslation()
@@ -13,9 +14,15 @@ export function AppearanceSection() {
   const [darkModeEnabled, setDarkModeEnabled] = useState(false)
 
   useEffect(() => {
-    if (typeof document !== 'undefined') {
-      setDarkModeEnabled(document.documentElement.classList.contains('dark'))
+    if (typeof window === 'undefined') return
+    const syncToggle = () => {
+      const saved = window.localStorage.getItem('theme')
+      const useDark = saved === 'dark'
+      setDarkModeEnabled(useDark)
     }
+    syncToggle()
+    window.addEventListener(THEME_STORAGE_EVENT, syncToggle)
+    return () => window.removeEventListener(THEME_STORAGE_EVENT, syncToggle)
   }, [])
 
   const setThemeMode = (isDark: boolean) => {
@@ -28,6 +35,7 @@ export function AppearanceSection() {
       root.classList.remove('dark')
       window.localStorage.setItem('theme', 'light')
     }
+    window.dispatchEvent(new Event(THEME_STORAGE_EVENT))
   }
 
   if (loading) {

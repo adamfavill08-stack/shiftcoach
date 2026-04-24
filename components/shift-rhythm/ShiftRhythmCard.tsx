@@ -13,9 +13,10 @@ import { ShiftLagCard } from "@/components/shiftlag/ShiftLagCard";
 import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition";
 import { useTodaySleep } from "@/lib/hooks/useTodaySleep";
 import { useWeeklyProgress } from "@/lib/hooks/useWeeklyProgress";
-import { ShiftWeekStrip } from "@/components/dashboard/ShiftWeekStrip";
 import { useActivityToday } from "@/lib/hooks/useActivityToday";
 import { useTranslation } from "@/components/providers/language-provider";
+import { useAuth } from "@/components/AuthProvider";
+import { useProfile } from "@/hooks/useProfile";
 import { localizeBlogPostsEmbed } from "@/lib/i18n/blog";
 import { ExploreCarousel } from "@/components/dashboard/ExploreCarousel";
 import type { FatigueRiskResult } from "@/lib/fatigue/calculateFatigueRisk";
@@ -26,6 +27,7 @@ import { useCircadianState } from "@/components/providers/circadian-state-provid
 import { applyUserShiftStateToMealTimingJson } from "@/lib/nutrition/applyUserShiftStateToMealTiming";
 import { useTransitionPlanPanelPresence } from "@/lib/hooks/useTransitionPlanPanelPresence";
 import { riskScaleBarMarkerFill } from "@/lib/riskScaleBarMarker";
+import { getCircadianData } from "@/lib/circadian/circadianCache";
 
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import type { CircadianState } from '@/lib/circadian/calculateCircadianScore'
@@ -239,22 +241,7 @@ function ShiftRhythmCard({
 
   return (
     <div className="w-full max-w-md mx-auto px-4 py-4 space-y-6">
-      {/* Shift week strip directly above body clock (no extra background card) */}
-      <ShiftWeekStrip />
-
-      {/* MAIN BODY CLOCK CARD */}
-      <BodyClockCard
-        score={displayScore}
-        legacyScore={legacyDisplayScore}
-        circadian={circadian}
-        socialJetlag={socialJetlag}
-        circadianState={circadianState}
-        circadianAgentLoading={circadianAgentLoading}
-        hasRhythmData={hasRhythmData}
-        onOpenBodyClock={() => router.push("/body-clock")}
-      />
-
-      <HomeFatigueRiskCard sleepDeficit={sleepDeficit} fatigueRisk={fatigueRisk} />
+      <HomeFatigueRiskCard sleepDeficit={sleepDeficit} fatigueRisk={fatigueRisk} circadian={circadian} />
 
       {/* Delay secondary cards to keep initial dashboard paint fast */}
       {showSecondaryCards ? (
@@ -415,7 +402,7 @@ function BodyClockCard({
     >
       <section
         className={[
-          "relative overflow-visible rounded-3xl",
+          "relative overflow-visible rounded-xl",
           "bg-transparent",
           "text-[var(--text-main)]",
           "p-4 pb-2",
@@ -458,8 +445,44 @@ function BodyClockCard({
 
 function HomeAdjustedCaloriesCard() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const { profile } = useProfile(user?.id ?? null);
   const { data } = useTodayNutrition();
   const weekly = useWeeklyProgress();
+  const profileComplete =
+    !!profile?.weight_kg &&
+    !!profile?.height_cm &&
+    !!profile?.sex &&
+    !!profile?.goal;
+
+  if (!profileComplete) {
+    return (
+      <Link
+        href="/settings/profile"
+        className="relative block rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-colors hover:bg-[var(--card-subtle)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]"
+      >
+        <ChevronRight className="absolute right-4 top-4 h-4 w-4 text-slate-400" aria-hidden />
+        <div className="space-y-2 pr-6">
+          <span className={`block text-sm font-semibold leading-tight tracking-[0.08em] text-black ${inter.className}`}>
+            {t("dashboard.calories.cardTitle")}
+          </span>
+          <p className={`text-[15px] font-semibold text-[var(--text-main)] ${inter.className}`}>
+            Need profile information
+          </p>
+          <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+            Complete your profile details to unlock adjusted calories.
+          </p>
+          <div className="pt-1">
+            <span
+              className={`inline-flex items-center rounded-full bg-cyan-500 px-3 py-1.5 text-[11px] font-semibold tracking-[0.02em] text-slate-900 ${inter.className}`}
+            >
+              Click here to begin →
+            </span>
+          </div>
+        </div>
+      </Link>
+    );
+  }
 
   if (!data) return null;
 
@@ -501,7 +524,7 @@ function HomeAdjustedCaloriesCard() {
   return (
     <Link
       href="/adjusted-calories"
-      className="relative block rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-colors hover:bg-[var(--card-subtle)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]"
+      className="relative block rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-colors hover:bg-[var(--card-subtle)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]"
     >
       <ChevronRight className="absolute right-4 top-4 h-4 w-4 text-slate-400" aria-hidden />
       <div className="space-y-1.5">
@@ -537,6 +560,7 @@ function HomeAdjustedCaloriesCard() {
 function HomeFatigueRiskCard({
   sleepDeficit,
   fatigueRisk,
+  circadian,
 }: {
   sleepDeficit?: {
     category?: "low" | "moderate" | "high";
@@ -544,18 +568,56 @@ function HomeFatigueRiskCard({
     sleepDebtHours?: number;
   } | null;
   fatigueRisk?: FatigueRiskResult | null;
+  circadian?: CircadianOutput | null;
 }) {
+  const [circadianFatigueFromCache, setCircadianFatigueFromCache] = useState<number | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const loadCircadianFatigue = async () => {
+      try {
+        const { data: auth } = await supabase.auth.getSession();
+        const token = auth.session?.access_token;
+        if (!token) return;
+        const circadianData = await getCircadianData(token);
+        if (!active) return;
+        if (circadianData && typeof circadianData.fatigueScore === "number") {
+          setCircadianFatigueFromCache(Math.max(0, Math.min(100, Math.round(circadianData.fatigueScore))));
+        }
+      } catch {
+        // Keep existing fallback path if circadian cache fetch fails.
+      }
+    };
+
+    loadCircadianFatigue();
+    const handleRefresh = () => { void loadCircadianFatigue(); };
+    window.addEventListener("sleep-refreshed", handleRefresh);
+    window.addEventListener("rota-saved", handleRefresh);
+    window.addEventListener("rota-cleared", handleRefresh);
+
+    return () => {
+      active = false;
+      window.removeEventListener("sleep-refreshed", handleRefresh);
+      window.removeEventListener("rota-saved", handleRefresh);
+      window.removeEventListener("rota-cleared", handleRefresh);
+    };
+  }, []);
+
   const debtHours = Math.max(0, sleepDeficit?.weeklyDeficit ?? sleepDeficit?.sleepDebtHours ?? 0);
   const fallbackCategory = sleepDeficit?.category ?? "moderate";
   const fallbackScore = Math.max(
     22,
     Math.min(78, Math.round((fallbackCategory === "high" ? 68 : fallbackCategory === "low" ? 28 : 48) + Math.min(14, debtHours * 1.2)))
   );
-  const score100 = fatigueRisk?.score ?? fallbackScore;
-  const score10 = Math.max(1, Math.min(10, Math.round(score100 / 10)));
+  const circadianFatigueScore =
+    typeof circadian?.fatigueScore === "number"
+      ? Math.max(0, Math.min(100, Math.round(circadian.fatigueScore)))
+      : null;
+  const score100 = circadianFatigueFromCache ?? circadianFatigueScore ?? fatigueRisk?.score ?? fallbackScore;
+  const scoreDisplay = Math.max(0, Math.min(100, Math.round(score100)));
   const markerLeft = `${Math.max(3, Math.min(97, score100))}%`;
 
-  const levelRaw = fatigueRisk?.level ?? (score100 >= 65 ? "high" : score100 < 30 ? "low" : "moderate");
+  const levelRaw = score100 >= 65 ? "high" : score100 < 30 ? "low" : "moderate";
   const level = levelRaw === "high" ? "High" : levelRaw === "low" ? "Low" : "Moderate";
   const badgeClass =
     level === "High"
@@ -564,17 +626,28 @@ function HomeFatigueRiskCard({
         ? "bg-emerald-100 text-emerald-800"
         : "bg-emerald-100/80 text-slate-700";
   const markerFill = riskScaleBarMarkerFill(score100);
+  const driverHint = `${fatigueRisk?.drivers?.join(" ") ?? ""} ${fatigueRisk?.explanation ?? ""}`.toLowerCase();
+  const transitionSignal =
+    driverHint.includes("transition") ||
+    driverHint.includes("rotate") ||
+    driverHint.includes("day to night") ||
+    driverHint.includes("night to day") ||
+    driverHint.includes("circadian");
   const subtitle =
     fatigueRisk?.confidenceLabel === "low"
       ? "Confidence builds as more sleep and shift data syncs."
-      : fatigueRisk?.drivers?.[0]
-        ? fatigueRisk.drivers[0]
-        : "Rolling risk from fatigue and sleep rhythm.";
+      : score100 >= 65 && transitionSignal
+        ? "High transition strain from switching shift timing."
+        : score100 >= 65
+          ? "High fatigue load - recovery is needed before peak performance."
+          : fatigueRisk?.drivers?.[0]
+            ? fatigueRisk.drivers[0]
+            : "Rolling risk from fatigue and sleep rhythm.";
 
   return (
     <Link
       href="/fatigue-risk"
-      className="relative block rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-colors hover:bg-[var(--card-subtle)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]"
+      className="relative block rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-colors hover:bg-[var(--card-subtle)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]"
     >
       <ChevronRight className="absolute right-4 top-4 h-4 w-4 text-slate-400" aria-hidden />
       <div className="pr-6">
@@ -584,7 +657,7 @@ function HomeFatigueRiskCard({
       <div className="mt-3 grid grid-cols-[1fr_1.05fr] items-end gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className={`text-[42px] font-semibold leading-none text-slate-800 ${inter.className}`}>{score10}</span>
+            <span className={`text-[42px] font-semibold leading-none text-slate-800 ${inter.className}`}>{scoreDisplay}</span>
             <span className={`rounded-full px-2.5 py-1 text-sm font-semibold leading-none ${badgeClass} ${inter.className}`}>
               {level}
             </span>
@@ -592,23 +665,25 @@ function HomeFatigueRiskCard({
           <p className="mt-2 text-xs text-slate-500">{subtitle}</p>
         </div>
 
-        <div className="relative ml-auto mr-0 w-full max-w-[130px] translate-x-3 pb-1">
-          <div className="h-3 w-full overflow-hidden rounded-full">
-            <div className="grid h-full w-full grid-cols-3">
-              <div className="bg-emerald-300" />
-              <div className="bg-emerald-400" />
-              <div className="bg-gradient-to-r from-amber-400 to-orange-500" />
+        <div className="ml-auto mr-0 w-full max-w-[130px] pb-1">
+          <div className="relative">
+            <div className="h-3 w-full overflow-hidden rounded-full">
+              <div className="grid h-full w-full grid-cols-3">
+                <div className="bg-emerald-300" />
+                <div className="bg-emerald-400" />
+                <div className="bg-gradient-to-r from-amber-400 to-orange-500" />
+              </div>
             </div>
+            <div
+              className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white box-border"
+              style={{ left: markerLeft, backgroundColor: markerFill }}
+              aria-hidden
+            />
           </div>
-          <div
-            className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white box-border"
-            style={{ left: markerLeft, backgroundColor: markerFill }}
-            aria-hidden
-          />
-        </div>
-        <div className="mt-1 ml-auto flex w-full max-w-[130px] translate-x-3 items-center justify-between text-[10px] font-medium text-slate-400">
-          <span>Low</span>
-          <span>High</span>
+          <div className="mt-1 flex w-full items-center justify-between text-[10px] font-medium text-slate-400">
+            <span>Low</span>
+            <span>High</span>
+          </div>
         </div>
       </div>
     </Link>
@@ -652,7 +727,7 @@ function HomeLogSleepCard() {
   return (
     <Link
       href="/sleep"
-      className="block rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 transition-colors hover:bg-[var(--card-subtle)] shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]"
+      className="block rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 transition-colors hover:bg-[var(--card-subtle)] shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]"
     >
       <div className="relative">
         <ChevronRight className="absolute right-0 top-0 h-4 w-4 text-slate-400" aria-hidden />
@@ -726,7 +801,7 @@ function HomeSleepDebtCard() {
 
   if (error || weeklyDeficit === null || requiredDaily === null) {
     return (
-      <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-sm text-xs text-[var(--text-muted)]">
+      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-sm text-xs text-[var(--text-muted)]">
         {error || "No sleep debt data yet. Log a few days of main sleep to unlock this view."}
       </div>
     );
@@ -761,7 +836,7 @@ function HomeSleepDebtCard() {
   return (
     <Link
       href="/sleep"
-      className="block rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
+      className="block rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 shadow-sm hover:shadow-md transition-shadow"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 space-y-1.5">
@@ -815,7 +890,7 @@ function HomeActivityCard() {
       onClick={() => {
         router.push("/activity");
       }}
-      className="w-full text-left rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 transition-colors hover:bg-[var(--card-subtle)] shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]"
+      className="w-full text-left rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 transition-colors hover:bg-[var(--card-subtle)] shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]"
     >
       <div className="relative pr-6">
         <ChevronRight className="absolute right-0 top-0 h-4 w-4 text-[var(--text-muted)]" aria-hidden />
@@ -1031,7 +1106,7 @@ function HeartRecoveryCard() {
   return (
     <Link
       href="/heart-health"
-      className="block rounded-3xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 transition-colors hover:bg-[var(--card-subtle)] shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]"
+      className="block rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 transition-colors hover:bg-[var(--card-subtle)] shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]"
     >
       <div className="relative">
         <ChevronRight className="absolute right-0 top-0 h-4 w-4 text-[var(--text-muted)]" aria-hidden />
@@ -1738,7 +1813,7 @@ function SocialJetlagCard() {
   return (
     <section
       className={[
-        "relative overflow-hidden rounded-[28px]",
+        "relative overflow-hidden rounded-xl",
         "bg-white/85 backdrop-blur-2xl",
         "border border-white/80",
         "shadow-[0_24px_60px_rgba(15,23,42,0.12)]",
@@ -1749,7 +1824,7 @@ function SocialJetlagCard() {
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/95 via-white/80 to-white/60" />
       
       {/* Subtle inner glow */}
-      <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/50" />
+      <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-white/50" />
 
       <div className="relative z-10 space-y-5">
         {/* Header */}
@@ -2138,7 +2213,7 @@ function WhyYouHaveThisScoreCard({
   return (
     <section
       className={[
-        "relative overflow-hidden rounded-[28px]",
+        "relative overflow-hidden rounded-xl",
         "bg-white/85 backdrop-blur-2xl",
         "border border-white/80",
         "shadow-[0_24px_60px_rgba(15,23,42,0.12)]",
@@ -2149,7 +2224,7 @@ function WhyYouHaveThisScoreCard({
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/95 via-white/80 to-white/60" />
       
       {/* Subtle inner glow */}
-      <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-white/50" />
+      <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-white/50" />
 
       <div className="relative z-10 space-y-6">
         {/* Header */}
@@ -2924,7 +2999,7 @@ function AdjustedMealTimesCard() {
 
   if (loading) {
     return (
-      <section className="relative overflow-hidden rounded-[28px] bg-white/85 backdrop-blur-2xl border border-white/80 shadow-[0_24px_60px_rgba(15,23,42,0.12)] px-7 py-6">
+      <section className="relative overflow-hidden rounded-xl bg-white/85 backdrop-blur-2xl border border-white/80 shadow-[0_24px_60px_rgba(15,23,42,0.12)] px-7 py-6">
         <div className="animate-pulse space-y-4">
           <div className="h-6 bg-slate-200 rounded w-48" />
           <div className="h-4 bg-slate-200 rounded w-32" />
@@ -3354,7 +3429,7 @@ function NextBestActionsCard({ sleepDeficit, circadian }: NextBestActionsCardPro
   return (
     <section
       className={[
-        "relative overflow-hidden rounded-3xl",
+        "relative overflow-hidden rounded-xl",
         "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
         "border border-slate-200/50 dark:border-slate-700/40",
         "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
@@ -3362,13 +3437,13 @@ function NextBestActionsCard({ sleepDeficit, circadian }: NextBestActionsCardPro
       ].join(" ")}
     >
       {/* Highlight overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+      <div className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
       
       {/* Subtle colored glow hints - dark mode only */}
       <div className="pointer-events-none absolute -inset-1 opacity-0 dark:opacity-100 bg-gradient-to-br from-blue-500/8 via-indigo-500/6 to-purple-500/8 blur-xl transition-opacity duration-300" />
       
       {/* Inner ring for premium feel */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
+      <div className="pointer-events-none absolute inset-0 rounded-xl ring-[0.5px] ring-white/10 dark:ring-slate-600/30" />
 
       <div className="relative z-10 space-y-5">
         {/* Sleep Debt Header */}
@@ -3640,7 +3715,7 @@ function BlogSection() {
   return (
     <section
       className={[
-        "relative overflow-hidden rounded-3xl",
+        "relative overflow-hidden rounded-xl",
         "bg-white/75 dark:bg-slate-900/45 backdrop-blur-xl",
         "border border-slate-200/50 dark:border-slate-700/40",
         "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_14px_40px_-18px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]",
@@ -3648,7 +3723,7 @@ function BlogSection() {
       ].join(" ")}
     >
       {/* Highlight overlay */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
+      <div className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-b from-white/70 dark:from-slate-900/60 via-transparent to-transparent" />
       
       {/* Subtle colored glow hints - dark mode only */}
       {/* Blog section removed from dashboard to simplify UI */}

@@ -647,7 +647,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
   }
 
   return (
-    <div className="flex flex-1 justify-center bg-slate-100">
+    <div className="flex min-h-screen flex-1 justify-center bg-white">
       {/* Light status bar background */}
       <div 
         className="fixed top-0 left-0 right-0 w-full bg-white z-50"
@@ -663,7 +663,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
         {/* Main rota card */}
         <div 
           ref={calendarCardRef}
-          className="flex flex-1 flex-col min-h-0 rounded-3xl bg-white border border-slate-100 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] px-3.5 py-3.5 gap-3 select-none"
+          className="flex flex-1 flex-col min-h-0 rounded-3xl bg-white shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] px-3.5 py-3.5 gap-3 select-none"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}

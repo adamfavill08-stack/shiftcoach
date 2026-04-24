@@ -93,6 +93,180 @@ function fmtSignedInt(n: number) {
   return `${n >= 0 ? '+' : ''}${n.toLocaleString('en-US')}`
 }
 
+function HealthProfileUnlock() {
+  return (
+    <div style={{ maxWidth: 430, margin: '0 auto', padding: '20px 14px 28px' }}>
+      <header className="flex items-center gap-2 mb-3">
+        <Link
+          href="/dashboard"
+          className="p-2 rounded-full backdrop-blur-xl border transition-all"
+          style={{
+            backgroundColor: 'var(--card)',
+            borderColor: 'var(--border-subtle)',
+            color: 'var(--text-main)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'var(--card-subtle)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'var(--card)'
+          }}
+          aria-label="Back to dashboard"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </Link>
+      </header>
+
+      <div
+        style={{
+          background: 'var(--card)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 18,
+          overflow: 'hidden',
+          boxShadow: '0 10px 30px -22px rgba(15, 23, 42, 0.38)',
+        }}
+      >
+        <div
+          style={{
+            height: 4,
+            background: 'linear-gradient(90deg, #00BCD4 0%, #22D3EE 45%, #3b82b8 100%)',
+          }}
+        />
+
+        <div style={{ padding: '20px 20px 18px' }}>
+          <div
+            style={{
+              fontSize: 9,
+              letterSpacing: '2.4px',
+              color: 'var(--text-muted)',
+              textTransform: 'uppercase',
+              fontWeight: 600,
+              marginBottom: 10,
+            }}
+          >
+            Adjusted Calories
+          </div>
+
+          <div style={{ fontSize: 28, fontWeight: 300, lineHeight: 1.12, color: 'var(--text-main)', marginBottom: 10 }}>
+            Unlock your personalised nutrition plan
+          </div>
+
+          <div
+            style={{
+              fontSize: 14,
+              color: 'var(--text-soft)',
+              lineHeight: 1.65,
+              fontWeight: 300,
+              marginBottom: 16,
+            }}
+          >
+            ShiftCoach adapts calories around your shifts, sleep pressure and recovery rhythm.
+            Add your health details to activate daily targets.
+          </div>
+
+          <div
+            style={{
+              background: 'linear-gradient(180deg, rgba(0,188,212,0.07) 0%, rgba(0,188,212,0.02) 100%)',
+              border: '1px solid rgba(0,188,212,0.16)',
+              borderRadius: 12,
+              padding: '12px 14px',
+              marginBottom: 16,
+              color: 'var(--text-soft)',
+              fontSize: 12,
+            }}
+          >
+            <span style={{ color: 'var(--text-main)', fontWeight: 500 }}>What you unlock</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+            {[
+              { icon: '🔥', label: 'Daily calorie target adjusted for your shifts' },
+              { icon: '🌙', label: 'Night shift calorie recommendations' },
+              { icon: '⚡', label: 'Pre and post shift nutrition timing' },
+              { icon: '📊', label: 'Weekly adjustment based on sleep debt' },
+            ].map(({ icon, label }) => (
+              <div
+                key={label}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '10px 10px',
+                  borderRadius: 11,
+                  border: '1px solid var(--border-subtle)',
+                  background: 'var(--card)',
+                }}
+              >
+                <div
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 9,
+                    background: 'rgba(0,188,212,0.10)',
+                    border: '1px solid rgba(0,188,212,0.22)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 16,
+                    flexShrink: 0,
+                  }}
+                >
+                  {icon}
+                </div>
+                <span style={{ fontSize: 13, color: 'var(--text-soft)', fontWeight: 300, lineHeight: 1.45 }}>
+                  {label}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div
+            style={{
+              fontSize: 12,
+              color: 'var(--text-muted)',
+              marginBottom: 14,
+              lineHeight: 1.5,
+            }}
+          >
+            Required: weight, height, biological sex, and goal.
+          </div>
+
+          <a
+            href="/settings/profile"
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '15px 20px',
+              background: '#00BCD4',
+              color: '#001018',
+              borderRadius: 13,
+              fontSize: 15,
+              fontWeight: 700,
+              textAlign: 'center',
+              textDecoration: 'none',
+              fontFamily: 'Inter, sans-serif',
+              letterSpacing: '0.3px',
+            }}
+          >
+            Set up health profile →
+          </a>
+
+          <div
+            style={{
+              fontSize: 11,
+              color: 'var(--text-muted)',
+              textAlign: 'center',
+              marginTop: 12,
+            }}
+          >
+            Takes less than 60 seconds. Update anytime in settings.
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function AdjustedCaloriesPage() {
   const { t } = useTranslation()
   const [whyOpen, setWhyOpen] = useState(false)
@@ -139,6 +313,11 @@ export default function AdjustedCaloriesPage() {
   }, [mealTimingCard?.meals, mealTimingLoading, data?.meals])
 
   const firstName = profile?.name?.trim().split(/\s+/)[0] ?? null
+  const profileComplete =
+    !!profile?.weight_kg &&
+    !!profile?.height_cm &&
+    !!profile?.sex &&
+    !!profile?.goal
   const timingInsightMessage = useMemo(
     () =>
       !loading && data
@@ -150,6 +329,14 @@ export default function AdjustedCaloriesPage() {
         : null,
     [loading, data, firstName],
   )
+
+  if (!profileComplete) {
+    return (
+      <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+        <HealthProfileUnlock />
+      </div>
+    )
+  }
 
   return (
     <main className="min-h-screen bg-slate-100">

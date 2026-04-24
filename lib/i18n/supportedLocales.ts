@@ -1,6 +1,6 @@
 /**
- * App locales offered in Settings. Any code not listed in `messageBundles` (language-provider)
- * falls back to English strings until a full translation is added.
+ * App locales offered in Settings. Locales without a lazy UI bundle in `lib/i18n/locale-bundles/`
+ * fall back to English strings until a full translation is added.
  */
 
 export const APP_LOCALE_CODES = [
@@ -42,7 +42,7 @@ export type AppLocaleCode = (typeof APP_LOCALE_CODES)[number]
 const CODE_SET = new Set<string>(APP_LOCALE_CODES)
 
 /**
- * Locales with merged `messageBundles` in `language-provider.tsx`.
+ * Locales with merged UI strings (English eager; others lazy-loaded from `locale-bundles/`).
  * Choosing any other code in settings used to leave `t()` on English fallback with no feedback.
  */
 export const APP_MESSAGE_BUNDLE_LOCALES: readonly AppLocaleCode[] = [

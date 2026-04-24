@@ -13,7 +13,7 @@ import { ThemeProvider } from '@/components/providers/theme-provider'
 import { LanguageProvider } from '@/components/providers/language-provider'
 import { BottomNavWrapper } from '@/components/layout/BottomNavWrapper'
 import { AutoHealthSync } from '@/components/wearables/AutoHealthSync'
-import { NativeAndroidBackButton } from '@/components/native/NativeAndroidBackButton'
+import AndroidBackButtonHandler from '@/components/AndroidBackButtonHandler'
 import { NativeAndroidStatusBar } from '@/components/native/NativeAndroidStatusBar'
 
 export const metadata: Metadata = {
@@ -50,18 +50,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 (function() {
   try {
     var root = document.documentElement;
-    var mq = window.matchMedia('(prefers-color-scheme: dark)');
     function apply() {
       var saved = localStorage.getItem('theme');
-      var useDark = saved === 'dark' || (saved !== 'light' && mq.matches);
+      var useDark = saved === 'dark';
       root.classList.toggle('dark', useDark);
     }
     apply();
-    mq.addEventListener('change', function (e) {
-      var saved = localStorage.getItem('theme');
-      if (saved === 'dark' || saved === 'light') return;
-      root.classList.toggle('dark', e.matches);
-    });
   } catch (e) {}
 })();
             `,
@@ -151,6 +145,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="theme-transition min-h-screen flex items-stretch justify-center antialiased font-sans bg-[var(--bg)] text-[var(--text-main)]" suppressHydrationWarning>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('theme');
+                  if (theme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                  } else if (theme === 'light') {
+                    document.documentElement.classList.remove('dark');
+                  } else {
+                    // No preference saved — default to light
+                    document.documentElement.classList.remove('dark');
+                  }
+                } catch(e) {}
+              })();
+            `,
+          }}
+        />
         {/* Phone-width preview on desktop */}
         <div className="w-full max-w-[430px] min-h-screen shadow-2xl">
           <ErrorSuppressor />
@@ -163,7 +176,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <QuickAddProvider>
                     <AutoHealthSync />
                     <NativeAndroidStatusBar />
-                    <NativeAndroidBackButton />
+                    <AndroidBackButtonHandler />
                     <EventNotificationLoader />
                     <main className="app-main-shell relative min-h-screen pb-24 bg-[var(--bg)]">
                       {children}

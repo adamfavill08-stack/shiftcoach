@@ -1,134 +1,79 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
-import { useTranslation } from '@/components/providers/language-provider'
+import { ShiftWorkerGuideArticleLayout } from "@/components/shift-worker/ShiftWorkerGuideArticleLayout";
+import { useTranslation } from "@/components/providers/language-provider";
+
+const SHIFT_WORKER_DIET_HERO = "/images/explore/diet.jpg";
+const ARTICLE_ACCENT = "#34C759";
 
 export default function ShiftWorkerDietPage() {
-  const { t } = useTranslation()
+  const { t } = useTranslation();
+
   return (
-    <main
-      style={{
-        backgroundImage: 'radial-gradient(circle at top, var(--bg-soft), var(--bg))',
-      }}
+    <ShiftWorkerGuideArticleLayout
+      heroSrc={SHIFT_WORKER_DIET_HERO}
+      heroAltKey="shiftWorker.diet.heroAlt"
+      kickerKey="shiftWorker.diet.kicker"
+      titleKey="shiftWorker.diet.title"
+      ledeKey="shiftWorker.diet.lede"
+      readTimeKey="shiftWorker.diet.readTime"
+      accentHex={ARTICLE_ACCENT}
+      footerTipKey="shiftWorker.diet.footerTip"
     >
-      <div className="max-w-[430px] mx-auto min-h-screen px-4 pb-8 pt-4 flex flex-col gap-5">
-        <header className="flex items-center gap-2 mb-2">
-          <Link
-            href="/dashboard"
-            className="p-2 rounded-full backdrop-blur-xl border transition-all"
-            style={{
-              backgroundColor: 'var(--card)',
-              borderColor: 'var(--border-subtle)',
-              color: 'var(--text-main)',
-            }}
-            aria-label={t('shiftWorker.health.backAria')}
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </Link>
-          <h1
-            className="text-xl font-semibold tracking-tight"
-            style={{ color: 'var(--text-main)' }}
-          >
-            {t('shiftWorker.diet.title')}
-          </h1>
-        </header>
-
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <h2 className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
-            {t('shiftWorker.diet.whyTitle')}
-          </h2>
-          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-main)' }}>
-            {t('shiftWorker.diet.whyP1')}
-          </p>
-          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-main)' }}>
-            {t('shiftWorker.diet.whyP2')}
-          </p>
-        </section>
-
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <h2 className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
-            {t('shiftWorker.diet.issuesTitle')}
-          </h2>
-          <ul
-            className="text-sm list-disc list-inside space-y-2"
-            style={{ color: 'var(--text-main)' }}
-          >
-            <li>{t('shiftWorker.diet.issuesLi1')}</li>
-            <li>{t('shiftWorker.diet.issuesLi2')}</li>
-            <li>{t('shiftWorker.diet.issuesLi3')}</li>
-            <li>{t('shiftWorker.diet.issuesLi4')}</li>
-          </ul>
-          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-main)' }}>
-            {t('shiftWorker.diet.issuesFooter')}
-          </p>
-        </section>
-
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <h2 className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
-            {t('shiftWorker.diet.structureTitle')}
-          </h2>
-          <div className="space-y-2 text-sm" style={{ color: 'var(--text-main)' }}>
-            <p className="font-semibold">{t('shiftWorker.diet.dayLabel')}</p>
-            <ul className="list-disc list-inside space-y-1">
-              <li>{t('shiftWorker.diet.dayLi1')}</li>
-              <li>{t('shiftWorker.diet.dayLi2')}</li>
-              <li>{t('shiftWorker.diet.dayLi3')}</li>
-            </ul>
-            <p className="mt-3 font-semibold">{t('shiftWorker.diet.nightLabel')}</p>
-            <ul className="list-disc list-inside space-y-1">
-              <li>{t('shiftWorker.diet.nightLi1')}</li>
-              <li>{t('shiftWorker.diet.nightLi2')}</li>
-              <li>{t('shiftWorker.diet.nightLi3')}</li>
-            </ul>
-          </div>
-        </section>
-
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-          style={{
-            backgroundColor: 'var(--card)',
-            borderColor: 'var(--border-subtle)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <h2 className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
-            {t('shiftWorker.diet.profileTitle')}
-          </h2>
-          <ul
-            className="text-sm list-disc list-inside space-y-2"
-            style={{ color: 'var(--text-main)' }}
-          >
-            <li>{t('shiftWorker.diet.profileLi1')}</li>
-            <li>{t('shiftWorker.diet.profileLi2')}</li>
-            <li>{t('shiftWorker.diet.profileLi3')}</li>
-          </ul>
-          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-main)' }}>
-            {t('shiftWorker.diet.profileFooter')}
-          </p>
-        </section>
+      <h2 className="mb-4 text-[21px] font-bold leading-[1.28] tracking-[-0.3px] text-[var(--text-main)]">
+        {t("shiftWorker.diet.whyTitle")}
+      </h2>
+      <div className="mb-10 space-y-5">
+        <p className="text-[17px] leading-[1.78] text-[var(--text-soft)]">{t("shiftWorker.diet.whyP1")}</p>
+        <p className="text-[17px] leading-[1.78] text-[var(--text-soft)]">{t("shiftWorker.diet.whyP2")}</p>
       </div>
-    </main>
-  )
+
+      <h2 className="mb-4 mt-9 text-[21px] font-bold leading-[1.28] tracking-[-0.3px] text-[var(--text-main)]">
+        {t("shiftWorker.diet.issuesTitle")}
+      </h2>
+      <ul className="mb-4 list-disc space-y-3 pl-5 text-[17px] leading-[1.75] text-[var(--text-soft)]">
+        <li>{t("shiftWorker.diet.issuesLi1")}</li>
+        <li>{t("shiftWorker.diet.issuesLi2")}</li>
+        <li>{t("shiftWorker.diet.issuesLi3")}</li>
+        <li>{t("shiftWorker.diet.issuesLi4")}</li>
+      </ul>
+      <p className="mb-10 text-[17px] leading-[1.78] text-[var(--text-soft)]">{t("shiftWorker.diet.issuesFooter")}</p>
+
+      <h2 className="mb-4 mt-9 text-[21px] font-bold leading-[1.28] tracking-[-0.3px] text-[var(--text-main)]">
+        {t("shiftWorker.diet.structureTitle")}
+      </h2>
+      <div className="mb-10 space-y-6 text-[17px] leading-[1.75] text-[var(--text-soft)]">
+        <div>
+          <p className="mb-2 text-[13px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+            {t("shiftWorker.diet.dayLabel")}
+          </p>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>{t("shiftWorker.diet.dayLi1")}</li>
+            <li>{t("shiftWorker.diet.dayLi2")}</li>
+            <li>{t("shiftWorker.diet.dayLi3")}</li>
+          </ul>
+        </div>
+        <div>
+          <p className="mb-2 text-[13px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+            {t("shiftWorker.diet.nightLabel")}
+          </p>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>{t("shiftWorker.diet.nightLi1")}</li>
+            <li>{t("shiftWorker.diet.nightLi2")}</li>
+            <li>{t("shiftWorker.diet.nightLi3")}</li>
+          </ul>
+        </div>
+      </div>
+
+      <h2 className="mb-4 mt-9 text-[21px] font-bold leading-[1.28] tracking-[-0.3px] text-[var(--text-main)]">
+        {t("shiftWorker.diet.profileTitle")}
+      </h2>
+      <ul className="mb-4 list-disc space-y-3 pl-5 text-[17px] leading-[1.75] text-[var(--text-soft)]">
+        <li>{t("shiftWorker.diet.profileLi1")}</li>
+        <li>{t("shiftWorker.diet.profileLi2")}</li>
+        <li>{t("shiftWorker.diet.profileLi3")}</li>
+      </ul>
+      <p className="text-[17px] leading-[1.78] text-[var(--text-soft)]">{t("shiftWorker.diet.profileFooter")}</p>
+    </ShiftWorkerGuideArticleLayout>
+  );
 }

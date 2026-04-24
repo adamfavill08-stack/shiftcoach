@@ -5,17 +5,20 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Mail, Lock } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { useTranslation } from '@/components/providers/language-provider'
 import { CompactLanguagePicker } from '@/components/i18n/CompactLanguagePicker'
 import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus'
+import { AuthEmailDivider, SocialAuthButtons } from '@/components/auth/SocialAuthButtons'
 
 function SignInContent() {
   const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [err, setErr] = useState<string | undefined>()
   const [busy, setBusy] = useState(false)
+  const [oauthBusy, setOauthBusy] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const { isOnline } = useNetworkStatus()
@@ -133,12 +136,6 @@ function SignInContent() {
               <p className="mt-4 text-sm leading-relaxed text-slate-700 max-w-[36ch] mx-auto">
                 {t('auth.tagline')}
               </p>
-              
-              {/* Status pill */}
-              <span className="mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 bg-slate-50 border border-slate-200 text-[11px] text-slate-600">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                {t('auth.personalized')}
-              </span>
 
               <div className="mt-5 text-left px-0.5">
                 <CompactLanguagePicker
@@ -159,8 +156,20 @@ function SignInContent() {
               </p>
             </div>
 
-            {/* Form */}
-            <form onSubmit={submit} className="mt-6 space-y-4" aria-busy={busy}>
+            <div className="mt-6">
+              <SocialAuthButtons
+                disabled={busy || oauthBusy}
+                isOnline={isOnline}
+                onError={setErr}
+                onPendingChange={setOauthBusy}
+              />
+              {err && (
+                <div id={signInErrorId} className="mt-4 p-3 rounded-xl bg-red-50 border border-red-200" role="alert" aria-live="assertive">
+                  <p className="text-red-600 text-sm font-medium">{err}</p>
+                </div>
+              )}
+              <AuthEmailDivider />
+              <form onSubmit={submit} className="space-y-4" aria-busy={busy || oauthBusy}>
               <p id={signInStatusId} className="sr-only" aria-live="polite" role="status">
                 {busy ? t('auth.signIn.busy') : ''}
               </p>
@@ -177,6 +186,7 @@ function SignInContent() {
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
+                    disabled={busy || oauthBusy}
                     required
                   />
                 </div>
@@ -189,22 +199,33 @@ function SignInContent() {
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                   <input
                     id={passwordInputId}
-                    className="w-full h-12 rounded-xl pl-11 pr-4 bg-white border border-slate-200 placeholder:text-slate-400 text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 focus-visible:border-emerald-400 transition-all text-sm"
+                    className="w-full h-12 rounded-xl pl-11 pr-12 bg-white border border-slate-200 placeholder:text-slate-400 text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 focus-visible:border-emerald-400 transition-all text-sm"
                     placeholder={t('auth.signIn.password')}
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
+                    autoComplete="current-password"
+                    disabled={busy || oauthBusy}
                     required
                   />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
+                    disabled={busy || oauthBusy}
+                    onClick={() => setShowPassword(v => !v)}
+                    aria-label={showPassword ? t('auth.password.hide') : t('auth.password.show')}
+                    aria-pressed={showPassword}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" aria-hidden />
+                    ) : (
+                      <Eye className="h-4 w-4" aria-hidden />
+                    )}
+                  </button>
                 </div>
               </div>
-              {err && (
-                <div id={signInErrorId} className="p-3 rounded-xl bg-red-50 border border-red-200" role="alert" aria-live="assertive">
-                  <p className="text-red-600 text-sm font-medium">{err}</p>
-                </div>
-              )}
               <button
-                disabled={busy}
+                disabled={busy || oauthBusy}
                 aria-describedby={err ? signInErrorId : undefined}
                 className="w-full h-12 rounded-full text-sm font-semibold text-white bg-slate-900 shadow-[0_10px_26px_-14px_rgba(15,23,42,0.35)] hover:opacity-95 active:scale-[0.99] transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -228,6 +249,7 @@ function SignInContent() {
                 </span>
               </div>
             </form>
+            </div>
           </div>
         </div>
       </div>

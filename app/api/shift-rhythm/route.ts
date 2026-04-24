@@ -69,8 +69,10 @@ function isLongTermShiftWorkerProfile(shiftPattern: string | null | undefined): 
 }
 
 export async function GET(req: NextRequest) {
-  const { supabase, userId } = await getServerSupabaseAndUserId()
+  const { supabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
   if (!userId) return buildUnauthorizedResponse()
+
+  let rhythmInputsForDerived: Awaited<ReturnType<typeof buildShiftRhythmInputs>> | null = null
 
   try {
     const today = new Date().toISOString().slice(0, 10)
@@ -174,6 +176,7 @@ export async function GET(req: NextRequest) {
       console.log('[/api/shift-rhythm] No score for today, calculating…')
       try {
         const inputs = await buildShiftRhythmInputs(supabaseServer, userId)
+        rhythmInputsForDerived = inputs
 
         const hasMeaningfulSleep = inputs.sleepLogs.some((s: SleepLogInput) => s.durationHours > 0)
         const hasMeaningfulShifts = inputs.shiftDays.length > 0
@@ -322,9 +325,8 @@ export async function GET(req: NextRequest) {
     // Calculate sleep deficit
     let sleepDeficit = null
     try {
-      const { supabase: deficitSupabase, isDevFallback: deficitIsDev } = await getServerSupabaseAndUserId()
-      const deficitSupabaseClient = deficitIsDev ? SupabaseServer.supabaseServer : deficitSupabase
-      
+      const deficitSupabaseClient = isDevFallback ? SupabaseServer.supabaseServer : supabase
+
       const now = new Date()
       const sevenAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0)
       
@@ -441,7 +443,10 @@ export async function GET(req: NextRequest) {
     // Calculate fatigue risk from consolidated sleep/shift/circadian signals
     let fatigueRisk: FatigueRiskResult = DEFAULT_FATIGUE_RISK
     try {
-      const fatigueInputs = await buildShiftRhythmInputs(supabaseServer, userId)
+      if (!rhythmInputsForDerived) {
+        rhythmInputsForDerived = await buildShiftRhythmInputs(supabaseServer, userId)
+      }
+      const fatigueInputs = rhythmInputsForDerived
       fatigueRisk = calculateFatigueRisk({
         sleepLogs: fatigueInputs.sleepLogs.map((s: any) => ({
           durationHours: s.durationHours,
@@ -491,8 +496,11 @@ export async function GET(req: NextRequest) {
       }
       
       console.log('[api/shift-rhythm] Using Supabase service role client for binge risk calculation')
-      
-      const inputs = await buildShiftRhythmInputs(bingeRiskSupabaseClient, userId)
+
+      if (!rhythmInputsForDerived) {
+        rhythmInputsForDerived = await buildShiftRhythmInputs(bingeRiskSupabaseClient, userId)
+      }
+      const inputs = rhythmInputsForDerived
       console.log('[api/shift-rhythm] Built inputs, sleepLogs:', inputs.sleepLogs.length, 'shiftDays:', inputs.shiftDays.length)
       
       const now = new Date()

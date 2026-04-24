@@ -10,6 +10,18 @@ import { showToast } from '@/components/ui/Toast'
 import { cmToFeetInches } from '@/lib/units'
 import { useTranslation } from '@/components/providers/language-provider'
 
+/** Parse YYYY-MM-DD in the user's local calendar (avoids UTC midnight shifts from `new Date('YYYY-MM-DD')`). */
+function parseYmdLocal(ymd: string): Date | null {
+  const m = ymd.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return null
+  const y = Number(m[1])
+  const mo = Number(m[2]) - 1
+  const d = Number(m[3])
+  const dt = new Date(y, mo, d)
+  if (dt.getFullYear() !== y || dt.getMonth() !== mo || dt.getDate() !== d) return null
+  return dt
+}
+
 function ProfileLoadingFallback() {
   const { t } = useTranslation()
   return (
@@ -38,8 +50,10 @@ function ProfilePageContent() {
   const [showHeightModal, setShowHeightModal] = useState(false)
   const [showGenderModal, setShowGenderModal] = useState(false)
   const [showAgeModal, setShowAgeModal] = useState(false)
+  const [showNameModal, setShowNameModal] = useState(false)
   
   // Input states for modals
+  const [nameInput, setNameInput] = useState('')
   const [weightInput, setWeightInput] = useState('')
   const [dobInput, setDobInput] = useState('')
   const [weightUnit, setWeightUnit] = useState<'kg' | 'lb' | 'st+lb'>(() => {
@@ -58,6 +72,7 @@ function ProfilePageContent() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [hasCompletedFirstSetup, setHasCompletedFirstSetup] = useState(false)
   const [busy, setBusy] = useState(false)
 
   // When profile loads or units change, align the weight unit with the user's
@@ -73,14 +88,17 @@ function ProfilePageContent() {
 
   // Extract refresh param value (stable string, not object)
   const refreshParam = searchParams.get('refresh')
+  const profileSetupDoneKey = profile?.user_id ? `profileSetupCompleted:${profile.user_id}` : null
 
   // Helper function to calculate age from date of birth
   const calculateAge = (dateOfBirth: string | null): number | null => {
     if (!dateOfBirth) return null
     try {
-      const birthDate = new Date(dateOfBirth)
+      const trimmed = dateOfBirth.trim()
+      const birthDate =
+        /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? parseYmdLocal(trimmed) : new Date(dateOfBirth)
       // Check if date is valid
-      if (isNaN(birthDate.getTime())) {
+      if (!birthDate || isNaN(birthDate.getTime())) {
         console.warn('[calculateAge] Invalid date:', dateOfBirth)
         return null
       }
@@ -347,6 +365,12 @@ function ProfilePageContent() {
     }
   }, [])
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || !profileSetupDoneKey) return
+    const stored = localStorage.getItem(profileSetupDoneKey)
+    setHasCompletedFirstSetup(stored === '1')
+  }, [profileSetupDoneKey])
+
   const refreshProfile = async () => {
     console.log('[ProfilePage] Refreshing profile...')
     const profileData = await getMyProfile()
@@ -388,6 +412,22 @@ function ProfilePageContent() {
     }
   }
 
+  const handleReturnToDashboard = async () => {
+    if (busy || !isProfileFullyComplete || !profileSetupDoneKey) return
+
+    setBusy(true)
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(profileSetupDoneKey, '1')
+      }
+      setHasCompletedFirstSetup(true)
+      router.push('/dashboard')
+      router.refresh()
+    } finally {
+      setBusy(false)
+    }
+  }
+
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-100">
@@ -409,10 +449,41 @@ function ProfilePageContent() {
             <div className="text-center">
               <p className="text-sm text-slate-600 mb-4">{t('settings.profile.emptyMessage')}</p>
               <button
-                onClick={() => router.push('/onboarding')}
+                onClick={async () => {
+                  console.log('[ProfilePage] Starting profile setup from empty state')
+                  setLoading(true)
+                  try {
+                    const { data: authData, error: authErr } = await supabase.auth.getUser()
+                    if (authErr || !authData?.user) {
+                      console.error('[ProfilePage] Could not read auth user for setup:', authErr)
+                      setLoading(false)
+                      return
+                    }
+
+                    // Explicitly ensure a profile row exists for this user, then load it.
+                    const { error: ensureErr } = await supabase
+                      .from('profiles')
+                      .upsert({ user_id: authData.user.id }, { onConflict: 'user_id' })
+
+                    if (ensureErr) {
+                      console.error('[ProfilePage] Failed to ensure profile row:', ensureErr)
+                    }
+
+                    const data = await getMyProfile()
+                    console.log('[ProfilePage] Start setup result:', data)
+                    if (data) {
+                      setProfile(data)
+                      setUserName(data.name)
+                      setAvatarUrl(data.avatar_url || null)
+                    }
+                  } catch (err) {
+                    console.error('[ProfilePage] Unexpected start setup error:', err)
+                  }
+                  setLoading(false)
+                }}
                 className="px-6 py-3 rounded-full bg-slate-900 text-white font-semibold shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] hover:opacity-95 transition-colors"
               >
-                {t('settings.profile.goToOnboarding')}
+                Start profile setup
               </button>
               <button
                 onClick={async () => {
@@ -477,6 +548,18 @@ function ProfilePageContent() {
           return age !== null ? `${age}` : '—'
         })()
       : '—'
+
+  const isProfileFullyComplete = Boolean(
+    profile?.name?.trim() &&
+      profile?.sex &&
+      profile?.goal &&
+      typeof profile?.weight_kg === 'number' &&
+      profile.weight_kg > 0 &&
+      typeof profile?.height_cm === 'number' &&
+      profile.height_cm > 0 &&
+      (Boolean(profile?.date_of_birth) || (typeof profile?.age === 'number' && profile.age > 0))
+  )
+  const isFirstTimeProfileSetup = !hasCompletedFirstSetup
 
   const goalLabel =
     profile.goal === 'lose'
@@ -617,44 +700,51 @@ function ProfilePageContent() {
   const handleSaveDOB = async () => {
     if (!profile) return
     setSaving('dob')
-    
+
     if (!dobInput || dobInput.trim() === '') {
       alert(t('settings.profile.alert.dobRequired'))
       setSaving(null)
       return
     }
-    
+
     // Validate date format (YYYY-MM-DD)
     const dobRegex = /^\d{4}-\d{2}-\d{2}$/
-    if (!dobRegex.test(dobInput)) {
+    if (!dobRegex.test(dobInput.trim())) {
       alert(t('settings.profile.alert.dobFormat'))
       setSaving(null)
       return
     }
-    
-    // Validate date is not in the future
-    const dob = new Date(dobInput)
-    const today = new Date()
-    if (dob > today) {
+
+    const dobLocal = parseYmdLocal(dobInput.trim())
+    if (!dobLocal) {
+      alert(t('settings.profile.alert.dobFormat'))
+      setSaving(null)
+      return
+    }
+
+    // Validate date is not in the future (local calendar day)
+    const todayMid = new Date()
+    todayMid.setHours(0, 0, 0, 0)
+    const dobMid = new Date(dobLocal.getFullYear(), dobLocal.getMonth(), dobLocal.getDate())
+    if (dobMid > todayMid) {
       alert(t('settings.profile.alert.dobFuture'))
       setSaving(null)
       return
     }
-    
+
     // Validate age is reasonable (13-120 years)
-    const age = calculateAge(dobInput)
+    const age = calculateAge(dobInput.trim())
     if (age === null || age < 13 || age > 120) {
       alert(t('settings.profile.alert.dobAgeRange'))
       setSaving(null)
       return
     }
-    
-    // Update date_of_birth (API will calculate age automatically)
-    const success = await updateProfile({ date_of_birth: dobInput })
+
+    const success = await updateProfile({ date_of_birth: dobInput.trim(), age })
     if (success) {
       await refreshProfile()
       // Dispatch events to trigger recalculation (age affects sleep calculations)
-      window.dispatchEvent(new CustomEvent('profile-updated', { detail: { date_of_birth: dobInput, age } }))
+      window.dispatchEvent(new CustomEvent('profile-updated', { detail: { date_of_birth: dobInput.trim(), age } }))
       showToast(t('settings.profile.toast.dobUpdated', { age }), 'success')
     } else {
       showToast(t('settings.profile.toast.dobFailed'), 'error')
@@ -665,6 +755,25 @@ function ProfilePageContent() {
     setDobInput('')
   }
 
+  const handleSaveName = async () => {
+    if (!profile) return
+    const trimmed = nameInput.trim()
+    if (!trimmed) {
+      alert(t('settings.profile.alert.nameRequired'))
+      return
+    }
+    setSaving('name')
+    const success = await updateProfile({ name: trimmed })
+    if (success) {
+      await refreshProfile()
+      window.dispatchEvent(new CustomEvent('profile-updated', { detail: { name: trimmed } }))
+      showToast(t('settings.profile.toast.nameUpdated'), 'success')
+    } else {
+      showToast(t('settings.profile.toast.nameFailed'), 'error')
+    }
+    setSaving(null)
+    setShowNameModal(false)
+  }
 
   const handleSaveGender = async (sex: 'male' | 'female' | 'other') => {
     if (!profile) return
@@ -735,16 +844,28 @@ function ProfilePageContent() {
                   {t('settings.profile.title')}
                 </h1>
 
-                {/* Identity Block */}
-                <div className="mt-4 mx-5 flex items-center gap-3 rounded-xl bg-slate-50 border border-slate-100 px-4 py-3">
-                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-400 grid place-items-center text-white font-semibold flex-shrink-0">
-                    {getInitials(userName || t('settings.profile.fallbackUser'))}
+                {/* Identity Block — tap to set display name */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNameInput(profile?.name ?? userName ?? '')
+                    setShowNameModal(true)
+                  }}
+                  className="mt-4 mx-5 flex w-[calc(100%-2.5rem)] items-center justify-between gap-3 rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 text-left hover:border-sky-100 hover:shadow-[0_4px_12px_rgba(15,23,42,0.08)] transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-400 grid place-items-center text-white font-semibold flex-shrink-0">
+                      {getInitials(userName || t('settings.profile.fallbackUser'))}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-900 truncate">
+                        {getFirstName(userName) || t('settings.profile.fallbackUser')}
+                      </p>
+                      <p className="text-xs text-slate-500">{t('settings.profile.subtitle')}</p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900">{getFirstName(userName) || t('settings.profile.fallbackUser')}</p>
-                    <p className="text-xs text-slate-500">{t('settings.profile.subtitle')}</p>
-                  </div>
-                </div>
+                  <ChevronRight className="h-4 w-4 text-slate-300 flex-shrink-0" strokeWidth={2} />
+                </button>
 
                 {/* Quick stats row */}
                 <div className="mt-3 mx-5 grid grid-cols-3 gap-2">
@@ -900,12 +1021,27 @@ function ProfilePageContent() {
                 {/* Actions */}
                 <div className="px-5">
                   <button
-                    onClick={handleLogout}
-                    disabled={isLoggingOut}
+                    onClick={isFirstTimeProfileSetup ? handleReturnToDashboard : handleLogout}
+                    disabled={
+                      isFirstTimeProfileSetup
+                        ? busy || !isProfileFullyComplete
+                        : isLoggingOut
+                    }
                     className="mt-5 w-full rounded-full px-5 py-3 bg-slate-900 text-white text-sm font-semibold shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] hover:opacity-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isLoggingOut ? t('settings.dataPrivacy.loggingOut') : t('settings.dataPrivacy.logOut')}
+                    {isFirstTimeProfileSetup
+                      ? busy
+                        ? t('settings.profile.saving')
+                        : t('settings.profile.returnToDashboard')
+                      : isLoggingOut
+                        ? t('settings.dataPrivacy.loggingOut')
+                        : t('settings.dataPrivacy.logOut')}
                   </button>
+                  {isFirstTimeProfileSetup && !isProfileFullyComplete && (
+                    <p className="mt-2 text-center text-xs text-slate-500">
+                      {t('settings.profile.completeAllFieldsFirst')}
+                    </p>
+                  )}
 
                   <div className="mt-6 pt-4 border-t border-slate-100 text-center">
                     <p className="text-[10px] font-semibold tracking-[0.22em] text-slate-400 mb-1">
@@ -919,6 +1055,46 @@ function ProfilePageContent() {
               </div>
             </div>
           </main>
+
+        {/* Display name modal */}
+        {showNameModal && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="rounded-2xl bg-white border border-slate-200 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] p-6 w-full max-w-sm">
+              <h4 className="text-lg font-semibold text-slate-900 mb-1">{t('settings.profile.modalDisplayName')}</h4>
+              <p className="text-xs text-slate-500 mb-4">{t('settings.profile.modalDisplayNameHint')}</p>
+              <input
+                id="profile-display-name"
+                type="text"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                placeholder={t('settings.profile.namePlaceholder')}
+                autoComplete="name"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
+              />
+              <div className="mt-5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNameModal(false)
+                    setNameInput('')
+                  }}
+                  disabled={saving === 'name'}
+                  className="flex-1 py-2.5 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 disabled:opacity-50 transition-colors"
+                >
+                  {t('settings.profile.cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveName}
+                  disabled={saving === 'name' || !nameInput.trim()}
+                  className="flex-1 py-2.5 text-sm font-semibold text-white bg-slate-900 rounded-xl hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] transition-all"
+                >
+                  {saving === 'name' ? t('settings.profile.saving') : t('settings.profile.save')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Gender Modal */}
         {showGenderModal && (

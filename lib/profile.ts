@@ -20,6 +20,19 @@ export type Profile = {
   theme?: 'light' | 'dark' | 'system' | null
   // New settings fields
   shift_pattern?: 'rotating' | 'mostly_days' | 'mostly_nights' | 'custom' | null
+  worker_type?: string | null
+  cycle_length?: number | null
+  rotation_pattern?: string[] | null
+  shift_times?: {
+    morning?: { start: string; end: string }
+    afternoon?: { start: string; end: string }
+    night?: { start: string; end: string }
+  } | null
+  rotation_anchor_date?: string | null
+  rotation_anchor_day?: number | null
+  weekend_extension?: string | null
+  /** Post–night-shift sleep anchor (HH:MM), for circadian / scheduling */
+  post_night_sleep?: string | null
   ideal_sleep_start?: string | null // time format HH:MM
   ideal_sleep_end?: string | null // time format HH:MM
   wake_reminder_enabled?: boolean | null
@@ -206,26 +219,51 @@ export function isComplete(p?: Partial<Profile> | null) {
 }
 
 export async function updateProfile(updates: Partial<Profile>): Promise<boolean> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    console.error('[updateProfile] No user found')
+  try {
+    // Browser: use server upsert so saves work even when the row is missing or RLS blocks direct updates.
+    if (typeof window !== 'undefined') {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !session?.user) {
+        if (sessionError) console.error('[updateProfile] Session error:', sessionError)
+        else console.error('[updateProfile] No session')
+        return false
+      }
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session.access_token) {
+        headers.Authorization = `Bearer ${session.access_token}`
+      }
+
+      const res = await fetch('/api/profile', {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify(updates),
+      })
+
+      const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string }
+      if (!res.ok || json?.error) {
+        console.error('[updateProfile] API error:', res.status, json)
+        return false
+      }
+      return Boolean(json?.success)
+    }
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      console.error('[updateProfile] No user found')
+      return false
+    }
+
+    const { error } = await supabase.from('profiles').update(updates).eq('user_id', user.id)
+    if (error) {
+      console.error('[updateProfile] Supabase error:', error)
+      return false
+    }
+    return true
+  } catch (err) {
+    console.error('[updateProfile] Unexpected error:', err)
     return false
   }
-
-  console.log('[updateProfile] Updating profile for user:', user.id, 'with updates:', updates)
-  
-  const { data, error } = await supabase
-    .from('profiles')
-    .update(updates)
-    .eq('user_id', user.id)
-    .select()
-
-  if (error) {
-    console.error('[updateProfile] Supabase error:', error)
-    return false
-  }
-
-  console.log('[updateProfile] Success, updated data:', data)
-  return true
 }
 

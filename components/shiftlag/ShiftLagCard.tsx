@@ -9,6 +9,8 @@ import { useTranslation } from "@/components/providers/language-provider"
 import { apiErrorMessageFromJson } from "@/lib/api/clientErrorMessage"
 import { authedFetch } from "@/lib/supabase/authedFetch"
 import { riskScaleBarMarkerFill } from "@/lib/riskScaleBarMarker"
+import { supabase } from "@/lib/supabase"
+import { getCircadianData } from "@/lib/circadian/circadianCache"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -65,13 +67,25 @@ export function ShiftLagCard({ compact = false }: ShiftLagCardProps) {
       }
 
       if (json.score !== undefined && json.level) {
-        setData({
+        const nextData: ShiftLagMetrics = {
           ...json,
           explanation: json.explanation ?? "",
           sleepDebtScore: json.sleepDebtScore ?? 0,
           misalignmentScore: json.misalignmentScore ?? 0,
           instabilityScore: json.instabilityScore ?? 0,
-        })
+        }
+
+        // Keep ShiftLag score visually aligned with the Circadian Alignment score.
+        const { data: auth } = await supabase.auth.getSession()
+        const accessToken = auth.session?.access_token
+        if (accessToken) {
+          const circadian = await getCircadianData(accessToken)
+          if (circadian && typeof circadian.alignmentScore === "number") {
+            nextData.score = Math.max(0, Math.min(100, Math.round(circadian.alignmentScore)))
+          }
+        }
+
+        setData(nextData)
       } else {
         console.warn("[ShiftLagCard] Invalid data structure:", json)
         setError("Invalid data received")
@@ -105,12 +119,6 @@ export function ShiftLagCard({ compact = false }: ShiftLagCardProps) {
   const showScoreRow =
     data && !isUnlockPlaceholder(data) && !isCalcFailure(data)
   const scorePct = data ? Math.max(0, Math.min(100, data.score)) : 0
-  const bubbleTone =
-    data?.level === "high"
-      ? "bg-rose-100 text-rose-800"
-      : data?.level === "moderate"
-      ? "bg-amber-100 text-amber-800"
-      : "bg-emerald-100 text-emerald-800"
   const markerFill = riskScaleBarMarkerFill(scorePct)
 
   return (
@@ -164,11 +172,14 @@ export function ShiftLagCard({ compact = false }: ShiftLagCardProps) {
           {showScoreRow && data && !compact ? (
             <div className="relative ml-auto mr-0 w-full max-w-[130px] translate-x-3 pb-1 pt-[26px]">
               <div
-                className={`absolute top-0 -translate-x-1/2 rounded-lg px-2 py-0.5 text-center leading-none shadow-sm ${bubbleTone}`}
-                style={{ left: `${scorePct}%` }}
+                className="absolute top-0 -translate-x-1/2 rounded-lg px-2 py-0.5 text-center leading-none shadow-sm text-white"
+                style={{ left: `${scorePct}%`, backgroundColor: markerFill }}
               >
                 <p className="text-[14px] font-semibold tabular-nums">{data.score}</p>
-                <span className={`absolute -bottom-0.5 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rotate-45 ${bubbleTone}`} />
+                <span
+                  className="absolute -bottom-0.5 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rotate-45"
+                  style={{ backgroundColor: markerFill }}
+                />
               </div>
               <div className="relative">
                 <div className="h-3 w-full overflow-hidden rounded-full">

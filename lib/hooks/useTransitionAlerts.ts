@@ -26,24 +26,21 @@ function transitionScheduleKey(s: UserShiftState | null): string {
  */
 export function useTransitionAlerts(userShiftState: UserShiftState | null) {
   const stateRef = useRef(userShiftState)
-  stateRef.current = userShiftState
 
+  // Single dependency: matches `transitionScheduleKey(userShiftState)` and satisfies
+  // react-hooks/use-memo + react-hooks/preserve-manual-memoization (no non-simple entries).
   const scheduleKey = useMemo(
     () => transitionScheduleKey(userShiftState),
-    [
-      userShiftState?.activeTransition?.nextShiftStart?.getTime() ?? 0,
-      userShiftState?.activeTransition?.severity ?? '',
-      userShiftState?.activeTransition?.napRecommended === true,
-      userShiftState?.mealWindows?.anchorMeal?.getTime() ?? 0,
-      userShiftState?.sleepWindows?.napWindow?.start?.getTime() ?? 0,
-      userShiftState?.sleepWindows?.napWindow?.end?.getTime() ?? 0,
-      userShiftState?.activeTransition ? 1 : 0,
-    ],
+    [userShiftState],
   )
 
   useEffect(() => {
     void requestNotificationPermission()
   }, [])
+
+  useEffect(() => {
+    stateRef.current = userShiftState
+  }, [userShiftState])
 
   useEffect(() => {
     scheduleTransitionAlerts(stateRef.current)

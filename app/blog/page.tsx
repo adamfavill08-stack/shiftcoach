@@ -44,12 +44,6 @@ const FALLBACK_META: Meta = {
 
 const BLOG_FAV_KEY = 'shiftcoach.blog.favourites.v1'
 
-const QUIZZES = [
-  { id: 1, title: 'How well do you know your body clock?', questions: 8, accent: '#007AFF', thumb: 'sleep' as const },
-  { id: 2, title: 'Is your shift pattern affecting your health?', questions: 10, accent: '#FF9500', thumb: 'fatigue' as const },
-  { id: 3, title: 'Nutrition knowledge for shift workers', questions: 6, accent: '#34C759', thumb: 'nutrition' as const },
-]
-
 function readFavSet(): Set<string> {
   try {
     const raw = localStorage.getItem(BLOG_FAV_KEY)
@@ -254,39 +248,14 @@ export default function BlogIndexPage() {
               </div>
             )
           ) : (
-            <div>
-              {QUIZZES.map((quiz) => (
-                <div
-                  key={quiz.id}
-                  className="flex cursor-default items-start gap-3.5 border-b border-[var(--border-subtle)] py-3.5 last:border-b-0"
-                >
-                  <div className="h-[76px] w-[100px] shrink-0 overflow-hidden rounded-xl bg-black">
-                    <BlogThumbnail kind={quiz.thumb} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.6px]" style={{ color: quiz.accent }}>
-                      Quiz · {quiz.questions} questions
-                    </div>
-                    <h3 className="mb-2 text-sm font-bold leading-snug text-[var(--text-main)]">{quiz.title}</h3>
-                    <div className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--text-muted)]">
-                      <span>Take quiz</span>
-                      <span className="text-[13px]">›</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              <div className="mt-5 flex items-center gap-3 rounded-2xl bg-[var(--card-subtle)] px-4 py-4">
-                <span className="text-[26px]" aria-hidden>
-                  🏆
-                </span>
-                <div>
-                  <p className="mb-0.5 text-[13px] font-bold text-[var(--text-main)]">More quizzes coming soon</p>
-                  <p className="text-[12px] leading-snug text-[var(--text-muted)]">
-                    We add new quizzes based on your shift patterns.
-                  </p>
-                </div>
-              </div>
+            <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+              <span className="text-[40px]" aria-hidden>
+                🏆
+              </span>
+              <p className="text-lg font-bold text-[var(--text-main)]">Coming soon</p>
+              <p className="max-w-[280px] text-sm leading-snug text-[var(--text-muted)]">
+                Quizzes tailored to shift work are on the way.
+              </p>
             </div>
           )}
         </div>

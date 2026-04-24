@@ -28,6 +28,7 @@ import {
 } from "@/components/body-clock/BodyClockBreakdownCard"
 import { BodyClockSimpleHabitsCard } from "@/components/body-clock/BodyClockSimpleHabitsCard"
 import { BodyClockMotivationCard } from "@/components/body-clock/BodyClockMotivationCard"
+import CircadianCard from "@/components/circadian/CircadianCard"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -608,6 +609,8 @@ export default function BodyClockPage() {
               />
             ) : null}
           </div>
+
+          <CircadianCard showMainSections={false} showSupportingSections />
 
           <section className={cn("w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 text-left shadow-none", inter.className)}>
             <div className="grid gap-3 md:grid-cols-2">

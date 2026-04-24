@@ -12,6 +12,17 @@ type Profile = {
   sleep_goal_h: number | null
   water_goal_ml: number | null
   tz: string | null
+  worker_type: string | null
+  cycle_length: number | null
+  rotation_pattern: string[] | null
+  shift_times: {
+    morning?: { start: string; end: string }
+    afternoon?: { start: string; end: string }
+    night?: { start: string; end: string }
+  } | null
+  rotation_anchor_date: string | null
+  rotation_anchor_day: number | null
+  weekend_extension: string | null
   created_at: string | null
   updated_at: string | null
 }

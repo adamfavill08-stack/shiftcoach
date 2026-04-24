@@ -66,6 +66,12 @@ export const accountLegalShellEn: Record<string, string> = {
     'The notice below is provided in English. A full translation may be added in a future update.',
 
   'shiftWorker.health.title': 'Shift worker health',
+  'shiftWorker.health.kicker': 'Guide',
+  'shiftWorker.health.lede':
+    'Science-backed context for sleep, shifts, and recovery—personalised to your rota.',
+  'shiftWorker.health.readTime': '4 min read',
+  'shiftWorker.health.heroAlt':
+    'Illustration of shift workers and healthy food, matching the dashboard explore carousel.',
   'shiftWorker.health.backAria': 'Back to dashboard',
   'shiftWorker.health.p1':
     "Shift work doesn't just change your timetable – it shifts your body clock, hormones and recovery needs. Long, irregular hours and night shifts mean your brain and body are often trying to be \"on\" when they naturally want to be asleep.",
@@ -87,8 +93,18 @@ export const accountLegalShellEn: Record<string, string> = {
     'Sleep targets that account for night work and recovery days, not just a 9–5 schedule.',
   'shiftWorker.health.meaning3':
     'Simple next steps when your body is overworked, under-rested or both.',
+  'shiftWorker.health.footerTip':
+    'Your dashboard updates as you log sleep and shifts—open it anytime to see how these pillars apply to you.',
 
   'shiftWorker.goals.title': 'Set my goals',
+  'shiftWorker.goals.kicker': 'Planning',
+  'shiftWorker.goals.lede':
+    'Create specific targets and time frames that fit your shifts, sleep and health challenges.',
+  'shiftWorker.goals.readTime': '5 min read',
+  'shiftWorker.goals.heroAlt':
+    'Goals and progress imagery for shift workers, matching the dashboard explore carousel.',
+  'shiftWorker.goals.footerTip':
+    'Revisit these targets from your dashboard and profile whenever your rota changes—small edits beat all-or-nothing plans.',
   'shiftWorker.goals.intro':
     'Shift work makes it harder to hit the usual "perfect" goals. Here you can set realistic targets and time frames for your own shifts so you always have something clear to aim for.',
   'shiftWorker.goals.sleepTitle': 'Sleep & recovery goals',
@@ -125,6 +141,14 @@ export const accountLegalShellEn: Record<string, string> = {
     'The most effective plans for shift work are flexible but specific: clear targets, but room to move things on tough runs. Adjust goals after each rota rather than waiting for the "perfect" month.',
 
   'shiftWorker.diet.title': 'Diet for shift workers',
+  'shiftWorker.diet.kicker': 'Nutrition',
+  'shiftWorker.diet.lede':
+    'Shift-worker diets, common health issues, and how the right food timing helps protect you.',
+  'shiftWorker.diet.readTime': '6 min read',
+  'shiftWorker.diet.heroAlt':
+    'Healthy meals and lifestyle imagery for shift workers, matching the dashboard explore carousel.',
+  'shiftWorker.diet.footerTip':
+    'Log meals and open nutrition insights in ShiftCoach—they stay aligned when your shifts and sleep change.',
   'shiftWorker.diet.whyTitle': 'Why diet feels harder on shifts',
   'shiftWorker.diet.whyP1':
     'Shift work changes when your brain thinks it\'s "day" or "night". At night your body is programmed to slow digestion, lower metabolism and increase cravings. That\'s why it feels so easy to over-eat junk on nights and still feel tired.',

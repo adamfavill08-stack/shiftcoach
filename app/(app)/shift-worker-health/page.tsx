@@ -1,107 +1,56 @@
 "use client";
 
-import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ShiftWorkerGuideArticleLayout } from "@/components/shift-worker/ShiftWorkerGuideArticleLayout";
 import { useTranslation } from "@/components/providers/language-provider";
+
+const SHIFT_WORKER_HEALTH_HERO = "/images/explore/shift-worker-health.jpg";
+const ARTICLE_ACCENT = "#007AFF";
 
 export default function ShiftWorkerHealthPage() {
   const { t } = useTranslation();
+
   return (
-    <main
-      style={{
-        backgroundImage: "radial-gradient(circle at top, var(--bg-soft), var(--bg))",
-      }}
+    <ShiftWorkerGuideArticleLayout
+      heroSrc={SHIFT_WORKER_HEALTH_HERO}
+      heroAltKey="shiftWorker.health.heroAlt"
+      kickerKey="shiftWorker.health.kicker"
+      titleKey="shiftWorker.health.title"
+      ledeKey="shiftWorker.health.lede"
+      readTimeKey="shiftWorker.health.readTime"
+      accentHex={ARTICLE_ACCENT}
+      footerTipKey="shiftWorker.health.footerTip"
     >
-      <div className="max-w-[430px] mx-auto min-h-screen px-4 pb-8 pt-4 flex flex-col gap-5">
-        <header className="flex items-center gap-2 mb-2">
-          <Link
-            href="/dashboard"
-            className="p-2 rounded-full backdrop-blur-xl border transition-all"
-            style={{
-              backgroundColor: "var(--card)",
-              borderColor: "var(--border-subtle)",
-              color: "var(--text-main)",
-            }}
-            aria-label={t("shiftWorker.health.backAria")}
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </Link>
-          <h1
-            className="text-xl font-semibold tracking-tight"
-            style={{ color: "var(--text-main)" }}
-          >
-            {t("shiftWorker.health.title")}
-          </h1>
-        </header>
-
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-2"
-          style={{
-            backgroundColor: "var(--card)",
-            borderColor: "var(--border-subtle)",
-            boxShadow: "var(--shadow-soft)",
-          }}
-        >
-          <p className="text-sm leading-relaxed" style={{ color: "var(--text-main)" }}>
-            {t("shiftWorker.health.p1")}
-          </p>
-          <p className="text-sm leading-relaxed" style={{ color: "var(--text-main)" }}>
-            {t("shiftWorker.health.p2")}
-          </p>
-        </section>
-
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-          style={{
-            backgroundColor: "var(--card)",
-            borderColor: "var(--border-subtle)",
-            boxShadow: "var(--shadow-soft)",
-          }}
-        >
-          <h2 className="text-sm font-semibold" style={{ color: "var(--text-main)" }}>
-            {t("shiftWorker.health.pillarsTitle")}
-          </h2>
-          <ul
-            className="text-sm list-disc list-inside space-y-2"
-            style={{ color: "var(--text-main)" }}
-          >
-            <li>
-              <span className="font-semibold">{t("shiftWorker.health.pillar1Title")}</span>{" "}
-              {t("shiftWorker.health.pillar1Body")}
-            </li>
-            <li>
-              <span className="font-semibold">{t("shiftWorker.health.pillar2Title")}</span>{" "}
-              {t("shiftWorker.health.pillar2Body")}
-            </li>
-            <li>
-              <span className="font-semibold">{t("shiftWorker.health.pillar3Title")}</span>{" "}
-              {t("shiftWorker.health.pillar3Body")}
-            </li>
-          </ul>
-        </section>
-
-        <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
-          style={{
-            backgroundColor: "var(--card)",
-            borderColor: "var(--border-subtle)",
-            boxShadow: "var(--shadow-soft)",
-          }}
-        >
-          <h2 className="text-sm font-semibold" style={{ color: "var(--text-main)" }}>
-            {t("shiftWorker.health.meaningTitle")}
-          </h2>
-          <ul
-            className="text-sm list-disc list-inside space-y-2"
-            style={{ color: "var(--text-main)" }}
-          >
-            <li>{t("shiftWorker.health.meaning1")}</li>
-            <li>{t("shiftWorker.health.meaning2")}</li>
-            <li>{t("shiftWorker.health.meaning3")}</li>
-          </ul>
-        </section>
+      <div className="mb-10 space-y-5">
+        <p className="text-[17px] leading-[1.78] text-[var(--text-soft)]">{t("shiftWorker.health.p1")}</p>
+        <p className="text-[17px] leading-[1.78] text-[var(--text-soft)]">{t("shiftWorker.health.p2")}</p>
       </div>
-    </main>
+
+      <h2 className="mb-4 mt-2 text-[21px] font-bold leading-[1.28] tracking-[-0.3px] text-[var(--text-main)]">
+        {t("shiftWorker.health.pillarsTitle")}
+      </h2>
+      <ul className="mb-10 list-disc space-y-3 pl-5 text-[17px] leading-[1.75] text-[var(--text-soft)]">
+        <li>
+          <span className="font-semibold text-[var(--text-main)]">{t("shiftWorker.health.pillar1Title")}</span>{" "}
+          {t("shiftWorker.health.pillar1Body")}
+        </li>
+        <li>
+          <span className="font-semibold text-[var(--text-main)]">{t("shiftWorker.health.pillar2Title")}</span>{" "}
+          {t("shiftWorker.health.pillar2Body")}
+        </li>
+        <li>
+          <span className="font-semibold text-[var(--text-main)]">{t("shiftWorker.health.pillar3Title")}</span>{" "}
+          {t("shiftWorker.health.pillar3Body")}
+        </li>
+      </ul>
+
+      <h2 className="mb-4 mt-9 text-[21px] font-bold leading-[1.28] tracking-[-0.3px] text-[var(--text-main)]">
+        {t("shiftWorker.health.meaningTitle")}
+      </h2>
+      <ul className="list-disc space-y-3 pl-5 text-[17px] leading-[1.75] text-[var(--text-soft)]">
+        <li>{t("shiftWorker.health.meaning1")}</li>
+        <li>{t("shiftWorker.health.meaning2")}</li>
+        <li>{t("shiftWorker.health.meaning3")}</li>
+      </ul>
+    </ShiftWorkerGuideArticleLayout>
   );
 }
-

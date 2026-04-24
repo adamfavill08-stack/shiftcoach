@@ -1,19 +1,35 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 
 import { useTranslation } from '@/components/providers/language-provider'
-import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/components/AuthProvider'
 import { authedFetch } from '@/lib/supabase/authedFetch'
 import { useShiftRhythm } from '@/lib/hooks/useShiftRhythm'
 import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus'
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator'
 import { DashboardPager } from '@/components/dashboard/DashboardPager'
 import DashboardHeader from '@/components/dashboard/DashboardHeader'
+import { ShiftWeekStrip } from '@/components/dashboard/ShiftWeekStrip'
+import CircadianCard from '@/components/circadian/CircadianCard'
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import type { FatigueRiskResult } from '@/lib/fatigue/calculateFatigueRisk'
-import ShiftRhythmCard from '@/components/shift-rhythm/ShiftRhythmCard'
+
+const ShiftRhythmCard = dynamic(
+  () => import('@/components/shift-rhythm/ShiftRhythmCard'),
+  {
+    ssr: true,
+    loading: () => (
+      <div
+        className="mx-4 mt-4 min-h-[280px] animate-pulse rounded-xl border border-slate-200/80 bg-gradient-to-b from-slate-100 to-white shadow-sm"
+        aria-busy="true"
+        aria-label="Loading rhythm card"
+      />
+    ),
+  },
+)
 
 const GOOGLE_FIT_ERROR_KEYS: Record<string, string> = {
   access_denied: 'dashboard.googleFit.accessDenied',
@@ -29,6 +45,7 @@ const GOOGLE_FIT_ERROR_KEYS: Record<string, string> = {
 function DashboardContent() {
   const { t } = useTranslation()
   const router = useRouter()
+  const { user: authUser, loading: authLoading } = useAuth()
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [googleFitMessage, setGoogleFitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -53,28 +70,6 @@ function DashboardContent() {
     bingeRisk: shiftRhythmBingeRisk,
     fatigueRisk: shiftRhythmFatigueRisk,
   } = useShiftRhythm()
-
-  const loadUser = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      // In development, allow the app to work with server-side dev fallback
-      // The API routes will handle authentication on the server
-      const isDev = process.env.NODE_ENV !== 'production'
-      if (!isDev) {
-        router.replace('/auth/sign-in')
-        return null
-      }
-      // In dev, we can still use the app - API routes will use dev fallback user
-      // We'll use a placeholder userId for client-side state
-      const devUserId = process.env.NEXT_PUBLIC_DEV_USER_ID || 'dev-user'
-      setUserId(devUserId)
-      return devUserId
-    }
-    setUserId(user.id)
-    return user.id
-  }, [router])
 
   const fetchSleep = useCallback(async (_uid: string) => {
     // Sleep is now surfaced on dedicated pages; keep this no-op to avoid extra dashboard pages.
@@ -186,8 +181,11 @@ function DashboardContent() {
   // The bootstrap effect must not list them as deps or we loop: fetch → setState → new callback → effect → fetch…
   const fetchCircadianRef = useRef(fetchCircadian)
   const refetchShiftRhythmRef = useRef(refetchShiftRhythm)
-  fetchCircadianRef.current = fetchCircadian
-  refetchShiftRhythmRef.current = refetchShiftRhythm
+
+  useEffect(() => {
+    fetchCircadianRef.current = fetchCircadian
+    refetchShiftRhythmRef.current = refetchShiftRhythm
+  }, [fetchCircadian, refetchShiftRhythm])
 
   // Google Fit redirect params — read from the URL on mount only (avoids useSearchParams + Suspense hydration mismatches).
   useEffect(() => {
@@ -211,22 +209,32 @@ function DashboardContent() {
   }, [router, t])
 
   useEffect(() => {
+    if (authLoading) return
+
     if (!isOnline) {
       loadCachedDashboardState()
     }
-    ;(async () => {
-      const uid = await loadUser()
-      if (!uid) return
-      // Show the dashboard shell as soon as the user is known
-      setLoading(false)
-      // Kick off data fetches in the background so first paint is faster
-      void fetchSleep(uid)
-      // Avoid "Failed to fetch" noise when offline — cache was loaded above
-      if (isOnline) {
-        void fetchCircadianRef.current()
+
+    const isDev = process.env.NODE_ENV !== 'production'
+    if (!authUser) {
+      if (!isDev) {
+        router.replace('/auth/sign-in')
+        return
       }
-    })()
-  }, [isOnline, loadCachedDashboardState, loadUser, fetchSleep])
+      const devUserId = process.env.NEXT_PUBLIC_DEV_USER_ID || 'dev-user'
+      setUserId(devUserId)
+      setLoading(false)
+      if (isOnline) void fetchCircadianRef.current()
+      return
+    }
+
+    setUserId(authUser.id)
+    setLoading(false)
+    void fetchSleep(authUser.id)
+    if (isOnline) {
+      void fetchCircadianRef.current()
+    }
+  }, [authLoading, authUser, isOnline, loadCachedDashboardState, router, fetchSleep])
 
   // Load activity summary after the main dashboard data so first paint is faster
   useEffect(() => {
@@ -310,7 +318,6 @@ function DashboardContent() {
         content: (
           <ShiftRhythmCard
             score={totalScore != null ? totalScore * 10 : undefined}
-            circadian={circadian}
             socialJetlag={resolvedSocialJetlag}
             bingeRisk={resolvedBingeRisk}
             fatigueRisk={resolvedFatigueRisk}
@@ -321,7 +328,7 @@ function DashboardContent() {
         ),
       },
     ],
-    [totalScore, circadian, resolvedSocialJetlag, resolvedBingeRisk, resolvedFatigueRisk, isOnline, shiftRhythmLoading, hasShiftRhythmData, sleepDeficit, t]
+    [totalScore, resolvedSocialJetlag, resolvedBingeRisk, resolvedFatigueRisk, isOnline, shiftRhythmLoading, hasShiftRhythmData, sleepDeficit, t]
   )
 
   const shouldShowDashboardSpinner =
@@ -372,6 +379,8 @@ function DashboardContent() {
         <div className="min-h-screen pb-6 bg-slate-100">
           <div id="phone-root" className="pb-4 relative">
             <DashboardHeader />
+            <ShiftWeekStrip />
+            <CircadianCard showSupportingSections={false} />
             <DashboardPager pages={pages} />
           </div>
         </div>

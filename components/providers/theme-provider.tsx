@@ -3,6 +3,9 @@
 import type { ReactNode } from 'react'
 import { useEffect } from 'react'
 
+/** Fired after settings (or anything) writes `localStorage.theme` so class stays in sync. */
+export const THEME_STORAGE_EVENT = 'shiftcoach-theme'
+
 type ThemeProviderProps = {
   children: ReactNode
 }
@@ -11,28 +14,35 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   useEffect(() => {
     if (typeof document === 'undefined') return
     const root = document.documentElement
-    const media = window.matchMedia('(prefers-color-scheme: dark)')
-
     const applyTheme = () => {
       const savedTheme = window.localStorage.getItem('theme')
-      // Explicit override wins; otherwise follow system setting.
-      const useDark = savedTheme === 'dark' || (savedTheme !== 'light' && media.matches)
+      // Explicit theme only; default is light when not set.
+      const useDark = savedTheme === 'dark'
       root.classList.toggle('dark', useDark)
     }
 
     const handleSystemThemeChange = () => {
-      const savedTheme = window.localStorage.getItem('theme')
-      // Only auto-update when there is no explicit override.
-      if (savedTheme !== 'dark' && savedTheme !== 'light') {
-        applyTheme()
-      }
+      // No-op: theme no longer follows system automatically.
+    }
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'theme') applyTheme()
+    }
+
+    const handleCustomTheme = () => {
+      applyTheme()
     }
 
     applyTheme()
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
     media.addEventListener('change', handleSystemThemeChange)
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener(THEME_STORAGE_EVENT, handleCustomTheme)
 
     return () => {
       media.removeEventListener('change', handleSystemThemeChange)
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener(THEME_STORAGE_EVENT, handleCustomTheme)
     }
   }, [])
 

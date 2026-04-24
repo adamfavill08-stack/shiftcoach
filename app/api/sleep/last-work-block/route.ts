@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { applyHolidayAsOffToShiftRows, fetchHolidayLocalDatesSet } from '@/lib/rota/holidayRotaPriority'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
+import {
+  addCalendarDaysToYmd,
+  rowCountsAsPrimarySleep,
+  startOfLocalDayUtcMs,
+} from '@/lib/sleep/utils'
 
 export type WorkBlockStatus = 'well_recovered' | 'slight_debt' | 'high_debt'
 
@@ -174,6 +179,38 @@ function deriveStatus(totalSleepMinutes: number, expectedSleepMinutes: number): 
   return 'high_debt'
 }
 
+/** Intersection of [startMs, endMs) with [winStart, winEndExclusive). */
+function clipInterval(
+  startMs: number,
+  endMs: number,
+  winStart: number,
+  winEndExclusive: number,
+): { start: number; end: number } | null {
+  const lo = Math.max(startMs, winStart)
+  const hi = Math.min(endMs, winEndExclusive)
+  if (hi <= lo) return null
+  return { start: lo, end: hi }
+}
+
+/** Union length in minutes (avoids double-counting overlapping primary-sleep logs). */
+function mergedOverlapMinutes(intervals: Array<{ start: number; end: number }>): number {
+  if (!intervals.length) return 0
+  const sorted = [...intervals].sort((a, b) => a.start - b.start)
+  let total = 0
+  let cur = sorted[0]
+  for (let i = 1; i < sorted.length; i++) {
+    const next = sorted[i]
+    if (next.start <= cur.end) {
+      cur = { start: cur.start, end: Math.max(cur.end, next.end) }
+    } else {
+      total += Math.round((cur.end - cur.start) / 60000)
+      cur = next
+    }
+  }
+  total += Math.round((cur.end - cur.start) / 60000)
+  return total
+}
+
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
@@ -238,19 +275,20 @@ export async function GET(req: NextRequest) {
     : blockDates[blockDates.length - 1]
   const shiftCount = blockDates.length
 
-  const windowStart = ymdToUtcDate(blockStartDate).toISOString()
-  // After the last shift day, recovery sleep often starts the next calendar day (e.g. nights end Thu → main sleep Fri AM).
-  // +2 days was tight for late-started or long sessions across TZ; +3 covers typical post-block sleep without widening much.
-  const blockEndWindowEnd = new Date(ymdToUtcDate(blockEndDate).getTime() + 3 * 86400000)
-  const windowEnd = blockEndWindowEnd.toISOString()
+  // Align window with the user's calendar (same `tz` as shift dates) so we don't pull in pre-block sleep.
+  const winStartMs = startOfLocalDayUtcMs(blockStartDate, tz)
+  // Same span as before: through start of calendar day (blockEnd + 3), exclusive upper bound.
+  const winEndExclusiveMs = startOfLocalDayUtcMs(addCalendarDaysToYmd(blockEndDate, 3), tz)
+  const windowStartIso = new Date(winStartMs).toISOString()
+  const windowEndIso = new Date(winEndExclusiveMs).toISOString()
 
   const { data: sleepLogs, error: sleepError } = await supabase
     .from('sleep_logs')
-    .select('start_at, end_at')
+    .select('start_at, end_at, type, naps')
     .eq('user_id', userId)
     .is('deleted_at', null)
-    .gte('end_at', windowStart)
-    .lt('start_at', windowEnd)
+    .gte('end_at', windowStartIso)
+    .lt('start_at', windowEndIso)
     .order('start_at', { ascending: true })
 
   if (sleepError) {
@@ -258,14 +296,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to load sleep' }, { status: 500 })
   }
 
-  let totalSleepMinutes = 0
+  const clipped: Array<{ start: number; end: number }> = []
   for (const log of sleepLogs ?? []) {
-    const start = Date.parse(log.start_at)
-    const end = Date.parse(log.end_at)
-    if (!Number.isNaN(start) && !Number.isNaN(end) && end > start) {
-      totalSleepMinutes += Math.round((end - start) / 60000)
-    }
+    if (!rowCountsAsPrimarySleep(log)) continue
+    const startRaw = log.start_at
+    const endRaw = log.end_at
+    if (!startRaw || !endRaw) continue
+    const start = Date.parse(String(startRaw))
+    const end = Date.parse(String(endRaw))
+    if (Number.isNaN(start) || Number.isNaN(end) || end <= start) continue
+    const seg = clipInterval(start, end, winStartMs, winEndExclusiveMs)
+    if (seg) clipped.push(seg)
   }
+
+  const totalSleepMinutes = mergedOverlapMinutes(clipped)
 
   const expectedSleepMinutes = shiftCount * EXPECTED_SLEEP_PER_SHIFT_MINUTES
   const status = deriveStatus(totalSleepMinutes, expectedSleepMinutes)

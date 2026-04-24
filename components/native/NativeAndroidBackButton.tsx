@@ -7,23 +7,50 @@ import { showToast } from '@/components/ui/Toast'
 
 const DOUBLE_TAP_MS = 2000
 
-/** Main app home: double back exits (native). */
-const HOME_DOUBLE_EXIT_PATHS = new Set(['/dashboard'])
-
 /**
- * Bottom-nav roots: back with no history → dashboard (stay in app).
- * Splash / welcome are handled separately — not tab shells.
+ * Bottom-nav “shell” routes: when the WebView cannot go back, first hardware back
+ * shows a toast; second back within {@link DOUBLE_TAP_MS} exits the app.
+ *
+ * **Tab navigation (verified):** {@link components/ui/BottomNav.tsx} uses `<Link href>`
+ * for `/dashboard`, `/rota`, `/blog`, `/settings` only — no `router.replace` on tab switches,
+ * so the SPA/WebView stack normally grows with tab changes and `canGoBack` stays accurate.
+ * Other `router.replace` usages (e.g. auth, onboarding, Google Fit query cleanup on dashboard,
+ * stripping query params on profile) are intentional, not main-tab navigation.
+ *
+ * **Manual QA (Android native), tab-style stack:**
+ * Dashboard → Rota → Settings → open a settings subpage (e.g. Profile).
+ * 1. Hardware back on subpage: `canGoBack` → `router.back()` → `/settings`.
+ * 2. Keep backing through Rota → Dashboard while `canGoBack` is true.
+ * 3. On a shell route with **no** history (`!canGoBack`): first back → one `showToast('Press…')`;
+ *    second back within {@link DOUBLE_TAP_MS} → `exitApp()` (no duplicate toast from one press).
  */
-const TAB_BAR_ROOTS = new Set(['/rota', '/blog', '/settings'])
+const SHELL_DOUBLE_BACK_EXIT = new Set(['/dashboard', '/rota', '/blog', '/settings'])
+
+function normalizePath(p: string) {
+  if (!p) return '/'
+  return p.length > 1 && p.endsWith('/') ? p.slice(0, -1) : p
+}
+
+/** Start loading Capacitor App as soon as this chunk runs in the browser (reduces race before listener attaches). */
+function preloadCapacitorApp() {
+  if (typeof window === 'undefined') return
+  void import('@capacitor/app')
+}
+
+preloadCapacitorApp()
 
 /**
  * Android hardware back:
- * - In-app history first (`router.back` when `canGoBack`).
- * - `/`, `/splash`: boot-style entry → minimize (don’t dump user onto dashboard mid-splash).
- * - `/welcome`: one-shot post-onboarding → clear flag + go to dashboard (same intent as Continue).
- * - `/dashboard`: double-press + toast → `exitApp`.
- * - Tab bar roots with no history → `replace('/dashboard')`.
- * - Anything else → `replace('/dashboard')`.
+ * - If the WebView reports history (`canGoBack`), delegate to Next.js via `router.back()` (preserves SPA stack).
+ * - `/`, `/splash`: minimize (avoid dumping users mid-boot).
+ * - `/welcome`: same as Continue — session flag + dashboard.
+ * - `/auth/sign-in`, `/onboarding`: minimize.
+ * - Other `/auth/*`: replace → sign-in.
+ * - `/settings/*` (not index): replace → `/settings`.
+ * - Shell tab roots with no WebView back stack: double-back + toast → `exitApp`.
+ * - Any other route with no stack: replace → `/dashboard`.
+ *
+ * Installed PWA on Android (non-Capacitor): popstate double-back on `/dashboard` only.
  */
 export function NativeAndroidBackButton() {
   const pathname = usePathname() ?? ''
@@ -31,10 +58,10 @@ export function NativeAndroidBackButton() {
   const pathnameRef = useRef(pathname)
   pathnameRef.current = pathname
 
-  const lastHomeBackPress = useRef(0)
+  const lastShellBackPress = useRef(0)
 
   useEffect(() => {
-    lastHomeBackPress.current = 0
+    lastShellBackPress.current = 0
   }, [pathname])
 
   useEffect(() => {
@@ -48,7 +75,7 @@ export function NativeAndroidBackButton() {
       if (cancelled) return
 
       void App.addListener('backButton', ({ canGoBack }) => {
-        const path = pathnameRef.current
+        const path = normalizePath(pathnameRef.current)
 
         if (canGoBack) {
           router.back()
@@ -70,13 +97,11 @@ export function NativeAndroidBackButton() {
           return
         }
 
-        // Entry / boot (root renders splash; `/splash` if hit directly)
         if (path === '/' || path === '/splash') {
           void App.minimizeApp()
           return
         }
 
-        // Post-onboarding welcome — same outcome as tapping Continue
         if (path === '/welcome') {
           try {
             sessionStorage.removeItem('fromOnboarding')
@@ -92,18 +117,13 @@ export function NativeAndroidBackButton() {
           return
         }
 
-        if (path !== '/dashboard' && !TAB_BAR_ROOTS.has(path)) {
-          router.replace('/dashboard')
-          return
-        }
-
-        if (HOME_DOUBLE_EXIT_PATHS.has(path)) {
+        if (SHELL_DOUBLE_BACK_EXIT.has(path)) {
           const now = Date.now()
-          if (now - lastHomeBackPress.current < DOUBLE_TAP_MS) {
-            lastHomeBackPress.current = 0
+          if (now - lastShellBackPress.current < DOUBLE_TAP_MS) {
+            lastShellBackPress.current = 0
             void App.exitApp()
           } else {
-            lastHomeBackPress.current = now
+            lastShellBackPress.current = now
             showToast('Press back again to exit', 'info')
           }
           return
@@ -140,8 +160,8 @@ export function NativeAndroidBackButton() {
     const last = { current: 0 }
 
     const onPopState = () => {
-      const p = window.location.pathname
-      if (!HOME_DOUBLE_EXIT_PATHS.has(p)) return
+      const p = normalizePath(window.location.pathname)
+      if (p !== '/dashboard') return
       const now = Date.now()
       if (now - last.current < DOUBLE_TAP_MS) {
         last.current = 0

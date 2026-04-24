@@ -41,8 +41,8 @@ export default function BottomNav() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-[100] border-t border-slate-200/60 bg-slate-100 pb-[calc(env(safe-area-inset-bottom)+12px)] dark:border-[var(--border-subtle)] dark:bg-black">
-      <div className="w-full max-w-[430px] mx-auto px-2">
-        <nav className="flex items-center justify-around h-16">
+      <div className="w-full max-w-[430px] mx-auto px-1">
+        <nav className="flex min-h-[60px] items-stretch justify-around gap-0.5 py-1.5">
           {navItems.map((item) => {
             const Icon = item.icon
             const active = isActive(item.href)
@@ -51,21 +51,21 @@ export default function BottomNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex flex-1 flex-col items-center justify-center py-1.5"
+                aria-current={active ? 'page' : undefined}
+                className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-0.5 ${
+                  active
+                    ? 'text-[#0f172a] dark:text-white'
+                    : 'text-[#64748b] dark:text-white/65'
+                }`}
               >
-                <Icon
-                  className={`h-5 w-5 stroke-current ${
-                    active
-                      ? 'text-[var(--text-main)] dark:text-white'
-                      : 'text-[var(--text-soft)] dark:text-white'
+                <Icon className="h-5 w-5 shrink-0 stroke-current" aria-hidden />
+                <span
+                  className={`max-w-full truncate text-center text-[10px] leading-tight ${
+                    active ? 'font-semibold' : 'font-medium opacity-90 dark:opacity-80'
                   }`}
-                  aria-hidden
-                />
-                {active && (
-                  <span className="mt-0.5 text-[11px] font-medium text-[var(--text-main)] dark:text-white">
-                    {t(item.labelKey)}
-                  </span>
-                )}
+                >
+                  {t(item.labelKey)}
+                </span>
               </Link>
             )
           })}
