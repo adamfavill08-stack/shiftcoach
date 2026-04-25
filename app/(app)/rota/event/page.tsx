@@ -1,7 +1,6 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useSearchParams } from 'next/navigation'
 import { useMemo, useState, useEffect } from 'react'
 import { ChevronLeft, Plus, X, Bell } from 'lucide-react'
 import { useEventNotifications } from '@/lib/hooks/useEventNotifications'
@@ -23,10 +22,15 @@ type FormState = {
 export default function NewRotaEventPage() {
   const { t } = useTranslation()
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const editId = searchParams.get('edit')
+  const [editId, setEditId] = useState<string | null>(null)
   const isEditing = Boolean(editId)
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    setEditId(params.get('edit'))
+  }, [])
 
   const typeOptions = useMemo(
     () =>
