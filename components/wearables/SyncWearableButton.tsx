@@ -167,8 +167,7 @@ export default function SyncWearableButton() {
   const helperText = !isConnected
     ? 'Connect to Health Connect to sync your steps, sleep, and heart rate.'
     : 'Your Health Connect data is linked. Tap to sync latest data.'
-  const isButtonDisabled =
-    loading || (isAndroidNative && !hasHealthConnectAvailable && !isConnected)
+  const isButtonDisabled = loading
 
   return (
     <div className="w-full sm:max-w-md">

@@ -1,6 +1,7 @@
 package com.shiftcoach.app
 
 import android.net.Uri
+import android.content.Context
 import android.webkit.CookieManager
 import androidx.activity.result.ActivityResultLauncher
 import androidx.fragment.app.FragmentActivity
@@ -51,6 +52,49 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
     private var permissionLauncher: ActivityResultLauncher<Set<String>>? = null
     private val pendingPermissionCall = AtomicReference<PluginCall?>(null)
 
+    /**
+     * Health Connect provider resolution differs across Android releases.
+     * Prefer SDK-default methods when present (Android 14+), and fall back to
+     * explicit provider package methods for older/provider-app devices.
+     */
+    private fun resolveSdkStatus(ctx: Context): Int {
+        return try {
+            val oneArg =
+                HealthConnectClient::class.java.methods.firstOrNull { m ->
+                    m.name == "getSdkStatus" &&
+                        m.parameterTypes.size == 1 &&
+                        m.parameterTypes[0] == Context::class.java
+                }
+            if (oneArg != null) {
+                (oneArg.invoke(null, ctx) as? Int)
+                    ?: HealthConnectClient.getSdkStatus(ctx, healthConnectProviderPackage)
+            } else {
+                HealthConnectClient.getSdkStatus(ctx, healthConnectProviderPackage)
+            }
+        } catch (_: Throwable) {
+            HealthConnectClient.getSdkStatus(ctx, healthConnectProviderPackage)
+        }
+    }
+
+    private fun createHealthConnectClient(ctx: Context): HealthConnectClient {
+        return try {
+            val oneArg =
+                HealthConnectClient::class.java.methods.firstOrNull { m ->
+                    m.name == "getOrCreate" &&
+                        m.parameterTypes.size == 1 &&
+                        m.parameterTypes[0] == Context::class.java
+                }
+            if (oneArg != null) {
+                (oneArg.invoke(null, ctx) as? HealthConnectClient)
+                    ?: HealthConnectClient.getOrCreate(ctx, healthConnectProviderPackage)
+            } else {
+                HealthConnectClient.getOrCreate(ctx, healthConnectProviderPackage)
+            }
+        } catch (_: Throwable) {
+            HealthConnectClient.getOrCreate(ctx, healthConnectProviderPackage)
+        }
+    }
+
     override fun load() {
         super.load()
         val act = activity as? FragmentActivity ?: return
@@ -71,8 +115,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
         bridge.execute {
             try {
                 val ctx = context
-                val sdk =
-                    HealthConnectClient.getSdkStatus(ctx, healthConnectProviderPackage)
+                val sdk = resolveSdkStatus(ctx)
                 val ret = JSObject()
                 ret.put("sdkStatus", sdkStatusLabel(sdk))
                 val available = sdk == HealthConnectClient.SDK_AVAILABLE
@@ -82,7 +125,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                     call.resolve(ret)
                     return@execute
                 }
-                val client = HealthConnectClient.getOrCreate(ctx, healthConnectProviderPackage)
+                val client = createHealthConnectClient(ctx)
                 val granted =
                     runBlocking { client.permissionController.getGrantedPermissions() }
                 ret.put("hasPermissions", requiredPermissions.all { it in granted })
@@ -119,17 +162,14 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
         bridge.execute {
             try {
                 val ctx = context
-                if (
-                    HealthConnectClient.getSdkStatus(ctx, healthConnectProviderPackage) !=
-                        HealthConnectClient.SDK_AVAILABLE
-                ) {
+                if (resolveSdkStatus(ctx) != HealthConnectClient.SDK_AVAILABLE) {
                     call.reject(
                         "health_connect_unavailable",
                         "Health Connect is not available on this device",
                     )
                     return@execute
                 }
-                val client = HealthConnectClient.getOrCreate(ctx, healthConnectProviderPackage)
+                val client = createHealthConnectClient(ctx)
                 val granted =
                     runBlocking { client.permissionController.getGrantedPermissions() }
                 if (!requiredPermissions.all { it in granted }) {
