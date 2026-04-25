@@ -30,10 +30,19 @@ export default function RotaOverviewPage() {
   const initial = useMemo(() => new Date(), [])
   const [cursorDate, setCursorDate] = useState(() => new Date(initial.getFullYear(), initial.getMonth(), 1))
   const [menuOpen, setMenuOpen] = useState(false)
-  const [selectedBlock, setSelectedBlock] = useState<{ type: 'event' | 'shift', eventId?: string, date: string, label: string } | null>(null)
+  const [selectedBlock, setSelectedBlock] = useState<{
+    type: 'event' | 'shift'
+    eventId?: string
+    date: string
+    label: string
+    startAt?: string | null
+    endAt?: string | null
+    allDay?: boolean
+  } | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [profileShiftTimes, setProfileShiftTimes] = useState<Record<string, { start?: string; end?: string }>>({})
   const menuRef = useRef<HTMLDivElement>(null)
 
   const month = cursorDate.getMonth()
@@ -106,14 +115,41 @@ export default function RotaOverviewPage() {
     setCursorDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
   }
 
-  const handleBlockClick = (item: { type: 'event' | 'shift', eventId?: string, date: string, label: string }, e: React.MouseEvent) => {
+  const handleBlockClick = (
+    item: {
+      type: 'event' | 'shift'
+      eventId?: string
+      date: string
+      label: string
+      startAt?: string | null
+      endAt?: string | null
+      allDay?: boolean
+    },
+    e: React.MouseEvent,
+  ) => {
     e.stopPropagation()
     setSelectedBlock(item)
     setDeleteConfirm(false)
   }
 
+  const formatEventTimeRange = (startAt?: string | null, endAt?: string | null, allDay?: boolean) => {
+    if (allDay || !startAt || !endAt) return null
+    const start = new Date(startAt)
+    const end = new Date(endAt)
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null
+    const startText = start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+    const endText = end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+    return `${startText} - ${endText}`
+  }
+
+  const isShiftLikeLabel = (label?: string | null) => {
+    const lower = (label || '').trim().toLowerCase()
+    return lower === 'day' || lower === 'night' || lower === 'morning' || lower === 'afternoon'
+  }
+
   const handleDelete = async () => {
-    if (!selectedBlock || !selectedBlock.eventId || deleting) return
+    if (!selectedBlock || deleting) return
+    const isShiftSelection = selectedBlock.type === 'shift' || isShiftLikeLabel(selectedBlock.label)
     
     if (!deleteConfirm) {
       setDeleteConfirm(true)
@@ -122,14 +158,33 @@ export default function RotaOverviewPage() {
 
     setDeleting(true)
     try {
-      const res = await fetch(`/api/rota/event?id=${selectedBlock.eventId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      })
+      let res: Response
+      if (isShiftSelection) {
+        res = await fetch('/api/shifts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            date: selectedBlock.date,
+            label: 'OFF',
+            status: 'PLANNED',
+            start_ts: null,
+            end_ts: null,
+            segments: null,
+            notes: null,
+          }),
+        })
+      } else {
+        if (!selectedBlock.eventId) return
+        res = await fetch(`/api/rota/event?id=${selectedBlock.eventId}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        })
+      }
 
       if (!res.ok) {
-        console.error('[RotaOverview] delete error', res.status)
-        alert('Failed to delete event')
+        console.error('[RotaOverview] delete error', res.status, selectedBlock.type)
+        alert(isShiftSelection ? 'Failed to delete shift' : 'Failed to delete event')
         return
       }
 
@@ -138,7 +193,7 @@ export default function RotaOverviewPage() {
       refetch()
     } catch (err) {
       console.error('[RotaOverview] delete fatal error', err)
-      alert('Failed to delete event')
+      alert(isShiftSelection ? 'Failed to delete shift' : 'Failed to delete event')
     } finally {
       setDeleting(false)
     }
@@ -146,10 +201,56 @@ export default function RotaOverviewPage() {
 
   const handleEdit = () => {
     if (!selectedBlock || !selectedBlock.eventId) return
-    // Navigate to edit page - for now just close and show message
-    // TODO: Create edit page or pass event data
+    const target = `/rota/event?edit=${encodeURIComponent(String(selectedBlock.eventId))}`
     setSelectedBlock(null)
-    router.push(`/rota/event?edit=${selectedBlock.eventId}`)
+    setDeleteConfirm(false)
+    try {
+      router.push(target)
+      router.refresh()
+    } catch {
+      if (typeof window !== 'undefined') {
+        window.location.assign(target)
+      }
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false
+    const loadProfileShiftTimes = async () => {
+      try {
+        const res = await fetch('/api/profile', { cache: 'no-store', credentials: 'include' })
+        if (!res.ok) return
+        const json = await res.json()
+        const profile = json?.profile ?? json?.data ?? json
+        const shiftTimes = profile?.shift_times
+        if (!cancelled && shiftTimes && typeof shiftTimes === 'object') {
+          setProfileShiftTimes(shiftTimes as Record<string, { start?: string; end?: string }>)
+        }
+      } catch {
+        // Keep silent: modal can still show event times.
+      }
+    }
+    loadProfileShiftTimes()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const getShiftTimeRangeForLabel = (label?: string | null) => {
+    const lower = (label || '').toLowerCase()
+    const key = lower.includes('night')
+      ? 'night'
+      : lower.includes('afternoon') || lower.includes('late')
+        ? 'afternoon'
+        : lower.includes('morning')
+          ? 'morning'
+          : lower.includes('day')
+            ? 'day'
+            : null
+    if (!key) return null
+    const slot = profileShiftTimes[key]
+    if (!slot?.start || !slot?.end) return null
+    return `${slot.start} - ${slot.end}`
   }
 
   // Close menu when clicking outside
@@ -317,7 +418,7 @@ export default function RotaOverviewPage() {
                   {week.map((day) => {
                     const shiftColor = getColorForType(day.type)
                     const hasShift = shiftColor !== 'transparent'
-                    const shiftLabel = day.label ? SLOT_LABELS[day.label] ?? day.label : null
+                    const shiftLabel = day.label ? SLOT_LABELS[day.label] ?? day.label : ''
                     const dayEvents = day.events ?? []
                     const allItems = [
                       ...(hasShift ? [{ type: 'shift' as const, label: shiftLabel, color: shiftColor, eventId: undefined, date: day.date }] : []),
@@ -330,7 +431,10 @@ export default function RotaOverviewPage() {
                           label: eventLabel,
                           color: eventColor,
                           eventId: ev.id,
-                          date: day.date
+                          date: day.date,
+                          startAt: (ev as any).start_at ?? (ev as any).startAt ?? null,
+                          endAt: (ev as any).end_at ?? (ev as any).endAt ?? null,
+                          allDay: (ev as any).all_day ?? ev.isAllDay ?? false,
                         }
                       }),
                     ]
@@ -340,9 +444,17 @@ export default function RotaOverviewPage() {
                         {allItems.map((item, idx) => (
                           <div
                             key={`${day.date}-${idx}`}
-                            onClick={(e) => item.type === 'event' && item.eventId && handleBlockClick(item, e)}
+                            onClick={(e) => {
+                              if (item.type === 'shift') {
+                                handleBlockClick(item, e)
+                              } else if (item.type === 'event' && item.eventId) {
+                                handleBlockClick(item, e)
+                              }
+                            }}
                             className={`rounded-md px-1.5 py-0.5 text-center min-h-[14px] flex items-center justify-center transition-all duration-150 ${
-                              item.type === 'event' && item.eventId ? 'cursor-pointer hover:opacity-80 active:scale-95' : ''
+                              (item.type === 'shift' || (item.type === 'event' && item.eventId))
+                                ? 'cursor-pointer hover:opacity-80 active:scale-95'
+                                : ''
                             }`}
                             style={{ 
                               backgroundColor: item.color,
@@ -384,15 +496,19 @@ export default function RotaOverviewPage() {
 
         </div>
 
-        {/* Edit/Delete Modal */}
-        {selectedBlock && (
+        {/* Shift/Event options modal */}
+        {selectedBlock && (() => {
+          const isShiftSelection = selectedBlock.type === 'shift' || isShiftLikeLabel(selectedBlock.label)
+          return (
           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div
               ref={menuRef}
               className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-slate-200/80"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-slate-900">Event Options</h3>
+                <h3 className="text-lg font-semibold text-slate-900">
+                  {isShiftSelection ? 'Shift Options' : 'Event Options'}
+                </h3>
                 <button
                   onClick={() => {
                     setSelectedBlock(null)
@@ -414,29 +530,31 @@ export default function RotaOverviewPage() {
                     year: 'numeric',
                   })}
                 </p>
+                {formatEventTimeRange(selectedBlock.startAt, selectedBlock.endAt, selectedBlock.allDay) ? (
+                  <p className="text-xs text-slate-600 mt-1 font-medium">
+                    {formatEventTimeRange(selectedBlock.startAt, selectedBlock.endAt, selectedBlock.allDay)}
+                  </p>
+                ) : getShiftTimeRangeForLabel(selectedBlock.label) ? (
+                  <p className="text-xs text-slate-600 mt-1 font-medium">
+                    {getShiftTimeRangeForLabel(selectedBlock.label)}
+                  </p>
+                ) : null}
               </div>
 
               {!deleteConfirm ? (
                 <div className="flex flex-col gap-2">
                   <button
-                    onClick={handleEdit}
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium transition-colors shadow-sm"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                    Edit Event
-                  </button>
-                  <button
                     onClick={handleDelete}
                     className="flex items-center justify-center gap-2 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors shadow-sm"
                   >
                     <Trash2 className="w-4 h-4" />
-                    Delete Event
+                    {isShiftSelection ? 'Delete Shift' : 'Delete Event'}
                   </button>
                 </div>
               ) : (
                 <div className="space-y-3">
                   <p className="text-sm text-slate-700 text-center">
-                    Are you sure you want to delete this event?
+                    Are you sure you want to delete this {isShiftSelection ? 'shift' : 'event'}?
                   </p>
                   <div className="flex gap-2">
                     <button
@@ -450,14 +568,19 @@ export default function RotaOverviewPage() {
                       disabled={deleting}
                       className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
                     >
-                      {deleting ? 'Deleting...' : 'Delete'}
+                      {deleting
+                        ? 'Deleting...'
+                        : isShiftSelection
+                          ? 'Delete Shift'
+                          : 'Delete Event'}
                     </button>
                   </div>
                 </div>
               )}
             </div>
           </div>
-        )}
+          )
+        })()}
 
         <div className="absolute bottom-6 right-6 flex flex-col items-end space-y-3">
           {menuOpen && (

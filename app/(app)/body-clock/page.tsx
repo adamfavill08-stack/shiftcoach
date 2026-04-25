@@ -554,7 +554,7 @@ export default function BodyClockPage() {
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
-      <div className="max-w-[430px] mx-auto min-h-screen px-4 pb-10 pt-4 flex flex-col gap-6">
+      <div className={`max-w-[430px] mx-auto min-h-screen px-2 pb-10 pt-4 flex flex-col gap-6 ${inter.className}`}>
         <header className="flex items-center gap-2">
           <Link
             href="/dashboard"
@@ -570,91 +570,22 @@ export default function BodyClockPage() {
 
         {/* Hero — weekly score card + stacked cards */}
         <section className="flex w-full flex-col items-center gap-6">
-          <div className="flex w-full flex-col items-stretch gap-3">
-            <BodyClockScoreCard
-              days={chartDays}
-              chartReady={chartReady}
-              todayScore={heroScorePresentation.value}
-              todayDisplayText={heroScorePresentation.text}
-              sourceLine="Data source: sleep logs + wearable sleep fallback."
-              isLoadingScore={heroScorePresentation.loading}
-              badgeLabel={headingText}
-              badgeClassName={statusPillClass}
-              avg={weekAvg}
-              best={weekBest}
-              trend={dayOverDayTrend}
-              scoreTitle={t("detail.bodyClock.scoreLabel")}
-              todaySuffix={t("detail.bodyClock.todaySuffix")}
-              labelSevenDayAvg={t("detail.bodyClock.statSevenDayAvg")}
-              labelBestDay={t("detail.bodyClock.statBestDay")}
-              labelTrend={t("detail.bodyClock.statTrend")}
-              waitingLabel={t("detail.bodyClock.waitingData")}
-              customStats={[
-                { label: "Avg sleep", value: avgSleepDisplay },
-                { label: "Weekly offset", value: weeklyOffsetDisplay },
-                { label: "Alignment", value: alignmentDisplay.value, valueClassName: alignmentDisplay.cls },
-              ]}
-            />
-            {circadianState != null || (circadianAgentLoading && !circadianState) ? (
-              <BodyClockMetricStrip
-                peakTime={circadianState?.peakAlertnessTime ?? null}
-                lowEnergyTime={circadianState?.lowEnergyTime ?? null}
-                midpointOffsetHours={
-                  circadianState != null ? circadianState.sleepMidpointOffset : null
-                }
-                isLoading={circadianAgentLoading && !circadianState}
-                labelPeak={t("detail.bodyClock.metricPeak")}
-                labelLow={t("detail.bodyClock.metricLow")}
-                labelMidpoint={t("detail.bodyClock.metricMidpoint")}
-              />
-            ) : null}
-          </div>
-
           <CircadianCard showMainSections={false} showSupportingSections />
-
-          <section className={cn("w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 text-left shadow-none", inter.className)}>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] p-4">
-                <div className="flex items-center gap-2">
-                  <span className={cn("h-2.5 w-2.5 rounded-full", fatigueTone)} />
-                  <p className="text-sm font-semibold text-[var(--text-main)]">Fatigue Risk</p>
-                </div>
-                <p className="mt-2 text-sm font-medium text-[var(--text-main)]">{fatigueLevelLabel}</p>
-                <p className="mt-2 text-xs leading-relaxed text-[var(--text-soft)]">{fatigueRisk?.explanation ?? "—"}</p>
-                <p className="mt-2 text-[11px] text-[var(--text-muted)]">Confidence: {fatigueRisk?.confidenceLabel ?? "—"}</p>
-                {(fatigueRisk?.confidenceLabel === "medium" || fatigueRisk?.confidenceLabel === "high") ? (
-                  <p className="mt-2 text-[11px] text-[var(--text-soft)]">Tip: prioritize recovery sleep before your next heavy demand period.</p>
-                ) : null}
-              </div>
-              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] p-4">
-                <div className="flex items-center gap-2">
-                  <span className={cn("h-2.5 w-2.5 rounded-full", bingeTone)} />
-                  <p className="text-sm font-semibold text-[var(--text-main)]">Binge Risk</p>
-                </div>
-                <p className="mt-2 text-sm font-medium text-[var(--text-main)]">{bingeLevelLabel}</p>
-                <p className="mt-2 text-xs leading-relaxed text-[var(--text-soft)]">{bingeRisk?.explanation ?? "—"}</p>
-              </div>
-            </div>
-          </section>
-        </section>
-
-        {/* Why this score — full breakdown from API */}
-        {detail != null && !noData ? (
-          <>
-            <BodyClockBreakdownCard
-              title={t("detail.bodyClock.breakdownTitle")}
-              rows={breakdownRows}
-              expandLabel={t("detail.bodyClock.breakdownFilterAll")}
-              collapseLabel={t("detail.bodyClock.breakdownShowLess")}
-              toggleAriaLabel={t("detail.bodyClock.breakdownToggleAria")}
+          {circadianState != null || (circadianAgentLoading && !circadianState) ? (
+            <BodyClockMetricStrip
+              peakTime={circadianState?.peakAlertnessTime ?? null}
+              lowEnergyTime={circadianState?.lowEnergyTime ?? null}
+              midpointOffsetHours={
+                circadianState != null ? circadianState.sleepMidpointOffset : null
+              }
+              isLoading={circadianAgentLoading && !circadianState}
+              labelPeak={t("detail.bodyClock.metricPeak")}
+              labelLow={t("detail.bodyClock.metricLow")}
+              labelMidpoint={t("detail.bodyClock.metricMidpoint")}
             />
-            {breakdownMissingCount >= 3 ? (
-              <p className="text-xs text-slate-400 mt-3 text-center">
-                Log your shifts and hydration to unlock full scoring
-              </p>
-            ) : null}
-          </>
-        ) : null}
+          ) : null}
+
+        </section>
 
         <BodyClockSimpleHabitsCard
           title={t("detail.bodyClock.quickHabits")}

@@ -98,7 +98,13 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
     return new Date(now.getFullYear(), now.getMonth(), 1)
   })
   const [menuOpen, setMenuOpen] = useState(false)
-  const [selectedBlock, setSelectedBlock] = useState<{ type: 'event' | 'shift', eventId?: string, date: string, label: string } | null>(null)
+  const [selectedBlock, setSelectedBlock] = useState<{
+    type: 'event' | 'shift'
+    eventId?: string
+    date: string
+    label: string
+    color?: string
+  } | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -121,6 +127,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
   const { data, eventsByDate, loading, error, refetch } = useRotaMonth(month, year)
   const [sleepByDate, setSleepByDate] = useState<Map<string, any[]>>(new Map())
   const [showTasks, setShowTasks] = useState(false)
+  const [profileShiftTimes, setProfileShiftTimes] = useState<Record<string, { start?: string; end?: string }>>({})
   const [showSettingsMenu, setShowSettingsMenu] = useState(false)
   const [showShiftBars, setShowShiftBars] = useState(true)
   const [weekStartsOn, setWeekStartsOn] = useState<0 | 1>(() =>
@@ -405,14 +412,17 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
     setSwipeStart(null)
   }, [swipeStart, goToPrevMonth, goToNextMonth])
 
-  const handleBlockClick = (item: { type: 'event' | 'shift', eventId?: string, date: string, label: string }, e: React.MouseEvent) => {
+  const handleBlockClick = (
+    item: { type: 'event' | 'shift'; eventId?: string; date: string; label: string; color?: string },
+    e: React.MouseEvent,
+  ) => {
     e.stopPropagation()
     setSelectedBlock(item)
     setDeleteConfirm(false)
   }
 
   const handleDelete = async () => {
-    if (!selectedBlock || !selectedBlock.eventId || deleting) return
+    if (!selectedBlock || deleting) return
     
     if (!deleteConfirm) {
       setDeleteConfirm(true)
@@ -421,14 +431,34 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
 
     setDeleting(true)
     try {
-      const res = await fetch(`/api/rota/event?id=${selectedBlock.eventId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      })
+      let res: Response
+      if (selectedBlock.type === 'shift') {
+        // Deleting a shift means resetting that rota day to OFF.
+        res = await fetch('/api/shifts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            date: selectedBlock.date,
+            label: 'OFF',
+            status: 'PLANNED',
+            start_ts: null,
+            end_ts: null,
+            segments: null,
+            notes: null,
+          }),
+        })
+      } else {
+        if (!selectedBlock.eventId) return
+        res = await fetch(`/api/rota/event?id=${selectedBlock.eventId}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        })
+      }
 
       if (!res.ok) {
         console.error('[RotaOverview] delete error', res.status)
-        alert('Failed to delete event')
+        alert(selectedBlock.type === 'shift' ? 'Failed to delete shift' : 'Failed to delete event')
         return
       }
 
@@ -441,18 +471,36 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
       }
     } catch (err) {
       console.error('[RotaOverview] delete fatal error', err)
-      alert('Failed to delete event')
+      alert(selectedBlock.type === 'shift' ? 'Failed to delete shift' : 'Failed to delete event')
     } finally {
       setDeleting(false)
     }
   }
 
+  const getShiftTimeRangeForLabel = (label?: string | null) => {
+    const lower = (label || '').trim().toLowerCase()
+    const key =
+      lower === 'night'
+        ? 'night'
+        : lower === 'day'
+          ? 'day'
+          : lower === 'morning'
+            ? 'morning'
+            : lower === 'afternoon'
+              ? 'afternoon'
+              : null
+    if (!key) return null
+    const slot = profileShiftTimes[key]
+    if (!slot?.start || !slot?.end) return null
+    return `${slot.start} - ${slot.end}`
+  }
+
   const handleEdit = () => {
-    if (!selectedBlock || !selectedBlock.eventId) return
-    // Navigate to edit page - for now just close and show message
-    // TODO: Create edit page or pass event data
+    if (!selectedBlock || selectedBlock.type !== 'event' || !selectedBlock.eventId) return
+    const target = `/rota/event?edit=${encodeURIComponent(String(selectedBlock.eventId))}`
     setSelectedBlock(null)
-    router.push(`/calendar/event?edit=${selectedBlock.eventId}`)
+    setDeleteConfirm(false)
+    router.push(target)
   }
 
   // Close menu when clicking outside
@@ -505,6 +553,28 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
 
       recognitionRef.current = recognition
       setRecognition(recognition)
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadProfileShiftTimes = async () => {
+      try {
+        const res = await fetch('/api/profile', { cache: 'no-store', credentials: 'include' })
+        if (!res.ok) return
+        const json = await res.json()
+        const profile = json?.profile ?? json?.data ?? json
+        const shiftTimes = profile?.shift_times
+        if (!cancelled && shiftTimes && typeof shiftTimes === 'object') {
+          setProfileShiftTimes(shiftTimes as Record<string, { start?: string; end?: string }>)
+        }
+      } catch {
+        // no-op: popup will still render without times
+      }
+    }
+    loadProfileShiftTimes()
+    return () => {
+      cancelled = true
     }
   }, [])
 
@@ -875,9 +945,9 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                               <div
                                 onClick={(e) => {
                                   if (firstItem.type === 'event' && firstItem.eventId) {
-                                    handleBlockClick({ type: 'event', eventId: firstItem.eventId, date: firstItem.date, label: firstItem.label }, e)
+                                    handleBlockClick({ type: 'event', eventId: firstItem.eventId, date: firstItem.date, label: firstItem.label, color: firstItem.color }, e)
                                   } else if (firstItem.type === 'shift') {
-                                    handleBlockClick({ type: 'shift', eventId: firstItem.eventId, date: firstItem.date, label: firstItem.label }, e)
+                                    handleBlockClick({ type: 'shift', eventId: firstItem.eventId, date: firstItem.date, label: firstItem.label, color: firstItem.color }, e)
                                   }
                                 }}
                                 className={`px-1.5 py-0.5 text-center min-h-[16px] flex items-center justify-center transition-all duration-200 ${
@@ -930,9 +1000,9 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                                 key={`${day.date}-bottom-${idx}`}
                                 onClick={(e) => {
                                   if (item.type === 'event' && item.eventId) {
-                                    handleBlockClick({ type: 'event', eventId: item.eventId, date: item.date, label: item.label }, e)
+                                    handleBlockClick({ type: 'event', eventId: item.eventId, date: item.date, label: item.label, color: item.color }, e)
                                   } else if (item.type === 'shift') {
-                                    handleBlockClick({ type: 'shift', eventId: item.eventId, date: item.date, label: item.label }, e)
+                                    handleBlockClick({ type: 'shift', eventId: item.eventId, date: item.date, label: item.label, color: item.color }, e)
                                   }
                                 }}
                                 className={`px-1.5 py-0.5 text-center min-h-[16px] flex items-center justify-center transition-all duration-200 ${
@@ -1051,16 +1121,24 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
           onViewChange={handleViewChange}
         />
 
-        {/* Edit/Delete Modal */}
+        {/* Event/Shift Options Modal */}
         {selectedBlock && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div
               ref={menuRef}
               className="relative bg-white rounded-2xl shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] p-6 max-w-sm w-full border border-slate-100"
+              style={{
+                borderColor:
+                  selectedBlock.type === 'shift' && selectedBlock.color && selectedBlock.color !== 'transparent'
+                    ? selectedBlock.color
+                    : undefined,
+              }}
             >
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-slate-900">{t('calendar.rota.eventOptions')}</h3>
+                  <h3 className="text-lg font-semibold text-slate-900">
+                    {selectedBlock.type === 'shift' ? 'Shift Options' : t('calendar.rota.eventOptions')}
+                  </h3>
                   <button
                     onClick={() => {
                       setSelectedBlock(null)
@@ -1072,7 +1150,15 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                   </button>
                 </div>
 
-                <div className="mb-4 p-3 rounded-lg bg-slate-50 border border-slate-200">
+                <div
+                  className="mb-4 p-3 rounded-lg bg-slate-50 border border-slate-200"
+                  style={{
+                    borderColor:
+                      selectedBlock.type === 'shift' && selectedBlock.color && selectedBlock.color !== 'transparent'
+                        ? selectedBlock.color
+                        : undefined,
+                  }}
+                >
                   <p className="text-sm font-medium text-slate-700">{selectedBlock.label}</p>
                   <p className="text-xs text-slate-500 mt-1">
                     {new Date(selectedBlock.date).toLocaleDateString(dateLocaleTag, {
@@ -1082,22 +1168,29 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                       year: 'numeric',
                     })}
                   </p>
+                  {selectedBlock.type === 'shift' && getShiftTimeRangeForLabel(selectedBlock.label) ? (
+                    <p className="text-xs text-slate-600 mt-1 font-medium">
+                      {getShiftTimeRangeForLabel(selectedBlock.label)}
+                    </p>
+                  ) : null}
                 </div>
 
                 {!deleteConfirm ? (
                   <div className="flex flex-col gap-2">
-                    <button
-                      onClick={handleEdit}
-                      className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl
-                                 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950
-                                 text-slate-50 font-medium
-                                 shadow-[0_14px_40px_rgba(15,23,42,0.35)]
-                                 hover:brightness-110 active:scale-[0.98]
-                                 border border-slate-800/70 transition-all"
-                    >
-                      <Edit2 className="w-4 h-4 text-sky-300" />
-                      {t('calendar.rota.editEvent')}
-                    </button>
+                    {selectedBlock.type === 'event' ? (
+                      <button
+                        onClick={handleEdit}
+                        className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl
+                                   bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950
+                                   text-slate-50 font-medium
+                                   shadow-[0_14px_40px_rgba(15,23,42,0.35)]
+                                   hover:brightness-110 active:scale-[0.98]
+                                   border border-slate-800/70 transition-all"
+                      >
+                        <Edit2 className="w-4 h-4 text-sky-300" />
+                        {t('calendar.rota.editEvent')}
+                      </button>
+                    ) : null}
                     <button
                       onClick={handleDelete}
                       className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl
@@ -1108,13 +1201,15 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                                  border border-red-500/80 transition-all"
                     >
                       <Trash2 className="w-4 h-4 text-white" />
-                      {t('calendar.rota.deleteEvent')}
+                      {selectedBlock.type === 'shift' ? 'Delete Shift' : t('calendar.rota.deleteEvent')}
                     </button>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <p className="text-sm text-slate-700 text-center">
-                      {t('calendar.rota.deleteConfirmQuestion')}
+                      {selectedBlock.type === 'shift'
+                        ? 'Are you sure you want to delete this shift?'
+                        : t('calendar.rota.deleteConfirmQuestion')}
                     </p>
                     <div className="flex gap-2">
                       <button
@@ -1128,7 +1223,11 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                         disabled={deleting}
                         className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
                       >
-                        {deleting ? t('calendar.rota.deleting') : t('calendar.rota.delete')}
+                      {deleting
+                        ? t('calendar.rota.deleting')
+                        : selectedBlock.type === 'shift'
+                          ? 'Delete Shift'
+                          : t('calendar.rota.delete')}
                       </button>
                     </div>
                   </div>

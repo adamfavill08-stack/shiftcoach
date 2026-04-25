@@ -161,6 +161,23 @@ export async function POST(req: NextRequest) {
       console.warn('[api/rota/apply] no shifts to insert', { userId, generateStart, end })
     }
 
+    // Persist configured shift times from rota setup so downstream consumers
+    // (meal timing badge, schedule UI) can read the same source of truth.
+    if (shiftTimes && Object.keys(shiftTimes).length > 0) {
+      const { error: shiftTimesUpdateError } = await supabase
+        .from('profiles')
+        .update({ shift_times: shiftTimes })
+        .eq('user_id', userId)
+
+      if (shiftTimesUpdateError) {
+        console.error('[api/rota/apply] failed to update shift_times in profile:', {
+          error: shiftTimesUpdateError,
+          userId,
+        })
+        // Do not fail rota apply if profile mirror write fails.
+      }
+    }
+
     // Auto-update shift_pattern in profiles based on the pattern
     if (patternSlots && patternSlots.length > 0) {
       try {

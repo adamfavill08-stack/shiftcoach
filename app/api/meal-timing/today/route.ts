@@ -17,9 +17,32 @@ import {
   mealGuidanceFromContext,
   shiftBoundsFromSnapshot,
 } from '@/lib/shift-context'
+import {
+  generateDailyShiftGuidance,
+  type ShiftGuidanceShiftType,
+} from '@/lib/shift-guidance/generateDailyShiftGuidance'
 import type { GuidanceMode, TransitionState } from '@/lib/shift-context/types'
 
 const DAY_MS = 24 * 60 * 60 * 1000
+
+function formatTime24(value: Date): string {
+  return value.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
+function toGuidanceShiftType(
+  shiftType: 'day' | 'night' | 'late' | 'off',
+  guidanceMode?: GuidanceMode,
+): ShiftGuidanceShiftType {
+  if (guidanceMode === 'transition_day_to_night') return 'transition'
+  if (shiftType === 'night') return 'night'
+  if (shiftType === 'late') return 'evening'
+  if (shiftType === 'off') return 'off'
+  return 'day'
+}
 
 function mealTimingCardSubtitle(
   templateUsed: 'off' | 'day' | 'night' | 'late',
@@ -152,14 +175,34 @@ export async function GET(req: NextRequest) {
     const usesNightBoundsForMeals =
       shiftType === 'night' && shiftStart != null && shiftEnd != null && !Number.isNaN(shiftStart.getTime()) && !Number.isNaN(shiftEnd.getTime())
 
-    const [{ data: profileForSleepH }, avgSleepRowsResult] = await Promise.all([
-      supabase.from('profiles').select('sleep_goal_h').eq('user_id', userId).maybeSingle(),
+    const [{ data: profileForSleepH }, avgSleepRowsResult, { data: activePattern }, { data: upcomingShift }, { count: breakfastCount }] = await Promise.all([
+      supabase.from('profiles').select('sleep_goal_h,shift_times').eq('user_id', userId).maybeSingle(),
       supabase
         .from('sleep_logs')
         .select('sleep_hours, duration_min')
         .eq('user_id', userId)
         .order('end_ts', { ascending: false })
         .limit(14),
+      supabase
+        .from('user_shift_patterns')
+        .select('color_config')
+        .eq('user_id', userId)
+        .maybeSingle(),
+      supabase
+        .from('shifts')
+        .select('date,label,start_ts,end_ts')
+        .eq('user_id', userId)
+        .gt('date', today)
+        .order('date', { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('nutrition_logs')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('meal_type', 'breakfast')
+        .gte('logged_at', new Date(today + 'T00:00:00').toISOString())
+        .lt('logged_at', new Date(today + 'T23:59:59.999').toISOString()),
     ])
 
     type SleepAvgRow = { sleep_hours: number | null; duration_min: number | null }
@@ -220,7 +263,7 @@ export async function GET(req: NextRequest) {
     })
 
     const usedFallbackTemplate = usedEstimatedShiftTimes || scheduleTypeUsed !== shiftType
-    const cardSubtitle = mealTimingCardSubtitle(
+    const baseCardSubtitle = mealTimingCardSubtitle(
       scheduleTypeUsed,
       shiftType,
       usedEstimatedShiftTimes,
@@ -261,16 +304,32 @@ export async function GET(req: NextRequest) {
     const steps = activityLog?.steps ?? 0
     const activityContext = `${steps.toLocaleString()} steps so far today`
 
-    // Format shift label for display (anchor = operational focus, not calendar “today” alone)
+    // Format shift label for display.
+    // Prefer explicit shift-time settings from rota setup/profile. If unavailable, fall back to
+    // exact shift bounds from the resolved anchor (never estimated defaults).
     const anchor = mealGuide.anchorShift
-    const startIso = anchor?.startTs
-    const endIso = anchor?.endTs
-    const shiftStartTime = startIso
-      ? new Date(startIso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      : ''
-    const shiftEndTime = endIso
-      ? new Date(endIso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      : ''
+    const shiftTimesFromProfile = (profileForSleepH as any)?.shift_times as
+      | Record<string, { start?: string; end?: string } | undefined>
+      | undefined
+    const shiftTimeKey =
+      shiftType === 'late' ? 'afternoon' : shiftType === 'day' || shiftType === 'night' ? shiftType : null
+    const configuredShiftTime =
+      shiftTimeKey && shiftTimesFromProfile ? shiftTimesFromProfile[shiftTimeKey] : undefined
+    const hasConfiguredShiftTime = Boolean(configuredShiftTime?.start && configuredShiftTime?.end)
+
+    const showRotaTimes = hasConfiguredShiftTime || (hasExactShiftTimes && !usedEstimatedShiftTimes)
+    const shiftStartTime =
+      hasConfiguredShiftTime
+        ? String(configuredShiftTime!.start)
+        : showRotaTimes && shiftStart && !Number.isNaN(shiftStart.getTime())
+          ? formatTime24(shiftStart)
+        : ''
+    const shiftEndTime =
+      hasConfiguredShiftTime
+        ? String(configuredShiftTime!.end)
+        : showRotaTimes && shiftEnd && !Number.isNaN(shiftEnd.getTime())
+          ? formatTime24(shiftEnd)
+        : ''
 
     const rawShiftLabel = anchor?.label ?? (shiftType ? String(shiftType) : null)
     const shiftLabel =
@@ -285,6 +344,74 @@ export async function GET(req: NextRequest) {
         ? `Day off${shiftTimeSuffix}`
         : `${shiftLabel} shift${shiftTimeSuffix}`
       : 'Day off'
+
+    const lastSleepEnd = rawWakeEnd && !Number.isNaN(rawWakeEnd.getTime()) ? rawWakeEnd : null
+    const nextShiftStart = upcomingShift?.start_ts ? new Date(upcomingShift.start_ts) : null
+    const nextShiftEnd = upcomingShift?.end_ts ? new Date(upcomingShift.end_ts) : null
+    let nextPlannedSleepStart: Date | null = null
+    if (shiftType === 'night' || mealGuide.guidanceMode === 'transition_day_to_night') {
+      if (nextShiftEnd && !Number.isNaN(nextShiftEnd.getTime())) {
+        nextPlannedSleepStart = new Date(nextShiftEnd.getTime() + 30 * 60 * 1000)
+      } else {
+        nextPlannedSleepStart = new Date(now)
+        nextPlannedSleepStart.setDate(nextPlannedSleepStart.getDate() + 1)
+        nextPlannedSleepStart.setHours(7, 0, 0, 0)
+      }
+    } else {
+      nextPlannedSleepStart = new Date(now)
+      nextPlannedSleepStart.setHours(22, 30, 0, 0)
+      if (nextPlannedSleepStart.getTime() <= now.getTime()) {
+        nextPlannedSleepStart.setDate(nextPlannedSleepStart.getDate() + 1)
+      }
+    }
+
+    const dailyGuidance = generateDailyShiftGuidance({
+      now,
+      lastSleepEnd,
+      nextPlannedSleepStart,
+      nextShiftStart,
+      nextShiftEnd,
+      shiftType: toGuidanceShiftType(shiftType, mealGuide.guidanceMode),
+      sleepDurationHours: recentHoursForAvg[0] ?? null,
+      sleepDebtHours: Math.max(0, (profileForSleepH?.sleep_goal_h ?? 7.5) - (recentHoursForAvg[0] ?? 0)),
+      mealsLogged: {
+        breakfast: (breakfastCount ?? 0) > 0,
+      },
+      caffeineLogged: 0,
+      userPreferences: {},
+    })
+
+    const cardSubtitle = dailyGuidance.primaryRecommendation || baseCardSubtitle
+
+    const anchorDateForBadge = anchor?.rotaDate ?? today
+    const { data: eventOnAnchorDate } = await supabase
+      .from('rota_events')
+      .select('type,color,date,start_at')
+      .eq('user_id', userId)
+      .or(`date.eq.${anchorDateForBadge},start_at.gte.${anchorDateForBadge}T00:00:00.000Z,start_at.lt.${anchorDateForBadge}T23:59:59.999Z`)
+      .order('start_at', { ascending: true })
+      .limit(20)
+
+    const patternColors = ((activePattern as any)?.color_config ?? {}) as Record<string, string | null>
+    const dayColor = patternColors.day ?? patternColors.morning ?? '#3B82F6'
+    const nightColor = patternColors.night ?? '#EF4444'
+    const afternoonColor = patternColors.afternoon ?? patternColors.day ?? '#A855F7'
+    const eventsForAnchorDate = (eventOnAnchorDate ?? []) as Array<{ type?: string | null; color?: string | null }>
+    const preferredEvent =
+      eventsForAnchorDate.find((e) => (e.type ?? '').toLowerCase() === 'holiday') ?? eventsForAnchorDate[0]
+
+    const shiftBadgeBorderColor =
+      shiftType === 'off'
+        ? '#FFFFFF'
+        : preferredEvent?.color
+          ? String(preferredEvent.color)
+          : shiftType === 'night'
+        ? nightColor
+        : shiftType === 'day'
+          ? dayColor
+          : shiftType === 'late'
+            ? afternoonColor
+            : '#CBD5E1'
 
     const nextPick = pickNextMealOccurrence(mealSchedule, now)
     const nextMealSlot = nextPick?.slot ?? null
@@ -315,7 +442,7 @@ export async function GET(req: NextRequest) {
       return {
         id: meal.id,
         label: meal.label,
-        time: mealTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        time: formatTime24(mealTime),
         position: Math.max(0, Math.min(1, position)),
         inWindow,
       }
@@ -333,12 +460,23 @@ export async function GET(req: NextRequest) {
     const totalMacros = adjusted.macros
     const totalCalories = adjusted.adjustedCalories
     const mealsWithMacros = mealSchedule.map((meal) => {
+      const mealDate = meal.time
+      const nowDay = new Date(now)
+      nowDay.setHours(0, 0, 0, 0)
+      const tomorrowDay = new Date(nowDay)
+      tomorrowDay.setDate(tomorrowDay.getDate() + 1)
+      const mealDay = new Date(mealDate)
+      mealDay.setHours(0, 0, 0, 0)
+      const dayTag: 'today' | 'tomorrow' =
+        mealDay.getTime() >= tomorrowDay.getTime() ? 'tomorrow' : 'today'
+
       // Calculate macros proportionally based on meal calories
       const mealCalorieRatio = meal.caloriesTarget / totalCalories
       return {
         id: meal.id,
         label: meal.label,
-        time: meal.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        time: formatTime24(meal.time),
+        dayTag,
         windowLabel: meal.windowLabel,
         calories: meal.caloriesTarget,
         hint: meal.hint,
@@ -350,15 +488,20 @@ export async function GET(req: NextRequest) {
         },
       }
     })
+    .sort((a, b) => {
+      const aSlot = mealSchedule.find((slot) => slot.id === a.id)
+      const bSlot = mealSchedule.find((slot) => slot.id === b.id)
+      const aTime = aSlot?.time?.getTime() ?? 0
+      const bTime = bSlot?.time?.getTime() ?? 0
+      return aTime - bTime
+    })
 
     const nextMealWithMacros =
       nextMealSlot != null
         ? mealsWithMacros.find((m) => m.id === nextMealSlot.id) ?? mealsWithMacros[0]
         : mealsWithMacros[0]
 
-    const nextMealTimeStr = nextMealAt
-      ? nextMealAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      : '—'
+    const nextMealTimeStr = nextMealAt ? formatTime24(nextMealAt) : '—'
 
     // Build response
     const response = {
@@ -373,6 +516,8 @@ export async function GET(req: NextRequest) {
         fats: Math.round(totalMacros.fat_g / mealSchedule.length),
       },
       shiftLabel: shiftLabelFormatted,
+      shiftBadgeBorderColor,
+      dailyGuidance,
       shiftType,
       scheduleTypeUsed,
       hasExactShiftTimes,

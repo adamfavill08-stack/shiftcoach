@@ -291,6 +291,7 @@ export default function AdjustedCaloriesPage() {
       return timingMeals.map((meal) => ({
         label: meal.label,
         time: meal.time,
+        dayTag: meal.dayTag,
         Icon: () => (
           <span className="text-base leading-none">{mealIconFor(meal.id, meal.label)}</span>
         ),

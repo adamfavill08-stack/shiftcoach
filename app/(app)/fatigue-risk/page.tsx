@@ -6,8 +6,11 @@ import { ChevronLeft } from 'lucide-react'
 import { useShiftRhythm } from '@/lib/hooks/useShiftRhythm'
 import { useTranslation } from '@/components/providers/language-provider'
 import { authedFetch } from '@/lib/supabase/authedFetch'
+import { supabase } from '@/lib/supabase'
 import { BodyClockMotivationCard } from '@/components/body-clock/BodyClockMotivationCard'
 import { fatigueWindowBarMarkerFill } from '@/lib/riskScaleBarMarker'
+import { formatFatigueSummary } from '@/lib/fatigue/formatFatigueSummary'
+import { getCircadianData } from '@/lib/circadian/circadianCache'
 
 function fatigueRiskLevelKey(level: string): string {
   if (level === 'high') return 'detail.fatigueRisk.levelHigh'
@@ -33,8 +36,9 @@ function categorizeFatigueDriver(text: string): 'sleep' | 'circadian' | 'shift' 
 
 export default function FatigueRiskPage() {
   const { t } = useTranslation()
-  const { fatigueRisk, loading } = useShiftRhythm()
+  const { fatigueRisk, sleepDeficit, loading } = useShiftRhythm()
   const [displayName, setDisplayName] = useState<string | null>(null)
+  const [circadianFatigueFromCache, setCircadianFatigueFromCache] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -56,13 +60,52 @@ export default function FatigueRiskPage() {
       cancelled = true
     }
   }, [])
-  const score = fatigueRisk?.score ?? 20
-  const score10 = Math.max(1, Math.min(10, Math.round(score / 10)))
-  const levelRaw = fatigueRisk?.level ?? 'low'
+
+  useEffect(() => {
+    let active = true
+    const loadCircadianFatigue = async () => {
+      try {
+        const { data: auth } = await supabase.auth.getSession()
+        const token = auth.session?.access_token
+        if (!token) return
+        const circadianData = await getCircadianData(token)
+        if (!active) return
+        if (circadianData && typeof circadianData.fatigueScore === 'number') {
+          setCircadianFatigueFromCache(Math.max(0, Math.min(100, Math.round(circadianData.fatigueScore))))
+        }
+      } catch {
+        // Keep fallback sources when circadian cache fetch fails.
+      }
+    }
+
+    void loadCircadianFatigue()
+    const handleRefresh = () => {
+      void loadCircadianFatigue()
+    }
+    window.addEventListener('sleep-refreshed', handleRefresh)
+    window.addEventListener('rota-saved', handleRefresh)
+    window.addEventListener('rota-cleared', handleRefresh)
+
+    return () => {
+      active = false
+      window.removeEventListener('sleep-refreshed', handleRefresh)
+      window.removeEventListener('rota-saved', handleRefresh)
+      window.removeEventListener('rota-cleared', handleRefresh)
+    }
+  }, [])
+
+  const debtHours = Math.max(0, sleepDeficit?.weeklyDeficit ?? 0)
+  const fallbackCategory = sleepDeficit?.category ?? 'medium'
+  const fallbackScore = Math.max(
+    22,
+    Math.min(78, Math.round((fallbackCategory === 'high' ? 68 : fallbackCategory === 'low' ? 28 : 48) + Math.min(14, debtHours * 1.2))),
+  )
+  const score = circadianFatigueFromCache ?? fatigueRisk?.score ?? fallbackScore
+  const scoreDisplay = Math.max(0, Math.min(100, Math.round(score)))
+  const levelRaw = score >= 65 ? 'high' : score < 30 ? 'low' : 'moderate'
   const level = t(fatigueRiskLevelKey(levelRaw))
   const confidenceChip = `${t(fatigueRiskConfidenceKey(fatigueRisk?.confidenceLabel))} ${t('detail.fatigueRisk.confidenceSuffix')}`
-  const explanation =
-    fatigueRisk?.explanation ?? t('detail.fatigueRisk.fallbackExplanation')
+  const explanation = formatFatigueSummary({ score, fatigueRisk })
   const timeline = useMemo(() => {
     const base = Math.max(12, Math.min(92, score))
     const confidenceBoost = fatigueRisk?.confidenceLabel === 'high' ? 4 : fatigueRisk?.confidenceLabel === 'low' ? -3 : 0
@@ -94,7 +137,7 @@ export default function FatigueRiskPage() {
     if (nowHour >= 20 || nowHour < 1) return timeline[4]
     return timeline[5]
   }, [nowHour, timeline])
-  const scoreLabel = useMemo(() => (loading ? '...' : String(score10)), [loading, score10])
+  const scoreLabel = useMemo(() => (loading ? '...' : String(scoreDisplay)), [loading, scoreDisplay])
   const markerLeft = `${Math.max(3, Math.min(97, score))}%`
   const windowMarkerFill = fatigueWindowBarMarkerFill(score)
 

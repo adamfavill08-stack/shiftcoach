@@ -1135,6 +1135,7 @@ export default function AdjustedCaloriesPage() {
       return timingMeals.map((meal) => ({
         label: meal.label,
         time: meal.time,
+        dayTag: meal.dayTag,
         Icon: iconForMealId(meal.id),
       }))
     }
@@ -1145,6 +1146,7 @@ export default function AdjustedCaloriesPage() {
       return data.meals.map((meal) => ({
         label: meal.label,
         time: meal.suggestedTime,
+        dayTag: undefined,
         Icon: iconForMealId(meal.id),
       }))
     }
@@ -1481,6 +1483,7 @@ export default function AdjustedCaloriesPage() {
         sleepHoursLast24h={data.sleepHoursLast24h ?? null}
         consumedMacros={data.consumedMacros}
         mealTimesData={mealTimesForMacroCard}
+        mealTimesPreface={mealTimingCard?.dailyGuidance?.primaryRecommendation ?? null}
         highlightNextMealLabel={mealTimingCard?.nextMealLabel ?? null}
         variant="elevated"
       />

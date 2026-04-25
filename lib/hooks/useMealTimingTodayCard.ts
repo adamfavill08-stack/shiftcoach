@@ -15,6 +15,12 @@ export type MealTimingTodayCardData = {
   nextMealSubtitle?: string | null
   nextMealMacros: { protein: number; carbs: number; fats: number }
   shiftLabel: string
+  shiftBadgeBorderColor?: string
+  dailyGuidance?: {
+    fatigueRisk: 'low' | 'moderate' | 'high' | 'critical'
+    dayType: string
+    primaryRecommendation: string
+  }
   shiftType: 'day' | 'night' | 'late' | 'off'
   scheduleTypeUsed?: 'off' | 'day' | 'night' | 'late'
   hasExactShiftTimes?: boolean
@@ -27,6 +33,7 @@ export type MealTimingTodayCardData = {
     id: string
     label: string
     time: string
+    dayTag?: 'today' | 'tomorrow'
     windowLabel: string
     calories: number
     hint: string

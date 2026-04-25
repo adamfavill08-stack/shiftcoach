@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { Inter } from "next/font/google"
+import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { getCircadianData } from "@/lib/circadian/circadianCache"
 
@@ -145,64 +146,153 @@ function SevenDayTrend({
 
   if (loading || trend.length < 2) return null
 
-  const tMin  = Math.min(...trend)
-  const tMax  = Math.max(...trend)
-  const range = tMax - tMin || 1
-  const TW = 165, TH = 32
+  const TW = 300
+  const TH = 86
+  const CHART_LEFT = 22
+  const CHART_RIGHT = 6
+  const CHART_TOP = 8
+  const CHART_BOTTOM = 16
+  const PLOT_W = TW - CHART_LEFT - CHART_RIGHT
+  const PLOT_H = TH - CHART_TOP - CHART_BOTTOM
+  const scaleMin = 0
+  const scaleMax = Math.max(4, Math.ceil(Math.max(...trend) + 0.2))
+  const yFor = (v: number) =>
+    CHART_TOP + (1 - (v - scaleMin) / Math.max(1, scaleMax - scaleMin)) * PLOT_H
+  const xFor = (i: number) => CHART_LEFT + (i / (trend.length - 1)) * PLOT_W
 
-  const pts = trend.map((v, i) => {
-    const x = (i / (trend.length - 1)) * TW
-    const y = TH - ((v - tMin) / (range + 0.3)) * (TH * 0.82)
-    return `${x.toFixed(1)},${y.toFixed(1)}`
-  }).join(" ")
+  const pointObjs = trend.map((v, i) => ({ x: xFor(i), y: yFor(v), v }))
+  const pts = pointObjs.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")
 
   const improving = trend[0] > trend[trend.length - 1]
   const todayVal  = trend[trend.length - 1]
   const startVal  = trend[0]
+  const trendTitleColor = "var(--text-main)"
+  const trendSubtleColor = "var(--text-soft)"
+  const axisColor = "rgba(148,163,184,0.6)"
+  const lineColor = "#06D7F2"
+  const chartStroke = "rgba(148,163,184,0.22)"
+  const startPoint = pointObjs[0]!
+  const endPoint = pointObjs[pointObjs.length - 1]!
 
   return (
-    <div className="circ-card" style={rev(0.67)}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+    <div
+      className="circ-card"
+      style={{
+        ...rev(0.67),
+        padding: "16px 16px 14px",
+        borderRadius: 14,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
         <div>
-          <div className="circ-lbl" style={{ marginBottom: 3 }}>7-Day Alignment</div>
-          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          <div className="circ-lbl" style={{ marginBottom: 6 }}>7-Day Alignment</div>
+          <div style={{ fontSize: 18, color: trendTitleColor, fontWeight: 700, lineHeight: 1.2 }}>
             {improving ? "Misalignment improving" : "Misalignment increasing"}
           </div>
+          <div style={{ fontSize: 12, color: trendSubtleColor, marginTop: 4 }}>
+            {improving
+              ? "Your circadian rhythm is getting back in sync."
+              : "Your circadian rhythm is drifting away from sync."}
+          </div>
         </div>
-        <div style={{ fontSize: 10, color: improving ? "#22D3EE" : "#EF4444", fontWeight: 600 }}>
+        <div
+          style={{
+            fontSize: 11,
+            color: improving ? "#22D3EE" : "#EF4444",
+            fontWeight: 700,
+            padding: "6px 10px",
+            borderRadius: 999,
+            border: "1px solid var(--border-subtle)",
+            background: "var(--card-subtle)",
+            whiteSpace: "nowrap",
+          }}
+        >
           {improving ? "↓ Recovering" : "↑ Worsening"}
         </div>
       </div>
 
-      <svg width="100%" height={TH + 18}
-        viewBox={`0 0 ${TW} ${TH + 18}`} preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"   stopColor="#00BCD4" stopOpacity="0.28" />
-            <stop offset="100%" stopColor="#00BCD4" stopOpacity="0"    />
-          </linearGradient>
-        </defs>
-        <polyline points={`0,${TH} ${pts} ${TW},${TH}`} fill="url(#trendGrad)" />
-        <polyline points={pts} fill="none" stroke="#00BCD4"
-          strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        {["M","T","W","T","F","S","S"].map((d, i) => (
-          <text key={i}
-            x={(i / 6) * TW} y={TH + 13}
-            textAnchor="middle"
-            fill="rgba(128,128,128,0.4)"
-            fontSize={8} fontFamily="Inter">
-            {d}
+      <div
+        style={{
+          border: "1px solid var(--border-subtle)",
+          borderRadius: 12,
+          background: "color-mix(in srgb, var(--card-subtle) 82%, transparent)",
+          padding: "10px 8px 8px",
+        }}
+      >
+        <svg width="100%" height={TH + 30} viewBox={`0 0 ${TW} ${TH + 30}`} preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={lineColor} stopOpacity="0.30" />
+              <stop offset="100%" stopColor={lineColor} stopOpacity="0.02" />
+            </linearGradient>
+          </defs>
+          {[0, 2, 4].map((tick) => {
+            const y = yFor(tick)
+            return (
+              <g key={tick}>
+                <line x1={CHART_LEFT} y1={y} x2={TW - CHART_RIGHT} y2={y} stroke={chartStroke} strokeDasharray="2 3" />
+                <text x={0} y={y + 3} fill={axisColor} fontSize={7} fontFamily="Inter">
+                  {tick}h
+                </text>
+              </g>
+            )
+          })}
+          <polyline points={`${CHART_LEFT},${TH - CHART_BOTTOM} ${pts} ${TW - CHART_RIGHT},${TH - CHART_BOTTOM}`} fill="url(#trendGrad)" />
+          <polyline points={pts} fill="none" stroke={lineColor} strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx={startPoint.x} cy={startPoint.y} r={3.1} fill="var(--bg)" stroke="#2F66FF" strokeWidth="1.2" />
+          <circle cx={endPoint.x} cy={endPoint.y} r={3.1} fill="var(--bg)" stroke="#8B5CF6" strokeWidth="1.2" />
+          <rect x={startPoint.x + 4} y={startPoint.y - 16} width={26} height={12} rx={5} fill="rgba(59,130,246,0.12)" />
+          <text x={startPoint.x + 17} y={startPoint.y - 8} textAnchor="middle" fill="#2F66FF" fontSize={6.8} fontWeight={700} fontFamily="Inter">
+            {startVal.toFixed(1)}h
           </text>
-        ))}
-      </svg>
+          <rect x={endPoint.x - 30} y={endPoint.y - 16} width={26} height={12} rx={5} fill="rgba(168,85,247,0.12)" />
+          <text x={endPoint.x - 17} y={endPoint.y - 8} textAnchor="middle" fill="#8B5CF6" fontSize={6.8} fontWeight={700} fontFamily="Inter">
+            {todayVal.toFixed(1)}h
+          </text>
+          {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+            <text
+              key={i}
+              x={xFor(i)}
+              y={TH + 16}
+              textAnchor="middle"
+              fill={axisColor}
+              fontSize={8}
+              fontFamily="Inter"
+            >
+              {d}
+            </text>
+          ))}
+        </svg>
+      </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
-        <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
-          7 days ago: {startVal.toFixed(1)}h
-        </span>
-        <span style={{ fontSize: 10, color: "#00BCD4", fontWeight: 500 }}>
-          Today: {todayVal.toFixed(1)}h
-        </span>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+        <div
+          style={{
+            border: "1px solid var(--border-subtle)",
+            borderRadius: 10,
+            background: "var(--card-subtle)",
+            padding: "8px 10px",
+          }}
+        >
+          <div className="circ-lbl" style={{ marginBottom: 4 }}>7 days ago</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: trendTitleColor, lineHeight: 1 }}>
+            {startVal.toFixed(1)}h
+          </div>
+        </div>
+        <div
+          style={{
+            border: "1px solid var(--border-subtle)",
+            borderRadius: 10,
+            background: "var(--card-subtle)",
+            padding: "8px 10px",
+            textAlign: "right",
+          }}
+        >
+          <div className="circ-lbl" style={{ marginBottom: 4, color: lineColor }}>Today</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: lineColor, lineHeight: 1 }}>
+            {todayVal.toFixed(1)}h
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -297,6 +387,8 @@ export default function CircadianCard({
   showMainSections = true,
   showSupportingSections = true,
 }: CircadianCardProps = {}) {
+  const router = useRouter()
+  const sidePad = showMainSections ? "18px" : "0px"
   const [data,     setData]     = useState<CircadianData | null>(null)
   const [status,   setStatus]   = useState<"loading" | "ok" | "unavailable">("loading")
   const [reason,   setReason]   = useState<string | null>(null)
@@ -415,7 +507,7 @@ export default function CircadianCard({
   // ── Unavailable state ─────────────────────────────────────────
   if (status === "unavailable" || !data) {
     return (
-      <div className={inter.className} style={{ margin: "12px 18px" }}>
+      <div className={inter.className} style={{ margin: `12px ${sidePad}` }}>
         <div style={{ padding: "16px 18px", background: "var(--card)", borderRadius: 12, border: "1px solid var(--border-subtle)" }}>
           <div style={{ fontSize: 9, letterSpacing: "2.4px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 500, marginBottom: 8 }}>
             Circadian Rhythm
@@ -471,7 +563,19 @@ export default function CircadianCard({
       <div className={inter.className} style={{ color: "var(--text-main)", ...inter.style }}>
 
         {showMainSections && (
-          <>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Open body clock page"
+            onClick={() => router.push("/body-clock")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                router.push("/body-clock")
+              }
+            }}
+            style={{ cursor: "pointer" }}
+          >
         {/* ── Ring ─────────────────────────────────────── */}
         <div style={{ ...rev(0.12) }}>
           <div style={{ position: "relative", display: "flex", justifyContent: "center", paddingTop: 8, overflow: "visible" }}>
@@ -600,7 +704,7 @@ export default function CircadianCard({
         </div>
 
         {/* ── Hero verdict card (below ring) — neutral chrome to match dashboard cards ───────────── */}
-        <div style={{ padding: "16px 18px 0", ...rev(0.2) }}>
+        <div style={{ padding: `16px ${sidePad} 0`, ...rev(0.2) }}>
           <div
             className={inter.className}
             style={{
@@ -670,12 +774,12 @@ export default function CircadianCard({
         </div>
 
         {/* ── Peak chip (below ring) — same neutral treatment as verdict card ───────────────────── */}
-        <div style={{ padding: "10px 18px 0", ...rev(0.28) }}>
+        <div style={{ padding: `10px ${sidePad} 0`, ...rev(0.28) }}>
           <div
             className={inter.className}
             style={{
-              background: "var(--card-subtle)",
-              border: "1px solid #93C5FD",
+              background: "rgba(3, 180, 193, 0.18)",
+              border: "none",
               borderRadius: 12,
               padding: "11px 16px",
               display: "flex",
@@ -695,13 +799,16 @@ export default function CircadianCard({
             </div>
           </div>
         </div>
-          </>
+          </div>
         )}
 
         {showSupportingSections && (
         <>
         {/* ── Supporting cards ─────────────────────────── */}
-        <div style={{ padding: "4px 18px 0", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ padding: `4px ${sidePad} 0`, display: "flex", flexDirection: "column", gap: 10 }}>
+
+          {/* 7-day alignment trend from circadian_logs */}
+          <SevenDayTrend currentMisalign={MISALIGN} rev={rev} />
 
           {/* Why shifted */}
           <div className="circ-card" style={rev(0.5)}>
@@ -750,9 +857,6 @@ export default function CircadianCard({
               ))}
             </div>
           </div>
-
-          {/* 7-day alignment trend from circadian_logs */}
-          <SevenDayTrend currentMisalign={MISALIGN} rev={rev} />
 
         </div>
         </>

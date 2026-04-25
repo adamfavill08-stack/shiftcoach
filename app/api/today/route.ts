@@ -6,10 +6,28 @@ import { getTodayHydrationIntake } from '@/lib/nutrition/getTodayHydrationIntake
 import { calculateBingeRisk } from '@/lib/binge/calculateBingeRisk'
 import { isoLocalDate } from '@/lib/shifts'
 import { toShiftType, toActivityShiftType } from '@/lib/shifts/toShiftType'
+import { generateDailyShiftGuidance, type ShiftGuidanceShiftType } from '@/lib/shift-guidance/generateDailyShiftGuidance'
 import {
   applyHolidayAsOffToShiftRows,
   fetchHolidayLocalDatesSet,
 } from '@/lib/rota/holidayRotaPriority'
+
+function shiftTypeForGuidance(
+  shiftLabel: string | null | undefined,
+  startTs: string | null | undefined,
+  nextShiftLabel: string | null | undefined,
+): ShiftGuidanceShiftType {
+  const standard = toShiftType(shiftLabel, startTs ?? null)
+  if (standard === 'night') return 'night'
+  if (standard === 'morning') return 'early'
+  if (standard === 'evening') return 'evening'
+  if (standard === 'off') {
+    const nextStandard = toShiftType(nextShiftLabel, null)
+    if (nextStandard === 'night') return 'transition'
+    return 'off'
+  }
+  return 'day'
+}
 
 export async function GET(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
@@ -23,7 +41,7 @@ export async function GET(req: NextRequest) {
     const startISO = start.toISOString()
     const endISO = end.toISOString()
 
-    const [{ data: mood }, calorieResult, hydrationIntake, { data: profile }, { data: todayShift }, { data: rhythmRow }, { data: recentShifts }] = await Promise.all([
+    const [{ data: mood }, calorieResult, hydrationIntake, { data: profile }, { data: todayShift }, { data: rhythmRow }, { data: recentShifts }, { data: upcomingShift }, { count: breakfastCount }] = await Promise.all([
       supabase
         .from('mood_logs')
         .select('mood,focus,ts')
@@ -34,7 +52,7 @@ export async function GET(req: NextRequest) {
         .limit(1),
       calculateAdjustedCalories(supabase, userId),
       getTodayHydrationIntake(supabase, userId),
-      supabase.from('profiles').select('sleep_goal_h').eq('user_id', userId).maybeSingle(),
+      supabase.from('profiles').select('sleep_goal_h,chronotype,shift_times').eq('user_id', userId).maybeSingle(),
       supabase.from('shifts').select('label,start_ts,end_ts').eq('user_id', userId).eq('date', today).maybeSingle(),
       supabase
         .from('shift_rhythm_scores')
@@ -50,6 +68,21 @@ export async function GET(req: NextRequest) {
         .lte('date', today)
         .order('date', { ascending: false })
         .limit(7),
+      supabase
+        .from('shifts')
+        .select('date,label,start_ts,end_ts')
+        .eq('user_id', userId)
+        .gt('date', today)
+        .order('date', { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('nutrition_logs')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('meal_type', 'breakfast')
+        .gte('logged_at', startISO)
+        .lt('logged_at', endISO),
     ])
 
     // Support both legacy (start_ts/end_ts) and newer (start_at/end_at) sleep schemas.
@@ -140,6 +173,61 @@ export async function GET(req: NextRequest) {
       ? new Date(effectiveTodayShift.end_ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       : null
 
+    const lastSleepEndIso = recentSleepRows?.[0]?.end_ts ?? null
+    const lastSleepStartIso = recentSleepRows?.[0]?.start_ts ?? null
+    const lastSleepEnd = lastSleepEndIso ? new Date(lastSleepEndIso) : null
+    const lastSleepStart = lastSleepStartIso ? new Date(lastSleepStartIso) : null
+    const previousSleepDurationHours =
+      lastSleepStart && lastSleepEnd && !Number.isNaN(lastSleepStart.getTime()) && !Number.isNaN(lastSleepEnd.getTime())
+        ? Math.max(0, (lastSleepEnd.getTime() - lastSleepStart.getTime()) / (1000 * 60 * 60))
+        : null
+
+    const nextShiftStart = upcomingShift?.start_ts ? new Date(upcomingShift.start_ts) : null
+    const nextShiftEnd = upcomingShift?.end_ts ? new Date(upcomingShift.end_ts) : null
+    const guidanceShiftType = shiftTypeForGuidance(
+      effectiveTodayShift?.label,
+      effectiveTodayShift?.start_ts,
+      upcomingShift?.label,
+    )
+
+    // Estimate next planned sleep:
+    // - If a night shift is upcoming, plan sleep after shift end (or next morning fallback).
+    // - Otherwise, use tonight default window.
+    let nextPlannedSleepStart: Date | null = null
+    if (guidanceShiftType === 'night' || guidanceShiftType === 'transition') {
+      if (nextShiftEnd && !Number.isNaN(nextShiftEnd.getTime())) {
+        nextPlannedSleepStart = new Date(nextShiftEnd.getTime() + 30 * 60 * 1000)
+      } else {
+        nextPlannedSleepStart = new Date(now)
+        nextPlannedSleepStart.setDate(nextPlannedSleepStart.getDate() + 1)
+        nextPlannedSleepStart.setHours(7, 0, 0, 0)
+      }
+    } else {
+      nextPlannedSleepStart = new Date(now)
+      nextPlannedSleepStart.setHours(22, 30, 0, 0)
+      if (nextPlannedSleepStart.getTime() <= now.getTime()) {
+        nextPlannedSleepStart.setDate(nextPlannedSleepStart.getDate() + 1)
+      }
+    }
+
+    const dailyGuidance = generateDailyShiftGuidance({
+      now,
+      lastSleepEnd,
+      nextPlannedSleepStart,
+      nextShiftStart,
+      nextShiftEnd,
+      shiftType: guidanceShiftType,
+      sleepDurationHours: previousSleepDurationHours,
+      sleepDebtHours: Math.max(0, (profile?.sleep_goal_h ?? 7.5) - (calorieResult.sleepHoursLast24h ?? 0)),
+      mealsLogged: {
+        breakfast: (breakfastCount ?? 0) > 0,
+      },
+      caffeineLogged: hydrationIntake.caffeine_mg ?? 0,
+      userPreferences: {
+        chronotype: (profile as any)?.chronotype ?? null,
+      },
+    })
+
     return Response.json({
       shift: {
         label: effectiveTodayShift?.label ?? 'OFF',
@@ -162,6 +250,17 @@ export async function GET(req: NextRequest) {
       mood: mood?.[0]?.mood ?? 3,
       focus: mood?.[0]?.focus ?? 3,
       plan,
+      daily_guidance: {
+        ...dailyGuidance,
+        metadata: {
+          now: now.toISOString(),
+          lastSleepEnd: lastSleepEnd?.toISOString() ?? null,
+          nextPlannedSleepStart: nextPlannedSleepStart?.toISOString() ?? null,
+          nextShiftStart: nextShiftStart?.toISOString() ?? null,
+          nextShiftEnd: nextShiftEnd?.toISOString() ?? null,
+          shiftType: guidanceShiftType,
+        },
+      },
       data_quality: {
         mode: 'mixed_logged_and_modeled',
         note: 'Mood/hydration/shift data are logged; some coaching outputs are model-derived from available recent data.',

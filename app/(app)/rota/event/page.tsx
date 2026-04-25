@@ -1,8 +1,9 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { useMemo, useState, useEffect } from 'react'
-import { Check, ChevronLeft, Plus, X, Bell } from 'lucide-react'
+import { ChevronLeft, Plus, X, Bell } from 'lucide-react'
 import { useEventNotifications } from '@/lib/hooks/useEventNotifications'
 import { requestNotificationPermission } from '@/lib/notifications/eventNotifications'
 import { useTranslation } from '@/components/providers/language-provider'
@@ -22,6 +23,9 @@ type FormState = {
 export default function NewRotaEventPage() {
   const { t } = useTranslation()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const editId = searchParams.get('edit')
+  const isEditing = Boolean(editId)
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), [])
 
   const typeOptions = useMemo(
@@ -62,6 +66,7 @@ export default function NewRotaEventPage() {
     endTime: '',
   })
   const [saving, setSaving] = useState(false)
+  const [loadingEdit, setLoadingEdit] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notifications, setNotifications] = useState<Array<{ type: 'before' | 'at', value: string }>>([])
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null)
@@ -94,6 +99,53 @@ export default function NewRotaEventPage() {
   const handleChange = (field: keyof FormState, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
+
+  useEffect(() => {
+    if (!editId) return
+    let cancelled = false
+    const load = async () => {
+      setLoadingEdit(true)
+      try {
+        const res = await fetch(`/api/rota/event?id=${encodeURIComponent(editId)}`, {
+          cache: 'no-store',
+          credentials: 'include',
+        })
+        if (!res.ok) {
+          setError('Failed to load event for editing')
+          return
+        }
+        const json = await res.json()
+        const ev = json?.event
+        if (!ev || cancelled) return
+        const start = ev.start_at ? new Date(ev.start_at) : null
+        const end = ev.end_at ? new Date(ev.end_at) : null
+        const toDate = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : todayIso)
+        const toTime = (d: Date | null) =>
+          d
+            ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+            : ''
+        setForm({
+          startDate: toDate(start),
+          endDate: toDate(end || start),
+          title: ev.title || '',
+          eventType: ev.type || 'other',
+          color: ev.color || '#FCD34D',
+          description: ev.notes || '',
+          allDay: Boolean(ev.all_day),
+          startTime: ev.all_day ? '' : toTime(start),
+          endTime: ev.all_day ? '' : toTime(end),
+        })
+      } catch {
+        if (!cancelled) setError('Failed to load event for editing')
+      } finally {
+        if (!cancelled) setLoadingEdit(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [editId, todayIso])
 
   const handleSubmit = async () => {
     if (saving) return
@@ -133,8 +185,10 @@ export default function NewRotaEventPage() {
 
     try {
       setSaving(true)
-      const res = await fetch('/api/rota/event', {
-        method: 'POST',
+      const res = await fetch(
+        isEditing ? `/api/rota/event?id=${encodeURIComponent(editId as string)}` : '/api/rota/event',
+        {
+        method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(payload),
@@ -162,8 +216,8 @@ export default function NewRotaEventPage() {
       console.log('[rota/event/new] save success', responseJson)
 
       // Schedule browser notifications if notifications are configured
-      if (notifications.length > 0 && responseJson?.events?.[0]) {
-        const savedEvent = responseJson.events[0]
+      if (notifications.length > 0 && (responseJson?.events?.[0] || responseJson?.event)) {
+        const savedEvent = responseJson.events?.[0] ?? responseJson.event
         const eventStart = new Date(savedEvent.start_at)
         
         // Schedule notifications
@@ -202,19 +256,15 @@ export default function NewRotaEventPage() {
             >
               <ChevronLeft className="h-5 w-5 text-slate-700" strokeWidth={2.5} />
             </button>
-            <h1 className="text-lg font-bold tracking-tight text-slate-900 antialiased">{t('rota.event.title')}</h1>
-            <button
-              onClick={handleSubmit}
-              disabled={saving}
-              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-500 text-white shadow-[0_4px_12px_rgba(15,23,42,0.08)] transition-all hover:scale-105 active:scale-95 hover:shadow-[0_6px_16px_rgba(15,23,42,0.12)] disabled:opacity-50 disabled:cursor-not-allowed"
-              aria-label={t('rota.event.saveAria')}
-            >
-              <Check className="h-5 w-5" strokeWidth={2.5} />
-            </button>
+            <h1 className="text-lg font-bold tracking-tight text-slate-900 antialiased">
+              {isEditing ? 'Edit Event' : t('rota.event.title')}
+            </h1>
+            <div className="w-10" />
           </div>
 
           {/* Form Card */}
           <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl bg-white/80 backdrop-blur-sm border border-slate-200/60 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.08)]">
+            {loadingEdit ? <p className="text-sm text-slate-500 mb-4">Loading event…</p> : null}
             <div className="space-y-4">
               {form.eventType === 'holiday' ? (
                 <div className="grid grid-cols-2 gap-3">
@@ -473,6 +523,17 @@ export default function NewRotaEventPage() {
                   <p className="text-sm font-medium text-red-600">{error}</p>
                 </div>
               )}
+
+              <div className="pt-2 flex justify-center">
+                <button
+                  onClick={handleSubmit}
+                  disabled={saving || loadingEdit}
+                  className="inline-flex min-w-[180px] items-center justify-center rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 text-sm font-semibold shadow-[0_4px_12px_rgba(15,23,42,0.12)] transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label={t('rota.event.saveAria')}
+                >
+                  {saving ? 'Saving…' : isEditing ? 'Save Changes' : 'Save Event'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

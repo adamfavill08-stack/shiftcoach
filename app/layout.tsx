@@ -193,12 +193,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <NativeAndroidStatusBar />
                     <AndroidBackButtonHandler />
                     <EventNotificationLoader />
-                    <main className="app-main-shell relative min-h-screen pb-24 bg-[var(--bg)]">
+                    <div className="app-main-shell relative min-h-screen pb-24 bg-[var(--bg)]">
                       {children}
                       <QuickAddSheet />
                       <ToastContainer />
                       <BottomNavWrapper />
-                    </main>
+                    </div>
                   </QuickAddProvider>
                   </CircadianStateProvider>
                 </ShiftStateProvider>

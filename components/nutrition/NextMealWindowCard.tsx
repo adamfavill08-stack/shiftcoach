@@ -98,7 +98,7 @@ export function NextMealWindowCard({
           'dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]',
           'p-6',
         ].join(' ')
-      : 'block rounded-xl bg-white border border-blue-300 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]'
+      : 'block rounded-xl bg-[rgba(3,180,193,0.18)] border-0 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]'
 
   if (loading) {
     return (
@@ -127,6 +127,7 @@ export function NextMealWindowCard({
   }
 
   const shiftBadgeLabel = data.shiftLabel?.trim() || t('dashboard.nextMealWindow.scheduleFallback')
+  const shiftBadgeBorderColor = data.shiftBadgeBorderColor?.trim() || '#CBD5E1'
   const heroTime = data.nextMealTime || '—'
   const heroLabel = data.nextMealLabel || t('dashboard.nextMealWindow.nextPrefix')
   const supportLine = data.cardSubtitle?.trim() || t('dashboard.nextMealWindow.subtitleFallback')
@@ -147,7 +148,10 @@ export function NextMealWindowCard({
             ) : null}
             <p className="mt-0.5 text-[12px] leading-snug text-slate-500">{supportLine}</p>
           </div>
-          <span className="mt-0.5 inline-flex shrink-0 items-center rounded-full border border-slate-300/90 bg-slate-50 px-2.5 py-0.5 text-[10px] font-medium text-slate-800">
+          <span
+            className="mt-0.5 inline-flex shrink-0 items-center rounded-md border bg-slate-50 px-3.5 py-1 text-xs font-semibold text-slate-800"
+            style={{ borderColor: shiftBadgeBorderColor }}
+          >
             {shiftBadgeLabel}
           </span>
         </div>
@@ -209,7 +213,10 @@ export function NextMealWindowCard({
                   <span className="font-normal text-slate-600 dark:text-slate-400">{data.nextMealSubtitle.trim()}</span>
                 ) : null}
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 bg-slate-100 dark:bg-slate-800/60 text-[10px] text-slate-700 dark:text-slate-200">
+              <span
+                className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 bg-slate-100 dark:bg-slate-800/60 text-[10px] text-slate-700 dark:text-slate-200"
+                style={{ borderColor: shiftBadgeBorderColor }}
+              >
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 {shiftBadgeLabel}
               </span>

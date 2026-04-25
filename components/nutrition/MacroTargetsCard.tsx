@@ -7,6 +7,7 @@ import { MacroCard, MACRO_CARD_RING_SIZE } from '@/components/nutrition/MacroCar
 export type MacroTargetsMealSlot = {
   label: string
   time: string
+  dayTag?: 'today' | 'tomorrow'
   Icon?: React.ComponentType<{ className?: string }>
 }
 
@@ -264,10 +265,11 @@ export function MacroTargetsCard({
               ) : null}
             </div>
             <div className="overflow-hidden rounded-[20px] border border-slate-200/60 bg-white/80 dark:border-slate-700/40 dark:bg-slate-800/50">
-              {mealTimesData.map(({ label, time, Icon }, index) => {
+              {mealTimesData.map(({ label, time, dayTag, Icon }, index) => {
                 const isNext =
                   highlightNextMealLabel != null &&
                   label.trim().toLowerCase() === highlightNextMealLabel.trim().toLowerCase()
+                const dayText = dayTag === 'tomorrow' ? 'Tomorrow' : 'Today'
                 return (
                   <div
                     key={`${label}-${index}`}
@@ -287,8 +289,13 @@ export function MacroTargetsCard({
                         </p>
                       </div>
                     </div>
-                    <span className="shrink-0 text-[15px] font-semibold tabular-nums tracking-tight text-slate-900 dark:text-slate-100">
-                      {time}
+                    <span className="shrink-0 text-right">
+                      <span className="block text-[15px] font-semibold tabular-nums tracking-tight text-slate-900 dark:text-slate-100">
+                        {time}
+                      </span>
+                      <span className="mt-0.5 inline-block rounded-full border border-slate-300/70 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:border-slate-600 dark:text-slate-300">
+                        {dayText}
+                      </span>
                     </span>
                   </div>
                 )

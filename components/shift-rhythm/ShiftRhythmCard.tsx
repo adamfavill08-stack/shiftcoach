@@ -28,6 +28,7 @@ import { applyUserShiftStateToMealTimingJson } from "@/lib/nutrition/applyUserSh
 import { useTransitionPlanPanelPresence } from "@/lib/hooks/useTransitionPlanPanelPresence";
 import { riskScaleBarMarkerFill } from "@/lib/riskScaleBarMarker";
 import { getCircadianData } from "@/lib/circadian/circadianCache";
+import { formatFatigueSummary } from "@/lib/fatigue/formatFatigueSummary";
 
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import type { CircadianState } from '@/lib/circadian/calculateCircadianScore'
@@ -240,7 +241,7 @@ function ShiftRhythmCard({
   };
 
   return (
-    <div className="w-full max-w-md mx-auto px-4 py-4 space-y-6">
+    <div className={`${inter.className} w-full max-w-[430px] mx-auto px-2 py-4 space-y-6`}>
       <HomeFatigueRiskCard sleepDeficit={sleepDeficit} fatigueRisk={fatigueRisk} circadian={circadian} />
 
       {/* Delay secondary cards to keep initial dashboard paint fast */}
@@ -626,23 +627,7 @@ function HomeFatigueRiskCard({
         ? "bg-emerald-100 text-emerald-800"
         : "bg-emerald-100/80 text-slate-700";
   const markerFill = riskScaleBarMarkerFill(score100);
-  const driverHint = `${fatigueRisk?.drivers?.join(" ") ?? ""} ${fatigueRisk?.explanation ?? ""}`.toLowerCase();
-  const transitionSignal =
-    driverHint.includes("transition") ||
-    driverHint.includes("rotate") ||
-    driverHint.includes("day to night") ||
-    driverHint.includes("night to day") ||
-    driverHint.includes("circadian");
-  const subtitle =
-    fatigueRisk?.confidenceLabel === "low"
-      ? "Confidence builds as more sleep and shift data syncs."
-      : score100 >= 65 && transitionSignal
-        ? "High transition strain from switching shift timing."
-        : score100 >= 65
-          ? "High fatigue load - recovery is needed before peak performance."
-          : fatigueRisk?.drivers?.[0]
-            ? fatigueRisk.drivers[0]
-            : "Rolling risk from fatigue and sleep rhythm.";
+  const subtitle = formatFatigueSummary({ score: score100, fatigueRisk });
 
   return (
     <Link

@@ -40,8 +40,26 @@ export async function GET(req: NextRequest) {
     const supabase = supabaseServer
     
     const { searchParams } = new URL(req.url)
+    const eventId = searchParams.get('id')
     const month = Number(searchParams.get('month')) || new Date().getMonth() + 1
     const year  = Number(searchParams.get('year'))  || new Date().getFullYear()
+
+    if (eventId) {
+      const { data: event, error: byIdError } = await supabase
+        .from('rota_events')
+        .select('*')
+        .eq('id', eventId)
+        .eq('user_id', userId)
+        .maybeSingle()
+
+      if (byIdError) {
+        return NextResponse.json({ error: byIdError.message ?? 'Failed to load event' }, { status: 500 })
+      }
+      if (!event) {
+        return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+      }
+      return NextResponse.json({ event }, { headers: NO_STORE_HEADERS })
+    }
 
     // Calculate the actual date range for the calendar grid (includes previous/next month dates)
     const zeroBasedMonth = month - 1
@@ -387,6 +405,121 @@ export async function POST(req: NextRequest) {
       stack: e?.stack,
       fullError: e,
     })
+    return NextResponse.json(
+      { ok: false, error: e?.message || 'Fatal error', code: 'internal_error' },
+      { status: 500 },
+    )
+  }
+}
+
+// PUT -> update event by id
+export async function PUT(req: NextRequest) {
+  try {
+    const { userId } = await getServerSupabaseAndUserId()
+    if (!userId) return buildUnauthorizedResponse()
+
+    const supabase = supabaseServer
+    const { searchParams } = new URL(req.url)
+    const eventId = searchParams.get('id')
+    if (!eventId) {
+      return NextResponse.json({ error: 'Missing event id' }, { status: 400 })
+    }
+
+    const parsed = await parseJsonBody(req, RotaEventCreateSchema)
+    if (!parsed.ok) return parsed.response
+    const body = parsed.data
+
+    if (!body.title || !body.startDate) {
+      return NextResponse.json(
+        { error: 'Missing required fields: title and start date are required' },
+        { status: 400 },
+      )
+    }
+
+    const dateStr = body.startDate
+    let startAt: string
+    let endAt: string
+
+    if (body.allDay) {
+      startAt = new Date(
+        Date.UTC(
+          parseInt(dateStr.substring(0, 4)),
+          parseInt(dateStr.substring(5, 7)) - 1,
+          parseInt(dateStr.substring(8, 10)),
+          0,
+          0,
+          0,
+        ),
+      ).toISOString()
+      endAt = new Date(
+        Date.UTC(
+          parseInt(dateStr.substring(0, 4)),
+          parseInt(dateStr.substring(5, 7)) - 1,
+          parseInt(dateStr.substring(8, 10)),
+          23,
+          59,
+          59,
+        ),
+      ).toISOString()
+    } else {
+      const startTime = body.startTime || '00:00'
+      const endTime = body.endTime || '23:59'
+      const [startHour, startMin] = startTime.split(':').map(Number)
+      const [endHour, endMin] = endTime.split(':').map(Number)
+
+      startAt = new Date(
+        Date.UTC(
+          parseInt(dateStr.substring(0, 4)),
+          parseInt(dateStr.substring(5, 7)) - 1,
+          parseInt(dateStr.substring(8, 10)),
+          startHour,
+          startMin,
+          0,
+        ),
+      ).toISOString()
+      endAt = new Date(
+        Date.UTC(
+          parseInt(dateStr.substring(0, 4)),
+          parseInt(dateStr.substring(5, 7)) - 1,
+          parseInt(dateStr.substring(8, 10)),
+          endHour,
+          endMin,
+          0,
+        ),
+      ).toISOString()
+    }
+
+    const updatePayload = {
+      title: body.title,
+      date: dateStr,
+      start_at: startAt,
+      end_at: endAt,
+      all_day: body.allDay ?? true,
+      type: body.eventType ?? 'other',
+      color: body.color ?? null,
+      notes: body.description?.trim() || null,
+    }
+
+    const { data, error } = await supabase
+      .from('rota_events')
+      .update(updatePayload)
+      .eq('id', eventId)
+      .eq('user_id', userId)
+      .select()
+      .maybeSingle()
+
+    if (error) {
+      return NextResponse.json(
+        { ok: false, error: error.message ?? 'Update failed', code: 'rota_event_update_failed' },
+        { status: 500 },
+      )
+    }
+    if (!data) {
+      return NextResponse.json({ ok: false, error: 'Event not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ ok: true, event: data })
+  } catch (e: any) {
     return NextResponse.json(
       { ok: false, error: e?.message || 'Fatal error', code: 'internal_error' },
       { status: 500 },

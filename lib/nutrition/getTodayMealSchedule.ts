@@ -98,6 +98,11 @@ export function getTodayMealSchedule(opts: {
     const early = addH(start, 2)
     const bodyNight = new Date(pre)
     bodyNight.setHours(2, 0, 0, 0)
+    // On transition/pre-night days, ensure "body-night" points to the upcoming 02:00
+    // (after the pre-shift meal), not 02:00 earlier the same calendar day.
+    if (bodyNight.getTime() <= pre.getTime()) {
+      bodyNight.setDate(bodyNight.getDate() + 1)
+    }
 
     if (isMorningNightShiftEndLocal(end)) {
       const sleepH = Math.min(14, Math.max(4, opts.expectedSleepHours ?? 7.5))

@@ -7,6 +7,14 @@ import { getTodayMealSchedule, type MealSlot } from '@/lib/nutrition/getTodayMea
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
+function formatTime24(value: Date): string {
+  return value.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
 export type MealPlanInputs = {
   shiftType: 'day' | 'night' | 'late' | 'off'
   shiftStartIso: string | null
@@ -20,6 +28,7 @@ type ApiMealRow = {
   id: string
   label: string
   time: string
+  dayTag?: 'today' | 'tomorrow'
   windowLabel: string
   calories: number
   hint: string
@@ -83,14 +92,26 @@ function buildMealsWithMacros(
   totalCalories: number,
   totalMacros: { protein_g: number; carbs_g: number; fat_g: number },
   categoryLabels: (string | undefined)[],
+  now: Date,
 ): ApiMealRow[] {
+  const nowDay = new Date(now)
+  nowDay.setHours(0, 0, 0, 0)
+  const tomorrowDay = new Date(nowDay)
+  tomorrowDay.setDate(tomorrowDay.getDate() + 1)
+
   return mealSchedule.map((meal, index) => {
     const mealCalorieRatio = meal.caloriesTarget / Math.max(1, totalCalories)
+    const mealDay = new Date(meal.time)
+    mealDay.setHours(0, 0, 0, 0)
+    const dayTag: 'today' | 'tomorrow' =
+      mealDay.getTime() >= tomorrowDay.getTime() ? 'tomorrow' : 'today'
+
     return {
       id: meal.id,
       label: meal.label,
       categoryLabel: categoryLabels[index],
-      time: meal.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      time: formatTime24(meal.time),
+      dayTag,
       windowLabel: meal.windowLabel,
       calories: meal.caloriesTarget,
       hint: meal.hint,
@@ -136,7 +157,7 @@ function transitionMealsFromShiftState(
   const n = raw.length
   const defaultCal = Math.round(Math.max(1200, totalCalories) / n)
 
-  const fmt = (d: Date) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const fmt = (d: Date) => formatTime24(d)
   const addH = (d: Date, h: number) => new Date(d.getTime() + h * 60 * 60 * 1000)
   const window = (start: Date, hours = 1) => `${fmt(start)}–${fmt(addH(start, hours))}`
 
@@ -170,7 +191,7 @@ function patchPayloadFromSchedule(
 ): ApiPayload {
   const totalCalories = Math.max(1200, Math.round(api.totalCalories || 0))
   const totalMacros = api.totalMacros
-  const meals = buildMealsWithMacros(mealSchedule, totalCalories, totalMacros, categoryLabels)
+  const meals = buildMealsWithMacros(mealSchedule, totalCalories, totalMacros, categoryLabels, now)
   const nextPick = pickNextMealOccurrence(mealSchedule, now)
   const nextMealSlot = nextPick?.slot ?? null
   const nextMealAt = nextPick?.at ?? null
@@ -178,9 +199,7 @@ function patchPayloadFromSchedule(
     ? meals.find((m) => m.id === nextMealSlot.id) ?? meals[0]
     : meals[0]
 
-  const nextMealTimeStr = nextMealAt
-    ? nextMealAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : '—'
+  const nextMealTimeStr = nextMealAt ? formatTime24(nextMealAt) : '—'
 
   const dayStart = new Date(now)
   dayStart.setHours(0, 0, 0, 0)
@@ -193,7 +212,7 @@ function patchPayloadFromSchedule(
     return {
       id: meal.id,
       label: meal.label,
-      time: meal.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      time: formatTime24(meal.time),
       position: Math.max(0, Math.min(1, position)),
       inWindow: true,
     }
