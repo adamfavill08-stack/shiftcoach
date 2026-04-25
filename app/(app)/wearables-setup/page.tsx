@@ -66,11 +66,14 @@ export default function WearablesSetupPage() {
     const onVisible = () => {
       if (document.visibilityState === "visible") fetchStatus();
     };
+    const onWearablesSynced = () => fetchStatus();
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("wearables-synced", onWearablesSynced);
     return () => {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("wearables-synced", onWearablesSynced);
     };
   }, [fetchStatus]);
 
@@ -372,20 +375,9 @@ export default function WearablesSetupPage() {
             )}
           </div>
           <div className="w-full flex flex-col items-stretch pt-3 border-t border-black/5 dark:border-white/10">
-            {status?.connected === false ? (
-              <span
-                className="inline-flex w-full items-center justify-center rounded-lg px-4 py-3 text-sm font-medium text-center text-white bg-slate-700 dark:bg-slate-600 opacity-90 cursor-default"
-                style={{ borderRadius: 8 }}
-                title={t("detail.wearablesSetup.healthConnectAppleHealthTitle")}
-                aria-disabled="true"
-              >
-                {t("detail.wearablesSetup.healthConnectAppleHealthCta")}
-              </span>
-            ) : (
-              <div className="w-full">
-                <SyncWearableButton />
-              </div>
-            )}
+            <div className="w-full">
+              <SyncWearableButton />
+            </div>
           </div>
         </section>
         {status?.provider === "google_fit" && (
