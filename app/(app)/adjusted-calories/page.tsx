@@ -292,6 +292,7 @@ export default function AdjustedCaloriesPage() {
         label: meal.label,
         time: meal.time,
         dayTag: meal.dayTag,
+        calories: meal.calories,
         Icon: () => (
           <span className="text-base leading-none">{mealIconFor(meal.id, meal.label)}</span>
         ),

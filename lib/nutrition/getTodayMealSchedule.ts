@@ -4,6 +4,7 @@ import {
   NO_MEAL_MS_AFTER_NIGHT_SHIFT_END,
   pickLoggedWakeAfterMorningShiftEnd,
 } from '@/lib/nutrition/nightShiftMorningEndMeals'
+import type { GuidanceMode } from '@/lib/shift-context/types'
 
 export type MealSlotId =
   | 'breakfast'
@@ -35,11 +36,20 @@ export function getTodayMealSchedule(opts: {
   shiftStart?: Date
   shiftEnd?: Date
   wakeTime: Date
+  guidanceMode?: GuidanceMode
   /** Used when night shift ends early morning; from profile + recent sleep averages. */
   expectedSleepHours?: number
   /** Latest logged sleep end if it qualifies as wake after this shift end (early-morning night end only). */
   loggedWakeAfterShift?: Date | null
 }): { slots: MealSlot[]; templateUsed: MealScheduleTemplate } {
+  function pushUniqueSlot(slots: MealSlot[], slot: MealSlot, minGapMinutes = 45) {
+    const t = slot.time.getTime()
+    const overlaps = slots.some(
+      s => Math.abs(s.time.getTime() - t) < minGapMinutes * 60_000
+    )
+    if (!overlaps) slots.push(slot)
+  }
+
   const total = Math.max(1200, Math.round(opts.adjustedCalories || 0))
   const toKcal = (pct: number) => Math.round(total * pct)
   const addH = (d: Date, h: number) => new Date(d.getTime() + h * 60 * 60 * 1000)
@@ -47,7 +57,8 @@ export function getTodayMealSchedule(opts: {
   const window = (start: Date, hours = 1) => `${fmt(start)}–${fmt(addH(start, hours))}`
 
   const slots: MealSlot[] = []
-  const wake = opts.wakeTime
+  const wake =
+    opts.wakeTime && !Number.isNaN(opts.wakeTime.getTime()) ? opts.wakeTime : new Date()
   const start = opts.shiftStart
   const end = opts.shiftEnd
   let templateUsed: MealScheduleTemplate = 'off'
@@ -92,6 +103,83 @@ export function getTodayMealSchedule(opts: {
         hint: 'Optional small portion if you still want something before wind‑down',
       },
     )
+  } else if (
+    opts.shiftType === 'night' &&
+    start &&
+    opts.guidanceMode === 'transition_day_to_night'
+  ) {
+    templateUsed = 'night'
+    const breakfast = addH(wake, 0.5)
+    const lunch = addH(wake, 5)
+    const preShift = addH(start, -2.25)
+    const gapHours = (preShift.getTime() - lunch.getTime()) / (60 * 60 * 1000)
+    const napStart = addH(start, -5.5)
+    const preNapSnack = addH(napStart, -0.5)
+    const midShift = addH(start, 4.5)
+    const overnightSnack = addH(start, 7.5)
+
+    pushUniqueSlot(slots, {
+      id: 'breakfast',
+      label: 'Breakfast',
+      time: breakfast,
+      windowLabel: window(breakfast, 1),
+      caloriesTarget: toKcal(0.20),
+      hint: 'Eat soon after waking to anchor your normal day before nights.',
+      subtitle: 'Eat soon after waking to anchor your normal day before nights.',
+    })
+    pushUniqueSlot(slots, {
+      id: 'lunch',
+      label: 'Lunch',
+      time: lunch,
+      windowLabel: window(lunch, 1),
+      caloriesTarget: toKcal(0.25),
+      hint: 'Keep this balanced and not too heavy before your nap.',
+      subtitle: 'Keep this balanced and not too heavy before your nap.',
+    })
+
+    if (gapHours > 4) {
+      pushUniqueSlot(slots, {
+        id: 'daySnack',
+        label: 'Pre-nap snack',
+        time: preNapSnack,
+        windowLabel: window(preNapSnack, 0.5),
+        caloriesTarget: toKcal(0.10),
+        hint: 'Small snack only, so sleep is not disrupted.',
+        subtitle: 'Small snack only, so sleep is not disrupted.',
+      })
+    }
+
+    pushUniqueSlot(slots, {
+      id: 'preShift',
+      label: 'Pre-shift meal',
+      time: preShift,
+      windowLabel: window(preShift, 1),
+      caloriesTarget: toKcal(0.30),
+      hint: 'Main meal before the night shift. Avoid making this too close to clock-in.',
+      subtitle: 'Main meal before the night shift. Avoid making this too close to clock-in.',
+    })
+    pushUniqueSlot(slots, {
+      id: 'midShift',
+      label: 'Mid-shift snack',
+      time: midShift,
+      windowLabel: window(midShift, 0.75),
+      caloriesTarget: toKcal(0.10),
+      hint: 'Keep this light to reduce body-clock disruption.',
+      subtitle: 'Keep this light to reduce body-clock disruption.',
+    })
+
+    const overnightGapHours = (overnightSnack.getTime() - midShift.getTime()) / (60 * 60 * 1000)
+    if (overnightGapHours >= 2) {
+      pushUniqueSlot(slots, {
+        id: 'nightSnack',
+        label: 'Optional overnight snack',
+        time: overnightSnack,
+        windowLabel: window(overnightSnack, 0.5),
+        caloriesTarget: toKcal(0.05),
+        hint: 'Only if genuinely hungry. Keep it small and easy to digest.',
+        subtitle: 'Only if genuinely hungry. Keep it small and easy to digest.',
+      })
+    }
   } else if (opts.shiftType === 'night' && start && end) {
     templateUsed = 'night'
     const pre = addH(start, -2.5)

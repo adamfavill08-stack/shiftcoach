@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 
+const ANDROID_HEALTH_PROVIDER = 'android_health_connect'
+
 /**
  * GET /api/wearables/status
  *
@@ -22,7 +24,7 @@ export async function GET(req: Request) {
 
     const sourceRows = Array.isArray(sources) ? sources : []
     const sourcePlatforms = sourceRows.map((r: any) => String(r.platform || ''))
-    const hasHealthConnect = sourcePlatforms.some((p) => p === 'android_health_connect' || p === 'health_connect')
+    const hasHealthConnect = sourcePlatforms.some((p) => p === ANDROID_HEALTH_PROVIDER)
     const hasAppleHealth = sourcePlatforms.some((p) => p === 'ios_healthkit' || p === 'apple_health')
 
     const latestSourceSyncAt = sourceRows
@@ -86,7 +88,7 @@ export async function GET(req: Request) {
       verified: connected && (hasRecentNativeSync || totalSteps > 0),
       lastSyncAt: latestSourceSyncAt > 0 ? new Date(latestSourceSyncAt).toISOString() : null,
       provider: hasHealthConnect
-        ? 'health_connect'
+        ? ANDROID_HEALTH_PROVIDER
         : hasAppleHealth
           ? 'apple_health'
           : connected

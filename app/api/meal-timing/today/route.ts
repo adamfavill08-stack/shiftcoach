@@ -258,6 +258,7 @@ export async function GET(req: NextRequest) {
       shiftStart,
       shiftEnd,
       wakeTime,
+      guidanceMode: mealGuide.guidanceMode,
       expectedSleepHours,
       loggedWakeAfterShift: loggedWakeForMeals,
     })

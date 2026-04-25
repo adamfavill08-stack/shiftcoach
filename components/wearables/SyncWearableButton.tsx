@@ -1,99 +1,127 @@
 'use client'
 
 import { Capacitor } from '@capacitor/core'
-import { useEffect, useMemo, useState } from 'react'
-import { useTranslation } from '@/components/providers/language-provider'
+import { useEffect, useState } from 'react'
 
-async function runAndroidHealthConnectPipeline(): Promise<{
-  ran: boolean
-  success: boolean
-  ts?: number
-}> {
-  if (Capacitor.getPlatform() !== 'android' || !Capacitor.isNativePlatform()) {
-    return { ran: false, success: false }
-  }
-  const { ShiftCoachHealthConnect } = await import('@/lib/native/shiftCoachHealthConnect')
-  let status: Awaited<ReturnType<typeof ShiftCoachHealthConnect.getStatus>>
-  try {
-    status = await ShiftCoachHealthConnect.getStatus()
-  } catch {
-    return { ran: false, success: false }
-  }
-  if (!status.available) {
-    return { ran: false, success: false }
-  }
-  if (!status.hasPermissions) {
-    try {
-      const r = await ShiftCoachHealthConnect.requestConnectPermissions()
-      if (!r.granted) {
-        return { ran: true, success: false }
-      }
-    } catch {
-      return { ran: true, success: false }
-    }
-  }
-  try {
-    const r = await ShiftCoachHealthConnect.syncNow()
-    const ts = r.lastSyncedAt ? new Date(r.lastSyncedAt).getTime() : Date.now()
-    return { ran: true, success: !!r.ok, ts }
-  } catch {
-    return { ran: true, success: false }
+const ANDROID_HEALTH_PROVIDER = 'android_health_connect'
+
+type StatusPayload = {
+  connected?: boolean
+  provider?: string | null
+  providers?: {
+    healthConnectConnected?: boolean
   }
 }
 
-type SyncState = 'idle' | 'syncing' | 'synced' | 'error'
+async function getBackendHealthConnectConnected(): Promise<boolean> {
+  try {
+    const now = Date.now()
+    const startOfDay = new Date()
+    startOfDay.setHours(0, 0, 0, 0)
+    const startTimeMillis = startOfDay.getTime()
+    const res = await fetch(
+      `/api/wearables/status?startTimeMillis=${startTimeMillis}&endTimeMillis=${now}`,
+      { method: 'GET' },
+    )
+    if (!res.ok) return false
+    const data = (await res.json().catch(() => ({}))) as StatusPayload
+    return (
+      data.providers?.healthConnectConnected === true ||
+      data.provider === ANDROID_HEALTH_PROVIDER
+    )
+  } catch {
+    return false
+  }
+}
 
-const FRESH_MS = 6 * 60 * 60 * 1000 // 6h
+async function getAndroidPermissionConnected(): Promise<{
+  isAndroidNative: boolean
+  available: boolean
+  hasPermissions: boolean
+}> {
+  const isAndroidNative = Capacitor.getPlatform() === 'android' && Capacitor.isNativePlatform()
+  if (!isAndroidNative) {
+    return { isAndroidNative: false, available: false, hasPermissions: false }
+  }
+
+  const { ShiftCoachHealthConnect } = await import('@/lib/native/shiftCoachHealthConnect')
+  try {
+    const status = await ShiftCoachHealthConnect.getStatus()
+    return {
+      isAndroidNative: true,
+      available: status.available,
+      hasPermissions: status.available && status.hasPermissions,
+    }
+  } catch {
+    return { isAndroidNative: true, available: false, hasPermissions: false }
+  }
+}
 
 export default function SyncWearableButton() {
-  const { t } = useTranslation()
-  const [state, setState] = useState<SyncState>('idle')
-  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null)
+  const [isConnected, setIsConnected] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [feedback, setFeedback] = useState<string | null>(null)
+  const [isAndroidNative, setIsAndroidNative] = useState(false)
+  const [hasHealthConnectAvailable, setHasHealthConnectAvailable] = useState(false)
 
   useEffect(() => {
-    const ts = localStorage.getItem('wearables:lastSyncedAt')
-    if (ts) {
-      const n = Number(ts)
-      setLastSyncedAt(n)
-      if (Date.now() - n < FRESH_MS) setState('synced')
+    let cancelled = false
+
+    async function loadConnectionState() {
+      const [nativeStatus, backendConnected] = await Promise.all([
+        getAndroidPermissionConnected(),
+        getBackendHealthConnectConnected(),
+      ])
+
+      if (cancelled) return
+
+      setIsAndroidNative(nativeStatus.isAndroidNative)
+      setHasHealthConnectAvailable(nativeStatus.available)
+      setIsConnected(Boolean(nativeStatus.hasPermissions || backendConnected))
+    }
+
+    loadConnectionState()
+
+    return () => {
+      cancelled = true
     }
   }, [])
 
-  const label = useMemo(() => {
-    switch (state) {
-      case 'syncing':
-        return t('detail.wearablesSync.syncing')
-      case 'synced':
-        return t('detail.wearablesSync.wearablesSynced')
-      case 'error':
-        return t('detail.wearablesSync.syncFailed')
-      default:
-        return t('detail.wearablesSync.syncWearables')
-    }
-  }, [state, t])
-
   async function handleClick() {
+    setLoading(true)
+    setFeedback(null)
+
     try {
-      setState('syncing')
-      const hc = await runAndroidHealthConnectPipeline()
-      if (hc.ran) {
-        if (hc.success && hc.ts != null) {
-          localStorage.setItem('wearables:lastSyncedAt', String(hc.ts))
-          setLastSyncedAt(hc.ts)
-          try {
-            window.dispatchEvent(new CustomEvent('wearables-synced', { detail: { ts: hc.ts } }))
-          } catch {
-            /* ignore */
+      if (isAndroidNative) {
+        const { ShiftCoachHealthConnect } = await import('@/lib/native/shiftCoachHealthConnect')
+
+        if (!isConnected) {
+          const permission = await ShiftCoachHealthConnect.requestConnectPermissions()
+          if (!permission.granted) {
+            setFeedback('Health Connect permission was not granted.')
+            return
           }
-          setState('synced')
-          setTimeout(() => setState('idle'), FRESH_MS)
+
+          setIsConnected(true)
+          setFeedback('Health Connect connected successfully.')
+        }
+
+        const syncResult = await ShiftCoachHealthConnect.syncNow()
+        if (syncResult.ok) {
+          const ts = syncResult.lastSyncedAt ? new Date(syncResult.lastSyncedAt).getTime() : Date.now()
+          localStorage.setItem('wearables:lastSyncedAt', String(ts))
+          window.dispatchEvent(new CustomEvent('wearables-synced', { detail: { ts } }))
+          if (isConnected) {
+            setFeedback('Synced successfully.')
+          }
           return
         }
-        setState('error')
-        setTimeout(() => setState('idle'), 5000)
+
+        setFeedback('Sync failed. Please try again.')
         return
       }
 
+      // Web/iOS fallback path remains provider-aware via existing backend endpoint.
       const now = Date.now()
       const startOfDay = new Date()
       startOfDay.setHours(0, 0, 0, 0)
@@ -105,61 +133,66 @@ export default function SyncWearableButton() {
       })
       const data = await res.json().catch(() => ({}))
 
-      // No provider connected yet -> send user to wearable setup
       if (data.error === 'no_wearable_connection') {
-        window.location.href = '/wearables-setup'
+        setFeedback('No wearable connection found.')
         return
       }
 
       if (!res.ok) {
-        throw new Error(data.error || t('detail.wearablesSync.syncFailed'))
+        setFeedback('Sync failed. Please try again.')
+        return
       }
 
       const { lastSyncedAt: serverTs } = data
       const ts = serverTs ? new Date(serverTs).getTime() : Date.now()
       localStorage.setItem('wearables:lastSyncedAt', String(ts))
-      setLastSyncedAt(ts)
-
-      // Broadcast sync event so other components can update their labels
-      try {
-        window.dispatchEvent(new CustomEvent('wearables-synced', { detail: { ts } }))
-      } catch {
-        // ignore if window is not available
-      }
-
-      setState('synced')
-      // fall back to idle after 6h
-      setTimeout(() => setState('idle'), FRESH_MS)
+      window.dispatchEvent(new CustomEvent('wearables-synced', { detail: { ts } }))
+      setFeedback('Synced successfully.')
     } catch {
-      setState('error')
-      setTimeout(() => setState('idle'), 5000)
+      setFeedback('Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const dotClassMap: Record<SyncState, string> = {
-    idle:   'bg-slate-300',
-    syncing:'bg-blue-500 animate-pulse',
-    synced: 'bg-emerald-500',
-    error:  'bg-rose-500',
-  }
-  const dotClass = dotClassMap[state]
+  const buttonText = !isConnected ? 'Connect Health Connect' : 'Sync now'
+  const helperText = !isConnected
+    ? 'Connect to Health Connect to sync your steps, sleep, and heart rate.'
+    : 'Your Health Connect data is linked. Tap to sync latest data.'
+  const isButtonDisabled =
+    loading || (isAndroidNative && !hasHealthConnectAvailable && !isConnected)
 
   return (
-    <button
-      onClick={handleClick}
-      aria-label={label}
-      title={label}
-      className="relative h-9 w-9 rounded-full grid place-items-center hover:bg-slate-100/70 dark:hover:bg-slate-800/50 active:scale-[0.98] transition group"
-    >
-      {/* Cloud-sync glyph (simple) */}
-      <svg viewBox="0 0 24 24" className="h-4 w-4 text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M7 18a4 4 0 1 1 .6-7.96A5 5 0 0 1 19 10a3 3 0 0 1 0 6h-1.5" />
-        <path d="M13 12l-3 3 3 3v-2h5v-2h-5v-2z" />
-      </svg>
+    <div className="w-full sm:max-w-md">
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={isButtonDisabled}
+        className="w-full rounded-lg px-4 py-3 text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+      >
+        {loading ? (
+          <>
+            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white" />
+            <span>Loading...</span>
+          </>
+        ) : (
+          <span>{buttonText}</span>
+        )}
+      </button>
 
-      {/* status dot - OS-like */}
-      <span className={`absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ${dotClass} ring-2 ring-white dark:ring-slate-900`} />
-    </button>
+      <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">{helperText}</p>
+
+      {isAndroidNative && !hasHealthConnectAvailable && !isConnected ? (
+        <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+          Health Connect is not available on this device yet. Install or update Health Connect, then try
+          again.
+        </p>
+      ) : null}
+
+      {feedback ? (
+        <p className="mt-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">{feedback}</p>
+      ) : null}
+    </div>
   )
 }
 

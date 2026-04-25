@@ -8,6 +8,7 @@ export type MacroTargetsMealSlot = {
   label: string
   time: string
   dayTag?: 'today' | 'tomorrow'
+  calories?: number
   Icon?: React.ComponentType<{ className?: string }>
 }
 

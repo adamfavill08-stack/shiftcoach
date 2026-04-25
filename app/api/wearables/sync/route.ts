@@ -3,8 +3,10 @@ import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/sup
 import { z } from 'zod'
 import { apiServerError } from '@/lib/api/response'
 
+const ANDROID_HEALTH_PROVIDER = 'android_health_connect'
+
 const WearablesSyncSchema = z.object({
-  provider: z.enum(['health_connect', 'apple_health']).optional(),
+  provider: z.enum([ANDROID_HEALTH_PROVIDER, 'apple_health']).optional(),
 })
 
 /**
@@ -21,7 +23,7 @@ export async function POST(req: NextRequest) {
 
     // Auto sync callers often send an empty body. Treat that as valid and
     // infer provider from connected device_sources.
-    let requestedProvider: 'health_connect' | 'apple_health' | null = null
+    let requestedProvider: typeof ANDROID_HEALTH_PROVIDER | 'apple_health' | null = null
     const bodyText = await req.text()
     if (bodyText.trim().length > 0) {
       const json = JSON.parse(bodyText)
@@ -44,12 +46,12 @@ export async function POST(req: NextRequest) {
       .eq('user_id', userId)
 
     const platforms = (sourceRows.data ?? []).map((r: any) => String(r.platform || ''))
-    const hasHealthConnect = platforms.some((p: string) => p === 'android_health_connect' || p === 'health_connect')
+    const hasHealthConnect = platforms.some((p: string) => p === ANDROID_HEALTH_PROVIDER)
     const hasAppleHealth = platforms.some((p: string) => p === 'ios_healthkit' || p === 'apple_health')
 
     const provider =
       requestedProvider ??
-      (hasHealthConnect ? 'health_connect' : hasAppleHealth ? 'apple_health' : null)
+      (hasHealthConnect ? ANDROID_HEALTH_PROVIDER : hasAppleHealth ? 'apple_health' : null)
 
     if (!provider) {
       return NextResponse.json(

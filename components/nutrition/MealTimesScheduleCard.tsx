@@ -66,12 +66,16 @@ export function MealTimesScheduleCard({
                 {section.title}
               </p>
               <ul className="list-none p-0">
-                {section.items.map(({ label, time }, index) => {
+                {section.items.map(({ label, time, calories }, index) => {
                   const isNext = nextNorm != null && label.trim().toLowerCase() === nextNorm
                   const showBorderBelow = index < section.items.length - 1
                   const labelMuted = hasHighlight
                     ? 'text-slate-600 dark:text-slate-500'
                     : 'text-slate-800 dark:text-slate-100'
+                  const caloriesText =
+                    typeof calories === 'number' && Number.isFinite(calories) && calories > 0
+                      ? `${Math.round(calories)} kcal`
+                      : null
 
                   return (
                     <li
@@ -92,7 +96,7 @@ export function MealTimesScheduleCard({
                       >
                         {time}
                       </span>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p
                           className={[
                             'truncate text-[15px] leading-[1.15]',
@@ -109,6 +113,11 @@ export function MealTimesScheduleCard({
                           </p>
                         ) : null}
                       </div>
+                      {caloriesText ? (
+                        <span className="shrink-0 text-right text-[12px] font-semibold tabular-nums text-slate-600 dark:text-slate-300">
+                          {caloriesText}
+                        </span>
+                      ) : null}
                     </li>
                   )
                 })}

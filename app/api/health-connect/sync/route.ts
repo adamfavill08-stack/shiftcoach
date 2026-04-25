@@ -6,6 +6,8 @@ import { apiServerError } from '@/lib/api/response'
 import { rateLimitByIp } from '@/lib/api/security'
 import { upsertActivityLogDailySteps } from '@/lib/activity/upsertActivityLogDailySteps'
 
+const ANDROID_HEALTH_PROVIDER = 'android_health_connect'
+
 const SleepItemSchema = z.object({
   sampleId: z.string().trim().min(1).optional(),
   start: z.string(),
@@ -57,7 +59,7 @@ export async function POST(req: NextRequest) {
     await supabase
       .from('device_sources')
       .upsert(
-        { user_id: userId, platform: 'android_health_connect', last_synced_at: syncedAt },
+        { user_id: userId, platform: ANDROID_HEALTH_PROVIDER, last_synced_at: syncedAt },
         { onConflict: 'user_id,platform' }
       )
 
@@ -147,7 +149,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      provider: 'health_connect',
+      provider: ANDROID_HEALTH_PROVIDER,
       lastSyncedAt: syncedAt,
       accepted: {
         steps: steps != null,

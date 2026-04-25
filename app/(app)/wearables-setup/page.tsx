@@ -232,18 +232,23 @@ export default function WearablesSetupPage() {
         {/* Samsung / Android section */}
         {choice === "samsung" && (
           <section
-            className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
+            className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-4"
             style={{
               backgroundColor: "var(--card)",
               borderColor: "var(--border-subtle)",
               boxShadow: "var(--shadow-soft)",
             }}
           >
-            <h2 className="text-sm font-semibold" style={{ color: "var(--text-main)" }}>
-              {t("detail.wearablesSetup.stepsSamsung")}
-            </h2>
+            <div className="space-y-1.5">
+              <h2 className="text-sm font-semibold" style={{ color: "var(--text-main)" }}>
+                Android Health Connect
+              </h2>
+              <p className="text-xs leading-relaxed" style={{ color: "var(--text-soft)" }}>
+                Samsung Health shares data through Health Connect.
+              </p>
+            </div>
             <ol
-              className="text-sm list-decimal list-inside space-y-2"
+              className="text-sm list-decimal list-inside space-y-2.5 pt-1"
               style={{ color: "var(--text-main)" }}
             >
               <li>{t("detail.wearablesSetup.samsungWearStep1")}</li>
@@ -306,7 +311,7 @@ export default function WearablesSetupPage() {
         {/* Connection status: green if connected (with verified + steps when available), red if not */}
         <section
           className={[
-            "border px-5 py-4 flex flex-col gap-4 rounded-lg",
+            "border px-5 py-5 flex flex-col gap-5 rounded-lg",
             status?.connected === true
               ? "bg-emerald-50 border-emerald-500 shadow-[0_1px_3px_rgba(34,197,94,0.15)] dark:bg-emerald-950/35 dark:border-emerald-700 dark:shadow-none"
               : status?.connected === false
@@ -366,10 +371,10 @@ export default function WearablesSetupPage() {
               </div>
             )}
           </div>
-          <div className="w-full flex flex-col items-stretch sm:items-end pt-2 border-t border-black/5 dark:border-white/10">
+          <div className="w-full flex flex-col items-stretch pt-3 border-t border-black/5 dark:border-white/10">
             {status?.connected === false ? (
               <span
-                className="inline-flex w-full items-center justify-center rounded-lg px-4 py-3 text-sm font-medium text-center text-white bg-slate-700 dark:bg-slate-600 opacity-90 cursor-default sm:max-w-md sm:self-end"
+                className="inline-flex w-full items-center justify-center rounded-lg px-4 py-3 text-sm font-medium text-center text-white bg-slate-700 dark:bg-slate-600 opacity-90 cursor-default"
                 style={{ borderRadius: 8 }}
                 title={t("detail.wearablesSetup.healthConnectAppleHealthTitle")}
                 aria-disabled="true"
@@ -377,7 +382,7 @@ export default function WearablesSetupPage() {
                 {t("detail.wearablesSetup.healthConnectAppleHealthCta")}
               </span>
             ) : (
-              <div className="flex justify-end w-full">
+              <div className="w-full">
                 <SyncWearableButton />
               </div>
             )}

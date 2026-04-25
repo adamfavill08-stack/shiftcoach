@@ -56,6 +56,9 @@ type ApiPayload = Record<string, unknown> & {
     status?: string
   }
   cardSubtitle?: string | null
+  shiftContext?: {
+    guidanceMode?: string | null
+  }
 }
 
 function pickNextMealOccurrence(mealSchedule: MealSlot[], now: Date): { slot: MealSlot; at: Date } | null {
@@ -272,6 +275,13 @@ export function applyUserShiftStateToMealTimingJson(
   const totalMacros = api.totalMacros ?? { protein_g: 0, carbs_g: 0, fat_g: 0 }
 
   if (mode === 'TRANSITIONING' || mode === 'RECOVERING') {
+    // Keep server-authored transition day→night schedule intact.
+    // The server now applies a dedicated hybrid transition template; overriding it here
+    // with generic shift-agent windows can incorrectly move first meal to pre-shift.
+    if (api.shiftContext?.guidanceMode === 'transition_day_to_night') {
+      return apiInput
+    }
+
     const { slots, categoryLabels } = transitionMealsFromShiftState(
       userShiftState,
       baseMeals,
