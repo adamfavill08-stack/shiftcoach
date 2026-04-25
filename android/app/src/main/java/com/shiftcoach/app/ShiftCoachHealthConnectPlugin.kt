@@ -115,17 +115,33 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
         bridge.execute {
             try {
                 val ctx = context
-                val sdk = resolveSdkStatus(ctx)
+                val sdk =
+                    try {
+                        HealthConnectClient.getSdkStatus(ctx)
+                    } catch (_: Throwable) {
+                        HealthConnectClient.SDK_UNAVAILABLE
+                    }
                 val ret = JSObject()
                 ret.put("sdkStatus", sdkStatusLabel(sdk))
-                val available = sdk == HealthConnectClient.SDK_AVAILABLE
+                var available = sdk == HealthConnectClient.SDK_AVAILABLE
+                if (available) {
+                    available =
+                        try {
+                            // On newer Android versions Health Connect can be built-in.
+                            // Probe default client creation instead of requiring provider package checks.
+                            HealthConnectClient.getOrCreate(ctx)
+                            true
+                        } catch (_: Throwable) {
+                            false
+                        }
+                }
                 ret.put("available", available)
                 if (!available) {
                     ret.put("hasPermissions", false)
                     call.resolve(ret)
                     return@execute
                 }
-                val client = createHealthConnectClient(ctx)
+                val client = HealthConnectClient.getOrCreate(ctx)
                 val granted =
                     runBlocking { client.permissionController.getGrantedPermissions() }
                 ret.put("hasPermissions", requiredPermissions.all { it in granted })
