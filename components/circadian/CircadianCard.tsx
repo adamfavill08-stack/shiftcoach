@@ -60,21 +60,26 @@ export function hoursUntil(from: number, to: number) {
 }
 
 // ─── Colour zones (two-process model) ────────────────────────────
+const COLOR_PEAK = "#22C55E"
+const COLOR_ELEVATED = "#FACC15"
+const COLOR_MODERATE = "#F59E0B"
+const COLOR_LOW = "#EF4444"
+
 export const ZONES = [
-  { startH:  0,   endH:  5.5, color: "#EF4444" },
-  { startH:  5.5, endH:  8,   color: "#F59E0B" },
-  { startH:  8,   endH: 10.5, color: "#00BCD4" },
-  { startH: 10.5, endH: 13,   color: "#22D3EE" },
-  { startH: 13,   endH: 15.5, color: "#F59E0B" },
-  { startH: 15.5, endH: 18,   color: "#00BCD4" },
-  { startH: 18,   endH: 21,   color: "#22D3EE" },
-  { startH: 21,   endH: 23,   color: "#F59E0B" },
-  { startH: 23,   endH: 24,   color: "#EF4444" },
+  { startH:  0,   endH:  5.5, color: COLOR_LOW },
+  { startH:  5.5, endH:  8,   color: COLOR_MODERATE },
+  { startH:  8,   endH: 10.5, color: COLOR_ELEVATED },
+  { startH: 10.5, endH: 13,   color: COLOR_PEAK },
+  { startH: 13,   endH: 15.5, color: COLOR_MODERATE },
+  { startH: 15.5, endH: 18,   color: COLOR_ELEVATED },
+  { startH: 18,   endH: 21,   color: COLOR_PEAK },
+  { startH: 21,   endH: 23,   color: COLOR_MODERATE },
+  { startH: 23,   endH: 24,   color: COLOR_LOW },
 ]
 
 export function zoneColor(h: number): string {
   h = ((h % 24) + 24) % 24
-  return ZONES.find(z => h >= z.startH && h < z.endH)?.color ?? "#EF4444"
+  return ZONES.find(z => h >= z.startH && h < z.endH)?.color ?? COLOR_LOW
 }
 
 export function zonePath(startH: number, endH: number): string {
@@ -362,13 +367,13 @@ export default function CircadianCard({
   const bodyColor    = zoneColor(BODY)
   const stateLabel   = data?.alertnessPhase
     ? { PEAK: "Peak Alertness", ELEVATED: "Elevated Alertness", MODERATE: "Moderate Alertness", LOW: "Low Alertness" }[data.alertnessPhase]
-    : bodyColor === "#22D3EE" ? "Peak Alertness"
-    : bodyColor === "#00BCD4" ? "Elevated Alertness"
-    : bodyColor === "#F59E0B" ? "Moderate Alertness"
+    : bodyColor === COLOR_PEAK ? "Peak Alertness"
+    : bodyColor === COLOR_ELEVATED ? "Elevated Alertness"
+    : bodyColor === COLOR_MODERATE ? "Moderate Alertness"
     : "Low Alertness"
   const stateVerdict =
-    bodyColor === "#22D3EE" || bodyColor === "#00BCD4" ? "Good window — use it"
-    : bodyColor === "#F59E0B" ? "Manage your load"
+    bodyColor === COLOR_PEAK || bodyColor === COLOR_ELEVATED ? "Good window — use it"
+    : bodyColor === COLOR_MODERATE ? "Manage your load"
     : "Rest if you can"
 
   const nextTroughBody = data?.nextTroughHour
@@ -552,7 +557,7 @@ export default function CircadianCard({
               </text>
 
               {/* Markers */}
-              <RingMarker angle={BODY_A} color="#00BCD4" label="BODY" time={fmt(BODY)} />
+              <RingMarker angle={BODY_A} color={bodyColor} label="BODY" time={fmt(BODY)} />
               <RingMarker angle={NOW_A} color="var(--text-main)" label="NOW" time={fmt(CURRENT)} />
             </svg>
           </div>
@@ -570,7 +575,7 @@ export default function CircadianCard({
               padding: "10px 12px 0",
             }}
           >
-            {([["#22D3EE", "Peak"], ["#00BCD4", "Elevated"], ["#F59E0B", "Moderate"], ["#EF4444", "Low"]] as const).map(
+            {([[COLOR_PEAK, "Peak"], [COLOR_ELEVATED, "Elevated"], [COLOR_MODERATE, "Moderate"], [COLOR_LOW, "Low"]] as const).map(
               ([c, l]) => (
                 <div key={l} style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
                   <div style={{ width: 16, height: 4, borderRadius: 2, background: c }} />
@@ -670,7 +675,7 @@ export default function CircadianCard({
             className={inter.className}
             style={{
               background: "var(--card-subtle)",
-              border: "1px solid var(--border-subtle)",
+              border: "1px solid #93C5FD",
               borderRadius: 12,
               padding: "11px 16px",
               display: "flex",
@@ -679,10 +684,10 @@ export default function CircadianCard({
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#00BCD4", flexShrink: 0 }} />
-              <span style={{ fontSize: 11, fontWeight: 600, color: "#00BCD4" }}>Peak alertness window</span>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: COLOR_PEAK, flexShrink: 0 }} />
+              <span style={{ fontSize: 11, fontWeight: 600, color: COLOR_PEAK }}>Peak alertness window</span>
             </div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "#00BCD4", fontVariantNumeric: "tabular-nums" }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: COLOR_PEAK, fontVariantNumeric: "tabular-nums" }}>
               {fmt(peakActual)}
               <span style={{ fontSize: 10, color: "var(--text-muted)", marginLeft: 6, fontWeight: 500 }}>
                 ({Math.round(hoursUntil(CURRENT, peakActual))}h)

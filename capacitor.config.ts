@@ -24,6 +24,10 @@ const config: CapacitorConfig = {
   webDir: 'public',
   /** Native defaults before JS runs — avoids transparent overlay + black bar from plugin init */
   plugins: {
+    /** Keep App plugin’s OnBackPressedCallback enabled so `App.addListener('backButton')` receives events. */
+    App: {
+      disableBackButtonHandler: false,
+    },
     StatusBar: {
       overlaysWebView: false,
       style: 'LIGHT',

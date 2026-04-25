@@ -12,7 +12,7 @@ const FeedbackSchema = z.object({
 
 /**
  * POST /api/feedback
- * Sends tester feedback via email to adam.favill@outlook.com
+ * Sends tester feedback via email to shift-coach@outlook.com (Resend or EMAIL_WEBHOOK_URL fallback).
  */
 export async function POST(req: NextRequest) {
   try {

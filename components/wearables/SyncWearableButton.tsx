@@ -24,7 +24,7 @@ async function runAndroidHealthConnectPipeline(): Promise<{
   }
   if (!status.hasPermissions) {
     try {
-      const r = await ShiftCoachHealthConnect.requestPermissions()
+      const r = await ShiftCoachHealthConnect.requestConnectPermissions()
       if (!r.granted) {
         return { ran: true, success: false }
       }

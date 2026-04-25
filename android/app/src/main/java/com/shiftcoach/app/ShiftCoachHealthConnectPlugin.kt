@@ -5,7 +5,6 @@ import android.webkit.CookieManager
 import androidx.activity.result.ActivityResultLauncher
 import androidx.fragment.app.FragmentActivity
 import androidx.health.connect.client.HealthConnectClient
-import androidx.health.connect.client.HealthConnectSdkStatus
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.HeartRateRecord
@@ -39,22 +38,26 @@ import org.json.JSONObject
 @CapacitorPlugin(name = "ShiftCoachHealthConnect")
 class ShiftCoachHealthConnectPlugin : Plugin() {
 
-    private val requiredPermissions: Set<HealthPermission> =
+    /** Google Health Connect provider (see Health Connect Jetpack docs). */
+    private val healthConnectProviderPackage = "com.google.android.apps.healthdata"
+
+    private val requiredPermissions: Set<String> =
         setOf(
             HealthPermission.getReadPermission(StepsRecord::class),
             HealthPermission.getReadPermission(SleepSessionRecord::class),
             HealthPermission.getReadPermission(HeartRateRecord::class),
         )
 
-    private var permissionLauncher: ActivityResultLauncher<Set<HealthPermission>>? = null
+    private var permissionLauncher: ActivityResultLauncher<Set<String>>? = null
     private val pendingPermissionCall = AtomicReference<PluginCall?>(null)
 
     override fun load() {
         super.load()
         val act = activity as? FragmentActivity ?: return
         permissionLauncher =
-            act.registerForActivityResult(PermissionController.createRequestPermissionResultContract()) {
-                granted ->
+            act.registerForActivityResult(
+                PermissionController.createRequestPermissionResultContract(),
+            ) { granted: Set<String> ->
                 val call = pendingPermissionCall.getAndSet(null) ?: return@registerForActivityResult
                 val hasAll = requiredPermissions.all { p -> granted.contains(p) }
                 val ret = JSObject()
@@ -68,36 +71,44 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
         bridge.execute {
             try {
                 val ctx = context
-                val sdk = HealthConnectClient.getSdkStatus(ctx)
+                val sdk =
+                    HealthConnectClient.getSdkStatus(ctx, healthConnectProviderPackage)
                 val ret = JSObject()
-                ret.put("sdkStatus", sdk.name)
-                val available = sdk == HealthConnectSdkStatus.SDK_AVAILABLE
+                ret.put("sdkStatus", sdkStatusLabel(sdk))
+                val available = sdk == HealthConnectClient.SDK_AVAILABLE
                 ret.put("available", available)
                 if (!available) {
                     ret.put("hasPermissions", false)
                     call.resolve(ret)
                     return@execute
                 }
-                val client = HealthConnectClient.getOrCreate(ctx)
+                val client = HealthConnectClient.getOrCreate(ctx, healthConnectProviderPackage)
                 val granted =
                     runBlocking { client.permissionController.getGrantedPermissions() }
                 ret.put("hasPermissions", requiredPermissions.all { it in granted })
                 call.resolve(ret)
             } catch (e: Exception) {
-                call.reject("health_connect_status_failed", e.message, e)
+                call.reject("health_connect_status_failed", e.message ?: "unknown", e)
             }
         }
     }
 
+    /**
+     * Requests Health Connect data permissions. Named [requestConnectPermissions] so it does not
+     * collide with [Plugin.requestPermissions] (Capacitor manifest permission flow).
+     */
     @PluginMethod
-    fun requestPermissions(call: PluginCall) {
+    fun requestConnectPermissions(call: PluginCall) {
         val launcher = permissionLauncher
         if (launcher == null) {
-            call.reject("health_connect_ui_unavailable", "Activity does not support permission flow", null)
+            call.reject(
+                "health_connect_ui_unavailable",
+                "Activity does not support permission flow",
+            )
             return
         }
         if (!pendingPermissionCall.compareAndSet(null, call)) {
-            call.reject("health_connect_busy", "Another permission request is in progress", null)
+            call.reject("health_connect_busy", "Another permission request is in progress")
             return
         }
         launcher.launch(requiredPermissions)
@@ -108,17 +119,27 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
         bridge.execute {
             try {
                 val ctx = context
-                if (HealthConnectClient.getSdkStatus(ctx) != HealthConnectSdkStatus.SDK_AVAILABLE) {
-                    call.reject("health_connect_unavailable", "Health Connect is not available on this device", null)
+                if (
+                    HealthConnectClient.getSdkStatus(ctx, healthConnectProviderPackage) !=
+                        HealthConnectClient.SDK_AVAILABLE
+                ) {
+                    call.reject(
+                        "health_connect_unavailable",
+                        "Health Connect is not available on this device",
+                    )
                     return@execute
                 }
-                val client = HealthConnectClient.getOrCreate(ctx)
+                val client = HealthConnectClient.getOrCreate(ctx, healthConnectProviderPackage)
                 val granted =
                     runBlocking { client.permissionController.getGrantedPermissions() }
                 if (!requiredPermissions.all { it in granted }) {
                     val err = JSObject()
                     err.put("needsPermissions", true)
-                    call.reject("health_connect_permissions", "Grant Health Connect permissions first", err)
+                    call.reject(
+                        "health_connect_permissions",
+                        "Grant Health Connect permissions first",
+                        err,
+                    )
                     return@execute
                 }
 
@@ -188,10 +209,15 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 body.put("heartRate", hrArr)
                 body.put("syncedAt", syncedAt)
 
-                val origin = webOrigin() ?: run {
-                    call.reject("health_connect_no_origin", "Could not read app URL for API call", null)
-                    return@execute
-                }
+                val origin =
+                    webOrigin()
+                        ?: run {
+                            call.reject(
+                                "health_connect_no_origin",
+                                "Could not read app URL for API call",
+                            )
+                            return@execute
+                        }
 
                 val cookie = CookieManager.getInstance().getCookie(origin) ?: ""
                 val url = URL(origin.trimEnd('/') + "/api/health-connect/sync")
@@ -219,7 +245,6 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                     call.reject(
                         "health_connect_http_$code",
                         "Sync failed: HTTP $code ${text.take(200)}",
-                        null,
                     )
                     return@execute
                 }
@@ -232,7 +257,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 ret.put("heartRateCount", hrArr.length())
                 call.resolve(ret)
             } catch (e: Exception) {
-                call.reject("health_connect_sync_failed", e.message, e)
+                call.reject("health_connect_sync_failed", e.message ?: "unknown", e)
             }
         }
     }
@@ -254,4 +279,13 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
             null
         }
     }
+
+    private fun sdkStatusLabel(status: Int): String =
+        when (status) {
+            HealthConnectClient.SDK_AVAILABLE -> "SDK_AVAILABLE"
+            HealthConnectClient.SDK_UNAVAILABLE -> "SDK_UNAVAILABLE"
+            HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED ->
+                "SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED"
+            else -> "UNKNOWN_$status"
+        }
 }

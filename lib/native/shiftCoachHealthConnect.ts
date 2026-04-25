@@ -6,7 +6,8 @@ export interface ShiftCoachHealthConnectPlugin {
     sdkStatus: string;
     hasPermissions: boolean;
   }>;
-  requestPermissions(): Promise<{ granted: boolean }>;
+  /** Health Connect data access (not Capacitor manifest permissions). */
+  requestConnectPermissions(): Promise<{ granted: boolean }>;
   syncNow(): Promise<{
     ok: boolean;
     lastSyncedAt?: string;
@@ -21,7 +22,7 @@ class ShiftCoachHealthConnectWeb extends WebPlugin implements ShiftCoachHealthCo
     return { available: false, sdkStatus: "web", hasPermissions: false };
   }
 
-  async requestPermissions() {
+  async requestConnectPermissions() {
     return { granted: false };
   }
 

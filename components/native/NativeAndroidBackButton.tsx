@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import { App } from '@capacitor/app'
 import { Capacitor } from '@capacitor/core'
 import { showToast } from '@/components/ui/Toast'
 
@@ -19,7 +20,7 @@ const DOUBLE_TAP_MS = 2000
  *
  * **Manual QA (Android native), tab-style stack:**
  * Dashboard → Rota → Settings → open a settings subpage (e.g. Profile).
- * 1. Hardware back on subpage: `canGoBack` → `router.back()` → `/settings`.
+ * 1. Hardware back on subpage: `canGoBack` → `window.history.back()` → `/settings`.
  * 2. Keep backing through Rota → Dashboard while `canGoBack` is true.
  * 3. On a shell route with **no** history (`!canGoBack`): first back → one `showToast('Press…')`;
  *    second back within {@link DOUBLE_TAP_MS} → `exitApp()` (no duplicate toast from one press).
@@ -27,21 +28,15 @@ const DOUBLE_TAP_MS = 2000
 const SHELL_DOUBLE_BACK_EXIT = new Set(['/dashboard', '/rota', '/blog', '/settings'])
 
 function normalizePath(p: string) {
-  if (!p) return '/'
-  return p.length > 1 && p.endsWith('/') ? p.slice(0, -1) : p
+  const raw = (p ?? '').trim()
+  // Avoid treating a brief empty pathname as `/` (splash branch → minimize feels like “app closed”).
+  if (!raw) return '/dashboard'
+  return raw.length > 1 && raw.endsWith('/') ? raw.slice(0, -1) : raw
 }
-
-/** Start loading Capacitor App as soon as this chunk runs in the browser (reduces race before listener attaches). */
-function preloadCapacitorApp() {
-  if (typeof window === 'undefined') return
-  void import('@capacitor/app')
-}
-
-preloadCapacitorApp()
 
 /**
  * Android hardware back:
- * - If the WebView reports history (`canGoBack`), delegate to Next.js via `router.back()` (preserves SPA stack).
+ * - If the WebView reports history (`canGoBack`), call `window.history.back()` (matches WebView stack; Capacitor docs).
  * - `/`, `/splash`: minimize (avoid dumping users mid-boot).
  * - `/welcome`: same as Continue — session flag + dashboard.
  * - `/auth/sign-in`, `/onboarding`: minimize.
@@ -56,88 +51,98 @@ export function NativeAndroidBackButton() {
   const pathname = usePathname() ?? ''
   const router = useRouter()
   const pathnameRef = useRef(pathname)
-  pathnameRef.current = pathname
 
   const lastShellBackPress = useRef(0)
+
+  useLayoutEffect(() => {
+    pathnameRef.current = pathname
+  }, [pathname])
 
   useEffect(() => {
     lastShellBackPress.current = 0
   }, [pathname])
 
-  useEffect(() => {
+  // useLayoutEffect: register before paint so Capacitor's AppPlugin always sees a backButton listener
+  // (otherwise native falls through when !canGoBack and the activity can finish — “app closes”).
+  useLayoutEffect(() => {
     if (typeof window === 'undefined') return
     if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return
 
     let cancelled = false
     let handle: { remove: () => Promise<void> } | undefined
 
-    void import('@capacitor/app').then(({ App }) => {
-      if (cancelled) return
+    void (async () => {
+      try {
+        await App.toggleBackButtonHandler({ enabled: true })
+      } catch {
+        /* older native builds without toggle — ignore */
+      }
+      try {
+        handle = await App.addListener('backButton', ({ canGoBack }) => {
+          const path = normalizePath(pathnameRef.current)
 
-      void App.addListener('backButton', ({ canGoBack }) => {
-        const path = normalizePath(pathnameRef.current)
-
-        if (canGoBack) {
-          router.back()
-          return
-        }
-
-        if (path.startsWith('/auth/') && path !== '/auth/sign-in') {
-          router.replace('/auth/sign-in')
-          return
-        }
-
-        if (path.startsWith('/auth/sign-in')) {
-          void App.minimizeApp()
-          return
-        }
-
-        if (path.startsWith('/onboarding')) {
-          void App.minimizeApp()
-          return
-        }
-
-        if (path === '/' || path === '/splash') {
-          void App.minimizeApp()
-          return
-        }
-
-        if (path === '/welcome') {
-          try {
-            sessionStorage.removeItem('fromOnboarding')
-          } catch {
-            /* ignore */
+          if (canGoBack) {
+            window.history.back()
+            return
           }
+
+          if (path.startsWith('/auth/') && path !== '/auth/sign-in') {
+            router.replace('/auth/sign-in')
+            return
+          }
+
+          if (path.startsWith('/auth/sign-in')) {
+            void App.minimizeApp()
+            return
+          }
+
+          if (path.startsWith('/onboarding')) {
+            void App.minimizeApp()
+            return
+          }
+
+          if (path === '/' || path === '/splash') {
+            void App.minimizeApp()
+            return
+          }
+
+          if (path === '/welcome') {
+            try {
+              sessionStorage.removeItem('fromOnboarding')
+            } catch {
+              /* ignore */
+            }
+            router.replace('/dashboard')
+            return
+          }
+
+          if (path.startsWith('/settings/')) {
+            router.replace('/settings')
+            return
+          }
+
+          if (SHELL_DOUBLE_BACK_EXIT.has(path)) {
+            const now = Date.now()
+            if (now - lastShellBackPress.current < DOUBLE_TAP_MS) {
+              lastShellBackPress.current = 0
+              void App.exitApp()
+            } else {
+              lastShellBackPress.current = now
+              showToast('Press back again to exit', 'info')
+            }
+            return
+          }
+
           router.replace('/dashboard')
-          return
+        })
+        if (cancelled && handle) {
+          void handle.remove()
+          handle = undefined
         }
-
-        if (path.startsWith('/settings/')) {
-          router.replace('/settings')
-          return
-        }
-
-        if (SHELL_DOUBLE_BACK_EXIT.has(path)) {
-          const now = Date.now()
-          if (now - lastShellBackPress.current < DOUBLE_TAP_MS) {
-            lastShellBackPress.current = 0
-            void App.exitApp()
-          } else {
-            lastShellBackPress.current = now
-            showToast('Press back again to exit', 'info')
-          }
-          return
-        }
-
-        router.replace('/dashboard')
-      }).then((h) => {
-        if (cancelled) {
-          void h.remove()
-          return
-        }
-        handle = h
-      })
-    })
+      } catch (e) {
+        console.error('[NativeAndroidBackButton] Failed to register backButton listener', e)
+      }
+    })()
 
     return () => {
       cancelled = true

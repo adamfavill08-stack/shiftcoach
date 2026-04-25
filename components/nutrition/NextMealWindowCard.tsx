@@ -98,7 +98,7 @@ export function NextMealWindowCard({
           'dark:shadow-[0_24px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(59,130,246,0.1)]',
           'p-6',
         ].join(' ')
-      : 'block rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]'
+      : 'block rounded-xl bg-white border border-blue-300 px-5 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]'
 
   if (loading) {
     return (

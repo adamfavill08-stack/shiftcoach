@@ -50,6 +50,7 @@ function DashboardContent() {
   const [loading, setLoading] = useState(true)
   const [googleFitMessage, setGoogleFitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [isUsingCachedData, setIsUsingCachedData] = useState(false)
+  const [hasHydrated, setHasHydrated] = useState(false)
   const { isOnline } = useNetworkStatus()
 
   const [circadian, setCircadian] = useState<CircadianOutput | null>(null)
@@ -209,6 +210,10 @@ function DashboardContent() {
   }, [router, t])
 
   useEffect(() => {
+    setHasHydrated(true)
+  }, [])
+
+  useEffect(() => {
     if (authLoading) return
 
     if (!isOnline) {
@@ -332,7 +337,7 @@ function DashboardContent() {
   )
 
   const shouldShowDashboardSpinner =
-    loading || !shiftRhythmInitialFetchComplete || shiftRhythmLoading
+    !hasHydrated || loading || !shiftRhythmInitialFetchComplete || shiftRhythmLoading
 
   if (shouldShowDashboardSpinner) {
     return (

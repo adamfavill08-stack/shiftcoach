@@ -52,9 +52,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 (function() {
   try {
     var root = document.documentElement;
+    var media = window.matchMedia('(prefers-color-scheme: dark)');
     function apply() {
-      var saved = localStorage.getItem('theme');
-      var useDark = saved === 'dark';
+      var saved = localStorage.getItem('theme_preference');
+      if (saved !== 'light' && saved !== 'dark' && saved !== 'system') {
+        var legacy = localStorage.getItem('theme');
+        saved = legacy === 'dark' || legacy === 'light' ? legacy : 'system';
+        localStorage.setItem('theme_preference', saved);
+        localStorage.removeItem('theme');
+      }
+      var useDark = saved === 'dark' || (saved === 'system' && media.matches);
       root.classList.toggle('dark', useDark);
     }
     apply();
@@ -152,13 +159,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `
               (function() {
                 try {
-                  var theme = localStorage.getItem('theme');
-                  if (theme === 'dark') {
+                  var media = window.matchMedia('(prefers-color-scheme: dark)');
+                  var theme = localStorage.getItem('theme_preference');
+                  if (theme !== 'light' && theme !== 'dark' && theme !== 'system') {
+                    var legacy = localStorage.getItem('theme');
+                    theme = legacy === 'dark' || legacy === 'light' ? legacy : 'system';
+                    localStorage.setItem('theme_preference', theme);
+                    localStorage.removeItem('theme');
+                  }
+                  if (theme === 'dark' || (theme === 'system' && media.matches)) {
                     document.documentElement.classList.add('dark');
-                  } else if (theme === 'light') {
-                    document.documentElement.classList.remove('dark');
                   } else {
-                    // No preference saved — default to light
                     document.documentElement.classList.remove('dark');
                   }
                 } catch(e) {}

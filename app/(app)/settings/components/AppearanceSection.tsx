@@ -5,36 +5,53 @@ import { ChevronRight, ChevronDown } from 'lucide-react'
 import { useSettings } from '@/lib/hooks/useSettings'
 import { ToggleSwitch } from '@/components/settings/ToggleSwitch'
 import { useTranslation } from '@/components/providers/language-provider'
-import { THEME_STORAGE_EVENT } from '@/components/providers/theme-provider'
+import {
+  THEME_STORAGE_EVENT,
+  type ThemePreference,
+  getStoredThemePreference,
+  resolveThemePreference,
+  setStoredThemePreference,
+} from '@/components/providers/theme-provider'
 
 export function AppearanceSection() {
   const { t } = useTranslation()
   const { settings, saving, saveField, loading } = useSettings()
   const [isOpen, setIsOpen] = useState(false)
-  const [darkModeEnabled, setDarkModeEnabled] = useState(false)
+  const [themePreference, setThemePreference] = useState<ThemePreference>('system')
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light')
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const syncToggle = () => {
-      const saved = window.localStorage.getItem('theme')
-      const useDark = saved === 'dark'
-      setDarkModeEnabled(useDark)
+
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+
+    const syncTheme = () => {
+      const preference = getStoredThemePreference(window.localStorage)
+      setThemePreference(preference)
+      setResolvedTheme(resolveThemePreference(preference, media.matches))
     }
-    syncToggle()
-    window.addEventListener(THEME_STORAGE_EVENT, syncToggle)
-    return () => window.removeEventListener(THEME_STORAGE_EVENT, syncToggle)
+
+    const handleSystemChange = () => {
+      const preference = getStoredThemePreference(window.localStorage)
+      if (preference === 'system') {
+        setResolvedTheme(resolveThemePreference(preference, media.matches))
+      }
+    }
+
+    syncTheme()
+    window.addEventListener(THEME_STORAGE_EVENT, syncTheme)
+    media.addEventListener('change', handleSystemChange)
+    return () => {
+      window.removeEventListener(THEME_STORAGE_EVENT, syncTheme)
+      media.removeEventListener('change', handleSystemChange)
+    }
   }, [])
 
-  const setThemeMode = (isDark: boolean) => {
-    if (typeof document === 'undefined') return
-    const root = document.documentElement
-    if (isDark) {
-      root.classList.add('dark')
-      window.localStorage.setItem('theme', 'dark')
-    } else {
-      root.classList.remove('dark')
-      window.localStorage.setItem('theme', 'light')
-    }
+  const setThemeMode = (preference: ThemePreference) => {
+    if (typeof window === 'undefined') return
+    setStoredThemePreference(window.localStorage, preference)
+    setThemePreference(preference)
+    setResolvedTheme(resolveThemePreference(preference, window.matchMedia('(prefers-color-scheme: dark)').matches))
     window.dispatchEvent(new Event(THEME_STORAGE_EVENT))
   }
 
@@ -74,20 +91,54 @@ export function AppearanceSection() {
               <span className="mb-1 block text-sm font-medium text-[var(--text-main)]">
                 {t('settings.appearance.theme')}
               </span>
-              <div className="flex w-full items-center justify-between rounded-lg px-3 py-3 transition-all hover:bg-[var(--card-subtle)]">
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-[var(--text-main)]">{t('settings.appearance.darkMode')}</span>
-                  <span className="text-xs text-[var(--text-muted)]">
-                    {t('settings.appearance.darkModeDesc')}
-                  </span>
+              <div className="space-y-2">
+                <div className="grid grid-cols-3 gap-2 rounded-lg bg-[var(--card-subtle)] p-1">
+                  <button
+                    type="button"
+                    onClick={() => setThemeMode('light')}
+                    className={`rounded-md px-2 py-2 text-xs font-medium transition ${
+                      themePreference === 'light'
+                        ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-slate-100'
+                        : 'text-[var(--text-muted)]'
+                    }`}
+                  >
+                    {t('settings.appearance.light')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setThemeMode('dark')}
+                    className={`rounded-md px-2 py-2 text-xs font-medium transition ${
+                      themePreference === 'dark'
+                        ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-slate-100'
+                        : 'text-[var(--text-muted)]'
+                    }`}
+                  >
+                    {t('settings.appearance.dark')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setThemeMode('system')}
+                    className={`rounded-md px-2 py-2 text-xs font-medium transition ${
+                      themePreference === 'system'
+                        ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-slate-100'
+                        : 'text-[var(--text-muted)]'
+                    }`}
+                  >
+                    {t('settings.appearance.system')}
+                  </button>
                 </div>
-                <ToggleSwitch
-                  checked={darkModeEnabled}
-                  onChange={(checked) => {
-                    setDarkModeEnabled(checked)
-                    setThemeMode(checked)
-                  }}
-                />
+                <span className="block px-1 text-xs text-[var(--text-muted)]">
+                  {themePreference === 'system'
+                    ? t('settings.appearance.systemCurrent', {
+                        current:
+                          resolvedTheme === 'dark'
+                            ? t('settings.appearance.currentDark')
+                            : t('settings.appearance.currentLight'),
+                      })
+                    : themePreference === 'dark'
+                      ? t('settings.appearance.darkDesc')
+                      : t('settings.appearance.lightDesc')}
+                </span>
               </div>
             </div>
             <div className="flex w-full items-center justify-between rounded-lg px-3 py-3 transition-all hover:bg-[var(--card-subtle)]">

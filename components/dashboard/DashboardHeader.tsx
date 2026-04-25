@@ -28,6 +28,7 @@ export default function DashboardHeader() {
   const { t } = useTranslation()
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false)
   const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications()
+  const hasNotifications = notifications.length > 0
   
   const [shifts, setShifts] = useState<Shift[]>([])
   const [events, setEvents] = useState<Map<string, RotaEvent>>(new Map())
@@ -265,22 +266,24 @@ export default function DashboardHeader() {
         >
           SHIFTCOACH
         </p>
-        <button
-          type="button"
-          onClick={() => setIsNotificationModalOpen(true)}
-          className="absolute right-4 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full text-black transition hover:bg-slate-100/80"
-          aria-label={t('dashboard.header.notificationsAria')}
-        >
-          <span className="relative inline-flex">
-            <Bell className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-            {unreadCount > 0 ? (
-              <span
-                className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-slate-500 ring-2 ring-white dark:bg-slate-400 dark:ring-slate-900"
-                aria-hidden
-              />
-            ) : null}
-          </span>
-        </button>
+        {hasNotifications ? (
+          <button
+            type="button"
+            onClick={() => setIsNotificationModalOpen(true)}
+            className="absolute right-4 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full text-black transition hover:bg-slate-100/80"
+            aria-label={t('dashboard.header.notificationsAria')}
+          >
+            <span className="relative inline-flex">
+              <Bell className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+              {unreadCount > 0 ? (
+                <span
+                  className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-slate-500 ring-2 ring-white dark:bg-slate-400 dark:ring-slate-900"
+                  aria-hidden
+                />
+              ) : null}
+            </span>
+          </button>
+        ) : null}
       </div>
 
       {isNotificationModalOpen && (

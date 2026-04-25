@@ -6,6 +6,42 @@ import { showToast } from '@/components/ui/Toast'
 import { useAuth } from '@/components/AuthProvider'
 import { useTranslation } from '@/components/providers/language-provider'
 
+function getApiErrorMessage(
+  payload: unknown,
+  fallback: string,
+): string {
+  if (!payload || typeof payload !== 'object') return fallback
+
+  const asRecord = payload as Record<string, unknown>
+  const direct = asRecord.error
+
+  if (typeof direct === 'string' && direct.trim()) return direct
+  if (typeof asRecord.message === 'string' && asRecord.message.trim()) {
+    return asRecord.message
+  }
+
+  if (direct && typeof direct === 'object') {
+    const nested = direct as Record<string, unknown>
+    if (typeof nested.message === 'string' && nested.message.trim()) {
+      return nested.message
+    }
+  }
+
+  return fallback
+}
+
+function buildFeedbackMailto(subject: string, message: string, userEmail?: string | null): string {
+  const lines = [
+    'Feedback from ShiftCoach app',
+    '',
+    `From: ${userEmail || 'Unknown'}`,
+    '',
+    message,
+  ]
+  const mailSubject = `[ShiftCoach Feedback] ${subject}`
+  return `mailto:shift-coach@outlook.com?subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(lines.join('\n'))}`
+}
+
 export function TesterFeedbackSection() {
   const { t } = useTranslation()
   const { user } = useAuth()
@@ -38,11 +74,22 @@ export function TesterFeedbackSection() {
         }),
       })
 
-      const data = await res.json()
+      const data = await res.json().catch(() => null)
 
       if (!res.ok) {
-        // Show the actual error message from the API
-        const errorMessage = data.error || t('settings.feedback.toast.failed')
+        const fallback = t('settings.feedback.toast.failed')
+        const errorMessage = getApiErrorMessage(data, fallback)
+        const errorCode =
+          data && typeof data === 'object' && 'code' in data
+            ? String((data as Record<string, unknown>).code ?? '')
+            : ''
+
+        if (errorCode === 'email_service_not_configured' && typeof window !== 'undefined') {
+          window.location.href = buildFeedbackMailto(subject.trim(), message.trim(), user?.email)
+          showToast('Opened your email app to send feedback.', 'info')
+          return
+        }
+
         console.error('[TesterFeedback] API error:', errorMessage, data)
         throw new Error(errorMessage)
       }
@@ -116,7 +163,7 @@ export function TesterFeedbackSection() {
             <button
               type="submit"
               disabled={isSubmitting || !subject.trim() || !message.trim()}
-              className="w-full py-2.5 text-sm font-semibold text-white bg-slate-900 hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] rounded-xl flex items-center justify-center gap-2"
+              className="w-full py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-[0_10px_26px_-14px_rgba(37,99,235,0.45)] rounded-xl flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <>
