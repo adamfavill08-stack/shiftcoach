@@ -32,6 +32,10 @@
 -keep class io.supabase.** { *; }
 -dontwarn io.supabase.**
 
+# Google Play In-App Review
+-keep class com.google.android.play.core.review.** { *; }
+-dontwarn com.google.android.play.core.review.**
+
 # Preserve line numbers for better crash reports (optional - remove for smaller size)
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile

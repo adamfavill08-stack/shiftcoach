@@ -15,6 +15,8 @@ import { BottomNavWrapper } from '@/components/layout/BottomNavWrapper'
 import { AutoHealthSync } from '@/components/wearables/AutoHealthSync'
 import AndroidBackButtonHandler from '@/components/AndroidBackButtonHandler'
 import { NativeAndroidStatusBar } from '@/components/native/NativeAndroidStatusBar'
+import { RateAppPromptTracker } from '@/components/engagement/RateAppPromptTracker'
+import { InAppReviewScheduler } from '@/components/engagement/InAppReviewScheduler'
 
 export const metadata: Metadata = {
   title: 'ShiftCoach - Health App for Shift Workers',
@@ -175,6 +177,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <TransitionAlertsSubscriber />
                   <QuickAddProvider>
                     <AutoHealthSync />
+                    <RateAppPromptTracker />
+                    <InAppReviewScheduler />
                     <NativeAndroidStatusBar />
                     <AndroidBackButtonHandler />
                     <EventNotificationLoader />
