@@ -216,13 +216,46 @@ export function calculateBingeRisk(inputs: BingeRiskInputs): BingeRiskResult {
     }
   }
 
-  // 5. TIME OF DAY CONTEXT (0-10 points)
+  // 5. AWAKE-DURATION PROGRESSION (0-18 points)
+  // Binge risk should rise through prolonged wakefulness as fatigue/decision control worsen.
+  const hoursAwake = getHoursAwakeFromMostRecentSleep(sleepLogs, now)
+  if (hoursAwake !== null) {
+    let awakePenalty = 0
+    if (hoursAwake >= 18) {
+      awakePenalty = 18
+    } else if (hoursAwake >= 16) {
+      awakePenalty = 14
+    } else if (hoursAwake >= 14) {
+      awakePenalty = 11
+    } else if (hoursAwake >= 12) {
+      awakePenalty = 8
+    } else if (hoursAwake >= 10) {
+      awakePenalty = 5
+    } else if (hoursAwake >= 8) {
+      awakePenalty = 3
+    }
+
+    // Night-shift wake windows tend to extend late into biological night; increase progression slightly.
+    if ((isNightShift || isAfterNightShift) && hoursAwake >= 12) {
+      awakePenalty += 2
+    }
+
+    totalScore += awakePenalty
+
+    if (hoursAwake >= 12) {
+      drivers.push(`Long awake window (${Math.round(hoursAwake)}h awake)`)
+    }
+  }
+
+  // 6. TIME OF DAY CONTEXT (0-6 points)
+  // Keep a smaller time-of-day bump as secondary context.
   const currentHour = now.getHours()
-  // Evening/night hours (8pm-2am) are higher risk
-  if (currentHour >= 20 || currentHour < 2) {
-    totalScore += 8
-  } else if (currentHour >= 18 || currentHour < 4) {
-    totalScore += 5
+  if (currentHour >= 22 || currentHour < 2) {
+    totalScore += 6
+  } else if (currentHour >= 20 || currentHour < 4) {
+    totalScore += 4
+  } else if (currentHour >= 18) {
+    totalScore += 2
   }
 
   // Clamp score to 0-100
@@ -245,6 +278,16 @@ export function calculateBingeRisk(inputs: BingeRiskInputs): BingeRiskResult {
     drivers: drivers.slice(0, 3), // Top 3 drivers
     explanation
   }
+}
+
+function getHoursAwakeFromMostRecentSleep(sleepLogs: SleepData[], now: Date): number | null {
+  const lastSleep = sleepLogs[0]
+  if (!lastSleep?.end) return null
+  const end = new Date(lastSleep.end)
+  if (Number.isNaN(end.getTime())) return null
+  const diffHours = (now.getTime() - end.getTime()) / (1000 * 60 * 60)
+  if (!Number.isFinite(diffHours) || diffHours < 0) return null
+  return diffHours
 }
 
 function formatHours(hours: number): string {

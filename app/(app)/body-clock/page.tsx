@@ -16,7 +16,6 @@ import { authedFetch } from "@/lib/supabase/authedFetch"
 import { cn } from "@/lib/utils"
 import { useCircadianState } from "@/components/providers/circadian-state-provider"
 import { useShiftState } from "@/components/providers/shift-state-provider"
-import { LoadingIndicator } from "@/components/ui/LoadingIndicator"
 import {
   BodyClockScoreCard,
   type BodyClockScoreDay,
@@ -188,18 +187,6 @@ export default function BodyClockPage() {
           return
         }
         const json = (await res.json().catch(() => ({}))) as ShiftRhythmResponse
-        const [nutritionRes, activityRes] = await Promise.all([
-          authedFetch("/api/nutrition/today", { cache: "no-store" }).catch(() => null),
-          authedFetch("/api/activity/today", { cache: "no-store" }).catch(() => null),
-        ])
-        const [nutritionJson, activityJson] = await Promise.all([
-          nutritionRes?.ok
-            ? ((nutritionRes.json().catch(() => ({}))) as Promise<NutritionTodayResponse>)
-            : Promise.resolve(null),
-          activityRes?.ok
-            ? ((activityRes.json().catch(() => ({}))) as Promise<ActivityTodayResponse>)
-            : Promise.resolve(null),
-        ])
         if (!cancelled) {
           setHasRhythmData(json?.hasRhythmData)
           setDetail(parseScore(json))
@@ -225,6 +212,23 @@ export default function BodyClockPage() {
                   .filter((r) => r.date.length > 0)
               : [],
           )
+        }
+
+        // Non-critical enrichments: fetch in background so core page content paints first.
+        ;(async () => {
+          const [nutritionRes, activityRes] = await Promise.all([
+            authedFetch("/api/nutrition/today", { cache: "no-store" }).catch(() => null),
+            authedFetch("/api/activity/today", { cache: "no-store" }).catch(() => null),
+          ])
+          const [nutritionJson, activityJson] = await Promise.all([
+            nutritionRes?.ok
+              ? ((nutritionRes.json().catch(() => ({}))) as Promise<NutritionTodayResponse>)
+              : Promise.resolve(null),
+            activityRes?.ok
+              ? ((activityRes.json().catch(() => ({}))) as Promise<ActivityTodayResponse>)
+              : Promise.resolve(null),
+          ])
+          if (cancelled) return
           const waterTarget = nutritionJson?.nutrition?.hydrationTargets?.water_ml
           const waterConsumed = nutritionJson?.nutrition?.hydrationIntake?.water_ml
           const caffeineLimit = nutritionJson?.nutrition?.hydrationTargets?.caffeine_mg
@@ -252,7 +256,7 @@ export default function BodyClockPage() {
             typeof activityJson?.activity?.activeMinutes === "number" &&
             Number.isFinite(activityJson.activity.activeMinutes)
           setIsActivityEstimated((hasStepsData && !hasActiveMinutesData) || (!hasStepsData && hasActiveMinutesData))
-        }
+        })()
       } catch {
         if (!cancelled) {
           setDetail(null)
@@ -550,8 +554,6 @@ export default function BodyClockPage() {
   const bingeLevelLabel =
     bingeRisk?.level ? `${bingeRisk.level[0].toUpperCase()}${bingeRisk.level.slice(1)} (${bingeRisk.score ?? "—"})` : "—"
 
-  const showPageSpinner = loading && detail == null
-
   return (
     <main className="min-h-screen bg-[var(--bg)]">
       <div className={`max-w-[430px] mx-auto min-h-screen px-2 pb-10 pt-4 flex flex-col gap-6 ${inter.className}`}>
@@ -610,11 +612,6 @@ export default function BodyClockPage() {
           </p>
         </footer>
       </div>
-      {showPageSpinner ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-[var(--bg)]/70 backdrop-blur-[1px]">
-          <LoadingIndicator message="Loading body clock..." size="md" />
-        </div>
-      ) : null}
     </main>
   )
 }
