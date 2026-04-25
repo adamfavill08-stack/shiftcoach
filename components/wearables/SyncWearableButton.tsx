@@ -94,8 +94,16 @@ export default function SyncWearableButton() {
     try {
       if (isAndroidNative) {
         const { ShiftCoachHealthConnect } = await import('@/lib/native/shiftCoachHealthConnect')
+        const nativeStatus = await ShiftCoachHealthConnect.getStatus()
 
-        if (!isConnected) {
+        if (!nativeStatus.available) {
+          setFeedback('Health Connect is not available on this device.')
+          return
+        }
+
+        // Always re-check native permission on tap. Backend "connected" can be stale
+        // if user revoked Health Connect permission after a prior successful sync.
+        if (!nativeStatus.hasPermissions) {
           const permission = await ShiftCoachHealthConnect.requestConnectPermissions()
           if (!permission.granted) {
             setFeedback('Health Connect permission was not granted.')
