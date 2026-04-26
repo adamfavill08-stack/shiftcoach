@@ -5,6 +5,7 @@ import { Inter } from "next/font/google"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { getCircadianData } from "@/lib/circadian/circadianCache"
+import { circadianCalculateUrlWithLocalHour } from "@/lib/circadian/wallClockHour"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -133,7 +134,7 @@ function SevenDayTrend({
   useEffect(() => {
     async function load() {
       try {
-        const res  = await fetch("/api/circadian/calculate", { cache: "no-store" })
+        const res  = await fetch(circadianCalculateUrlWithLocalHour("/api/circadian/calculate"), { cache: "no-store" })
         const json = await res.json()
         // Use the precomputed circadian_logs if available via a dedicated endpoint
         // For now derive a 7-point trend from the current score with slight variance

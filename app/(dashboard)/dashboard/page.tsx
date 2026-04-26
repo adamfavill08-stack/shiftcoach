@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/providers/language-provider'
 import { useAuth } from '@/components/AuthProvider'
 import { authedFetch } from '@/lib/supabase/authedFetch'
+import { circadianCalculateUrlWithLocalHour } from '@/lib/circadian/wallClockHour'
 import { useShiftRhythm } from '@/lib/hooks/useShiftRhythm'
 import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus'
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator'
@@ -138,7 +139,9 @@ function DashboardContent() {
 
   const fetchCircadian = useCallback(async () => {
     try {
-      const res = await authedFetch('/api/circadian/calculate', { cache: 'no-store' })
+      const res = await authedFetch(circadianCalculateUrlWithLocalHour('/api/circadian/calculate'), {
+        cache: 'no-store',
+      })
       if (!res.ok) {
         const json = await res.json().catch(() => ({}))
         if (res.status === 503 || json.type === 'network_error') {

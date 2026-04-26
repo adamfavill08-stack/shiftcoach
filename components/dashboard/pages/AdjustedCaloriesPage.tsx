@@ -12,6 +12,7 @@ import { MacroTargetsCard } from "@/components/nutrition/MacroTargetsCard";
 import { MacroTimingInsight } from "@/components/nutrition/MacroTimingInsight";
 import { useMealTimingTodayCard } from "@/lib/hooks/useMealTimingTodayCard";
 import { getMacroTimingTip } from "@/lib/nutrition/getMacroReason";
+import { circadianCalculateUrlWithLocalHour } from "@/lib/circadian/wallClockHour";
 
 /* ---------------------------------------------------
    Inline monoline icons – bigger and clearly semantic
@@ -969,7 +970,9 @@ export default function AdjustedCaloriesPage() {
   useEffect(() => {
     const fetchCircadian = async () => {
       try {
-        const res = await fetch('/api/circadian/calculate', { next: { revalidate: 30 } });
+        const res = await fetch(circadianCalculateUrlWithLocalHour('/api/circadian/calculate'), {
+          next: { revalidate: 30 },
+        });
         if (res.ok) {
           const json = await res.json();
           if (json.status === 'ok' && json.circadian) {

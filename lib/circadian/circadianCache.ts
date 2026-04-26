@@ -1,6 +1,8 @@
 // Simple in-memory cache for circadian data within a single page session
 // Prevents duplicate API calls when multiple components need the same data
 
+import { circadianCalculateUrlWithLocalHour } from '@/lib/circadian/wallClockHour'
+
 interface CachedResult {
   data: any
   fetchedAt: number
@@ -17,7 +19,7 @@ export async function getCircadianData(accessToken: string): Promise<any> {
     return cache.data
   }
 
-  const res = await fetch("/api/circadian/calculate", {
+  const res = await fetch(circadianCalculateUrlWithLocalHour("/api/circadian/calculate"), {
     cache: "no-store",
     credentials: "include",
     headers: { Authorization: `Bearer ${accessToken}` },

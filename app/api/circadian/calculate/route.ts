@@ -10,6 +10,7 @@ import {
   applyHolidayAsOffToShiftRows,
   fetchHolidayLocalDatesSet,
 } from '@/lib/rota/holidayRotaPriority'
+import { resolveWallHourDecimal } from '@/lib/circadian/wallClockHour'
 
 // Cache for 60 seconds - circadian phase updates daily
 export const revalidate = 60
@@ -182,7 +183,7 @@ export async function GET(req: NextRequest) {
 
         // For cached responses, recalculate the real-time fields
         // since alertness and body clock hour change throughout the day
-        const nowH = new Date().getHours() + new Date().getMinutes() / 60
+        const nowH = resolveWallHourDecimal(req)
         const cachedMisalign = precomputed.data.deviation_hours ?? 0
         const cachedMidpointMin = precomputed.data.sleep_midpoint_minutes ?? (3 * 60)
 
@@ -561,6 +562,7 @@ export async function GET(req: NextRequest) {
       sleepDurationHours,
       sleepDebtHours,
       shiftType,
+      currentHour: resolveWallHourDecimal(req),
     }
 
     let circadian
