@@ -43,7 +43,7 @@ class ShiftCoachHealthConnectWeb extends WebPlugin implements ShiftCoachHealthCo
       grantedPermissions: [],
       requiredPermissions: [],
       missingPermissions: [],
-      packageName: null,
+      packageName: undefined,
       hasPermissions: false,
     };
   }
