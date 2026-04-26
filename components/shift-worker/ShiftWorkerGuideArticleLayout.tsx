@@ -94,14 +94,15 @@ export function ShiftWorkerGuideArticleLayout({
 
               <div className="border-t border-white/15 py-[14px] pb-5">
                 <div className="flex items-center gap-0">
-                  <div className="relative h-8 w-11 shrink-0 sm:h-9 sm:w-[3.25rem]">
+                  <div className="relative h-8 w-24 shrink-0 sm:h-9 sm:w-28">
                     <Image
                       src="/logo.svg"
                       alt=""
                       fill
-                      sizes="(max-width: 640px) 44px, 52px"
-                      className="pointer-events-none object-contain object-left"
+                      sizes="(max-width: 640px) 96px, 112px"
+                      className="pointer-events-none object-contain object-left brightness-0 invert"
                       draggable={false}
+                      unoptimized
                     />
                   </div>
                   <div className="-ml-1.5 sm:-ml-2">

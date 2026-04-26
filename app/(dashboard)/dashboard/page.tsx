@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import { Capacitor } from '@capacitor/core'
-
 import { useTranslation } from '@/components/providers/language-provider'
 import { useAuth } from '@/components/AuthProvider'
 import { authedFetch } from '@/lib/supabase/authedFetch'
@@ -52,8 +50,6 @@ function DashboardContent() {
   const [googleFitMessage, setGoogleFitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [isUsingCachedData, setIsUsingCachedData] = useState(false)
   const [hasHydrated, setHasHydrated] = useState(false)
-  const [wearableConnected, setWearableConnected] = useState<boolean | null>(null)
-  const [wearableQuickConnectLoading, setWearableQuickConnectLoading] = useState(false)
   const { isOnline } = useNetworkStatus()
 
   const [circadian, setCircadian] = useState<CircadianOutput | null>(null)
@@ -87,22 +83,6 @@ function DashboardContent() {
 
   const [bingeRisk, setBingeRisk] = useState<any>(null)
   const [fatigueRisk, setFatigueRisk] = useState<FatigueRiskResult | null>(null)
-
-  const fetchWearableConnection = useCallback(async () => {
-    try {
-      const now = Date.now()
-      const startOfDay = new Date()
-      startOfDay.setHours(0, 0, 0, 0)
-      const startTimeMillis = startOfDay.getTime()
-      const res = await fetch(
-        `/api/wearables/status?startTimeMillis=${startTimeMillis}&endTimeMillis=${now}`,
-      )
-      const data = await res.json().catch(() => ({}))
-      setWearableConnected(Boolean(data.connected))
-    } catch {
-      setWearableConnected(false)
-    }
-  }, [])
 
   const cacheDashboardState = useCallback(
     (partial: { circadian?: CircadianOutput | null; socialJetlag?: any; bingeRisk?: any; fatigueRisk?: FatigueRiskResult | null }) => {
@@ -233,67 +213,6 @@ function DashboardContent() {
   }, [])
 
   useEffect(() => {
-    void fetchWearableConnection()
-  }, [fetchWearableConnection])
-
-  const handleWearableQuickConnect = useCallback(async () => {
-    if (wearableQuickConnectLoading) return
-    setWearableQuickConnectLoading(true)
-    try {
-      const isAndroidNative = Capacitor.getPlatform() === 'android' && Capacitor.isNativePlatform()
-      if (isAndroidNative) {
-        const { ShiftCoachHealthConnect } = await import('@/lib/native/shiftCoachHealthConnect')
-        const status = await ShiftCoachHealthConnect.getStatus()
-        if (status.available) {
-          if (!status.hasPermissions) {
-            const permission = await ShiftCoachHealthConnect.requestConnectPermissions()
-            if (!permission.granted) {
-              router.push('/wearables-setup')
-              return
-            }
-          }
-          const sync = await ShiftCoachHealthConnect.syncNow()
-          if (sync.ok) {
-            const ts = sync.lastSyncedAt ? new Date(sync.lastSyncedAt).getTime() : Date.now()
-            localStorage.setItem('wearables:lastSyncedAt', String(ts))
-            try {
-              window.dispatchEvent(new CustomEvent('wearables-synced', { detail: { ts } }))
-            } catch {
-              // ignore dispatch failures
-            }
-            await fetchWearableConnection()
-            return
-          }
-        }
-      }
-      router.push('/wearables-setup')
-    } catch {
-      router.push('/wearables-setup')
-    } finally {
-      setWearableQuickConnectLoading(false)
-    }
-  }, [fetchWearableConnection, router, wearableQuickConnectLoading])
-
-  useEffect(() => {
-    const refresh = () => {
-      void fetchWearableConnection()
-    }
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') {
-        void fetchWearableConnection()
-      }
-    }
-    window.addEventListener('focus', refresh)
-    document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('wearables-synced', refresh as EventListener)
-    return () => {
-      window.removeEventListener('focus', refresh)
-      document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('wearables-synced', refresh as EventListener)
-    }
-  }, [fetchWearableConnection])
-
-  useEffect(() => {
     if (authLoading) return
 
     if (!isOnline) {
@@ -419,19 +338,15 @@ function DashboardContent() {
   const shouldShowDashboardSpinner =
     !hasHydrated || loading || !shiftRhythmInitialFetchComplete || shiftRhythmLoading
 
-  if (shouldShowDashboardSpinner) {
-    return (
-      <main className="min-h-screen bg-slate-100 pb-6 pt-10">
-        <div className="mx-auto flex min-h-[70vh] w-full max-w-md items-center justify-center">
-          <LoadingIndicator message={t('dashboard.loading')} size="md" />
-        </div>
-      </main>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-slate-100 flex justify-center">
       <div className="w-full max-w-md bg-slate-100">
+        {shouldShowDashboardSpinner ? (
+          <div className="mx-auto flex min-h-[70vh] w-full max-w-md items-center justify-center pb-6 pt-10">
+            <LoadingIndicator message={t('dashboard.loading')} size="md" />
+          </div>
+        ) : (
+          <>
         {googleFitMessage && (
           <div
             className={`mx-4 mt-2 rounded-lg px-3 py-2 text-sm ${
@@ -463,17 +378,14 @@ function DashboardContent() {
         )}
         <div className="min-h-screen pb-6 bg-slate-100">
           <div id="phone-root" className="pb-4 relative">
-            <DashboardHeader
-              showWearableConnect={wearableConnected === false || wearableQuickConnectLoading}
-              wearableConnecting={wearableQuickConnectLoading}
-              wearableConnected={wearableConnected === true}
-              onWearableConnectClick={handleWearableQuickConnect}
-            />
+            <DashboardHeader />
             <ShiftWeekStrip />
             <CircadianCard showSupportingSections={false} />
             <DashboardPager pages={pages} />
           </div>
         </div>
+          </>
+        )}
       </div>
     </div>
   )

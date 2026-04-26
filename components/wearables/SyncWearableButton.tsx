@@ -2,6 +2,7 @@
 
 import { Capacitor } from '@capacitor/core'
 import { useEffect, useState } from 'react'
+import type { ShiftCoachHealthConnectPlugin } from '@/lib/native/shiftCoachHealthConnect'
 
 const ANDROID_HEALTH_PROVIDER = 'android_health_connect'
 
@@ -38,6 +39,7 @@ async function getAndroidPermissionConnected(): Promise<{
   isAndroidNative: boolean
   available: boolean
   hasPermissions: boolean
+  debug?: Awaited<ReturnType<ShiftCoachHealthConnectPlugin['getStatus']>>
 }> {
   const isAndroidNative = Capacitor.getPlatform() === 'android' && Capacitor.isNativePlatform()
   if (!isAndroidNative) {
@@ -47,10 +49,12 @@ async function getAndroidPermissionConnected(): Promise<{
   const { ShiftCoachHealthConnect } = await import('@/lib/native/shiftCoachHealthConnect')
   try {
     const status = await ShiftCoachHealthConnect.getStatus()
+    const available = status.canCreateClient === true || status.available
     return {
       isAndroidNative: true,
-      available: status.available,
-      hasPermissions: status.available && status.hasPermissions,
+      available,
+      hasPermissions: available && status.hasPermissions,
+      debug: status,
     }
   } catch {
     return { isAndroidNative: true, available: false, hasPermissions: false }
@@ -63,6 +67,7 @@ export default function SyncWearableButton() {
   const [feedback, setFeedback] = useState<string | null>(null)
   const [isAndroidNative, setIsAndroidNative] = useState(false)
   const [hasHealthConnectAvailable, setHasHealthConnectAvailable] = useState(false)
+  const [debugStatus, setDebugStatus] = useState<Awaited<ReturnType<ShiftCoachHealthConnectPlugin['getStatus']>> | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -78,6 +83,7 @@ export default function SyncWearableButton() {
       setIsAndroidNative(nativeStatus.isAndroidNative)
       setHasHealthConnectAvailable(nativeStatus.available)
       setIsConnected(Boolean(nativeStatus.hasPermissions || backendConnected))
+      setDebugStatus(nativeStatus.debug ?? null)
     }
 
     loadConnectionState()
@@ -95,8 +101,10 @@ export default function SyncWearableButton() {
       if (isAndroidNative) {
         const { ShiftCoachHealthConnect } = await import('@/lib/native/shiftCoachHealthConnect')
         const nativeStatus = await ShiftCoachHealthConnect.getStatus()
+        setDebugStatus(nativeStatus)
+        const available = nativeStatus.canCreateClient === true || nativeStatus.available
 
-        if (!nativeStatus.available) {
+        if (!available) {
           setFeedback('Health Connect is not available on this device.')
           return
         }
@@ -119,8 +127,11 @@ export default function SyncWearableButton() {
           const ts = syncResult.lastSyncedAt ? new Date(syncResult.lastSyncedAt).getTime() : Date.now()
           localStorage.setItem('wearables:lastSyncedAt', String(ts))
           window.dispatchEvent(new CustomEvent('wearables-synced', { detail: { ts } }))
+          setIsConnected(true)
           if (isConnected) {
             setFeedback('Synced successfully.')
+          } else {
+            setFeedback('Health Connect connected successfully.')
           }
           return
         }
@@ -156,8 +167,11 @@ export default function SyncWearableButton() {
       localStorage.setItem('wearables:lastSyncedAt', String(ts))
       window.dispatchEvent(new CustomEvent('wearables-synced', { detail: { ts } }))
       setFeedback('Synced successfully.')
-    } catch {
-      setFeedback('Something went wrong. Please try again.')
+    } catch (err) {
+      if (!feedback) {
+        const msg = err instanceof Error ? err.message : ''
+        setFeedback(msg ? `Health Connect error: ${msg}` : 'Health Connect error. Please try again.')
+      }
     } finally {
       setLoading(false)
     }
@@ -198,6 +212,12 @@ export default function SyncWearableButton() {
 
       {feedback ? (
         <p className="mt-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">{feedback}</p>
+      ) : null}
+
+      {process.env.NODE_ENV !== 'production' && debugStatus ? (
+        <pre className="mt-3 max-h-64 overflow-auto rounded-md bg-slate-950/95 p-2 text-[10px] leading-snug text-slate-100">
+{JSON.stringify(debugStatus, null, 2)}
+        </pre>
       ) : null}
     </div>
   )

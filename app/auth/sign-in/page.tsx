@@ -19,6 +19,7 @@ function SignInContent() {
   const [err, setErr] = useState<string | undefined>()
   const [busy, setBusy] = useState(false)
   const [oauthBusy, setOauthBusy] = useState(false)
+  const [emailConfirmedBanner, setEmailConfirmedBanner] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const { isOnline } = useNetworkStatus()
@@ -33,6 +34,11 @@ function SignInContent() {
     if (errorParam) {
       setErr(decodeURIComponent(errorParam))
       // Clean up URL
+      router.replace('/auth/sign-in', { scroll: false })
+      return
+    }
+    if (searchParams.get('email_confirmed') === '1') {
+      setEmailConfirmedBanner(true)
       router.replace('/auth/sign-in', { scroll: false })
     }
   }, [searchParams, router])
@@ -127,10 +133,11 @@ function SignInContent() {
                 <Image
                   src="/logo.svg"
                   alt="ShiftCoach Logo"
-                  width={200}
-                  height={60}
-                  className="object-contain h-12"
+                  width={220}
+                  height={110}
+                  className="h-12 w-auto max-w-full object-contain"
                   priority
+                  unoptimized
                 />
               </div>
               <p className="mt-4 text-sm leading-relaxed text-slate-700 max-w-[36ch] mx-auto">
@@ -163,6 +170,15 @@ function SignInContent() {
                 onError={setErr}
                 onPendingChange={setOauthBusy}
               />
+              {emailConfirmedBanner && (
+                <div
+                  className="mt-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <p className="text-emerald-800 text-sm font-medium">{t('auth.signIn.emailConfirmedNotice')}</p>
+                </div>
+              )}
               {err && (
                 <div id={signInErrorId} className="mt-4 p-3 rounded-xl bg-red-50 border border-red-200" role="alert" aria-live="assertive">
                   <p className="text-red-600 text-sm font-medium">{err}</p>

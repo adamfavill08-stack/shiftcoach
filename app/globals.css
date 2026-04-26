@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* App theme is toggled via `html.dark` (ThemeProvider + layout script) — not OS alone */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ============================================
    SHIFTCALI THEME TOKENS (light + class dark mode)
    ============================================ */

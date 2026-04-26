@@ -60,10 +60,11 @@ export default function SplashPage() {
         <Image
           src="/logo.svg"
           alt={t('splash.logoAlt')}
-          width={200}
-          height={80}
-          className="h-20 w-auto object-contain"
+          width={280}
+          height={140}
+          className="h-20 w-auto max-w-[min(280px,85vw)] object-contain dark:invert"
           priority
+          unoptimized
         />
       </div>
     </div>

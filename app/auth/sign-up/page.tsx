@@ -55,8 +55,8 @@ function SignUpContent() {
       email, 
       password,
       options: {
-        // After confirming email, start the user in onboarding to complete their profile
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding`
+        // After confirming email, verify on server then land on sign-in (see /auth/callback)
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent('/auth/sign-in')}`
       }
     })
     setBusy(false)
@@ -78,10 +78,11 @@ function SignUpContent() {
                 <Image
                   src="/logo.svg"
                   alt="ShiftCoach Logo"
-                  width={200}
-                  height={60}
-                  className="object-contain h-12"
+                  width={220}
+                  height={110}
+                  className="h-12 w-auto max-w-full object-contain"
                   priority
+                  unoptimized
                 />
               </div>
               <p className="mt-4 text-sm leading-relaxed text-slate-700 max-w-[36ch] mx-auto">

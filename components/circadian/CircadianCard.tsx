@@ -38,7 +38,8 @@ interface ApiResponse {
 
 // ─── Geometry helpers ─────────────────────────────────────────────
 export const CX = 170, CY = 170
-export const R_OUT = 122, R_IN = 96
+/** Slightly larger band than before for a more “instrument” feel */
+export const R_OUT = 127, R_IN = 94
 export const R_MID = (R_OUT + R_IN) / 2
 export const SW    = R_OUT - R_IN - 2
 
@@ -81,6 +82,16 @@ export const ZONES = [
 export function zoneColor(h: number): string {
   h = ((h % 24) + 24) % 24
   return ZONES.find(z => h >= z.startH && h < z.endH)?.color ?? COLOR_LOW
+}
+
+function zoneGradientFill(hex: string): string {
+  switch (hex) {
+    case COLOR_PEAK: return "url(#circ_grad_peak)"
+    case COLOR_ELEVATED: return "url(#circ_grad_elevated)"
+    case COLOR_MODERATE: return "url(#circ_grad_moderate)"
+    case COLOR_LOW: return "url(#circ_grad_low)"
+    default: return hex
+  }
 }
 
 export function zonePath(startH: number, endH: number): string {
@@ -298,20 +309,76 @@ function SevenDayTrend({
   )
 }
 
+/** Pixel offsets so BODY / NOW label bubbles do not overlap when angles are close */
+const RING_LABEL_R = R_OUT + 30
+const RING_LABEL_BUBBLE_W = 50
+const RING_LABEL_MIN_SEP = RING_LABEL_BUBBLE_W + 8
+
+/** Unit tangent on the label circle (slide labels along the ring, stay near each handle) */
+function ringLabelTangent(angleDeg: number, r: number) {
+  const p0 = toXY(angleDeg - 0.35, r)
+  const p1 = toXY(angleDeg + 0.35, r)
+  const dx = p1.x - p0.x
+  const dy = p1.y - p0.y
+  const len = Math.hypot(dx, dy) || 1
+  return { x: dx / len, y: dy / len }
+}
+
+function ringMarkerLabelSeparators(bodyAngleDeg: number, nowAngleDeg: number): {
+  body: { x: number; y: number }
+  now: { x: number; y: number }
+} {
+  const pb = toXY(bodyAngleDeg, RING_LABEL_R)
+  const pn = toXY(nowAngleDeg, RING_LABEL_R)
+  const tb = ringLabelTangent(bodyAngleDeg, RING_LABEL_R)
+  const tn = ringLabelTangent(nowAngleDeg, RING_LABEL_R)
+  const sep = (s: number) => {
+    const bb = { x: pb.x - s * tb.x, y: pb.y - s * tb.y }
+    const nn = { x: pn.x + s * tn.x, y: pn.y + s * tn.y }
+    return Math.hypot(nn.x - bb.x, nn.y - bb.y)
+  }
+  if (sep(0) >= RING_LABEL_MIN_SEP) {
+    return { body: { x: 0, y: 0 }, now: { x: 0, y: 0 } }
+  }
+  let lo = 0
+  let hi = 26
+  if (sep(hi) < RING_LABEL_MIN_SEP) hi = 40
+  for (let i = 0; i < 16; i++) {
+    const mid = (lo + hi) / 2
+    if (sep(mid) >= RING_LABEL_MIN_SEP) hi = mid
+    else lo = mid
+  }
+  const s = hi
+  return {
+    body: { x: -s * tb.x, y: -s * tb.y },
+    now: { x: s * tn.x, y: s * tn.y },
+  }
+}
+
 function RingMarker({
-  angle, color, label, time
+  angle, color, label, time, labelOffset,
 }: {
-  angle: number; color: string; label: string; time: string
+  angle: number
+  color: string
+  label: string
+  time: string
+  labelOffset?: { x: number; y: number }
 }) {
   const lineStart = toXY(angle, R_IN  - 16)
   const lineEnd   = toXY(angle, R_OUT + 16)
   const dot       = toXY(angle, R_OUT + 8)
   /** Slightly inset so labels are not clipped by narrow card gutters */
   const lPos      = toXY(angle, R_OUT + 30)
-  const norm      = ((angle % 360) + 360) % 360
-  const anchor    = norm > 10 && norm < 170 ? "start"
-                  : norm > 190 && norm < 350 ? "end"
-                  : "middle"
+  const ox = labelOffset?.x ?? 0
+  const oy = labelOffset?.y ?? 0
+  const lx = lPos.x + ox
+  const ly = lPos.y + oy
+  /** Rounded label bubble — centered on lPos so label + time sit in the middle */
+  const bubbleW = RING_LABEL_BUBBLE_W
+  const bubbleH = 28
+  const bubbleMidY = ly + 1
+  const bubbleY = bubbleMidY - bubbleH / 2
+  const bubbleX = lx - bubbleW / 2
   /** NOW used to be white — invisible on light UI; keep readable on dark ring segments too */
   const isNow = label === "NOW"
   return (
@@ -350,9 +417,22 @@ function RingMarker({
         stroke={isNow ? "rgba(15,23,42,0.45)" : "rgba(255,255,255,0.9)"}
         strokeWidth={0.9}
       />
+      <rect
+        x={bubbleX}
+        y={bubbleY}
+        width={bubbleW}
+        height={bubbleH}
+        rx={6}
+        ry={6}
+        fill="var(--card)"
+        stroke="var(--border-subtle)"
+        strokeWidth={1}
+        opacity={0.98}
+        filter="url(#circ_lbl_lift)"
+      />
       <text
-        x={lPos.x} y={lPos.y - 5}
-        textAnchor={anchor} dominantBaseline="middle"
+        x={lx} y={ly - 5}
+        textAnchor="middle" dominantBaseline="middle"
         fill={color} fontSize={9} fontFamily="Inter" fontWeight={700} letterSpacing={1.5}
         stroke={isNow ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.75)"}
         strokeWidth={isNow ? 0.4 : 0.35}
@@ -361,12 +441,13 @@ function RingMarker({
         {label}
       </text>
       <text
-        x={lPos.x} y={lPos.y + 7}
-        textAnchor={anchor} dominantBaseline="middle"
+        x={lx} y={ly + 7}
+        textAnchor="middle" dominantBaseline="middle"
         fill="var(--text-main)"
         fontSize={10}
         fontFamily="Inter"
         fontWeight={600}
+        style={{ fontVariantNumeric: 'tabular-nums' }}
         stroke="var(--bg)"
         strokeWidth={0.65}
         paintOrder="stroke fill"
@@ -486,6 +567,7 @@ export default function CircadianCard({
 
   const NOW_A  = hToAngle(CURRENT)
   const BODY_A = hToAngle(BODY)
+  const ringLabelSep = ringMarkerLabelSeparators(BODY_A, NOW_A)
 
   const rev = (d: number): React.CSSProperties => ({
     opacity:   revealed ? 1 : 0,
@@ -527,14 +609,14 @@ export default function CircadianCard({
 
         {/* Placeholder ring — gives the user a preview of what's coming */}
         <div style={{ display: "flex", justifyContent: "center", marginTop: 8, opacity: 0.25 }}>
-          <svg width={280} height={280} viewBox="0 0 340 340">
-            <circle cx={170} cy={170} r={109} fill="none"
-              stroke="rgba(128,128,128,0.3)" strokeWidth={26} />
+          <svg width={300} height={300} viewBox="0 0 340 340">
+            <circle cx={170} cy={170} r={R_MID} fill="none"
+              stroke="rgba(128,128,128,0.3)" strokeWidth={SW + 2} />
             {[0,6,12,18].map(h => {
               const ang = (h / 24) * 360
               const rad = ((ang - 90) * Math.PI) / 180
-              const inner = { x: 170 + 93  * Math.cos(rad), y: 170 + 93  * Math.sin(rad) }
-              const outer = { x: 170 + 125 * Math.cos(rad), y: 170 + 125 * Math.sin(rad) }
+              const inner = { x: 170 + (R_IN - 3) * Math.cos(rad), y: 170 + (R_IN - 3) * Math.sin(rad) }
+              const outer = { x: 170 + (R_OUT + 3) * Math.cos(rad), y: 170 + (R_OUT + 3) * Math.sin(rad) }
               return <line key={h} x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y}
                 stroke="rgba(128,128,128,0.4)" strokeWidth={1.5} />
             })}
@@ -582,13 +664,39 @@ export default function CircadianCard({
             <div style={{
               position: "absolute", top: "50%", left: "50%",
               transform: "translate(-50%,-50%)",
-              width: 256, height: 256, borderRadius: "50%",
-              background: `radial-gradient(circle, ${bodyColor}08 0%, transparent 65%)`,
+              width: 286, height: 286, borderRadius: "50%",
+              background: `radial-gradient(circle, ${bodyColor}0d 0%, ${bodyColor}05 38%, transparent 68%)`,
               pointerEvents: "none",
             }} />
 
-            <svg width={340} height={340} viewBox="0 0 340 340" overflow="visible">
+            <svg width={372} height={372} viewBox="0 0 340 340" overflow="visible">
               <defs>
+                <linearGradient id="circ_grad_peak" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#4ade80" />
+                  <stop offset="45%" stopColor="#22c55e" />
+                  <stop offset="100%" stopColor="#15803d" />
+                </linearGradient>
+                <linearGradient id="circ_grad_elevated" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#fef08a" />
+                  <stop offset="40%" stopColor="#facc15" />
+                  <stop offset="100%" stopColor="#ca8a04" />
+                </linearGradient>
+                <linearGradient id="circ_grad_moderate" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#fbbf24" />
+                  <stop offset="45%" stopColor="#f59e0b" />
+                  <stop offset="100%" stopColor="#c2410c" />
+                </linearGradient>
+                <linearGradient id="circ_grad_low" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#fca5a5" />
+                  <stop offset="40%" stopColor="#ef4444" />
+                  <stop offset="100%" stopColor="#991b1b" />
+                </linearGradient>
+                <filter id="circ_ring_lift" x="-35%" y="-35%" width="170%" height="170%">
+                  <feDropShadow dx={0} dy={2} stdDeviation={2.5} floodColor="#0f172a" floodOpacity={0.09} />
+                </filter>
+                <filter id="circ_lbl_lift" x="-25%" y="-25%" width="150%" height="150%">
+                  <feDropShadow dx={0} dy={1} stdDeviation={1.5} floodColor="#0f172a" floodOpacity={0.06} />
+                </filter>
                 <filter id="glow_NOW">
                   <feGaussianBlur stdDeviation="4" result="b"/>
                   <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
@@ -597,33 +705,36 @@ export default function CircadianCard({
                   <feGaussianBlur stdDeviation="3" result="b"/>
                   <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
                 </filter>
-                <filter id="glow_amber">
-                  <feGaussianBlur stdDeviation="4" result="b"/>
-                  <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-                </filter>
               </defs>
 
-              {/* Base track */}
+              {/* Base track — soft outer + theme groove */}
               <circle cx={CX} cy={CY} r={R_MID} fill="none"
-                stroke="rgba(128,128,128,0.15)" strokeWidth={SW + 2} />
+                stroke="rgba(15,23,42,0.055)" strokeWidth={SW + 6} />
+              <circle cx={CX} cy={CY} r={R_MID} fill="none"
+                stroke="var(--ring-bg)" strokeWidth={SW + 2} />
 
               {/* Solid colour zones */}
-              {ZONES.map((z, i) => (
-                <path key={i} d={zonePath(z.startH, z.endH)} fill={z.color}
-                  fillOpacity={revealed ? 0.9 : 0}
-                  style={{ transition: `fill-opacity 1.4s ease ${0.05 + i * 0.09}s` }}
-                />
-              ))}
+              <g filter="url(#circ_ring_lift)">
+                {ZONES.map((z, i) => (
+                  <path
+                    key={i}
+                    d={zonePath(z.startH, z.endH)}
+                    fill={zoneGradientFill(z.color)}
+                    fillOpacity={revealed ? 0.96 : 0}
+                    style={{ transition: `fill-opacity 1.4s ease ${0.05 + i * 0.09}s` }}
+                  />
+                ))}
+              </g>
 
-              {/* Misalignment arc */}
+              {/* Misalignment arc (dashes read as “dots” on coloured zones) */}
               <path d={arcPath(BODY_A, NOW_A, R_MID)}
-                stroke="#F59E0B" strokeWidth={SW + 8} fill="none"
-                strokeOpacity={revealed ? 0.15 : 0} filter="url(#glow_amber)"
+                stroke="#ffffff" strokeWidth={SW + 8} fill="none"
+                strokeOpacity={revealed ? 0.18 : 0}
                 style={{ transition: "stroke-opacity 1.2s ease 1s" }}
               />
               <path d={arcPath(BODY_A, NOW_A, R_MID)}
-                stroke="#F59E0B" strokeWidth={2} fill="none"
-                strokeOpacity={revealed ? 0.6 : 0}
+                stroke="#ffffff" strokeWidth={2} fill="none"
+                strokeOpacity={revealed ? 0.72 : 0}
                 strokeDasharray="4 3"
                 style={{ transition: "stroke-opacity 1.2s ease 1s" }}
               />
@@ -638,7 +749,7 @@ export default function CircadianCard({
                     <line x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y}
                       stroke="rgba(128,128,128,0.4)" strokeWidth={1.5} />
                     <text x={lbl.x} y={lbl.y} textAnchor="middle" dominantBaseline="middle"
-                      fill="var(--text-muted)" fontSize={9} fontFamily="Inter" fontWeight={600}>
+                      fill="var(--text-muted)" fontSize={10} fontFamily="Inter" fontWeight={600}>
                       {String(h).padStart(2,"0")}
                     </text>
                   </g>
@@ -646,23 +757,35 @@ export default function CircadianCard({
               })}
 
               {/* Centre text */}
-              <text x={CX} y={CY - 12} textAnchor="middle"
-                fill="var(--text-muted)" fontSize={9} fontFamily="Inter" fontWeight={600} letterSpacing={2}>
+              <text x={CX} y={CY - 19} textAnchor="middle"
+                fill="var(--text-muted)" fontSize={13} fontFamily="Inter" fontWeight={600} letterSpacing={2}>
                 ALERTNESS
               </text>
-              <text x={CX} y={CY + 5} textAnchor="middle"
-                fill={bodyColor} fontSize={14} fontFamily="Inter" fontWeight={700} letterSpacing={1.5}
-                stroke="var(--bg)" strokeWidth={0.5} paintOrder="stroke fill">
+              <text x={CX} y={CY + 11} textAnchor="middle"
+                fill={bodyColor} fontSize={24} fontFamily="Inter" fontWeight={700} letterSpacing={1.2}
+                stroke="var(--bg)" strokeWidth={0.6} paintOrder="stroke fill">
                 {stateLabel.split(" ")[0].toUpperCase()}
               </text>
-              <text x={CX} y={CY + 21} textAnchor="middle"
-                fill="var(--text-muted)" fontSize={9} fontFamily="Inter" fontWeight={500}>
+              <text x={CX} y={CY + 35} textAnchor="middle"
+                fill="var(--text-muted)" fontSize={14} fontFamily="Inter" fontWeight={500}>
                 right now
               </text>
 
               {/* Markers */}
-              <RingMarker angle={BODY_A} color={bodyColor} label="BODY" time={fmt(BODY)} />
-              <RingMarker angle={NOW_A} color="var(--text-main)" label="NOW" time={fmt(CURRENT)} />
+              <RingMarker
+                angle={NOW_A}
+                color="var(--accent-blue)"
+                label="NOW"
+                time={fmt(CURRENT)}
+                labelOffset={ringLabelSep.now}
+              />
+              <RingMarker
+                angle={BODY_A}
+                color={bodyColor}
+                label="BODY"
+                time={fmt(BODY)}
+                labelOffset={ringLabelSep.body}
+              />
             </svg>
           </div>
 
@@ -692,10 +815,13 @@ export default function CircadianCard({
           </div>
 
           {/* Ring caption */}
-          <div style={{ textAlign: "center", marginTop: 2, paddingBottom: 4 }}>
-            <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
+          <div style={{ textAlign: "center", marginTop: 4, paddingBottom: 6 }}>
+            <span
+              className={inter.className}
+              style={{ fontSize: 16, lineHeight: 1.35, color: "var(--text-muted)" }}
+            >
               Body clock is{" "}
-              <span style={{ color: "#F59E0B", fontWeight: 500 }}>
+              <span style={{ color: "#F59E0B", fontWeight: 600, fontSize: 17 }}>
                 {misalignH}h {misalignM}m behind
               </span>
               {" "}actual time

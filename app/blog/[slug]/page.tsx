@@ -126,14 +126,15 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
             >
               <ChevronLeft className="h-4 w-4" />
             </Link>
-            <div className="relative mx-auto h-7 w-[5.25rem] min-w-0 justify-self-center">
+            <div className="relative mx-auto h-7 w-36 min-w-0 justify-self-center sm:w-40">
               <Image
                 src="/logo.svg"
                 alt="ShiftCoach"
                 fill
-                sizes="120px"
-                className="object-contain"
+                sizes="160px"
+                className="object-contain dark:invert"
                 priority
+                unoptimized
               />
             </div>
             <button
@@ -208,13 +209,18 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
                 }
               >
                 <div className="flex items-center gap-0">
-                  <div className="relative h-8 w-11 shrink-0 sm:h-9 sm:w-[3.25rem]">
+                  <div className="relative h-8 w-24 shrink-0 sm:h-9 sm:w-28">
                     <Image
                       src="/logo.svg"
                       alt=""
                       fill
-                      sizes="(max-width: 640px) 44px, 52px"
-                      className="pointer-events-none object-contain object-left"
+                      sizes="(max-width: 640px) 96px, 112px"
+                      className={
+                        heroImage
+                          ? 'pointer-events-none object-contain object-left brightness-0 invert'
+                          : 'pointer-events-none object-contain object-left dark:invert'
+                      }
+                      unoptimized
                       draggable={false}
                     />
                   </div>

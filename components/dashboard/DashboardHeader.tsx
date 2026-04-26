@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Bell, Watch } from 'lucide-react'
+import Image from 'next/image'
+import { Bell } from 'lucide-react'
 
 import { NotificationModal } from '@/components/notifications/NotificationModal'
 import { useTranslation } from '@/components/providers/language-provider'
@@ -24,19 +25,7 @@ type RotaEvent = {
   title: string | null
 }
 
-type DashboardHeaderProps = {
-  showWearableConnect?: boolean
-  wearableConnecting?: boolean
-  wearableConnected?: boolean
-  onWearableConnectClick?: () => void
-}
-
-export default function DashboardHeader({
-  showWearableConnect = false,
-  wearableConnecting = false,
-  wearableConnected = false,
-  onWearableConnectClick,
-}: DashboardHeaderProps) {
+export default function DashboardHeader() {
   const { t } = useTranslation()
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false)
   const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications()
@@ -271,38 +260,21 @@ export default function DashboardHeader({
 
   return (
     <>
-      <div className="relative flex items-center justify-center px-4 pt-2 pb-1">
-        {showWearableConnect ? (
-          <button
-            type="button"
-            onClick={onWearableConnectClick}
-            disabled={wearableConnecting}
-            className={`absolute left-4 top-1/2 inline-flex h-8 min-w-[76px] -translate-y-1/2 items-center justify-center gap-1 rounded-lg px-2 text-[10px] font-semibold transition ${
-              wearableConnected
-                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                : wearableConnecting
-                  ? 'bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300'
-                  : 'bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-800'
-            }`}
-            aria-label={wearableConnecting ? 'Connecting Health Connect' : 'Connect Health Connect'}
-            title={wearableConnecting ? 'Connecting Health Connect' : 'Connect Health Connect'}
-          >
-            <Watch className={`h-3.5 w-3.5 ${wearableConnecting ? 'animate-pulse' : ''}`} strokeWidth={2} aria-hidden />
-            <span>{wearableConnecting ? 'Connecting…' : wearableConnected ? 'Connected' : 'Connect'}</span>
-          </button>
-        ) : null}
-
-        <p
-          className="text-base font-medium tracking-[0.2em] text-black"
-          aria-label={t('dashboard.header.brandAria')}
-        >
-          SHIFTCOACH
-        </p>
+      <div className="relative flex items-center justify-center px-2.5 pt-0.5 pb-0">
+        <Image
+          src="/logo.svg"
+          alt={t('dashboard.header.brandAria')}
+          width={280}
+          height={140}
+          className="h-12 w-auto max-w-[min(320px,90vw)] object-contain object-center dark:invert"
+          priority
+          unoptimized
+        />
         {hasNotifications ? (
           <button
             type="button"
             onClick={() => setIsNotificationModalOpen(true)}
-            className="absolute right-4 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full text-black transition hover:bg-slate-100/80"
+            className="absolute right-2.5 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full text-black transition hover:bg-slate-100/80"
             aria-label={t('dashboard.header.notificationsAria')}
           >
             <span className="relative inline-flex">

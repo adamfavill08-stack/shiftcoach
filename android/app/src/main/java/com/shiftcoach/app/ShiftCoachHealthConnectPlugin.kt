@@ -2,6 +2,8 @@ package com.shiftcoach.app
 
 import android.net.Uri
 import android.content.Context
+import android.os.Build
+import android.os.ext.SdkExtensions
 import android.webkit.CookieManager
 import androidx.activity.result.ActivityResultLauncher
 import androidx.fragment.app.FragmentActivity
@@ -95,6 +97,16 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
         }
     }
 
+    private fun resolveDefaultProviderPackageName(): String {
+        return try {
+            val field = HealthConnectClient::class.java.getDeclaredField("DEFAULT_PROVIDER_PACKAGE_NAME")
+            field.isAccessible = true
+            (field.get(null) as? String)?.takeIf { it.isNotBlank() } ?: healthConnectProviderPackage
+        } catch (_: Throwable) {
+            healthConnectProviderPackage
+        }
+    }
+
     override fun load() {
         super.load()
         val act = activity as? FragmentActivity ?: return
@@ -115,35 +127,83 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
         bridge.execute {
             try {
                 val ctx = context
-                val sdk =
+                val sdkDefault =
                     try {
                         HealthConnectClient.getSdkStatus(ctx)
                     } catch (_: Throwable) {
                         HealthConnectClient.SDK_UNAVAILABLE
                     }
-                val ret = JSObject()
-                ret.put("sdkStatus", sdkStatusLabel(sdk))
-                var available = sdk == HealthConnectClient.SDK_AVAILABLE
-                if (available) {
-                    available =
+                val defaultProviderPackageName =
+                    resolveDefaultProviderPackageName()
+                val sdkProvider =
+                    try {
+                        HealthConnectClient.getSdkStatus(ctx, defaultProviderPackageName)
+                    } catch (_: Throwable) {
+                        HealthConnectClient.SDK_UNAVAILABLE
+                    }
+                val extensionVersion: Int? =
+                    if (Build.VERSION.SDK_INT >= 30) {
                         try {
-                            // On newer Android versions Health Connect can be built-in.
-                            // Probe default client creation instead of requiring provider package checks.
-                            HealthConnectClient.getOrCreate(ctx)
-                            true
+                            SdkExtensions.getExtensionVersion(Build.VERSION_CODES.R)
                         } catch (_: Throwable) {
-                            false
+                            null
                         }
+                    } else {
+                        null
+                    }
+                val ret = JSObject()
+                ret.put("sdkStatus", sdkStatusLabel(sdkDefault))
+                ret.put("sdkStatusDefault", sdkStatusLabel(sdkDefault))
+                ret.put("sdkStatusProvider", sdkStatusLabel(sdkProvider))
+                ret.put("defaultProviderPackageName", defaultProviderPackageName)
+                ret.put("androidSdkInt", Build.VERSION.SDK_INT)
+                if (extensionVersion != null) {
+                    ret.put("extensionVersion", extensionVersion)
+                } else {
+                    ret.put("extensionVersion", JSONObject.NULL)
                 }
+
+                var canCreateClient = false
+                var clientCreateError: String? = null
+                var granted: Set<String> = emptySet()
+                try {
+                    val client = HealthConnectClient.getOrCreate(ctx)
+                    canCreateClient = true
+                    granted = runBlocking { client.permissionController.getGrantedPermissions() }
+                } catch (e: Throwable) {
+                    canCreateClient = false
+                    clientCreateError = e.message ?: e.javaClass.simpleName
+                }
+                ret.put("canCreateClient", canCreateClient)
+                if (clientCreateError != null) {
+                    ret.put("clientCreateError", clientCreateError)
+                } else {
+                    ret.put("clientCreateError", JSONObject.NULL)
+                }
+
+                val requiredJson = JSONArray()
+                val grantedJson = JSONArray()
+                val missingJson = JSONArray()
+                for (perm in requiredPermissions) {
+                    requiredJson.put(perm)
+                    if (perm in granted) {
+                        grantedJson.put(perm)
+                    } else {
+                        missingJson.put(perm)
+                    }
+                }
+                ret.put("requiredPermissions", requiredJson)
+                ret.put("grantedPermissions", grantedJson)
+                ret.put("missingPermissions", missingJson)
+                ret.put("packageName", ctx.packageName)
+
+                val available = canCreateClient || sdkDefault == HealthConnectClient.SDK_AVAILABLE
                 ret.put("available", available)
                 if (!available) {
                     ret.put("hasPermissions", false)
                     call.resolve(ret)
                     return@execute
                 }
-                val client = HealthConnectClient.getOrCreate(ctx)
-                val granted =
-                    runBlocking { client.permissionController.getGrantedPermissions() }
                 ret.put("hasPermissions", requiredPermissions.all { it in granted })
                 call.resolve(ret)
             } catch (e: Exception) {

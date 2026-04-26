@@ -117,6 +117,7 @@ const messages: Record<string, string> = {
     'auth.signIn.errorUnexpected': 'An unexpected error occurred. Please try again.',
     'auth.signIn.loading': 'Loading…',
     'auth.signIn.configError': 'Configuration error: Supabase URL is missing. Please check your .env.local file.',
+    'auth.signIn.emailConfirmedNotice': 'Your email is confirmed. Sign in with your password to continue.',
     'auth.password.show': 'Show password',
     'auth.password.hide': 'Hide password',
     'auth.oauth.continueGoogle': 'Continue with Google',
