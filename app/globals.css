@@ -45,6 +45,30 @@
   --ring-bg: #34343a;
 }
 
+/* Circadian dial (SVG + marker key): calmer contrast on dark canvas */
+.circadian-ring-theme {
+  --circ-misalign-track: rgba(255, 255, 255, 0.2);
+  --circ-misalign-dash: rgba(255, 255, 255, 0.76);
+  --circ-glow-blur-now: 3.2;
+  --circ-glow-blur-body: 2.6;
+  --circ-glow-blur-risk: 2.6;
+  --circ-center-word-stroke: var(--bg);
+  --circ-now-line: rgba(255, 255, 255, 0.9);
+  --circ-now-line-width: 7;
+  --circ-chip-shadow: none;
+}
+.dark .circadian-ring-theme {
+  --circ-misalign-track: rgba(255, 255, 255, 0.09);
+  --circ-misalign-dash: rgba(255, 255, 255, 0.4);
+  --circ-glow-blur-now: 1.85;
+  --circ-glow-blur-body: 1.45;
+  --circ-glow-blur-risk: 1.45;
+  --circ-center-word-stroke: rgba(0, 0, 0, 0.82);
+  --circ-now-line: rgba(186, 220, 255, 0.78);
+  --circ-now-line-width: 5.5;
+  --circ-chip-shadow: 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
 /* ============================================
    SMOOTH THEME TRANSITIONS
    ============================================ */
