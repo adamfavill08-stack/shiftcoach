@@ -164,9 +164,14 @@ function calculateMisalignmentScore(
   shiftDays: ShiftDay[],
   bioNight: BiologicalNight
 ): { score: number; avgOverlapHours: number } {
-  // Get workdays (non-OFF shifts) from last 3-5 days
+  // Get workdays (non-OFF shifts) from last 3-5 days.
+  // Include rows with explicit timestamps OR label-based estimates.
   const workShifts = shiftDays
-    .filter(s => s.label && s.label !== 'OFF' && s.start_ts && s.end_ts)
+    .filter(s => {
+      if (!s.label || s.label === 'OFF') return false
+      if (s.start_ts && s.end_ts) return true
+      return estimateStartTimeFromLabel(s.label) !== null
+    })
     .slice(-5) // Last 5 workdays
 
   if (workShifts.length === 0) {
@@ -176,10 +181,9 @@ function calculateMisalignmentScore(
   // Calculate overlap for each shift
   const overlaps: number[] = []
   for (const shift of workShifts) {
-    if (!shift.start_ts || !shift.end_ts) continue
-
-    const start = new Date(shift.start_ts)
-    const end = new Date(shift.end_ts)
+    const window = resolveShiftWindowForOverlap(shift)
+    if (!window) continue
+    const { start, end } = window
     const overlap = calculateShiftNightOverlap(start, end, bioNight)
     overlaps.push(overlap)
   }
@@ -211,6 +215,34 @@ function calculateMisalignmentScore(
     score: Math.round(score),
     avgOverlapHours: Math.round(avgOverlap * 10) / 10,
   }
+}
+
+function resolveShiftWindowForOverlap(
+  shift: ShiftDay
+): { start: Date; end: Date } | null {
+  // Prefer explicit timestamps when available.
+  if (shift.start_ts && shift.end_ts) {
+    return {
+      start: new Date(shift.start_ts),
+      end: new Date(shift.end_ts),
+    }
+  }
+
+  // Fall back to label-based estimation so rota labels still contribute.
+  if (!shift.label) return null
+  const estimatedStartMinutes = estimateStartTimeFromLabel(shift.label)
+  if (estimatedStartMinutes === null) return null
+
+  // Use a conservative default duration. Most rota blocks are around 8h.
+  const defaultDurationMinutes = 8 * 60
+  const [year, month, day] = shift.date.split('-').map(Number)
+  if (!year || !month || !day) return null
+
+  const start = new Date(year, month - 1, day, 0, 0, 0, 0)
+  start.setMinutes(estimatedStartMinutes)
+  const end = new Date(start.getTime() + defaultDurationMinutes * 60 * 1000)
+
+  return { start, end }
 }
 
 /**

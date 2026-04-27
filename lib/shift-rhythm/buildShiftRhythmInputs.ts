@@ -20,7 +20,7 @@ async function fetchRecentSleepRows(
   userId: string,
   rangeStartIso: string,
 ): Promise<Record<string, unknown>[]> {
-  const baseSelect = 'start_at,end_at,start_ts,end_ts,sleep_hours,duration_min,quality,date,created_at'
+  const baseSelect = 'start_at,end_at,start_ts,end_ts,sleep_hours,duration_min,quality,date'
   const rangeStartDate = rangeStartIso.slice(0, 10)
   const attempts: Array<{ name: string; run: () => Promise<any> }> = [
     {

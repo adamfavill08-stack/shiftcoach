@@ -66,9 +66,9 @@ export function calculateBingeRisk(inputs: BingeRiskInputs): BingeRiskResult {
   const hasMealData = meals && meals.length > 0
   const hasDebtOrLag = (sleepDebtHours ?? 0) > 0 || shiftLagScore !== undefined
 
-  // If there's no recent sleep logged at all, always treat risk as baseline low,
-  // even if old debt/lag numbers exist in the database.
-  if (!hasSleepData) {
+  // Only return fixed baseline when there is truly no behavioural signal at all.
+  // If we have shifts/activity/lag context, still compute a live score.
+  if (!hasSleepData && !hasShiftData && !hasMealData && !hasDebtOrLag && !activityLevel) {
     return {
       score: 5,
       level: 'low',
@@ -83,24 +83,30 @@ export function calculateBingeRisk(inputs: BingeRiskInputs): BingeRiskResult {
 
   // 1. SLEEP FACTORS (0-40 points)
   const lastSleep = sleepLogs[0] // Most recent sleep
-  const lastSleepHours = lastSleep?.durationHours ?? 0
+  const lastSleepHours = hasSleepData ? (lastSleep?.durationHours ?? 0) : null
   const lastSleepQuality = lastSleep?.quality ?? null
   
   // Sleep duration scoring
-  if (lastSleepHours < 4) {
-    totalScore += 40
-    drivers.push(`Very low sleep (${formatHours(lastSleepHours)})`)
-  } else if (lastSleepHours < 5) {
-    totalScore += 35
-    drivers.push(`Low sleep (${formatHours(lastSleepHours)})`)
-  } else if (lastSleepHours < 6) {
-    totalScore += 25
-    drivers.push(`Low sleep (${formatHours(lastSleepHours)})`)
-  } else if (lastSleepHours < 7) {
-    totalScore += 15
-    if (!drivers.some(d => d.includes('sleep'))) {
-      drivers.push(`Moderate sleep (${formatHours(lastSleepHours)})`)
+  if (lastSleepHours !== null) {
+    if (lastSleepHours < 4) {
+      totalScore += 40
+      drivers.push(`Very low sleep (${formatHours(lastSleepHours)})`)
+    } else if (lastSleepHours < 5) {
+      totalScore += 35
+      drivers.push(`Low sleep (${formatHours(lastSleepHours)})`)
+    } else if (lastSleepHours < 6) {
+      totalScore += 25
+      drivers.push(`Low sleep (${formatHours(lastSleepHours)})`)
+    } else if (lastSleepHours < 7) {
+      totalScore += 15
+      if (!drivers.some(d => d.includes('sleep'))) {
+        drivers.push(`Moderate sleep (${formatHours(lastSleepHours)})`)
+      }
     }
+  } else {
+    // Mild uncertainty bump when sleep isn't logged, but don't pin to a fixed baseline.
+    totalScore += 6
+    drivers.push('No recent sleep logs')
   }
 
   // Sleep quality impact
@@ -327,19 +333,30 @@ function generateExplanation(
   score: number,
   level: BingeRiskLevel,
   drivers: string[],
-  lastSleepHours: number,
+  lastSleepHours: number | null,
   isNightShift: boolean
 ): string {
+  const sleepText =
+    typeof lastSleepHours === 'number' && Number.isFinite(lastSleepHours)
+      ? formatHours(lastSleepHours)
+      : null
+
   if (level === 'high') {
     if (isNightShift) {
-      return `You're at high risk of overeating tonight. You got ${formatHours(lastSleepHours)} sleep and you're on nights. Eat every 3-4 hours to avoid bingeing.`
+      return sleepText
+        ? `You're at high risk of overeating tonight. You got ${sleepText} sleep and you're on nights. Eat every 3-4 hours to avoid bingeing.`
+        : `You're at high risk of overeating tonight and you're on nights. Eat every 3-4 hours to avoid bingeing.`
     }
     // Check if main driver is about meals or sleep
     const mainDriver = drivers[0] || ''
     if (mainDriver.includes('fasting') || mainDriver.includes('meal')) {
-      return `High risk tonight. You slept ${formatHours(lastSleepHours)} and haven't eaten in a while. Have a meal now, then another in 3-4 hours.`
+      return sleepText
+        ? `High risk tonight. You slept ${sleepText} and haven't eaten in a while. Have a meal now, then another in 3-4 hours.`
+        : `High risk tonight. You haven't eaten in a while. Have a meal now, then another in 3-4 hours.`
     }
-    return `High risk tonight. You slept ${formatHours(lastSleepHours)} and ${mainDriver.toLowerCase()}. Eat every 3-4 hours today.`
+    return sleepText
+      ? `High risk tonight. You slept ${sleepText} and ${mainDriver.toLowerCase()}. Eat every 3-4 hours today.`
+      : `High risk tonight. ${mainDriver}. Eat every 3-4 hours today.`
   } else if (level === 'medium') {
     const mainIssue = drivers[0] || 'You need to watch your eating'
     // Simplify driver text

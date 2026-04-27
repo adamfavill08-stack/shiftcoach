@@ -179,32 +179,32 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
         {/* Phone-width preview on desktop */}
         <div className="w-full max-w-[430px] min-h-screen shadow-2xl">
-          <ErrorSuppressor />
-          <LanguageProvider>
-            <ThemeProvider>
-              <AuthProvider>
-                <ShiftStateProvider>
-                  <CircadianStateProvider>
-                  <TransitionAlertsSubscriber />
-                  <QuickAddProvider>
-                    <AutoHealthSync />
-                    <RateAppPromptTracker />
-                    <InAppReviewScheduler />
-                    <NativeAndroidStatusBar />
-                    <AndroidBackButtonHandler />
-                    <EventNotificationLoader />
-                    <div className="app-main-shell relative min-h-screen pb-24 bg-[var(--bg)]">
+          <div className="app-main-shell relative min-h-screen pb-24 bg-[var(--bg)]">
+            <ErrorSuppressor />
+            <LanguageProvider>
+              <ThemeProvider>
+                <AuthProvider>
+                  <ShiftStateProvider>
+                    <CircadianStateProvider>
+                    <TransitionAlertsSubscriber />
+                    <QuickAddProvider>
+                      <AutoHealthSync />
+                      <RateAppPromptTracker />
+                      <InAppReviewScheduler />
+                      <NativeAndroidStatusBar />
+                      <AndroidBackButtonHandler />
+                      <EventNotificationLoader />
                       {children}
                       <QuickAddSheet />
                       <ToastContainer />
                       <BottomNavWrapper />
-                    </div>
-                  </QuickAddProvider>
-                  </CircadianStateProvider>
-                </ShiftStateProvider>
-              </AuthProvider>
-            </ThemeProvider>
-          </LanguageProvider>
+                    </QuickAddProvider>
+                    </CircadianStateProvider>
+                  </ShiftStateProvider>
+                </AuthProvider>
+              </ThemeProvider>
+            </LanguageProvider>
+          </div>
         </div>
       </body>
     </html>

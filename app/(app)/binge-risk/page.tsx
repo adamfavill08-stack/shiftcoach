@@ -1,12 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { authedFetch } from '@/lib/supabase/authedFetch'
 import { BodyClockMotivationCard } from '@/components/body-clock/BodyClockMotivationCard'
+import { riskScaleBarMarkerFill } from '@/lib/riskScaleBarMarker'
 
-const RISK_SCORE = 0
+const RISK_SCORE = 5
 
 type Factor = {
   id: string
@@ -33,12 +34,17 @@ type BingeRiskPayload = {
   level?: 'low' | 'medium' | 'high'
 }
 
-const factors: Factor[] = [
-  { id: 'sleep', icon: '😴', label: 'Sleep Debt', value: 'Low', color: '#34C759', score: 10 },
-  { id: 'circadian', icon: '🕐', label: 'Circadian Sync', value: 'On track', color: '#34C759', score: 15 },
-  { id: 'stress', icon: '💼', label: 'Shift Stress', value: 'Moderate', color: '#FF9500', score: 45 },
-  { id: 'meals', icon: '🍽️', label: 'Meal Timing', value: 'Good', color: '#34C759', score: 20 },
-]
+type ShiftRhythmApiPayload = {
+  bingeRisk?: BingeRiskPayload | null
+  socialJetlag?: {
+    category?: 'low' | 'moderate' | 'high'
+    currentMisalignmentHours?: number
+  } | null
+  sleepDeficit?: {
+    weeklyDeficit?: number
+    category?: 'surplus' | 'low' | 'medium' | 'high'
+  } | null
+}
 
 const quickActions: QuickAction[] = [
   { icon: '🥜', text: 'Protein snack before home' },
@@ -72,106 +78,60 @@ const whyCards: WhyCardItem[] = [
 
 function RiskGauge({ score }: { score: number }) {
   const [animated, setAnimated] = useState(false)
-
   useEffect(() => {
-    const id = window.setTimeout(() => setAnimated(true), 200)
+    const id = window.setTimeout(() => setAnimated(true), 120)
     return () => window.clearTimeout(id)
   }, [])
 
   const clamp = Math.min(Math.max(score, 0), 100)
-  const fillPct = animated ? clamp : 0
-  const endAngle = Math.PI - (fillPct / 100) * Math.PI
-  const endX = 100 + 90 * Math.cos(endAngle)
-  const endY = 100 - 90 * Math.sin(endAngle)
-  const largeArc = fillPct > 50 ? 1 : 0
-
-  const getColor = (s: number) => (s < 33 ? '#34C759' : s < 66 ? '#FF9500' : '#FF3B30')
-  const getLabel = (s: number) => (s < 33 ? 'Low' : s < 66 ? 'Moderate' : 'High')
-  const color = getColor(clamp)
+  const scorePct = animated ? clamp : 0
+  const markerFill = riskScaleBarMarkerFill(clamp)
+  const riskLevel = clamp < 33 ? 'Low' : clamp < 66 ? 'Moderate' : 'High'
+  const bubbleClass =
+    clamp < 33
+      ? 'bg-emerald-100 text-emerald-800'
+      : clamp < 66
+        ? 'bg-amber-100 text-amber-800'
+        : 'bg-orange-100 text-orange-800'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '8px 0 0' }}>
-      <div style={{ position: 'relative', width: 200, height: 110 }}>
-        <svg width="200" height="110" viewBox="0 0 200 110">
-          <path
-            d="M 10 100 A 90 90 0 0 1 190 100"
-            fill="none"
-            stroke="var(--border-subtle)"
-            strokeWidth="14"
-            strokeLinecap="round"
-          />
-          {fillPct > 0 ? (
-            <path
-              d={`M 10 100 A 90 90 0 ${largeArc} 1 ${endX} ${endY}`}
-              fill="none"
-              stroke={color}
-              strokeWidth="14"
-              strokeLinecap="round"
-              style={{ transition: 'stroke 0.5s' }}
-            />
-          ) : null}
-
-          {[33, 66].map((pct) => {
-            const angle = Math.PI - (pct / 100) * Math.PI
-            const x = 100 + 90 * Math.cos(angle)
-            const y = 100 - 90 * Math.sin(angle)
-            const ix = 100 + 76 * Math.cos(angle)
-            const iy = 100 - 76 * Math.sin(angle)
-            return <line key={pct} x1={x} y1={y} x2={ix} y2={iy} stroke="var(--card)" strokeWidth="2" />
-          })}
-
-          {(() => {
-            const angle = Math.PI - (clamp / 100) * Math.PI
-            const nx = 100 + 72 * Math.cos(angle)
-            const ny = 100 - 72 * Math.sin(angle)
-            return (
-              <g
-                style={{
-                  transition: 'transform 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                  transformOrigin: '100px 100px',
-                }}
-              >
-                <line
-                  x1="100"
-                  y1="100"
-                  x2={nx}
-                  y2={ny}
-                  stroke={color}
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  style={{
-                    transformOrigin: '100px 100px',
-                    transform: `rotate(${animated ? 0 : 180}deg)`,
-                    transition: 'transform 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                  }}
-                />
-                <circle cx="100" cy="100" r="5" fill={color} />
-              </g>
-            )
-          })()}
-        </svg>
-
+    <div style={{ padding: '8px 6px 2px' }}>
+      <div style={{ position: 'relative', margin: '0 auto', width: '100%', maxWidth: 250, paddingTop: 36 }}>
         <div
-          style={{
-            position: 'absolute',
-            bottom: -10,
-            left: 0,
-            right: 0,
-            display: 'flex',
-            justifyContent: 'space-between',
-            padding: '0 4px',
-          }}
+          className={`absolute top-0 -translate-x-1/2 rounded-lg px-2.5 py-0.5 text-center leading-none shadow-sm ${bubbleClass}`}
+          style={{ left: `${scorePct}%`, transition: 'left 0.45s ease' }}
         >
-          <span style={{ fontSize: 10, color: '#34C759', fontWeight: 600 }}>Low</span>
-          <span style={{ fontSize: 10, color: '#FF9500', fontWeight: 600 }}>Moderate</span>
-          <span style={{ fontSize: 10, color: '#FF3B30', fontWeight: 600 }}>High</span>
+          <p style={{ margin: 0, fontSize: 16, fontWeight: 700, lineHeight: 1.05 }} className="tabular-nums">
+            {Math.round(clamp)}
+          </p>
+          <span className={`absolute -bottom-0.5 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rotate-45 ${bubbleClass}`} />
+        </div>
+
+        <div className="relative">
+          <div className="h-3 w-full overflow-hidden rounded-full">
+            <div className="grid h-full w-full grid-cols-3">
+              <div className="bg-emerald-300" />
+              <div className="bg-emerald-400" />
+              <div className="bg-red-500" />
+            </div>
+          </div>
+          <span
+            className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white box-border"
+            style={{ left: `${scorePct}%`, backgroundColor: markerFill, transition: 'left 0.45s ease' }}
+            aria-hidden
+          />
         </div>
       </div>
 
-      <div style={{ marginTop: 8, textAlign: 'center' }}>
-        <div style={{ fontSize: 42, fontWeight: 700, color: 'var(--text-main)', lineHeight: 1 }}>{clamp}</div>
-        <div style={{ fontSize: 15, fontWeight: 600, color, marginTop: 4 }}>{getLabel(clamp)}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, padding: '0 2px' }}>
+        <span style={{ fontSize: 11, color: '#34C759', fontWeight: 700 }}>Low</span>
+        <span style={{ fontSize: 11, color: '#FF9500', fontWeight: 700 }}>Moderate</span>
+        <span style={{ fontSize: 11, color: '#FF3B30', fontWeight: 700 }}>High</span>
       </div>
+      <p style={{ margin: '10px 0 0', textAlign: 'center', fontSize: 26, fontWeight: 700, color: 'var(--text-main)' }}>
+        {Math.round(clamp)}
+      </p>
+      <p style={{ margin: '2px 0 0', textAlign: 'center', fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{riskLevel}</p>
     </div>
   )
 }
@@ -274,26 +234,152 @@ function WhyCard({ card }: { card: WhyCardItem }) {
 export default function BingeRiskPage() {
   const [tab, setTab] = useState('overview')
   const [riskScore, setRiskScore] = useState<number>(RISK_SCORE)
+  const [shiftRhythmData, setShiftRhythmData] = useState<ShiftRhythmApiPayload | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const res = await authedFetch('/api/shift-rhythm', { cache: 'no-store' })
-        if (!res.ok || cancelled) return
-        const json = (await res.json().catch(() => ({}))) as { bingeRisk?: BingeRiskPayload | null }
-        const nextScore = json?.bingeRisk?.score
-        if (!cancelled && typeof nextScore === 'number' && Number.isFinite(nextScore)) {
-          setRiskScore(Math.max(0, Math.min(100, Math.round(nextScore))))
-        }
-      } catch {
-        // keep fallback demo score when fetch fails
+  const fetchBingeRisk = useCallback(async () => {
+    const parseAndSet = async (res: Response) => {
+      const json = (await res.json().catch(() => ({}))) as ShiftRhythmApiPayload
+      const nextScore = json?.bingeRisk?.score
+      if (typeof nextScore === 'number' && Number.isFinite(nextScore)) {
+        setRiskScore(Math.max(0, Math.min(100, Math.round(nextScore))))
       }
-    })()
-    return () => {
-      cancelled = true
+      setShiftRhythmData(json)
+    }
+
+    try {
+      const res = await authedFetch('/api/shift-rhythm', { cache: 'no-store' })
+      if (res.ok) {
+        await parseAndSet(res)
+        return
+      }
+
+      // Auth/session can be briefly out of sync on mobile.
+      // Retry without bearer header so server-side cookie auth can still work.
+      if (res.status === 401 || res.status === 403) {
+        const cookieRetry = await fetch('/api/shift-rhythm?force=true', {
+          cache: 'no-store',
+          credentials: 'same-origin',
+        })
+        if (cookieRetry.ok) {
+          await parseAndSet(cookieRetry)
+        }
+      }
+    } catch {
+      // Keep last known risk when fetch fails transiently.
     }
   }, [])
+
+  useEffect(() => {
+    fetchBingeRisk()
+
+    const onVisible = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchBingeRisk()
+      }
+    }
+    const onFocus = () => fetchBingeRisk()
+    const intervalId = window.setInterval(() => fetchBingeRisk(), 60 * 1000)
+
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onFocus)
+
+    return () => {
+      window.clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [fetchBingeRisk])
+
+  const factors: Factor[] = useMemo(() => {
+    const sleepCategory = shiftRhythmData?.sleepDeficit?.category
+    const weeklyDeficit = shiftRhythmData?.sleepDeficit?.weeklyDeficit
+    const circadianCategory = shiftRhythmData?.socialJetlag?.category
+    const misalignmentHours = shiftRhythmData?.socialJetlag?.currentMisalignmentHours
+
+    const sleepFactor: Factor = (() => {
+      if (sleepCategory === 'high') {
+        return {
+          id: 'sleep',
+          icon: '😴',
+          label: 'Sleep Debt',
+          value: weeklyDeficit ? `High (${weeklyDeficit.toFixed(1)}h)` : 'High',
+          color: '#FF3B30',
+          score: 85,
+        }
+      }
+      if (sleepCategory === 'medium') {
+        return {
+          id: 'sleep',
+          icon: '😴',
+          label: 'Sleep Debt',
+          value: weeklyDeficit ? `Moderate (${weeklyDeficit.toFixed(1)}h)` : 'Moderate',
+          color: '#FF9500',
+          score: 55,
+        }
+      }
+      if (sleepCategory === 'low') {
+        return {
+          id: 'sleep',
+          icon: '😴',
+          label: 'Sleep Debt',
+          value: weeklyDeficit ? `Low (${weeklyDeficit.toFixed(1)}h)` : 'Low',
+          color: '#34C759',
+          score: 25,
+        }
+      }
+      return { id: 'sleep', icon: '😴', label: 'Sleep Debt', value: 'Unknown', color: '#94A3B8', score: 40 }
+    })()
+
+    const circadianFactor: Factor = (() => {
+      if (circadianCategory === 'high') {
+        return {
+          id: 'circadian',
+          icon: '🕐',
+          label: 'Circadian Sync',
+          value: misalignmentHours != null ? `Off (${misalignmentHours.toFixed(1)}h)` : 'Off track',
+          color: '#FF3B30',
+          score: 85,
+        }
+      }
+      if (circadianCategory === 'moderate') {
+        return {
+          id: 'circadian',
+          icon: '🕐',
+          label: 'Circadian Sync',
+          value: misalignmentHours != null ? `Mixed (${misalignmentHours.toFixed(1)}h)` : 'Moderate',
+          color: '#FF9500',
+          score: 55,
+        }
+      }
+      if (circadianCategory === 'low') {
+        return {
+          id: 'circadian',
+          icon: '🕐',
+          label: 'Circadian Sync',
+          value: misalignmentHours != null ? `On track (${misalignmentHours.toFixed(1)}h)` : 'On track',
+          color: '#34C759',
+          score: 20,
+        }
+      }
+      return { id: 'circadian', icon: '🕐', label: 'Circadian Sync', value: 'Unknown', color: '#94A3B8', score: 40 }
+    })()
+
+    const stressFactor: Factor =
+      riskScore >= 70
+        ? { id: 'stress', icon: '💼', label: 'Shift Stress', value: 'High', color: '#FF3B30', score: 78 }
+        : riskScore >= 35
+          ? { id: 'stress', icon: '💼', label: 'Shift Stress', value: 'Moderate', color: '#FF9500', score: 55 }
+          : { id: 'stress', icon: '💼', label: 'Shift Stress', value: 'Low', color: '#34C759', score: 25 }
+
+    const mealsFactor: Factor =
+      riskScore >= 70
+        ? { id: 'meals', icon: '🍽️', label: 'Meal Timing', value: 'Needs work', color: '#FF3B30', score: 75 }
+        : riskScore >= 35
+          ? { id: 'meals', icon: '🍽️', label: 'Meal Timing', value: 'Okay', color: '#FF9500', score: 50 }
+          : { id: 'meals', icon: '🍽️', label: 'Meal Timing', value: 'Good', color: '#34C759', score: 25 }
+
+    return [sleepFactor, circadianFactor, stressFactor, mealsFactor]
+  }, [shiftRhythmData, riskScore])
 
   const tabs = [
     { id: 'overview', label: 'Overview' },

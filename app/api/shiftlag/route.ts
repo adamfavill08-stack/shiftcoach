@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
     const today = new Date().toISOString().slice(0, 10)
     const sevenDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000)
     const fourteenDaysAgo = new Date(Date.now() - 13 * 24 * 60 * 60 * 1000)
+    const sevenDaysAhead = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     // Fetch one extra day to avoid clipping overnight sessions at boundaries.
     const sleepFetchStart = new Date(sevenDaysAgo)
     sleepFetchStart.setDate(sleepFetchStart.getDate() - 1)
@@ -146,21 +147,23 @@ export async function GET(req: NextRequest) {
       return !(log.type === 'sleep' || (log.naps === 0 || !log.naps))
     })
 
-    // Fetch last 14 days of shifts (same table as calendar uses)
+    // Fetch shifts across a rolling window around "today".
+    // Shift workers often have most rota data ahead of today, so include
+    // upcoming shifts to avoid under-reading misalignment/instability.
     let shiftDays: any[] = []
     const shiftResult = await supabase
       .from('shifts')
       .select('date, label, start_ts, end_ts, status')
       .eq('user_id', userId)
       .gte('date', fourteenDaysAgo.toISOString().slice(0, 10))
-      .lte('date', today)
+      .lte('date', sevenDaysAhead.toISOString().slice(0, 10))
       .order('date', { ascending: true })
 
     if (shiftResult.error && !shiftResult.error.message?.includes('relation')) {
       console.error('[api/shiftlag] shift query error:', shiftResult.error)
     } else if (shiftResult.data) {
       shiftDays = shiftResult.data
-      console.log('[api/shiftlag] Fetched shifts:', shiftDays.length, 'shifts from calendar')
+      console.log('[api/shiftlag] Fetched shifts:', shiftDays.length, 'shifts from calendar window')
     }
 
     // Fallback midpoint derived from recent sleep sessions when circadian logs are missing.

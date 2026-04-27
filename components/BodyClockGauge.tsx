@@ -19,6 +19,22 @@ const INNER_RADIUS = 60
 const NEEDLE_LENGTH = 70
 const CENTER_RADIUS = 6
 
+function polarToCartesian(cx: number, cy: number, radius: number, angleDeg: number) {
+  const angleRad = (angleDeg * Math.PI) / 180
+  return {
+    x: cx + radius * Math.cos(angleRad),
+    y: cy + radius * Math.sin(angleRad),
+  }
+}
+
+function describeArc(cx: number, cy: number, radius: number, startAngle: number, endAngle: number) {
+  const start = polarToCartesian(cx, cy, radius, startAngle)
+  const end = polarToCartesian(cx, cy, radius, endAngle)
+  const delta = ((endAngle - startAngle) % 360 + 360) % 360
+  const largeArcFlag = delta > 180 ? 1 : 0
+  return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`
+}
+
 export function BodyClockGauge({ 
   value, 
   className,
@@ -68,13 +84,21 @@ export function BodyClockGauge({
     return { x1, y1, x2, y2 }
   })
   
-  // Needle coordinates (pointing upward initially, will be rotated)
-  const needleTipX = CENTER_X
-  const needleTipY = CENTER_Y - NEEDLE_LENGTH
-  const needleBaseLeftX = CENTER_X - 4
-  const needleBaseLeftY = CENTER_Y - NEEDLE_LENGTH + 12
-  const needleBaseRightX = CENTER_X + 4
-  const needleBaseRightY = CENTER_Y - NEEDLE_LENGTH + 12
+  // Build fixed zone arcs as continuous single paths to avoid gradient wrap seams.
+  const zoneOverlapDeg = 0.6
+  const spanDeg = endAngle - startAngle
+  const pctToAngle = (pct: number) => startAngle + (spanDeg * pct) / 100
+
+  const zoneLowStart = startAngle
+  const zoneLowEnd = pctToAngle(33) + zoneOverlapDeg
+  const zoneMedStart = pctToAngle(33) - zoneOverlapDeg
+  const zoneMedEnd = pctToAngle(66) + zoneOverlapDeg
+  const zoneHighStart = pctToAngle(66) - zoneOverlapDeg
+  const zoneHighEnd = endAngle
+
+  const lowZonePath = describeArc(CENTER_X, CENTER_Y, OUTER_RADIUS, zoneLowStart, zoneLowEnd)
+  const medZonePath = describeArc(CENTER_X, CENTER_Y, OUTER_RADIUS, zoneMedStart, zoneMedEnd)
+  const highZonePath = describeArc(CENTER_X, CENTER_Y, OUTER_RADIUS, zoneHighStart, zoneHighEnd)
   
   return (
     <div className={cn("relative w-[280px] h-[280px] select-none flex flex-col items-center", className)}>
@@ -85,15 +109,6 @@ export function BodyClockGauge({
         className="overflow-visible"
       >
         <defs>
-          {/* Outer arc gradient: green → yellow → orange → red → blue */}
-          <linearGradient id="outerGaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#22C55E" /> {/* Green */}
-            <stop offset="25%" stopColor="#FCD34D" /> {/* Yellow */}
-            <stop offset="50%" stopColor="#F97316" /> {/* Orange */}
-            <stop offset="75%" stopColor="#EF4444" /> {/* Red */}
-            <stop offset="100%" stopColor="#3B82F6" /> {/* Blue */}
-          </linearGradient>
-          
           {/* Inner arc gradient: blue → purple */}
           <linearGradient id="innerGaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#3B82F6" /> {/* Blue */}
@@ -112,15 +127,20 @@ export function BodyClockGauge({
           </filter>
         </defs>
         
-        {/* Outer arc (main gauge) */}
+        {/* Outer track */}
         <path
           d={outerArcPath}
           fill="none"
-          stroke="url(#outerGaugeGradient)"
+          stroke="#E5E7EB"
           strokeWidth="16"
-          strokeLinecap="round"
+          strokeLinecap="butt"
           filter="url(#gaugeShadow)"
         />
+
+        {/* Outer zones (single continuous path per zone; no split red segment) */}
+        <path d={lowZonePath} fill="none" stroke="#22C55E" strokeWidth="16" strokeLinecap="butt" />
+        <path d={medZonePath} fill="none" stroke="#F59E0B" strokeWidth="16" strokeLinecap="butt" />
+        <path d={highZonePath} fill="none" stroke="#EF4444" strokeWidth="16" strokeLinecap="butt" />
         
         {/* Inner arc (sub-gauge) */}
         <path
