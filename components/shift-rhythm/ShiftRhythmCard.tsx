@@ -558,6 +558,28 @@ function HomeAdjustedCaloriesCard() {
   );
 }
 
+function formatFatigueClockHour(value: number): string {
+  const normalized = ((value % 24) + 24) % 24;
+  const hh = Math.floor(normalized);
+  const mm = Math.round((normalized - hh) * 60);
+  if (mm === 60) {
+    return `${String((hh + 1) % 24).padStart(2, "0")}:00`;
+  }
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
+function fatigueHoursUntil(fromHour: number, toHour: number): number {
+  const delta = (((toHour % 24) - (fromHour % 24) + 24) % 24);
+  return delta === 0 ? 24 : delta;
+}
+
+function fatigueTrackMarkerColor(progressPct: number): string {
+  const p = Math.max(0, Math.min(100, progressPct));
+  if (p < 33) return "#6EE7B7";
+  if (p < 60) return "#A3E635";
+  return "#FB923C";
+}
+
 function HomeFatigueRiskCard({
   sleepDeficit,
   fatigueRisk,
@@ -571,7 +593,20 @@ function HomeFatigueRiskCard({
   fatigueRisk?: FatigueRiskResult | null;
   circadian?: CircadianOutput | null;
 }) {
+  const [nowDate, setNowDate] = useState(() => new Date());
   const [circadianFatigueFromCache, setCircadianFatigueFromCache] = useState<number | null>(null);
+  const [circadianRiskWindow, setCircadianRiskWindow] = useState<{
+    nextTroughHour?: number;
+    misalignmentHours?: number;
+    alignmentScore?: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setNowDate(new Date());
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -582,8 +617,18 @@ function HomeFatigueRiskCard({
         if (!token) return;
         const circadianData = await getCircadianData(token);
         if (!active) return;
-        if (circadianData && typeof circadianData.fatigueScore === "number") {
-          setCircadianFatigueFromCache(Math.max(0, Math.min(100, Math.round(circadianData.fatigueScore))));
+        if (circadianData) {
+          if (typeof circadianData.fatigueScore === "number") {
+            setCircadianFatigueFromCache(Math.max(0, Math.min(100, Math.round(circadianData.fatigueScore))));
+          }
+          setCircadianRiskWindow({
+            nextTroughHour:
+              typeof circadianData.nextTroughHour === "number" ? circadianData.nextTroughHour : undefined,
+            misalignmentHours:
+              typeof circadianData.misalignmentHours === "number" ? circadianData.misalignmentHours : undefined,
+            alignmentScore:
+              typeof circadianData.alignmentScore === "number" ? circadianData.alignmentScore : undefined,
+          });
         }
       } catch {
         // Keep existing fallback path if circadian cache fetch fails.
@@ -614,11 +659,31 @@ function HomeFatigueRiskCard({
     typeof circadian?.fatigueScore === "number"
       ? Math.max(0, Math.min(100, Math.round(circadian.fatigueScore)))
       : null;
-  const score100 = circadianFatigueFromCache ?? circadianFatigueScore ?? fatigueRisk?.score ?? fallbackScore;
-  const scoreDisplay = Math.max(0, Math.min(100, Math.round(score100)));
-  const markerLeft = `${Math.max(3, Math.min(97, score100))}%`;
-
-  const levelRaw = score100 >= 65 ? "high" : score100 < 30 ? "low" : "moderate";
+  const fatigueScore = circadianFatigueFromCache ?? circadianFatigueScore ?? fatigueRisk?.score ?? fallbackScore;
+  const nowHourFloat = nowDate.getHours() + nowDate.getMinutes() / 60;
+  const derivedMisalignmentHours =
+    typeof circadianRiskWindow?.misalignmentHours === "number"
+      ? circadianRiskWindow.misalignmentHours
+      : typeof circadianRiskWindow?.alignmentScore === "number"
+        ? Math.max(0, Math.min(9, Math.round(((100 - circadianRiskWindow.alignmentScore) / 11) * 10) / 10))
+        : null;
+  const fallbackNextTrough =
+    derivedMisalignmentHours == null
+      ? null
+      : nowHourFloat - derivedMisalignmentHours < 3.5
+        ? 3.5 + derivedMisalignmentHours
+        : 27.5 + derivedMisalignmentHours;
+  const nextHighFatigueHour = circadianRiskWindow?.nextTroughHour ?? fallbackNextTrough;
+  const nextHighFatigueLabel =
+    nextHighFatigueHour == null ? null : formatFatigueClockHour(nextHighFatigueHour);
+  const hoursToHighFatigue =
+    nextHighFatigueHour == null ? null : fatigueHoursUntil(nowHourFloat, nextHighFatigueHour);
+  const timeProgress =
+    hoursToHighFatigue == null ? fatigueScore / 100 : 1 - Math.min(24, hoursToHighFatigue) / 24;
+  const windowProgressScore = Math.round(timeProgress * 100);
+  const scoreForCard = nextHighFatigueHour == null ? fatigueScore : windowProgressScore;
+  const scoreDisplay = Math.max(0, Math.min(100, Math.round(scoreForCard)));
+  const levelRaw = scoreForCard >= 65 ? "high" : scoreForCard < 30 ? "low" : "moderate";
   const level = levelRaw === "high" ? "High" : levelRaw === "low" ? "Low" : "Moderate";
   const badgeClass =
     level === "High"
@@ -626,8 +691,13 @@ function HomeFatigueRiskCard({
       : level === "Low"
         ? "bg-emerald-100 text-emerald-800"
         : "bg-emerald-100/80 text-slate-700";
-  const markerFill = riskScaleBarMarkerFill(score100);
-  const subtitle = formatFatigueSummary({ score: score100, fatigueRisk });
+  const subtitle =
+    nextHighFatigueLabel != null && hoursToHighFatigue != null
+      ? `High-risk window around ${nextHighFatigueLabel} (${Math.floor(hoursToHighFatigue)}h ${Math.round((hoursToHighFatigue % 1) * 60)}m)`
+      : formatFatigueSummary({ score: fatigueScore, fatigueRisk });
+  const markerProgressPct = Math.max(3, Math.min(97, Math.round(timeProgress * 100)));
+  const markerLeft = `${markerProgressPct}%`;
+  const markerFill = fatigueTrackMarkerColor(markerProgressPct);
 
   return (
     <Link
@@ -642,7 +712,9 @@ function HomeFatigueRiskCard({
       <div className="mt-3 grid grid-cols-[1fr_1.05fr] items-end gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className={`text-[42px] font-semibold leading-none text-slate-800 ${inter.className}`}>{scoreDisplay}</span>
+            <span className={`text-[42px] font-semibold leading-none text-slate-800 tabular-nums ${inter.className}`}>
+              {scoreDisplay}
+            </span>
             <span className={`rounded-full px-2.5 py-1 text-sm font-semibold leading-none ${badgeClass} ${inter.className}`}>
               {level}
             </span>

@@ -466,6 +466,25 @@ const messages: Record<string, string> = {
     'detail.fatigueRisk.liveEstimate': 'Estimación en vivo',
     'detail.fatigueRisk.curveFootnote':
       'El riesgo es menor tras un sueño de recuperación alineado y sube en la noche biológica tardía.',
+    'detail.fatigueRisk.whyTitle': '¿Por qué a esta hora?',
+    'detail.fatigueRisk.whySubtitle': 'Según tu cuadrante y ritmo',
+    'detail.fatigueRisk.whyNoWindow':
+      'Sigue registrando sueño y turnos para mostrar cuándo pegará más fuerte la fatiga en días como este.',
+    'detail.fatigueRisk.whyNightsYesterday':
+      'Tu cuadrante muestra noches anoche. El trabajo nocturno retrasa el reloj biológico, así que el mayor bajón de alerta hoy suele coincidir hacia las {time}. En esa franja, más riesgo para concentrarte y para la seguridad.',
+    'detail.fatigueRisk.whyNightsToday':
+      'Hoy tienes noches en el cuadrante. Al cruzar el valle circadiano, {time} es una ventana de más riesgo: protege el sueño antes y después del turno si puedes.',
+    'detail.fatigueRisk.whyEarlyLateYesterday':
+      'Ayer en el cuadrante fue {shiftDesc}, lo que desplaza dónde cae tu valle circadiano. Por eso el pico de fatiga hoy se agrupa hacia las {time}.',
+    'detail.fatigueRisk.whyNightsFromSignals':
+      'Tus señales de fatiga siguen mostrando carga de turno nocturno, así que el bajón más fuerte hoy es hacia las {time}.',
+    'detail.fatigueRisk.whyDefault':
+      'Según tu sueño, turnos y patrón circadiano, la ventana de mayor riesgo de fatiga hoy es hacia las {time}.',
+    'detail.fatigueRisk.whySleepDebt':
+      ' Además llevas unos {hours}h de deuda de sueño, lo que acentúa ese bajón.',
+    'detail.fatigueRisk.whyDriverFollow': ' Señal más fuerte en tus datos: {driver}',
+    'detail.fatigueRisk.shiftEarlyDesc': 'un turno con entrada temprana',
+    'detail.fatigueRisk.shiftLateDesc': 'un turno con salida tardía',
     'detail.fatigueRisk.driversTitle': 'Qué impulsa tu riesgo',
     'detail.fatigueRisk.driversIntro':
       'Toca un factor para ampliar. Ordenados por impacto en tu puntuación.',

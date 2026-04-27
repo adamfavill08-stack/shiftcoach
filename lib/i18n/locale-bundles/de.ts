@@ -466,6 +466,25 @@ const messages: Record<string, string> = {
     'detail.fatigueRisk.liveEstimate': 'Live-Schätzung',
     'detail.fatigueRisk.curveFootnote':
       'Das Risiko ist nach erholsamem Schlaf am niedrigsten und steigt in späten biologischen Nachtstunden.',
+    'detail.fatigueRisk.whyTitle': 'Warum zu dieser Zeit?',
+    'detail.fatigueRisk.whySubtitle': 'Aus Dienstplan und Rhythmus',
+    'detail.fatigueRisk.whyNoWindow':
+      'Trag weiter Schlaf und Schichten ein, damit wir zeigen können, wann die Müdigkeit heute am stärksten wird.',
+    'detail.fatigueRisk.whyNightsYesterday':
+      'Im Dienstplan stand gestern Nachtdienst. Nachtarbeit verschiebt die innere Uhr – deshalb fällt der stärkste Müdigkeitstiefpunkt heute oft um {time}. In dem Fenster ist Konzentration und Sicherheit riskanter.',
+    'detail.fatigueRisk.whyNightsToday':
+      'Heute steht Nachtschicht im Plan. Beim biologischen Tief ist {time} ein riskantes Fenster – schütze Schlaf vor und nach der Schicht, wo es geht.',
+    'detail.fatigueRisk.whyEarlyLateYesterday':
+      'Gestern war im Plan {shiftDesc}, dadurch verschiebt sich, wo dein circadianes Tief liegt. Deshalb bündelt sich die Müdigkeit heute um {time}.',
+    'detail.fatigueRisk.whyNightsFromSignals':
+      'Deine Fatigue-Signale zeigen weiter Nachtschicht-Belastung – deshalb liegt das stärkste Tief heute um {time}.',
+    'detail.fatigueRisk.whyDefault':
+      'Aus Schlaf, Schichten und circadianem Muster ergibt sich heute das höchste Ermüdungsrisiko um {time}.',
+    'detail.fatigueRisk.whySleepDebt':
+      ' Zusätzlich hast du etwa {hours}h Schlafschuld, was das Tief verstärkt.',
+    'detail.fatigueRisk.whyDriverFollow': ' Stärkstes Signal in deinen Daten: {driver}',
+    'detail.fatigueRisk.shiftEarlyDesc': 'eine Frühschicht',
+    'detail.fatigueRisk.shiftLateDesc': 'eine Spätschicht',
     'detail.fatigueRisk.driversTitle': 'Was dein Risiko treibt',
     'detail.fatigueRisk.driversIntro':
       'Tippe auf einen Faktor für Details. Sortiert nach Einfluss auf deinen Score.',

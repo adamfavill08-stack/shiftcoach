@@ -468,6 +468,25 @@ const messages: Record<string, string> = {
     'detail.fatigueRisk.liveEstimate': 'Live estimate',
     'detail.fatigueRisk.curveFootnote':
       'Risk is lowest after aligned recovery sleep and rises into late biological-night hours.',
+    'detail.fatigueRisk.whyTitle': 'Why this time?',
+    'detail.fatigueRisk.whySubtitle': 'From your rota and rhythm',
+    'detail.fatigueRisk.whyNoWindow':
+      'Keep logging sleep and shifts so we can show when fatigue will hit hardest on days like this.',
+    'detail.fatigueRisk.whyNightsYesterday':
+      'Your rota shows nights last night. Night work delays your body clock, so the sharpest fatigue dip today lines up around {time}. Treat that window as higher risk for focus and safety.',
+    'detail.fatigueRisk.whyNightsToday':
+      'Your rota has nights today. Crossing the biological low means {time} is a risky window for alertness—protect sleep before and after the shift where you can.',
+    'detail.fatigueRisk.whyEarlyLateYesterday':
+      'Yesterday on your rota was {shiftDesc}, which shifts where your circadian low lands. That is why the main fatigue peak today clusters around {time}.',
+    'detail.fatigueRisk.whyNightsFromSignals':
+      'Your fatigue signals still show night-shift load in the mix, so the sharpest dip today is around {time}.',
+    'detail.fatigueRisk.whyDefault':
+      'Based on your sleep, shifts, and circadian pattern, the highest-risk fatigue window today is around {time}.',
+    'detail.fatigueRisk.whySleepDebt':
+      ' You are also carrying about {hours}h sleep debt, which deepens that dip.',
+    'detail.fatigueRisk.whyDriverFollow': ' Strongest signal in your data: {driver}',
+    'detail.fatigueRisk.shiftEarlyDesc': 'an early start',
+    'detail.fatigueRisk.shiftLateDesc': 'a late finish',
     'detail.fatigueRisk.driversTitle': "What's driving your risk",
     'detail.fatigueRisk.driversIntro': 'Tap a factor to expand. Shown in order of impact on your score.',
     'detail.fatigueRisk.driverExpandAria': 'Show more about this factor',

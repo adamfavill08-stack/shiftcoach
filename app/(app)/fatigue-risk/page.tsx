@@ -8,20 +8,36 @@ import { useTranslation } from '@/components/providers/language-provider'
 import { authedFetch } from '@/lib/supabase/authedFetch'
 import { supabase } from '@/lib/supabase'
 import { BodyClockMotivationCard } from '@/components/body-clock/BodyClockMotivationCard'
-import { fatigueWindowBarMarkerFill } from '@/lib/riskScaleBarMarker'
 import { formatFatigueSummary } from '@/lib/fatigue/formatFatigueSummary'
 import { getCircadianData } from '@/lib/circadian/circadianCache'
+import { isoLocalDate } from '@/lib/shifts'
+
+function formatClockHour(value: number): string {
+  const normalized = ((value % 24) + 24) % 24
+  const hh = Math.floor(normalized)
+  const mm = Math.round((normalized - hh) * 60)
+  if (mm === 60) {
+    return `${String((hh + 1) % 24).padStart(2, '0')}:00`
+  }
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
+}
+
+function hoursUntil(fromHour: number, toHour: number): number {
+  const delta = (((toHour % 24) - (fromHour % 24) + 24) % 24)
+  return delta === 0 ? 24 : delta
+}
+
+function fatigueTrackColorAt(progressPct: number): string {
+  const p = Math.max(0, Math.min(100, progressPct))
+  if (p < 33) return '#6EE7B7' // emerald-300
+  if (p < 60) return '#A3E635' // lime-400
+  return '#FB923C' // orange-400
+}
 
 function fatigueRiskLevelKey(level: string): string {
   if (level === 'high') return 'detail.fatigueRisk.levelHigh'
   if (level === 'moderate') return 'detail.fatigueRisk.levelModerate'
   return 'detail.fatigueRisk.levelLow'
-}
-
-function fatigueRiskConfidenceKey(label: string | undefined): string {
-  if (label === 'high') return 'detail.fatigueRisk.confidenceHigh'
-  if (label === 'medium') return 'detail.fatigueRisk.confidenceMedium'
-  return 'detail.fatigueRisk.confidenceLow'
 }
 
 function categorizeFatigueDriver(text: string): 'sleep' | 'circadian' | 'shift' | 'timing' | 'physiology' | 'general' {
@@ -39,6 +55,16 @@ export default function FatigueRiskPage() {
   const { fatigueRisk, sleepDeficit, loading } = useShiftRhythm()
   const [displayName, setDisplayName] = useState<string | null>(null)
   const [circadianFatigueFromCache, setCircadianFatigueFromCache] = useState<number | null>(null)
+  const [rotaContext, setRotaContext] = useState<{ yesterday: string | null; today: string | null }>({
+    yesterday: null,
+    today: null,
+  })
+  const [circadianWindowData, setCircadianWindowData] = useState<{
+    nextTroughHour?: number
+    misalignmentHours?: number
+    alignmentScore?: number
+  } | null>(null)
+  const [nowDate, setNowDate] = useState<Date>(() => new Date())
 
   useEffect(() => {
     let cancelled = false
@@ -63,6 +89,50 @@ export default function FatigueRiskPage() {
 
   useEffect(() => {
     let active = true
+    const loadRotaWindow = async () => {
+      try {
+        const now = new Date()
+        const todayStr = isoLocalDate(now)
+        const y = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
+        const yesterdayStr = isoLocalDate(y)
+        const res = await authedFetch(`/api/shifts?from=${yesterdayStr}&to=${todayStr}`, { cache: 'no-store' })
+        if (!res.ok || !active) return
+        const json = (await res.json().catch(() => ({}))) as {
+          items?: Array<{ date: string; shift_label: string }>
+        }
+        const items = json.items ?? []
+        const yShift = items.find((r) => r.date === yesterdayStr)?.shift_label ?? null
+        const tShift = items.find((r) => r.date === todayStr)?.shift_label ?? null
+        if (!active) return
+        setRotaContext({ yesterday: yShift, today: tShift })
+      } catch {
+        /* ignore */
+      }
+    }
+
+    void loadRotaWindow()
+    const onRefresh = () => {
+      void loadRotaWindow()
+    }
+    window.addEventListener('rota-saved', onRefresh)
+    window.addEventListener('rota-cleared', onRefresh)
+
+    return () => {
+      active = false
+      window.removeEventListener('rota-saved', onRefresh)
+      window.removeEventListener('rota-cleared', onRefresh)
+    }
+  }, [])
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setNowDate(new Date())
+    }, 60_000)
+    return () => window.clearInterval(id)
+  }, [])
+
+  useEffect(() => {
+    let active = true
     const loadCircadianFatigue = async () => {
       try {
         const { data: auth } = await supabase.auth.getSession()
@@ -70,8 +140,18 @@ export default function FatigueRiskPage() {
         if (!token) return
         const circadianData = await getCircadianData(token)
         if (!active) return
-        if (circadianData && typeof circadianData.fatigueScore === 'number') {
-          setCircadianFatigueFromCache(Math.max(0, Math.min(100, Math.round(circadianData.fatigueScore))))
+        if (circadianData) {
+          if (typeof circadianData.fatigueScore === 'number') {
+            setCircadianFatigueFromCache(Math.max(0, Math.min(100, Math.round(circadianData.fatigueScore))))
+          }
+          setCircadianWindowData({
+            nextTroughHour:
+              typeof circadianData.nextTroughHour === 'number' ? circadianData.nextTroughHour : undefined,
+            misalignmentHours:
+              typeof circadianData.misalignmentHours === 'number' ? circadianData.misalignmentHours : undefined,
+            alignmentScore:
+              typeof circadianData.alignmentScore === 'number' ? circadianData.alignmentScore : undefined,
+          })
         }
       } catch {
         // Keep fallback sources when circadian cache fetch fails.
@@ -100,46 +180,70 @@ export default function FatigueRiskPage() {
     22,
     Math.min(78, Math.round((fallbackCategory === 'high' ? 68 : fallbackCategory === 'low' ? 28 : 48) + Math.min(14, debtHours * 1.2))),
   )
-  const score = circadianFatigueFromCache ?? fatigueRisk?.score ?? fallbackScore
-  const scoreDisplay = Math.max(0, Math.min(100, Math.round(score)))
-  const levelRaw = score >= 65 ? 'high' : score < 30 ? 'low' : 'moderate'
+  const fatigueScore = circadianFatigueFromCache ?? fatigueRisk?.score ?? fallbackScore
+  const explanation = formatFatigueSummary({ score: fatigueScore, fatigueRisk })
+
+  const nowHourFloat = nowDate.getHours() + nowDate.getMinutes() / 60
+  const derivedMisalignment =
+    typeof circadianWindowData?.misalignmentHours === 'number'
+      ? circadianWindowData.misalignmentHours
+      : typeof circadianWindowData?.alignmentScore === 'number'
+        ? Math.max(0, Math.min(9, Math.round(((100 - circadianWindowData.alignmentScore) / 11) * 10) / 10))
+        : null
+  const fallbackNextTrough =
+    derivedMisalignment == null
+      ? null
+      : nowHourFloat - derivedMisalignment < 3.5
+        ? 3.5 + derivedMisalignment
+        : 27.5 + derivedMisalignment
+  const nextHighFatigueHour = circadianWindowData?.nextTroughHour ?? fallbackNextTrough
+  const nextHighFatigueLabel = nextHighFatigueHour == null ? null : formatClockHour(nextHighFatigueHour)
+  const hoursToHighFatigue = nextHighFatigueHour == null ? null : hoursUntil(nowHourFloat, nextHighFatigueHour)
+  const timeProgress = hoursToHighFatigue == null ? fatigueScore / 100 : 1 - Math.min(24, hoursToHighFatigue) / 24
+  const windowProgressScore = Math.round(timeProgress * 100)
+  const scoreForCard = nextHighFatigueHour == null ? fatigueScore : windowProgressScore
+  const scoreDisplay = Math.max(0, Math.min(100, Math.round(scoreForCard)))
+  const levelRaw = scoreForCard >= 65 ? 'high' : scoreForCard < 30 ? 'low' : 'moderate'
   const level = t(fatigueRiskLevelKey(levelRaw))
-  const confidenceChip = `${t(fatigueRiskConfidenceKey(fatigueRisk?.confidenceLabel))} ${t('detail.fatigueRisk.confidenceSuffix')}`
-  const explanation = formatFatigueSummary({ score, fatigueRisk })
-  const timeline = useMemo(() => {
-    const base = Math.max(12, Math.min(92, score))
-    const confidenceBoost = fatigueRisk?.confidenceLabel === 'high' ? 4 : fatigueRisk?.confidenceLabel === 'low' ? -3 : 0
-    const highShift = levelRaw === 'high' ? 8 : levelRaw === 'moderate' ? 3 : -4
-    const clamp = (n: number) => Math.max(8, Math.min(96, Math.round(n)))
-    return [
-      { time: '06:00', value: clamp(base - 16 + highShift) },
-      { time: '10:00', value: clamp(base - 28 + confidenceBoost) },
-      { time: '14:00', value: clamp(base - 22) },
-      { time: '18:00', value: clamp(base - 8 + confidenceBoost) },
-      { time: '22:00', value: clamp(base + 4 + highShift) },
-      { time: '03:00', value: clamp(base + 14 + highShift) },
-    ]
-  }, [score, fatigueRisk?.confidenceLabel, levelRaw])
-
-  const getRiskColor = (value: number) => {
-    if (value < 35) return 'bg-emerald-400'
-    if (value < 60) return 'bg-lime-400'
-    if (value < 75) return 'bg-amber-400'
-    return 'bg-orange-500'
-  }
-
-  const nowHour = new Date().getHours()
-  const currentPoint = useMemo(() => {
-    if (nowHour >= 4 && nowHour < 8) return timeline[0]
-    if (nowHour >= 8 && nowHour < 12) return timeline[1]
-    if (nowHour >= 12 && nowHour < 16) return timeline[2]
-    if (nowHour >= 16 && nowHour < 20) return timeline[3]
-    if (nowHour >= 20 || nowHour < 1) return timeline[4]
-    return timeline[5]
-  }, [nowHour, timeline])
   const scoreLabel = useMemo(() => (loading ? '...' : String(scoreDisplay)), [loading, scoreDisplay])
-  const markerLeft = `${Math.max(3, Math.min(97, score))}%`
-  const windowMarkerFill = fatigueWindowBarMarkerFill(score)
+  const markerProgressPct = Math.max(3, Math.min(97, Math.round(timeProgress * 100)))
+  const markerLeft = `${markerProgressPct}%`
+  const windowMarkerFill = fatigueTrackColorAt(markerProgressPct)
+  const nowClockLabel = formatClockHour(nowHourFloat)
+
+  const whyHighFatigueParagraph = useMemo(() => {
+    if (!nextHighFatigueLabel) {
+      return t('detail.fatigueRisk.whyNoWindow')
+    }
+    const y = rotaContext.yesterday
+    const todayS = rotaContext.today
+    const d0 = fatigueRisk?.drivers?.[0]?.trim()
+    let main: string
+
+    if (y === 'NIGHT') {
+      main = t('detail.fatigueRisk.whyNightsYesterday', { time: nextHighFatigueLabel })
+    } else if (todayS === 'NIGHT' && y !== 'NIGHT') {
+      main = t('detail.fatigueRisk.whyNightsToday', { time: nextHighFatigueLabel })
+    } else if (y === 'EARLY' || y === 'LATE') {
+      const shiftDesc = y === 'EARLY' ? t('detail.fatigueRisk.shiftEarlyDesc') : t('detail.fatigueRisk.shiftLateDesc')
+      main = t('detail.fatigueRisk.whyEarlyLateYesterday', { time: nextHighFatigueLabel, shiftDesc })
+    } else if (d0 && /night|overnight|late.?to.?early|back.?to.?back|consecutive/i.test(d0)) {
+      main = t('detail.fatigueRisk.whyNightsFromSignals', { time: nextHighFatigueLabel })
+    } else {
+      main = t('detail.fatigueRisk.whyDefault', { time: nextHighFatigueLabel })
+    }
+
+    let follow = ''
+    if (debtHours >= 1.5) {
+      const h = debtHours >= 10 ? String(Math.round(debtHours)) : debtHours.toFixed(1)
+      follow += t('detail.fatigueRisk.whySleepDebt', { hours: h })
+    }
+    if (d0 && y !== 'NIGHT') {
+      const short = d0.length > 160 ? `${d0.slice(0, 157)}…` : d0
+      follow += t('detail.fatigueRisk.whyDriverFollow', { driver: short })
+    }
+    return (main + follow).trim()
+  }, [nextHighFatigueLabel, rotaContext.yesterday, rotaContext.today, debtHours, fatigueRisk?.drivers, t])
 
   const fatigueMotivationMessage = useMemo(() => {
     const prefix = displayName ? `${displayName}, ` : ''
@@ -153,27 +257,21 @@ export default function FatigueRiskPage() {
       return t('detail.fatigueRisk.motivationLoading', { prefix })
     }
 
-    const timelineIdx = timeline.findIndex((p) => p.time === currentPoint.time)
-    let laterBars = timelineIdx >= 0 ? timeline.slice(timelineIdx + 1) : []
-    if (timelineIdx === 5) {
-      laterBars = [timeline[0]]
-    }
-    const laterPeak =
-      laterBars.length > 0 ? Math.max(...laterBars.map((p) => p.value)) : currentPoint.value
-    const curveRises =
-      laterBars.length > 0 && laterPeak >= currentPoint.value + 8 && fatigueRisk.confidenceLabel !== 'low'
+    const hoursTo = hoursToHighFatigue
+    const windowSoon =
+      hoursTo != null && hoursTo <= 3 && fatigueRisk.confidenceLabel !== 'low'
 
     if (fatigueRisk.level === 'high') {
       return t('detail.fatigueRisk.motivationHigh', { prefix })
     }
     if (fatigueRisk.level === 'moderate') {
-      if (curveRises) {
+      if (windowSoon) {
         return t('detail.fatigueRisk.motivationCurveRise', { prefix })
       }
       return t('detail.fatigueRisk.motivationModerate', { prefix })
     }
 
-    if (curveRises) {
+    if (windowSoon) {
       return t('detail.fatigueRisk.motivationCurveRise', { prefix })
     }
     if (fatigueRisk.confidenceLabel === 'low') {
@@ -198,15 +296,7 @@ export default function FatigueRiskPage() {
       return t('detail.fatigueRisk.motivationDriverPhysiology', { prefix })
     }
     return t('detail.fatigueRisk.motivationLow', { prefix })
-  }, [
-    currentPoint.time,
-    currentPoint.value,
-    displayName,
-    fatigueRisk,
-    loading,
-    t,
-    timeline,
-  ])
+  }, [displayName, fatigueRisk, hoursToHighFatigue, loading, t])
 
   const levelBadgeClass =
     levelRaw === 'high'
@@ -233,24 +323,19 @@ export default function FatigueRiskPage() {
 
         <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--card)] p-5 shadow-none">
           <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="flex items-end gap-3">
-                <p className="text-5xl font-semibold tabular-nums tracking-tight text-[var(--text-main)]">{scoreLabel}</p>
-                <span className={`mb-1 rounded-full px-3 py-1 text-sm font-medium ${levelBadgeClass}`}>
-                  {level}
-                </span>
-              </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-5xl font-semibold tabular-nums tracking-tight text-[var(--text-main)]">{scoreLabel}</p>
               <p className="mt-3 max-w-[28ch] text-sm leading-6 text-[var(--text-soft)]">{explanation}</p>
             </div>
-            <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-soft)]">
-              {confidenceChip}
-            </div>
+            <span className={`shrink-0 rounded-full px-3 py-1 text-sm font-medium ${levelBadgeClass}`}>
+              {level}
+            </span>
           </div>
 
           <div className="mt-6">
             <div className="mb-3 flex items-center justify-between text-xs text-[var(--text-muted)]">
               <span>{t('detail.fatigueRisk.currentWindow')}</span>
-              <span>{currentPoint.time}</span>
+              <span>{nextHighFatigueLabel ? `High around ${nextHighFatigueLabel}` : nowClockLabel}</span>
             </div>
             {/* Marker sits outside overflow-hidden so it is not clipped to the thin track */}
             <div className="relative w-full pt-2 pb-2">
@@ -265,31 +350,17 @@ export default function FatigueRiskPage() {
             </div>
             <div className="mt-1 flex items-center justify-between text-xs text-[var(--text-muted)]">
               <span>{t('detail.fatigueRisk.axisLow')}</span>
-              <span>{t('detail.fatigueRisk.axisHigh')}</span>
+              <span>{nextHighFatigueLabel ?? t('detail.fatigueRisk.axisHigh')}</span>
             </div>
           </div>
         </div>
 
         <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--card)] p-5 shadow-none">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-[var(--text-main)]">
-              {t('detail.fatigueRisk.todayCurve')}
-            </h2>
-            <span className="text-xs text-[var(--text-muted)]">{t('detail.fatigueRisk.liveEstimate')}</span>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-[var(--text-main)]">{t('detail.fatigueRisk.whyTitle')}</h2>
+            <span className="shrink-0 text-xs text-[var(--text-muted)]">{t('detail.fatigueRisk.whySubtitle')}</span>
           </div>
-
-          <div className="mt-5 flex h-40 items-end gap-3">
-            {timeline.map((point) => (
-              <div key={point.time} className="flex flex-1 flex-col items-center justify-end gap-2">
-                <div className="flex h-28 w-full items-end">
-                  <div className={`w-full rounded-t-2xl ${getRiskColor(point.value)}`} style={{ height: `${point.value}%` }} />
-                </div>
-                <span className="text-[11px] text-[var(--text-muted)]">{point.time}</span>
-              </div>
-            ))}
-          </div>
-
-          <p className="mt-4 text-sm leading-6 text-[var(--text-soft)]">{t('detail.fatigueRisk.curveFootnote')}</p>
+          <p className="mt-4 text-sm leading-relaxed text-[var(--text-soft)]">{whyHighFatigueParagraph}</p>
         </div>
 
         <BodyClockMotivationCard message={fatigueMotivationMessage} />

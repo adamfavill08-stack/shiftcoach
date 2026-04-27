@@ -357,13 +357,14 @@ function ringMarkerLabelSeparators(bodyAngleDeg: number, nowAngleDeg: number): {
 }
 
 function RingMarker({
-  angle, color, label, time, labelOffset,
+  angle, color, label, time, labelOffset, showLabel = true,
 }: {
   angle: number
   color: string
   label: string
   time: string
   labelOffset?: { x: number; y: number }
+  showLabel?: boolean
 }) {
   const lineStart = toXY(angle, R_IN  - 16)
   const lineEnd   = toXY(angle, R_OUT + 16)
@@ -375,7 +376,7 @@ function RingMarker({
   const lx = lPos.x + ox
   const ly = lPos.y + oy
   /** Rounded label bubble — centered on lPos so label + time sit in the middle */
-  const bubbleW = RING_LABEL_BUBBLE_W
+  const bubbleW = Math.max(RING_LABEL_BUBBLE_W, label.length * 6 + 16)
   const bubbleH = 28
   const bubbleMidY = ly + 1
   const bubbleY = bubbleMidY - bubbleH / 2
@@ -418,43 +419,47 @@ function RingMarker({
         stroke={isNow ? "rgba(15,23,42,0.45)" : "rgba(255,255,255,0.9)"}
         strokeWidth={0.9}
       />
-      <rect
-        x={bubbleX}
-        y={bubbleY}
-        width={bubbleW}
-        height={bubbleH}
-        rx={6}
-        ry={6}
-        fill="var(--card)"
-        stroke="var(--border-subtle)"
-        strokeWidth={1}
-        opacity={0.98}
-        filter="url(#circ_lbl_lift)"
-      />
-      <text
-        x={lx} y={ly - 5}
-        textAnchor="middle" dominantBaseline="middle"
-        fill={color} fontSize={9} fontFamily="Inter" fontWeight={700} letterSpacing={1.5}
-        stroke={isNow ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.75)"}
-        strokeWidth={isNow ? 0.4 : 0.35}
-        paintOrder="stroke fill"
-      >
-        {label}
-      </text>
-      <text
-        x={lx} y={ly + 7}
-        textAnchor="middle" dominantBaseline="middle"
-        fill="var(--text-main)"
-        fontSize={10}
-        fontFamily="Inter"
-        fontWeight={600}
-        style={{ fontVariantNumeric: 'tabular-nums' }}
-        stroke="var(--bg)"
-        strokeWidth={0.65}
-        paintOrder="stroke fill"
-      >
-        {time}
-      </text>
+      {showLabel ? (
+        <>
+          <rect
+            x={bubbleX}
+            y={bubbleY}
+            width={bubbleW}
+            height={bubbleH}
+            rx={6}
+            ry={6}
+            fill="var(--card)"
+            stroke="var(--border-subtle)"
+            strokeWidth={1}
+            opacity={0.98}
+            filter="url(#circ_lbl_lift)"
+          />
+          <text
+            x={lx} y={ly - 5}
+            textAnchor="middle" dominantBaseline="middle"
+            fill={color} fontSize={9} fontFamily="Inter" fontWeight={700} letterSpacing={1.5}
+            stroke={isNow ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.75)"}
+            strokeWidth={isNow ? 0.4 : 0.35}
+            paintOrder="stroke fill"
+          >
+            {label}
+          </text>
+          <text
+            x={lx} y={ly + 7}
+            textAnchor="middle" dominantBaseline="middle"
+            fill="var(--text-main)"
+            fontSize={10}
+            fontFamily="Inter"
+            fontWeight={600}
+            style={{ fontVariantNumeric: 'tabular-nums' }}
+            stroke="var(--bg)"
+            strokeWidth={0.65}
+            paintOrder="stroke fill"
+          >
+            {time}
+          </text>
+        </>
+      ) : null}
     </g>
   )
 }
@@ -568,6 +573,7 @@ export default function CircadianCard({
 
   const NOW_A  = hToAngle(CURRENT)
   const BODY_A = hToAngle(BODY)
+  const RISK_A = hToAngle(troughActual)
   const ringLabelSep = ringMarkerLabelSeparators(BODY_A, NOW_A)
 
   const rev = (d: number): React.CSSProperties => ({
@@ -639,6 +645,8 @@ export default function CircadianCard({
         @keyframes pulse_NOW { 0%,100%{opacity:1}         50%{opacity:.7}        }
         @keyframes halo_BODY { 0%,100%{opacity:.25;r:10px} 50%{opacity:0;r:20px} }
         @keyframes pulse_BODY{ 0%,100%{opacity:1}          50%{opacity:.65}       }
+        @keyframes halo_RISK { 0%,100%{opacity:.35;r:11px} 50%{opacity:0;r:21px} }
+        @keyframes pulse_RISK{ 0%,100%{opacity:1}          50%{opacity:.72}       }
         .circ-card { background: var(--card); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 16px 18px; }
         .circ-lbl  { font-size: 9px; letter-spacing: 2.4px; color: var(--text-muted); text-transform: uppercase; font-weight: 500; }
       `}</style>
@@ -787,6 +795,13 @@ export default function CircadianCard({
                 time={fmt(BODY)}
                 labelOffset={ringLabelSep.body}
               />
+              <RingMarker
+                angle={RISK_A}
+                color={COLOR_LOW}
+                label="HIGH RISK"
+                time={fmt(troughActual)}
+                showLabel
+              />
             </svg>
           </div>
 
@@ -813,6 +828,53 @@ export default function CircadianCard({
                 </div>
               ),
             )}
+          </div>
+
+          {/* Marker key — keep risk handle time aligned with Risk window card */}
+          <div
+            className={inter.className}
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 12,
+              marginTop: 8,
+              flexWrap: "wrap",
+            }}
+          >
+            {[
+              { label: "Now", time: fmt(CURRENT), color: "var(--accent-blue)" },
+              { label: "Body", time: fmt(BODY), color: bodyColor },
+              { label: "High risk", time: fmt(troughActual), color: COLOR_LOW },
+            ].map((item) => (
+              <div
+                key={item.label}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "4px 8px",
+                  borderRadius: 999,
+                  border: "1px solid var(--border-subtle)",
+                  background: "var(--card-subtle)",
+                }}
+              >
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: item.color,
+                    boxShadow: `0 0 0 1px ${item.color}`,
+                  }}
+                />
+                <span style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 600 }}>
+                  {item.label}
+                </span>
+                <span style={{ fontSize: 11, color: "var(--text-main)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                  {item.time}
+                </span>
+              </div>
+            ))}
           </div>
 
           {/* Ring caption */}

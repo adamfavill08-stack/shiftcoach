@@ -9,8 +9,6 @@ import { useTranslation } from "@/components/providers/language-provider"
 import { apiErrorMessageFromJson } from "@/lib/api/clientErrorMessage"
 import { authedFetch } from "@/lib/supabase/authedFetch"
 import { riskScaleBarMarkerFill } from "@/lib/riskScaleBarMarker"
-import { supabase } from "@/lib/supabase"
-import { getCircadianData } from "@/lib/circadian/circadianCache"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -73,16 +71,6 @@ export function ShiftLagCard({ compact = false }: ShiftLagCardProps) {
           sleepDebtScore: json.sleepDebtScore ?? 0,
           misalignmentScore: json.misalignmentScore ?? 0,
           instabilityScore: json.instabilityScore ?? 0,
-        }
-
-        // Keep ShiftLag score visually aligned with the Circadian Alignment score.
-        const { data: auth } = await supabase.auth.getSession()
-        const accessToken = auth.session?.access_token
-        if (accessToken) {
-          const circadian = await getCircadianData(accessToken)
-          if (circadian && typeof circadian.alignmentScore === "number") {
-            nextData.score = Math.max(0, Math.min(100, Math.round(circadian.alignmentScore)))
-          }
         }
 
         setData(nextData)
