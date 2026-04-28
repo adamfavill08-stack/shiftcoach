@@ -45,6 +45,20 @@ const PRODUCT_IDS = {
 
 const PRO_ENTITLEMENT_ID = 'pro'
 
+function formatPurchasesError(error: any, fallback: string): string {
+  const code = String(error?.code ?? '')
+  const readableCode = String(error?.userInfo?.readableErrorCode ?? '')
+  const message = String(error?.message ?? '').trim()
+  const underlying = String(error?.underlyingErrorMessage ?? '').trim()
+
+  const primary = message || fallback
+  const parts = [primary]
+  if (code) parts.push(`code=${code}`)
+  if (readableCode) parts.push(`type=${readableCode}`)
+  if (underlying && underlying !== message) parts.push(`underlying=${underlying}`)
+  return parts.join(' | ')
+}
+
 function hasProEntitlement(customerInfo: CustomerInfo | null | undefined): boolean {
   if (!customerInfo) return false
   return Boolean(customerInfo.entitlements?.active?.[PRO_ENTITLEMENT_ID])
@@ -174,6 +188,7 @@ export async function purchaseProduct(productId: string, appUserId?: string | nu
       customerInfo: result.customerInfo,
     }
   } catch (error: any) {
+    console.error('[native-purchases] purchaseProduct failed', error)
     const code = String(error?.code ?? '')
     const cancelled =
       code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR ||
@@ -183,7 +198,7 @@ export async function purchaseProduct(productId: string, appUserId?: string | nu
     }
     return {
       success: false,
-      error: error?.message || 'Purchase failed',
+      error: formatPurchasesError(error, 'Purchase failed'),
     }
   }
 }
@@ -214,6 +229,8 @@ export async function restorePurchases(appUserId?: string | null): Promise<Purch
     ]
   } catch (error: any) {
     console.error('[native-purchases] restorePurchases failed', error)
+    // Surface structured details in logs for Play/RevenueCat config debugging.
+    console.error('[native-purchases] restore error details', formatPurchasesError(error, 'Restore failed'))
     return []
   }
 }
