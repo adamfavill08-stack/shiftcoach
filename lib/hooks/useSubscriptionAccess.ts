@@ -1,0 +1,115 @@
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+import { deriveSubscriptionAccess, type SubscriptionPlan } from '@/lib/subscription/access'
+import { createClientComponentClient } from '@/lib/supabase'
+
+type SubscriptionAccessState = {
+  isLoading: boolean
+  isPro: boolean
+  plan: SubscriptionPlan
+  isActive: boolean
+}
+
+const DEV_OVERRIDE_USER_IDS = new Set(['333dd216-62fb-49a0-916e-304b84673310'])
+const DEV_OVERRIDE_EMAILS = new Set(['adam.favill@outlook.com'])
+
+export function useSubscriptionAccess(): SubscriptionAccessState {
+  const supabase = createClientComponentClient()
+  const [state, setState] = useState<SubscriptionAccessState>({
+    isLoading: true,
+    isPro: false,
+    plan: 'free',
+    isActive: false,
+  })
+
+  const load = useCallback(async () => {
+    const loadFromServerAccess = async (): Promise<boolean> => {
+      const accessRes = await fetch('/api/subscription/access', { cache: 'no-store' })
+      if (!accessRes.ok) return false
+      const accessJson = await accessRes.json()
+      setState({
+        isLoading: false,
+        isPro: Boolean(accessJson?.isPro),
+        plan: (typeof accessJson?.plan === 'string' ? accessJson.plan : 'free') as SubscriptionPlan,
+        isActive: Boolean(accessJson?.isActive),
+      })
+      return true
+    }
+
+    const loadFromProfile = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user?.id) {
+        setState({ isLoading: false, isPro: false, plan: 'free', isActive: false })
+        return
+      }
+      const userEmail = user.email?.toLowerCase() ?? null
+      if (DEV_OVERRIDE_USER_IDS.has(user.id) || (userEmail && DEV_OVERRIDE_EMAILS.has(userEmail))) {
+        setState({ isLoading: false, isPro: true, plan: 'tester', isActive: true })
+        return
+      }
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('subscription_plan, subscription_status, revenuecat_entitlements, revenuecat_subscription_id')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      const access = deriveSubscriptionAccess({
+        subscriptionStatus: profile?.subscription_status ?? null,
+        subscriptionPlan: profile?.subscription_plan ?? null,
+        revenuecatEntitlements: profile?.revenuecat_entitlements ?? null,
+        revenuecatSubscriptionId: profile?.revenuecat_subscription_id ?? null,
+      })
+      setState({
+        isLoading: false,
+        isPro: access.isPro,
+        plan: access.plan,
+        isActive: access.isPro,
+      })
+    }
+
+    try {
+      // Primary source: server-derived access from authenticated profile row.
+      if (await loadFromServerAccess()) return
+
+      const res = await fetch('/api/revenuecat/status', { cache: 'no-store' })
+      if (!res.ok) {
+        await loadFromProfile()
+        return
+      }
+      const json = await res.json()
+      const access = deriveSubscriptionAccess({
+        subscriptionStatus: json?.isActive ? 'active' : 'canceled',
+        subscriptionPlan: typeof json?.plan === 'string' ? json.plan : null,
+      })
+      setState({
+        isLoading: false,
+        isPro: access.isPro,
+        plan: access.plan,
+        isActive: Boolean(json?.isActive),
+      })
+    } catch {
+      await loadFromProfile()
+    }
+  }, [supabase])
+
+  useEffect(() => {
+    load()
+    const onUpdate = () => void load()
+    const {
+      data: { subscription: authSubscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+        void load()
+      }
+    })
+    window.addEventListener('subscription-updated', onUpdate)
+    return () => {
+      window.removeEventListener('subscription-updated', onUpdate)
+      authSubscription.unsubscribe()
+    }
+  }, [load, supabase])
+
+  return state
+}

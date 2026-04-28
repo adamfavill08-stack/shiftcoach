@@ -1,20 +1,83 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getPurchasePlatform, isNativePurchaseAvailable, purchaseProduct, restorePurchases, type PurchaseResult } from '@/lib/purchases/native-purchases'
+import {
+  getPurchasePlatform,
+  isNativePurchaseAvailable,
+  purchaseProduct,
+  restorePurchases,
+  getAvailableProducts,
+  type PurchaseResult,
+  type PurchaseProduct,
+} from '@/lib/purchases/native-purchases'
 import { showToast } from '@/components/ui/Toast'
+import { createClientComponentClient } from '@/lib/supabase'
+
+const PRODUCT_ID_BY_PLAN: Record<'monthly' | 'yearly', string> = {
+  monthly: 'pro_monthly',
+  yearly: 'pro_annual',
+}
 
 export function useNativePurchases() {
+  const supabase = createClientComponentClient()
   const [platform, setPlatform] = useState<'ios' | 'android' | 'web' | null>(null)
   const [isAvailable, setIsAvailable] = useState(false)
   const [isPurchasing, setIsPurchasing] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
+  const [products, setProducts] = useState<PurchaseProduct[]>([])
+  const [appUserId, setAppUserId] = useState<string | null>(null)
 
   useEffect(() => {
     const currentPlatform = getPurchasePlatform()
     setPlatform(currentPlatform)
     setIsAvailable(isNativePurchaseAvailable())
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadAppUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!cancelled) {
+        setAppUserId(user?.id ?? null)
+      }
+    }
+    void loadAppUser()
+    return () => {
+      cancelled = true
+    }
+  }, [supabase])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadProducts = async () => {
+      try {
+        const available = await getAvailableProducts(appUserId)
+        if (!cancelled) setProducts(Array.isArray(available) ? available : [])
+      } catch {
+        if (!cancelled) setProducts([])
+      }
+    }
+    void loadProducts()
+    return () => {
+      cancelled = true
+    }
+  }, [appUserId])
+
+  const getProductForPlan = (plan: 'monthly' | 'yearly') => {
+    const productId = PRODUCT_ID_BY_PLAN[plan]
+    return products.find((product) => product.id === productId) ?? null
+  }
+
+  const getPlanPriceLabel = (plan: 'monthly' | 'yearly') => {
+    return getProductForPlan(plan)?.price ?? null
+  }
+
+  const getPlanPriceAmount = (plan: 'monthly' | 'yearly') => {
+    const amount = getProductForPlan(plan)?.priceAmount
+    return typeof amount === 'number' ? amount : null
+  }
 
   const purchaseSubscription = async (plan: 'monthly' | 'yearly'): Promise<PurchaseResult> => {
     if (!isAvailable) {
@@ -26,38 +89,18 @@ export function useNativePurchases() {
 
     setIsPurchasing(true)
     try {
-      const productId = `shiftcoach_${plan}`
-      const result = await purchaseProduct(productId)
+      // RevenueCat product identifiers configured in dashboard.
+      const productId = PRODUCT_ID_BY_PLAN[plan]
+      const result = await purchaseProduct(productId, appUserId)
       
-      if (result.success && result.receipt) {
-        // Send receipt to backend for validation
-        const response = await fetch('/api/revenuecat/validate-receipt', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            receipt: result.receipt,
-            platform: platform,
-            productId: productId,
-          }),
-        })
-
-        const data = await response.json()
-        
-        if (response.ok && data.success) {
-          showToast('Subscription activated successfully!', 'success')
-          // Dispatch event to refresh subscription status
-          window.dispatchEvent(new CustomEvent('subscription-updated'))
-          return { success: true, transactionId: result.transactionId }
-        } else {
-          showToast(data.error || 'Failed to activate subscription', 'error')
-          return { success: false, error: data.error || 'Validation failed' }
-        }
-      } else {
-        showToast(result.error || 'Purchase failed', 'error')
+      if (result.success) {
+        showToast('Subscription activated successfully!', 'success')
+        // Trigger subscription status refresh from server/source of truth.
+        window.dispatchEvent(new CustomEvent('subscription-updated'))
         return result
       }
+      showToast(result.error || 'Purchase failed', 'error')
+      return result
     } catch (error: any) {
       console.error('[useNativePurchases] Purchase error:', error)
       showToast(error.message || 'Purchase failed', 'error')
@@ -75,25 +118,9 @@ export function useNativePurchases() {
 
     setIsRestoring(true)
     try {
-      const results = await restorePurchases()
+      const results = await restorePurchases(appUserId)
       
       if (results.length > 0) {
-        // Send receipts to backend for validation
-        for (const result of results) {
-          if (result.success && result.receipt) {
-            await fetch('/api/revenuecat/validate-receipt', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                receipt: result.receipt,
-                platform: platform,
-                productId: result.productId,
-              }),
-            })
-          }
-        }
         showToast('Purchases restored successfully', 'success')
         window.dispatchEvent(new CustomEvent('subscription-updated'))
       } else {
@@ -112,6 +139,8 @@ export function useNativePurchases() {
     isAvailable,
     isPurchasing,
     isRestoring,
+    getPlanPriceLabel,
+    getPlanPriceAmount,
     purchaseSubscription,
     restore,
   }

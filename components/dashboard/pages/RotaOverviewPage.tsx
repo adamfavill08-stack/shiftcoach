@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import { CalendarPlus, Plus, Edit2, Trash2, X, ChevronLeft, Search } from 'lucide-react'
 import { buildMonthFromPattern } from '@/lib/data/buildRotaMonth'
 import { useRotaMonth } from '@/lib/hooks/useRotaMonth'
+import { useSubscriptionAccess } from '@/lib/hooks/useSubscriptionAccess'
+import { getHistoryLimitDays } from '@/lib/subscription/features'
+import { UpgradeCard } from '@/components/subscription/UpgradeCard'
 
 const weekdayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
@@ -47,6 +50,8 @@ export default function RotaOverviewPage() {
 
   const month = cursorDate.getMonth()
   const year = cursorDate.getFullYear()
+  const { isPro, plan } = useSubscriptionAccess()
+  const historyLimitDays = getHistoryLimitDays({ isPro, plan })
 
   const { data, eventsByDate, loading, error, refetch } = useRotaMonth(month, year)
 
@@ -114,6 +119,21 @@ export default function RotaOverviewPage() {
     setMenuOpen(false)
     setCursorDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
   }
+
+  const minAllowedDate = useMemo(() => {
+    if (historyLimitDays == null) return null
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    d.setDate(d.getDate() - (historyLimitDays - 1))
+    return d
+  }, [historyLimitDays])
+
+  const canViewPrevMonth = useMemo(() => {
+    if (!minAllowedDate) return true
+    const prevMonth = new Date(cursorDate.getFullYear(), cursorDate.getMonth() - 1, 1)
+    const prevMonthEnd = new Date(prevMonth.getFullYear(), prevMonth.getMonth() + 1, 0)
+    return prevMonthEnd >= minAllowedDate
+  }, [cursorDate, minAllowedDate])
 
   const handleBlockClick = (
     item: {
@@ -357,7 +377,8 @@ export default function RotaOverviewPage() {
             <button
               type="button"
               onClick={goToPrevMonth}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-700 transition-all duration-200 hover:bg-slate-200/50 active:scale-95"
+              disabled={!canViewPrevMonth}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-700 transition-all duration-200 hover:bg-slate-200/50 active:scale-95 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed"
               aria-label="Previous month"
             >
               <span className="text-xl font-light leading-none">‹</span>
@@ -374,6 +395,15 @@ export default function RotaOverviewPage() {
               <span className="text-xl font-light leading-none">›</span>
             </button>
           </div>
+
+          {historyLimitDays != null && !canViewPrevMonth ? (
+            <div className="mb-3">
+              <UpgradeCard
+                title="History beyond 1 month is Pro"
+                description="Upgrade to view unlimited shift and event history."
+              />
+            </div>
+          ) : null}
 
           {/* All Weeks in Horizontal Format */}
           <div className="space-y-2 flex-1 min-h-0">

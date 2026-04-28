@@ -6,6 +6,9 @@ import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { useTranslation } from '@/components/providers/language-provider'
 import { BLOG_POSTS_SOURCE, localizeBlogPosts } from '@/lib/i18n/blog'
+import { useSubscriptionAccess } from '@/lib/hooks/useSubscriptionAccess'
+import { getBlogArticleLimit, FREE_BLOG_ARTICLE_LIMIT } from '@/lib/subscription/features'
+import { UpgradeCard } from '@/components/subscription/UpgradeCard'
 
 /** @deprecated Import `BLOG_POSTS_SOURCE` or `localizeBlogPosts` from `@/lib/i18n/blog` */
 export const blogPosts = BLOG_POSTS_SOURCE
@@ -59,6 +62,7 @@ function formatArticleDateLabel(): string {
 export default function BlogPostPage({ params }: BlogPostPageProps) {
   const { slug } = use(params)
   const { t } = useTranslation()
+  const { isPro, plan, isLoading: subscriptionLoading } = useSubscriptionAccess()
   const posts = useMemo(() => localizeBlogPosts(t), [t])
   const post = posts.find((p) => p.slug === slug)
   const [progress, setProgress] = useState(0)
@@ -107,6 +111,36 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
   const related = posts.filter((p) => p.slug !== post.slug).slice(0, 3)
   const articleDate = formatArticleDateLabel()
   const heroImage = ARTICLE_HERO_IMAGE_BY_SLUG[post.slug]
+  const articleLimit = getBlogArticleLimit({ isPro, plan })
+  const slugOrderIndex = BLOG_POSTS_SOURCE.findIndex((p) => p.slug === post.slug)
+  const isLockedByPlan =
+    !subscriptionLoading &&
+    articleLimit != null &&
+    slugOrderIndex >= FREE_BLOG_ARTICLE_LIMIT &&
+    slugOrderIndex >= articleLimit
+
+  if (isLockedByPlan) {
+    return (
+      <main className="min-h-screen bg-[var(--bg)]">
+        <div className="mx-auto min-h-screen max-w-[440px] px-4 pb-10 pt-8">
+          <div className="mb-4">
+            <Link
+              href="/blog"
+              className="inline-flex items-center gap-2 text-sm font-medium text-[var(--text-soft)]"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back to blog
+            </Link>
+          </div>
+          <UpgradeCard
+            title="Pro article locked"
+            description="Upgrade to unlock all ShiftCoach blog articles."
+            ctaLabel="Unlock all articles"
+          />
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">

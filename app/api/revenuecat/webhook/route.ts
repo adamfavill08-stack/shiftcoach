@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { z } from 'zod'
 import { verifyHmacSha256Signature, rateLimitByIp } from '@/lib/api/security'
+import { getPlanFromProductId, normalizePlan } from '@/lib/subscription/access'
 
 const RevenueCatWebhookSchema = z.object({
   type: z.string(),
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
     // Get user's profile to update
     const { data: profile, error: profileError } = await supabaseServer
       .from('profiles')
-      .select('user_id, subscription_plan, subscription_status')
+      .select('user_id, subscription_plan, subscription_status, revenuecat_subscription_id')
       .eq('user_id', userId)
       .single()
 
@@ -98,12 +99,7 @@ export async function POST(req: NextRequest) {
       case 'RENEWAL':
         // Subscription is active
         const productId = event.product_id || ''
-        let plan: 'monthly' | 'yearly' | null = null
-        if (productId.includes('monthly')) {
-          plan = 'monthly'
-        } else if (productId.includes('yearly')) {
-          plan = 'yearly'
-        }
+        const plan = getPlanFromProductId(productId)
 
         await supabaseServer
           .from('profiles')
@@ -136,6 +132,32 @@ export async function POST(req: NextRequest) {
         console.log('[api/revenuecat/webhook] Subscription canceled, deletion scheduled:', { userId, periodEnd })
         break
 
+      case 'UNCANCELLATION':
+        await supabaseServer
+          .from('profiles')
+          .update({
+            subscription_status: 'active',
+            scheduled_deletion_at: null,
+          })
+          .eq('user_id', userId)
+        break
+
+      case 'PRODUCT_CHANGE': {
+        const productId = event.product_id || ''
+        const plan = getPlanFromProductId(productId) ?? normalizePlan(profile.subscription_plan)
+
+        await supabaseServer
+          .from('profiles')
+          .update({
+            subscription_status: 'active',
+            subscription_plan: plan === 'monthly' || plan === 'yearly' ? plan : profile.subscription_plan,
+            revenuecat_subscription_id: productId || profile.revenuecat_subscription_id,
+            revenuecat_entitlements: event.entitlements || {},
+          })
+          .eq('user_id', userId)
+        break
+      }
+
       case 'BILLING_ISSUE':
         // Payment failed
         await supabaseServer
@@ -162,6 +184,20 @@ export async function POST(req: NextRequest) {
           .from('profiles')
           .update({
             subscription_status: 'active',
+          })
+          .eq('user_id', userId)
+        break
+
+      case 'EXPIRATION':
+        // Subscription access ended: downgrade to free.
+        await supabaseServer
+          .from('profiles')
+          .update({
+            subscription_status: 'canceled',
+            subscription_plan: null,
+            revenuecat_subscription_id: null,
+            revenuecat_entitlements: event.entitlements || {},
+            scheduled_deletion_at: null,
           })
           .eq('user_id', userId)
         break

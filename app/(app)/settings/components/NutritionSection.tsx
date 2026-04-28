@@ -6,11 +6,16 @@ import { useSettings } from '@/lib/hooks/useSettings'
 import { SettingsCard, SettingsRow } from '@/components/settings/SettingsCard'
 import { SettingsSelect } from '@/components/settings/SettingsSelect'
 import { useTranslation } from '@/components/providers/language-provider'
+import { useSubscriptionAccess } from '@/lib/hooks/useSubscriptionAccess'
+import { canUseFeature } from '@/lib/subscription/features'
+import { UpgradeCard } from '@/components/subscription/UpgradeCard'
 
 export function NutritionSection() {
   const { t } = useTranslation()
   const { settings, saving, saveField, loading } = useSettings()
   const [isOpen, setIsOpen] = useState(false)
+  const { isLoading: subscriptionLoading, isPro, plan } = useSubscriptionAccess()
+  const hasCalorieProfileAccess = canUseFeature('calorie_profile_settings', { isPro, plan })
 
   if (loading) {
     return (
@@ -48,6 +53,13 @@ export function NutritionSection() {
       </button>
       {isOpen && (
         <div className="absolute left-0 right-0 top-full mt-2 mx-2 rounded-2xl bg-white border border-slate-100 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.35)] p-4 space-y-3 z-20">
+          {!subscriptionLoading && !hasCalorieProfileAccess ? (
+            <UpgradeCard
+              title="Calorie profile is a Pro feature"
+              description="Upgrade to set your calorie profile and unlock adjusted calorie insights."
+            />
+          ) : (
+            <>
           <SettingsRow
             label={t('settings.nutrition.activityLevel')}
             description={t('settings.nutrition.activityLevelDesc')}
@@ -125,6 +137,8 @@ export function NutritionSection() {
               />
             }
           />
+            </>
+          )}
         </div>
       )}
     </div>

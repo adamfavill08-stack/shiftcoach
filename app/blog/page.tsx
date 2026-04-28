@@ -7,6 +7,9 @@ import { useTranslation } from '@/components/providers/language-provider'
 import { localizeBlogPosts } from '@/lib/i18n/blog'
 import { BLOG_POSTS_SOURCE } from '@/lib/i18n/blog/postsSource'
 import { BlogThumbnail, type ThumbKind } from '@/components/blog/BlogThumbnails'
+import { useSubscriptionAccess } from '@/lib/hooks/useSubscriptionAccess'
+import { FREE_BLOG_ARTICLE_LIMIT, getBlogArticleLimit } from '@/lib/subscription/features'
+import { UpgradeCard } from '@/components/subscription/UpgradeCard'
 
 type BlogCategory =
   | 'Fatigue'
@@ -72,6 +75,7 @@ function badgeForSlug(slug: string): { label: string; color: string } | null {
 
 export default function BlogIndexPage() {
   const { t } = useTranslation()
+  const { isPro, plan, isLoading: subscriptionLoading } = useSubscriptionAccess()
   const blogPosts = useMemo(() => localizeBlogPosts(t), [t])
 
   const [tab, setTab] = useState<'articles' | 'quizzes'>('articles')
@@ -110,6 +114,8 @@ export default function BlogIndexPage() {
     }
     return [...list].sort((a, b) => (sort === 'recent' ? idx(b.slug) - idx(a.slug) : idx(a.slug) - idx(b.slug)))
   }, [favSlugs, postsWithMeta, showFavsOnly, slugOrder, sort])
+  const blogAccess = useMemo(() => ({ isPro, plan }), [isPro, plan])
+  const articleLimit = getBlogArticleLimit(blogAccess)
 
   const toggleFav = (slug: string) => {
     setFavSlugs((prev) => {
@@ -185,12 +191,25 @@ export default function BlogIndexPage() {
               <div>
                 {displayedArticles.map((article) => {
                   const fav = favSlugs.has(article.slug)
+                  const slugIdx = slugOrder.indexOf(article.slug)
+                  const isLocked =
+                    !subscriptionLoading &&
+                    articleLimit != null &&
+                    slugIdx >= FREE_BLOG_ARTICLE_LIMIT &&
+                    slugIdx >= articleLimit
                   return (
-                    <Link
-                      key={article.slug}
-                      href={`/blog/${article.slug}`}
-                      className="flex cursor-pointer items-start gap-3.5 border-b border-[var(--border-subtle)] py-3.5 last:border-b-0"
-                    >
+                    <div key={article.slug} className="border-b border-[var(--border-subtle)] py-3.5 last:border-b-0">
+                      {isLocked ? (
+                        <UpgradeCard
+                          title="Pro article locked"
+                          description="Upgrade to read all ShiftCoach blog articles."
+                          ctaLabel="Unlock all articles"
+                        />
+                      ) : (
+                        <Link
+                          href={`/blog/${article.slug}`}
+                          className="flex cursor-pointer items-start gap-3.5"
+                        >
                       <div className="relative h-[76px] w-[100px] shrink-0 overflow-hidden rounded-xl bg-black">
                         <BlogThumbnail kind={article.meta.thumb} />
                         <button
@@ -238,7 +257,9 @@ export default function BlogIndexPage() {
                           <span className="text-[13px]">›</span>
                         </div>
                       </div>
-                    </Link>
+                        </Link>
+                      )}
+                    </div>
                   )
                 })}
               </div>

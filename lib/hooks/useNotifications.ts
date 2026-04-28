@@ -138,79 +138,38 @@ export function useNotifications() {
           console.warn('[useNotifications] Failed to fetch events:', err)
         }
 
-        // Daily check‑in reminder (always morning; controlled by master notification toggle)
+        // Sleep-log reminder: after 6am, prompt users who have not logged sleep yet.
         const dailyNotifications: Notification[] = []
         try {
-          const dailyReminderSetting: 'morning' = 'morning'
-          if (dailyReminderSetting) {
-            const now = new Date()
-            const hours = now.getHours()
-            const todayKey = now.toISOString().slice(0, 10)
-            const storageKey = 'daily-reminder-shown'
+          const now = new Date()
+          const hours = now.getHours()
+          const todayKey = now.toISOString().slice(0, 10)
+          const isAfterSixAm = hours >= 6
 
-            const lastShown = (() => {
-              try {
-                return localStorage.getItem(storageKey)
-              } catch {
-                return null
-              }
-            })()
+          if (isAfterSixAm) {
+            const sleepRes = await fetch('/api/sleep/today', {
+              credentials: 'include',
+              cache: 'no-store',
+            }).catch(() => null)
 
-            const inMorningWindow = hours >= 5 && hours < 12
+            if (sleepRes && sleepRes.ok) {
+              const sleepJson = await sleepRes.json()
+              const hasSleepLogged = Boolean(sleepJson?.sleep?.id)
 
-            const shouldShow = lastShown !== todayKey && inMorningWindow
-
-            if (shouldShow) {
-              // Fetch today's shift to personalise the message
-              let shiftLabel: string | null = null
-              try {
-                const todayStr = todayKey
-                const tomorrow = new Date(now)
-                tomorrow.setDate(tomorrow.getDate() + 1)
-                const tomorrowStr = tomorrow.toISOString().slice(0, 10)
-                const res = await fetch(
-                  `/api/shifts?from=${todayStr}&to=${tomorrowStr}`,
-                  { cache: 'no-store' },
-                ).catch(() => null)
-                if (res && res.ok) {
-                  const json = await res.json()
-                  const shifts = json.shifts || []
-                  const todayShift = shifts.find((s: any) => s.date === todayStr)
-                  if (todayShift?.label) {
-                    shiftLabel = String(todayShift.label)
-                  }
-                }
-              } catch {
-                // Non-critical; continue with generic copy
-              }
-
-              const niceShift =
-                shiftLabel && typeof shiftLabel === 'string'
-                  ? shiftLabel.charAt(0).toUpperCase() + shiftLabel.slice(1).toLowerCase()
-                  : 'today'
-
-              const title = 'Morning check‑in'
-
-              const message = `Log last night’s sleep and review your ${niceShift} shift plan.`
-
-              dailyNotifications.push({
-                id: `daily-checkin-${todayKey}-${dailyReminderSetting}`,
-                type: 'system',
-                title,
-                message,
-                timestamp: now,
-                read: false,
-              })
-
-              try {
-                localStorage.setItem(storageKey, todayKey)
-              } catch {
-                // ignore
+              if (!hasSleepLogged) {
+                dailyNotifications.push({
+                  id: `sleep-log-reminder-${todayKey}`,
+                  type: 'system',
+                  title: 'Log sleep now',
+                  message: 'Log your sleep now to keep your body clock readings accurate.',
+                  timestamp: now,
+                  read: false,
+                })
               }
             }
           }
         } catch {
-          // daily reminder is non-critical
+          // sleep reminder is non-critical
         }
 
         // Meal time window reminders for today
@@ -315,11 +274,16 @@ export function useNotifications() {
     const handleMoodFocusUpdate = () => {
       loadNotifications()
     }
+    const handleSleepRefresh = () => {
+      loadNotifications()
+    }
     window.addEventListener('mood-focus-updated', handleMoodFocusUpdate)
+    window.addEventListener('sleep-refreshed', handleSleepRefresh)
     
     return () => {
       clearInterval(interval)
       window.removeEventListener('mood-focus-updated', handleMoodFocusUpdate)
+      window.removeEventListener('sleep-refreshed', handleSleepRefresh)
     }
   }, [])
 

@@ -9,9 +9,14 @@ import { apiErrorMessageFromJson } from "@/lib/api/clientErrorMessage";
 import { authedFetch } from "@/lib/supabase/authedFetch";
 import { riskScaleBarMarkerFill } from "@/lib/riskScaleBarMarker";
 import { BodyClockMotivationCard } from "@/components/body-clock/BodyClockMotivationCard";
+import { useSubscriptionAccess } from "@/lib/hooks/useSubscriptionAccess";
+import { canUseFeature } from "@/lib/subscription/features";
+import { UpgradeCard } from "@/components/subscription/UpgradeCard";
 
 export default function ShiftLagInfoPage() {
   const { t } = useTranslation();
+  const { isPro, plan, isLoading: subscriptionLoading } = useSubscriptionAccess();
+  const canAccessShiftLag = canUseFeature("shift_lag", { isPro, plan });
   const [data, setData] = useState<ShiftLagMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -170,6 +175,28 @@ export default function ShiftLagInfoPage() {
 
     return `${prefix}your rhythm is tracking well; keep your sleep, light exposure, and meals consistent to lock in low Shift Lag.`;
   }, [data, displayName, loading, sleepDebtHours, startVariability]);
+
+  if (!subscriptionLoading && !canAccessShiftLag) {
+    return (
+      <main className="min-h-screen bg-[var(--bg)]">
+        <div className="max-w-[430px] mx-auto min-h-screen px-4 pb-8 pt-4">
+          <div className="mb-4">
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--text-soft)]"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Back
+            </Link>
+          </div>
+          <UpgradeCard
+            title="Shift lag is a Pro feature"
+            description="Upgrade to understand how your schedule is affecting your body clock."
+          />
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">

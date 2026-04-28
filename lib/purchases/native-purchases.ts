@@ -8,12 +8,22 @@
  */
 
 import { Capacitor } from '@capacitor/core'
+import {
+  Purchases,
+  PURCHASES_ERROR_CODE,
+  type CustomerInfo,
+  type PurchasesOffering,
+  type PurchasesPackage,
+} from '@revenuecat/purchases-capacitor'
+import { ensureRevenueCatConfigured } from '@/lib/purchases/revenuecat-client'
 
 export type PurchasePlatform = 'ios' | 'android' | 'web'
 
 export interface PurchaseProduct {
   id: string
   price: string
+  /** Optional numeric price in major units (e.g. 2.99) when plugin provides it. */
+  priceAmount?: number
   currency: string
   title: string
   description: string
@@ -24,7 +34,25 @@ export interface PurchaseResult {
   transactionId?: string
   receipt?: string
   productId?: string
+  customerInfo?: CustomerInfo
   error?: string
+}
+
+const PRODUCT_IDS = {
+  monthly: 'pro_monthly',
+  yearly: 'pro_annual',
+} as const
+
+const PRO_ENTITLEMENT_ID = 'pro'
+
+function hasProEntitlement(customerInfo: CustomerInfo | null | undefined): boolean {
+  if (!customerInfo) return false
+  return Boolean(customerInfo.entitlements?.active?.[PRO_ENTITLEMENT_ID])
+}
+
+function getAllOfferingPackages(offering: PurchasesOffering | null): PurchasesPackage[] {
+  if (!offering) return []
+  return offering.availablePackages ?? []
 }
 
 /**
@@ -50,20 +78,51 @@ export function isNativePurchaseAvailable(): boolean {
  * Get available products for purchase
  * 
  * Note: This will need to be implemented with the actual Capacitor plugin
- * For now, returns empty array - will be implemented when plugin is installed
  */
-export async function getAvailableProducts(): Promise<PurchaseProduct[]> {
+export async function getAvailableProducts(appUserId?: string | null): Promise<PurchaseProduct[]> {
   const platform = getPurchasePlatform()
   
   if (platform === 'web') {
     // Web does not support native purchases in this app
     return []
   }
-  
-  // TODO: Implement with Capacitor in-app purchases plugin
-  // This will call the native StoreKit/Play Billing APIs
-  console.warn('[native-purchases] Native purchase plugin not yet installed')
-  return []
+
+  await ensureRevenueCatConfigured(appUserId)
+  const offerings = await Purchases.getOfferings()
+  const current = offerings.current ?? null
+  const packages = getAllOfferingPackages(current)
+
+  const preferredById = new Map<string, PurchasesPackage>()
+  for (const pkg of packages) {
+    preferredById.set(pkg.product.identifier, pkg)
+  }
+
+  const monthlyProduct = preferredById.get(PRODUCT_IDS.monthly)?.product ?? null
+  const yearlyProduct = preferredById.get(PRODUCT_IDS.yearly)?.product ?? null
+
+  const mapped: PurchaseProduct[] = []
+  if (monthlyProduct) {
+    mapped.push({
+      id: monthlyProduct.identifier,
+      price: monthlyProduct.priceString,
+      priceAmount: monthlyProduct.price,
+      currency: monthlyProduct.currencyCode,
+      title: monthlyProduct.title,
+      description: monthlyProduct.description,
+    })
+  }
+  if (yearlyProduct) {
+    mapped.push({
+      id: yearlyProduct.identifier,
+      price: yearlyProduct.priceString,
+      priceAmount: yearlyProduct.price,
+      currency: yearlyProduct.currencyCode,
+      title: yearlyProduct.title,
+      description: yearlyProduct.description,
+    })
+  }
+
+  return mapped
 }
 
 /**
@@ -72,26 +131,60 @@ export async function getAvailableProducts(): Promise<PurchaseProduct[]> {
  * @param productId - The product identifier (e.g., 'shiftcoach_monthly')
  * @returns Purchase result with receipt/transaction ID
  */
-export async function purchaseProduct(productId: string): Promise<PurchaseResult> {
+export async function purchaseProduct(productId: string, appUserId?: string | null): Promise<PurchaseResult> {
   const platform = getPurchasePlatform()
   
   if (platform === 'web') {
     return {
       success: false,
-      error: 'Native purchases not available on web.'
+      error: 'Purchases are only available in the mobile app.',
     }
   }
-  
-  // TODO: Implement with Capacitor in-app purchases plugin
-  // This will:
-  // 1. Call native purchase API (StoreKit/Play Billing)
-  // 2. Return receipt/transaction ID
-  // 3. Frontend will send receipt to backend for validation
-  
-  console.warn('[native-purchases] Native purchase plugin not yet installed')
-  return {
-    success: false,
-    error: 'Native purchase plugin not yet implemented'
+
+  try {
+    await ensureRevenueCatConfigured(appUserId)
+    const offerings = await Purchases.getOfferings()
+    const current = offerings.current ?? null
+    const packages = getAllOfferingPackages(current)
+    const selectedPackage = packages.find((pkg) => pkg.product.identifier === productId)
+
+    if (!selectedPackage) {
+      return {
+        success: false,
+        error: `Product ${productId} is not available in current offerings.`,
+      }
+    }
+
+    const result = await Purchases.purchasePackage({ aPackage: selectedPackage })
+    const proActive = hasProEntitlement(result.customerInfo)
+
+    if (!proActive) {
+      return {
+        success: false,
+        productId: result.productIdentifier ?? productId,
+        customerInfo: result.customerInfo,
+        error: 'Purchase completed but Pro entitlement is not active yet.',
+      }
+    }
+
+    return {
+      success: true,
+      transactionId: result.productIdentifier ?? productId,
+      productId: result.productIdentifier ?? productId,
+      customerInfo: result.customerInfo,
+    }
+  } catch (error: any) {
+    const code = String(error?.code ?? '')
+    const cancelled =
+      code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR ||
+      error?.userCancelled === true
+    if (cancelled) {
+      return { success: false, error: 'Purchase cancelled.' }
+    }
+    return {
+      success: false,
+      error: error?.message || 'Purchase failed',
+    }
   }
 }
 
@@ -99,18 +192,30 @@ export async function purchaseProduct(productId: string): Promise<PurchaseResult
  * Restore previous purchases
  * Useful for users who reinstalled the app or switched devices
  */
-export async function restorePurchases(): Promise<PurchaseResult[]> {
+export async function restorePurchases(appUserId?: string | null): Promise<PurchaseResult[]> {
   const platform = getPurchasePlatform()
   
   if (platform === 'web') {
     return []
   }
-  
-  // TODO: Implement with Capacitor in-app purchases plugin
-  // This will restore previous purchases from the store
-  
-  console.warn('[native-purchases] Native purchase plugin not yet installed')
-  return []
+
+  try {
+    await ensureRevenueCatConfigured(appUserId)
+    const result = await Purchases.restorePurchases()
+    const proEntitlement = result.customerInfo.entitlements?.active?.[PRO_ENTITLEMENT_ID]
+    if (!proEntitlement) return []
+
+    return [
+      {
+        success: true,
+        productId: proEntitlement.productIdentifier,
+        customerInfo: result.customerInfo,
+      },
+    ]
+  } catch (error: any) {
+    console.error('[native-purchases] restorePurchases failed', error)
+    return []
+  }
 }
 
 /**

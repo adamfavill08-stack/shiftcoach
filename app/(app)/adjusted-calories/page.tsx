@@ -16,6 +16,9 @@ import { MacroTimingInsight } from '@/components/nutrition/MacroTimingInsight'
 import { MealTimesScheduleCard } from '@/components/nutrition/MealTimesScheduleCard'
 import { useMealTimingTodayCard } from '@/lib/hooks/useMealTimingTodayCard'
 import { getMacroTimingCoachMessage } from '@/lib/nutrition/getMacroReason'
+import { useSubscriptionAccess } from '@/lib/hooks/useSubscriptionAccess'
+import { canUseFeature } from '@/lib/subscription/features'
+import { UpgradeCard } from '@/components/subscription/UpgradeCard'
 
 function mealIconFor(id?: string, label?: string) {
   const key = (id || label || '').toLowerCase()
@@ -271,6 +274,8 @@ export default function AdjustedCaloriesPage() {
   const { t } = useTranslation()
   const [whyOpen, setWhyOpen] = useState(false)
   const { user } = useAuth()
+  const { isPro, plan, isLoading: subscriptionLoading } = useSubscriptionAccess()
+  const canAccessAdjustedCalories = canUseFeature('adjusted_calories', { isPro, plan })
   const { profile } = useProfile(user?.id ?? null)
   const { data, loading } = useTodayNutrition()
   const { data: mealTimingCard, loading: mealTimingLoading } = useMealTimingTodayCard()
@@ -331,6 +336,28 @@ export default function AdjustedCaloriesPage() {
         : null,
     [loading, data, firstName],
   )
+
+  if (!subscriptionLoading && !canAccessAdjustedCalories) {
+    return (
+      <main className="min-h-screen bg-slate-100">
+        <div className="max-w-[430px] mx-auto min-h-screen px-4 pb-8 pt-4">
+          <div className="mb-4">
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--text-soft)]"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Back
+            </Link>
+          </div>
+          <UpgradeCard
+            title="Adjusted calories are a Pro feature"
+            description="Upgrade to see calorie targets that adapt around your shifts."
+          />
+        </div>
+      </main>
+    )
+  }
 
   if (!profileComplete) {
     return (

@@ -5,6 +5,8 @@ import { logSupabaseError } from '@/lib/supabase/error-handler'
 import { z } from 'zod'
 import { parseJsonBody } from '@/lib/api/validation'
 import { apiServerError } from '@/lib/api/response'
+import { getServerSubscriptionAccess } from '@/lib/subscription/server'
+import { getHistoryLimitDays } from '@/lib/subscription/features'
 
 export const dynamic = 'force-dynamic'
 const NO_STORE_HEADERS = {
@@ -30,6 +32,20 @@ function isMissingColumnError(error: any): boolean {
   return message.includes('column') && message.includes('does not exist')
 }
 
+function isWithinAllowedWindow(
+  value: string | null | undefined,
+  min: Date | null,
+  max: Date | null,
+): boolean {
+  if (!value) return false
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return false
+  parsed.setHours(0, 0, 0, 0)
+  if (min && parsed < min) return false
+  if (max && parsed > max) return false
+  return true
+}
+
 // GET ?month=11&year=2025 -> list events for month
 export async function GET(req: NextRequest) {
   try {
@@ -39,6 +55,19 @@ export async function GET(req: NextRequest) {
     // Use service role after auth check to avoid RLS drift between environments.
     const supabase = supabaseServer
     
+    const access = await getServerSubscriptionAccess(supabase, userId)
+    const historyLimitDays = getHistoryLimitDays(access)
+    const minMaxAllowedDates = (() => {
+      if (historyLimitDays == null) return { min: null as Date | null, max: null as Date | null }
+      const d = new Date()
+      d.setHours(0, 0, 0, 0)
+      const min = new Date(d)
+      const max = new Date(d)
+      min.setDate(min.getDate() - (historyLimitDays - 1))
+      max.setDate(max.getDate() + (historyLimitDays - 1))
+      return { min, max }
+    })()
+
     const { searchParams } = new URL(req.url)
     const eventId = searchParams.get('id')
     const month = Number(searchParams.get('month')) || new Date().getMonth() + 1
@@ -58,6 +87,20 @@ export async function GET(req: NextRequest) {
       if (!event) {
         return NextResponse.json({ error: 'Event not found' }, { status: 404 })
       }
+      if (
+        minMaxAllowedDates.min ||
+        minMaxAllowedDates.max
+      ) {
+        const eventDateValue = event?.start_at ?? event?.date ?? null
+        const allowed = isWithinAllowedWindow(
+          eventDateValue,
+          minMaxAllowedDates.min,
+          minMaxAllowedDates.max,
+        )
+        if (!allowed) {
+          return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+        }
+      }
       return NextResponse.json({ event }, { headers: NO_STORE_HEADERS })
     }
 
@@ -73,8 +116,19 @@ export async function GET(req: NextRequest) {
     gridEnd.setDate(gridStart.getDate() + 41) // 42 days total
     
     // Query events for the entire calendar grid range
-    const startIso = gridStart.toISOString()
-    const endIso = new Date(gridEnd)
+    const effectiveGridStart =
+      minMaxAllowedDates.min && gridStart < minMaxAllowedDates.min
+        ? minMaxAllowedDates.min
+        : gridStart
+    const effectiveGridEnd =
+      minMaxAllowedDates.max && gridEnd > minMaxAllowedDates.max
+        ? minMaxAllowedDates.max
+        : gridEnd
+    if (effectiveGridStart > effectiveGridEnd) {
+      return NextResponse.json({ events: [] }, { status: 200, headers: NO_STORE_HEADERS })
+    }
+    const startIso = effectiveGridStart.toISOString()
+    const endIso = new Date(effectiveGridEnd)
     endIso.setHours(23, 59, 59, 999)
     const endIsoStr = endIso.toISOString()
 
@@ -108,8 +162,8 @@ export async function GET(req: NextRequest) {
     if (error) {
       // Backward compatibility for older schemas without start_at/end_at.
       if (isMissingColumnError(error) && String(error?.message ?? '').includes('start_at')) {
-        const gridStartDate = gridStart.toISOString().slice(0, 10)
-        const gridEndDate = gridEnd.toISOString().slice(0, 10)
+        const gridStartDate = effectiveGridStart.toISOString().slice(0, 10)
+        const gridEndDate = effectiveGridEnd.toISOString().slice(0, 10)
         const { data: legacyData, error: legacyError } = await supabase
           .from('rota_events')
           .select('*')

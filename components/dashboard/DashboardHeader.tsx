@@ -281,9 +281,11 @@ export default function DashboardHeader() {
               <Bell className="h-5 w-5" strokeWidth={1.75} aria-hidden />
               {unreadCount > 0 ? (
                 <span
-                  className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-slate-500 ring-2 ring-white dark:bg-slate-400 dark:ring-slate-900"
-                  aria-hidden
-                />
+                  className="absolute -right-2 -top-2 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white ring-2 ring-white dark:ring-slate-900"
+                  aria-label={`${unreadCount} unread notifications`}
+                >
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
               ) : null}
             </span>
           </button>

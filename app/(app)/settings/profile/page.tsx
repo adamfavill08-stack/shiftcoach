@@ -9,6 +9,9 @@ import { ChevronLeft, ChevronRight, User, Target, Scale, Ruler, Calendar } from 
 import { showToast } from '@/components/ui/Toast'
 import { cmToFeetInches } from '@/lib/units'
 import { useTranslation } from '@/components/providers/language-provider'
+import { useSubscriptionAccess } from '@/lib/hooks/useSubscriptionAccess'
+import { canUseFeature } from '@/lib/subscription/features'
+import { UpgradeCard } from '@/components/subscription/UpgradeCard'
 
 /** Parse YYYY-MM-DD in the user's local calendar (avoids UTC midnight shifts from `new Date('YYYY-MM-DD')`). */
 function parseYmdLocal(ymd: string): Date | null {
@@ -74,6 +77,8 @@ function ProfilePageContent() {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [hasCompletedFirstSetup, setHasCompletedFirstSetup] = useState(false)
   const [busy, setBusy] = useState(false)
+  const { isLoading: subscriptionLoading, isPro, plan } = useSubscriptionAccess()
+  const hasCalorieProfileAccess = canUseFeature('calorie_profile_settings', { isPro, plan })
 
   // When profile loads or units change, align the weight unit with the user's
   // preference without overriding an explicit non-default choice.
@@ -504,6 +509,29 @@ function ProfilePageContent() {
               </button>
             </div>
           </div>
+        </div>
+      </main>
+    )
+  }
+
+  if (!subscriptionLoading && !hasCalorieProfileAccess) {
+    return (
+      <main className="min-h-screen bg-slate-100">
+        <div className="max-w-md mx-auto px-4 py-8">
+          <div className="mb-4">
+            <button
+              onClick={() => router.back()}
+              className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm text-slate-700 shadow-[0_4px_16px_-10px_rgba(15,23,42,0.25)]"
+              aria-label={t('settings.backAria')}
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Back
+            </button>
+          </div>
+          <UpgradeCard
+            title="Calorie profile is a Pro feature"
+            description="Upgrade to set your profile and unlock adjusted calories, next meal window, and shift lag insights."
+          />
         </div>
       </main>
     )

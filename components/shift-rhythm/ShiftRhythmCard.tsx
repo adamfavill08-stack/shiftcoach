@@ -29,6 +29,9 @@ import { useTransitionPlanPanelPresence } from "@/lib/hooks/useTransitionPlanPan
 import { riskScaleBarMarkerFill } from "@/lib/riskScaleBarMarker";
 import { getCircadianData } from "@/lib/circadian/circadianCache";
 import { formatFatigueSummary } from "@/lib/fatigue/formatFatigueSummary";
+import { useSubscriptionAccess } from "@/lib/hooks/useSubscriptionAccess";
+import { canUseFeature } from "@/lib/subscription/features";
+import { UpgradeCard } from "@/components/subscription/UpgradeCard";
 
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import type { CircadianState } from '@/lib/circadian/calculateCircadianScore'
@@ -92,6 +95,11 @@ function ShiftRhythmCard({
   const [focus, setFocus] = useState<number>(3);
   const [isLoadingMood, setIsLoadingMood] = useState(true);
   const [showSecondaryCards, setShowSecondaryCards] = useState(false);
+  const { isLoading: subscriptionLoading, isPro, plan } = useSubscriptionAccess();
+  const access = useMemo(() => ({ isPro, plan }), [isPro, plan]);
+  const canSeeAdjustedCalories = canUseFeature("adjusted_calories", access);
+  const canSeeNextMealWindow = canUseFeature("next_meal_window", access);
+  const canSeeShiftLag = canUseFeature("shift_lag", access);
 
   // Defer secondary cards until idle so primary dashboard content paints first.
   useEffect(() => {
@@ -248,10 +256,24 @@ function ShiftRhythmCard({
       {showSecondaryCards ? (
         <>
           {/* Adjusted calories summary above meal timings */}
-          <HomeAdjustedCaloriesCard />
+          {subscriptionLoading || canSeeAdjustedCalories ? (
+            <HomeAdjustedCaloriesCard />
+          ) : (
+            <UpgradeCard
+              title="Adjusted calories are a Pro feature"
+              description="Upgrade to see calorie targets that adapt around your shifts."
+            />
+          )}
 
           {/* Compact meal times summary card */}
-          <HomeMealTimesCard />
+          {subscriptionLoading || canSeeNextMealWindow ? (
+            <HomeMealTimesCard />
+          ) : (
+            <UpgradeCard
+              title="Next meal window is locked"
+              description="Upgrade to see the best meal timing around your work pattern."
+            />
+          )}
         </>
       ) : null}
 
@@ -272,7 +294,16 @@ function ShiftRhythmCard({
           )}
         </div>
         <div className="flex w-full min-h-0 min-w-0">
-          {showSecondaryCards ? <ShiftLagCard /> : null}
+          {showSecondaryCards ? (
+            subscriptionLoading || canSeeShiftLag ? (
+              <ShiftLagCard />
+            ) : (
+              <UpgradeCard
+                title="Shift lag is a Pro feature"
+                description="Upgrade to understand how your schedule is affecting your body clock."
+              />
+            )
+          ) : null}
         </div>
       </div>
 

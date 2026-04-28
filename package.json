@@ -26,6 +26,7 @@
     "@capacitor/ios": "^7.4.4",
     "@capacitor/local-notifications": "^7.0.6",
     "@capacitor/status-bar": "^7.0.6",
+    "@revenuecat/purchases-capacitor": "^13.0.1",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.79.0",
     "clsx": "^2.1.1",

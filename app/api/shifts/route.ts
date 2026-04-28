@@ -4,6 +4,8 @@ import { supabaseServer } from '@/lib/supabase-server'
 import { z } from 'zod'
 import { parseJsonBody } from '@/lib/api/validation'
 import { apiServerError } from '@/lib/api/response'
+import { getServerSubscriptionAccess } from '@/lib/subscription/server'
+import { getHistoryLimitDays } from '@/lib/subscription/features'
 
 // Cache for 60 seconds - shifts don't change frequently
 export const revalidate = 60
@@ -76,6 +78,19 @@ export async function GET(req: NextRequest) {
     // Use service role client (bypasses RLS) when in dev fallback mode
     const supabase = isDevFallback ? supabaseServer : authSupabase
 
+    const access = await getServerSubscriptionAccess(supabase, userId)
+    const historyLimitDays = getHistoryLimitDays(access)
+    const minMaxAllowedDates = (() => {
+      if (historyLimitDays == null) return { min: null as string | null, max: null as string | null }
+      const d = new Date()
+      d.setHours(0, 0, 0, 0)
+      const min = new Date(d)
+      const max = new Date(d)
+      min.setDate(min.getDate() - (historyLimitDays - 1))
+      max.setDate(max.getDate() + (historyLimitDays - 1))
+      return { min: min.toISOString().slice(0, 10), max: max.toISOString().slice(0, 10) }
+    })()
+
     const searchParams = req.nextUrl.searchParams
     const from = searchParams.get('from')
     const to = searchParams.get('to')
@@ -129,6 +144,20 @@ export async function GET(req: NextRequest) {
       toDate.setHours(0, 0, 0, 0)
       fromIsoDate = fromDate.toISOString().slice(0, 10)
       toIsoDate = toDate.toISOString().slice(0, 10)
+    }
+
+    if (minMaxAllowedDates.min && fromIsoDate < minMaxAllowedDates.min) {
+      fromIsoDate = minMaxAllowedDates.min
+      if (toIsoDate < fromIsoDate) {
+        return NextResponse.json({ items: [], shifts: [] }, { status: 200 })
+      }
+    }
+
+    if (minMaxAllowedDates.max && toIsoDate > minMaxAllowedDates.max) {
+      toIsoDate = minMaxAllowedDates.max
+      if (toIsoDate < fromIsoDate) {
+        return NextResponse.json({ items: [], shifts: [] }, { status: 200 })
+      }
     }
 
     const { data, error } = await supabase

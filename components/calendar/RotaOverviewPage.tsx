@@ -18,6 +18,9 @@ import { format as formatDate, startOfWeek } from 'date-fns'
 import { ViewSwitcherMenu } from '@/components/calendar/ViewSwitcherMenu'
 import { useTranslation, useLanguage } from '@/components/providers/language-provider'
 import { intlLocaleForApp } from '@/lib/i18n/supportedLocales'
+import { useSubscriptionAccess } from '@/lib/hooks/useSubscriptionAccess'
+import { getHistoryLimitDays } from '@/lib/subscription/features'
+import { UpgradeCard } from '@/components/subscription/UpgradeCard'
 
 // TypeScript types for Speech Recognition
 interface SpeechRecognition extends EventTarget {
@@ -133,6 +136,8 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
   const [weekStartsOn, setWeekStartsOn] = useState<0 | 1>(() =>
     typeof window !== 'undefined' ? getWeekStartsOn() : 1,
   )
+  const { isPro, plan } = useSubscriptionAccess()
+  const historyLimitDays = getHistoryLimitDays({ isPro, plan })
 
   // Sync cursorDate with ?month=YYYY-MM (from URL or prop), so year view clicks open that month
   const monthParam = searchParams.get('month') ?? initialYearMonth ?? null
@@ -301,14 +306,54 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
   const weekdayLabels = useMemo(() => calendarWeekdayLabels(weekStartsOn), [weekStartsOn])
 
   const goToPrevMonth = () => {
+    if (!canViewPrevMonth) return
     setMenuOpen(false)
     setCursorDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
   }
 
   const goToNextMonth = () => {
+    if (!canViewNextMonth) return
     setMenuOpen(false)
     setCursorDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
   }
+
+  const minAllowedDate = useMemo(() => {
+    if (historyLimitDays == null) return null
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    d.setDate(d.getDate() - (historyLimitDays - 1))
+    return d
+  }, [historyLimitDays])
+
+  const maxAllowedDate = useMemo(() => {
+    if (historyLimitDays == null) return null
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    d.setDate(d.getDate() + (historyLimitDays - 1))
+    return d
+  }, [historyLimitDays])
+
+  const canViewPrevMonth = useMemo(() => {
+    if (!minAllowedDate) return true
+    const prevMonth = new Date(cursorDate.getFullYear(), cursorDate.getMonth() - 1, 1)
+    const prevMonthEnd = new Date(prevMonth.getFullYear(), prevMonth.getMonth() + 1, 0)
+    return prevMonthEnd >= minAllowedDate
+  }, [cursorDate, minAllowedDate])
+
+  const canViewNextMonth = useMemo(() => {
+    if (!maxAllowedDate) return true
+    const nextMonth = new Date(cursorDate.getFullYear(), cursorDate.getMonth() + 1, 1)
+    return nextMonth <= maxAllowedDate
+  }, [cursorDate, maxAllowedDate])
+
+  useEffect(() => {
+    if (!maxAllowedDate) return
+    const maxMonthStart = new Date(maxAllowedDate.getFullYear(), maxAllowedDate.getMonth(), 1)
+    const currentMonthStart = new Date(cursorDate.getFullYear(), cursorDate.getMonth(), 1)
+    if (currentMonthStart > maxMonthStart) {
+      setCursorDate(maxMonthStart)
+    }
+  }, [cursorDate, maxAllowedDate])
 
   // Swipe gesture state
   const [swipeStart, setSwipeStart] = useState<{ x: number; y: number; time: number } | null>(null)
@@ -642,6 +687,25 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
     }).filter(week => week.length > 0)
   }, [reorderedWeeks, eventsByDate, searchQuery, t])
 
+  const isDayLockedByFreeHistory = useCallback(
+    (dayIso: string) => {
+      if (!minAllowedDate && !maxAllowedDate) return false
+      const dayDate = new Date(dayIso)
+      dayDate.setHours(0, 0, 0, 0)
+      if (minAllowedDate && dayDate < minAllowedDate) return true
+      if (maxAllowedDate && dayDate > maxAllowedDate) return true
+      return false
+    },
+    [minAllowedDate, maxAllowedDate],
+  )
+
+  const visibleWeeksForDisplay = useMemo(() => {
+    if (!minAllowedDate) return allWeeksForDisplay
+    return allWeeksForDisplay.filter((week) =>
+      week.some((day) => !isDayLockedByFreeHistory(day.date)),
+    )
+  }, [allWeeksForDisplay, isDayLockedByFreeHistory, minAllowedDate])
+
   // Load / live-sync calendar settings (from settings sheet)
   useEffect(() => {
     function syncCalendarSettingsFromStorage() {
@@ -794,7 +858,8 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
             <button
               type="button"
               onClick={goToPrevMonth}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-all duration-200 hover:bg-slate-100 active:scale-95"
+              disabled={!canViewPrevMonth}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-all duration-200 hover:bg-slate-100 active:scale-95 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed"
               aria-label={t('calendar.rota.prevMonthAria')}
             >
               <span className="text-lg font-light leading-none">‹</span>
@@ -805,12 +870,30 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
             <button
               type="button"
               onClick={goToNextMonth}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-all duration-200 hover:bg-slate-100 active:scale-95"
+              disabled={!canViewNextMonth}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-all duration-200 hover:bg-slate-100 active:scale-95 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed"
               aria-label={t('calendar.rota.nextMonthAria')}
             >
               <span className="text-lg font-light leading-none">›</span>
             </button>
           </div>
+
+          {historyLimitDays != null && !canViewPrevMonth ? (
+            <div className="flex-shrink-0">
+              <UpgradeCard
+                title="History beyond 31 days is Pro"
+                description="Upgrade to view unlimited shift and event history in your rota."
+              />
+            </div>
+          ) : null}
+          {historyLimitDays != null && !canViewNextMonth ? (
+            <div className="flex-shrink-0">
+              <UpgradeCard
+                title="June+ rota planning is Pro"
+                description="Upgrade to view and plan shifts/events beyond your 31-day free window."
+              />
+            </div>
+          ) : null}
 
           {/* Weeks scroll area inside the same card */}
           <div className="flex-1 min-h-0 overflow-y-auto pb-4">
@@ -826,7 +909,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
             </div>
 
             <div className="space-y-2">
-              {allWeeksForDisplay.map((week, weekIdx) => {
+              {visibleWeeksForDisplay.map((week, weekIdx) => {
                 // Helper function to get items for a day
                 const getDayItems = (day: typeof week[0]) => {
                   const shiftColor = getColorForType(day.type)
@@ -896,10 +979,13 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                     {/* Dates Row */}
                     <div className="grid grid-cols-7 gap-1 mb-1">
                       {week.map((day) => {
+                        const lockedByHistory = isDayLockedByFreeHistory(day.date)
                         const isToday = day.isToday
                         return (
                           <div key={day.date} className="flex flex-col items-center justify-center">
-                            {isToday ? (
+                            {lockedByHistory ? (
+                              <span className="h-7 w-7" aria-hidden />
+                            ) : isToday ? (
                               <span className="relative inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white antialiased transition-all duration-200">
                                 <span className="absolute -inset-1 rounded-full bg-sky-500/40 blur-md opacity-80" />
                                 <span className="relative inline-flex h-7 w-7 items-center justify-center rounded-full bg-sky-500 border border-sky-500/80">
@@ -924,6 +1010,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                     {showShiftBars && (
                     <div className="grid grid-cols-7 gap-1 mb-1" style={{ minHeight: '18px' }}>
                       {week.map((day) => {
+                        const lockedByHistory = isDayLockedByFreeHistory(day.date)
                         const dayDate = new Date(day.date)
                         dayDate.setHours(0, 0, 0, 0)
                         const isPastMonth = dayDate < todayDate && !day.isCurrentMonth
@@ -941,7 +1028,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
 
                         return (
                           <div key={day.date} className="flex flex-col gap-1 items-stretch">
-                            {firstItem && (
+                            {!lockedByHistory && firstItem && (
                               <div
                                 onClick={(e) => {
                                   if (firstItem.type === 'event' && firstItem.eventId) {
@@ -975,6 +1062,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
                     {showShiftBars && (
                     <div className="grid grid-cols-7 gap-1" style={{ minHeight: '18px' }}>
                       {week.map((day) => {
+                        const lockedByHistory = isDayLockedByFreeHistory(day.date)
                         const dayDate = new Date(day.date)
                         dayDate.setHours(0, 0, 0, 0)
                         const isPastMonth = dayDate < todayDate && !day.isCurrentMonth
@@ -995,7 +1083,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
 
                         return (
                           <div key={day.date} className="flex flex-col gap-1 items-stretch">
-                            {remainingItems.map((item, idx) => (
+                            {!lockedByHistory && remainingItems.map((item, idx) => (
                               <div
                                 key={`${day.date}-bottom-${idx}`}
                                 onClick={(e) => {

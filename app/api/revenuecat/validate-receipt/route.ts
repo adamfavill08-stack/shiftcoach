@@ -4,6 +4,7 @@ import { supabaseServer } from '@/lib/supabase-server'
 import { z } from 'zod'
 import { parseJsonBody } from '@/lib/api/validation'
 import { apiServerError } from '@/lib/api/response'
+import { getPlanFromProductId, isEntitlementActive } from '@/lib/subscription/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -69,7 +70,8 @@ export async function POST(req: NextRequest) {
     // RevenueCat returns subscription info in the response
     // Check if subscription is active
     const subscriber = revenuecatData.subscriber
-    const isActive = subscriber?.entitlements?.active?.length > 0
+    const activeEntitlements = subscriber?.entitlements?.active ?? {}
+    const isActive = isEntitlementActive(subscriber?.entitlements, 'pro') || Object.keys(activeEntitlements).length > 0
     
     if (!isActive) {
       return NextResponse.json(
@@ -79,16 +81,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Get the active entitlement (subscription)
-    const activeEntitlement = Object.values(subscriber.entitlements.active || {})[0] as any
+    const activeEntitlement = Object.values(activeEntitlements)[0] as any
     const subscriptionId = activeEntitlement?.product_identifier || productId
     
     // Determine plan from product ID
-    let plan: 'monthly' | 'yearly' | null = null
-    if (subscriptionId.includes('monthly')) {
-      plan = 'monthly'
-    } else if (subscriptionId.includes('yearly')) {
-      plan = 'yearly'
-    }
+    const plan = getPlanFromProductId(subscriptionId)
 
     if (!plan) {
       return NextResponse.json(

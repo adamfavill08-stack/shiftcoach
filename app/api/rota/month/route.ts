@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { buildMonthFromPattern } from '@/lib/data/buildRotaMonth'
+import { getServerSubscriptionAccess } from '@/lib/subscription/server'
+import { getHistoryLimitDays } from '@/lib/subscription/features'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -18,6 +20,8 @@ export async function GET(req: NextRequest) {
 
     // Use service role client (bypasses RLS) when in dev fallback mode
     const supabase = isDevFallback ? supabaseServer : authSupabase
+    const access = await getServerSubscriptionAccess(supabase, userId)
+    const historyLimitDays = getHistoryLimitDays(access)
 
     const searchParams = req.nextUrl.searchParams
     const now = new Date()
@@ -40,8 +44,49 @@ export async function GET(req: NextRequest) {
     const gridEnd = new Date(gridStart)
     gridEnd.setDate(gridStart.getDate() + 41) // 42 days total
     
-    const gridStartStr = gridStart.toISOString().slice(0, 10)
-    const gridEndStr = gridEnd.toISOString().slice(0, 10)
+    const minMaxAllowedDates = (() => {
+      if (historyLimitDays == null) return { min: null as string | null, max: null as string | null }
+      const d = new Date()
+      d.setHours(0, 0, 0, 0)
+      const min = new Date(d)
+      const max = new Date(d)
+      min.setDate(min.getDate() - (historyLimitDays - 1))
+      max.setDate(max.getDate() + (historyLimitDays - 1))
+      return { min: min.toISOString().slice(0, 10), max: max.toISOString().slice(0, 10) }
+    })()
+    const effectiveGridStartStr =
+      minMaxAllowedDates.min && gridStart.toISOString().slice(0, 10) < minMaxAllowedDates.min
+        ? minMaxAllowedDates.min
+        : gridStart.toISOString().slice(0, 10)
+    const effectiveGridEndStr =
+      minMaxAllowedDates.max && gridEnd.toISOString().slice(0, 10) > minMaxAllowedDates.max
+        ? minMaxAllowedDates.max
+        : gridEnd.toISOString().slice(0, 10)
+    const gridStartStr = effectiveGridStartStr
+    const gridEndStr = effectiveGridEndStr
+    const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
+    const monthEnd = month === 12
+      ? `${year + 1}-01-01`
+      : `${year}-${String(month + 1).padStart(2, '0')}-01`
+
+    if (gridStartStr > gridEndStr) {
+      const emptyWeeks = buildMonthFromPattern({
+        patternSlots: [],
+        currentShiftIndex: 0,
+        startDate: monthStart,
+        month: zeroBasedMonth,
+        year,
+      })
+      return NextResponse.json(
+        {
+          month,
+          year,
+          pattern: null,
+          weeks: emptyWeeks,
+        },
+        { headers: NO_STORE_HEADERS },
+      )
+    }
 
     // Fetch actual shifts from the shifts table for the entire calendar grid range
     const { data: monthShifts, error: shiftsError } = await supabase
@@ -76,10 +121,6 @@ export async function GET(req: NextRequest) {
     }
 
     // Calculate month boundaries for checking if shifts exist in current month
-    const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
-    const monthEnd = month === 12 
-      ? `${year + 1}-01-01` 
-      : `${year}-${String(month + 1).padStart(2, '0')}-01`
 
     // Check if there are any shifts in the grid range (not just current month)
     // This ensures shifts from previous/next months are included
