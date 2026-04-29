@@ -99,7 +99,7 @@ export default function UpgradePage() {
                   type="button"
                   onClick={() => void purchaseSubscription('monthly')}
                   disabled={isBusy || !isAvailable || isLoading}
-                  className="w-full rounded-xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white transition-colors enabled:hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition-colors enabled:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isPurchasing
                     ? t('upgrade.buttons.processing')
@@ -112,7 +112,7 @@ export default function UpgradePage() {
                   type="button"
                   onClick={() => void purchaseSubscription('yearly')}
                   disabled={isBusy || !isAvailable || isLoading}
-                  className="w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors enabled:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors enabled:hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isPurchasing ? (
                     t('upgrade.buttons.processing')
@@ -123,7 +123,7 @@ export default function UpgradePage() {
                           ? t('upgrade.buttons.annualWithDynamicPrice', { price: yearlyPriceLabel })
                           : t('upgrade.buttons.annualWithPrice')}
                       </span>
-                      <span className="mt-0.5 text-[11px] font-medium text-emerald-300">
+                      <span className="mt-0.5 text-[11px] font-medium text-white/90">
                         {annualSavingsText}
                       </span>
                     </span>

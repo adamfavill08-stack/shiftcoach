@@ -114,7 +114,7 @@ export const sleepUiMessagesEn: Record<string, string> = {
   'sleepSW.motivate.highDebt':
     '{name}, you are short on sleep versus your goal for this shifted day. Block time for recovery sleep soon — your next shift will feel the difference.',
   'sleepSW.motivate.moderateDebt':
-    '{name}, you are a little under target today. Even an extra 30–60 minutes of protected sleep or a planned nap can steady your week.',
+    '{name}, you are carrying some sleep debt today. Even an extra 30–60 minutes of protected sleep or a planned nap can help you catch up.',
   'sleepSW.motivate.ahead':
     '{name}, you have met or passed your sleep target for this day. That is strong groundwork — keep protecting those windows when work gets intense.',
   'sleepSW.motivate.strong':
@@ -122,7 +122,7 @@ export const sleepUiMessagesEn: Record<string, string> = {
   'sleepSW.motivate.onTrack':
     '{name}, you are in a solid range for today. Staying near your target through changing shifts is the real win — keep going.',
   'sleepSW.motivate.catchUp':
-    '{name}, you are below target but not far off. A slightly earlier wind-down or a short recovery nap can put you back in the green.',
+    '{name}, you are close but carrying a little sleep debt. A slightly earlier wind-down or a short recovery nap can put you back in the green.',
   'sleepSW.motivate.low':
     '{name}, sleep is quite short versus what your profile suggests. Treat rest as safety today — lighter plans where you can, and sleep before the next heavy run.',
   'sleepSW.motivate.fallbackName': 'there',

@@ -12,14 +12,19 @@ export type WorkBlockStatus = 'well_recovered' | 'slight_debt' | 'high_debt'
 
 export type LastWorkBlockPayload = {
   totalSleepMinutes: number
-  shiftCount: number
+  dayCount: number
   status: WorkBlockStatus
   blockStartDate: string
   blockEndDate: string
   expectedSleepMinutes: number
+  whoAgeYears: number | null
+  whoRecommendedDailyHoursMin: number
+  whoRecommendedDailyHoursMax: number
+  whoRecommendedDailyHoursMid: number
+  sleepDebtMinutes: number
+  sleepAheadMinutes: number
 }
 
-const EXPECTED_SLEEP_PER_SHIFT_MINUTES = 6.5 * 60
 const DAYS_TO_FETCH = 60
 
 type ShiftRow = {
@@ -179,6 +184,25 @@ function deriveStatus(totalSleepMinutes: number, expectedSleepMinutes: number): 
   return 'high_debt'
 }
 
+function getWhoRecommendedDailySleepHours(age: number | null | undefined): {
+  minHours: number
+  maxHours: number
+  midHours: number
+} {
+  // WHO guidance bands (commonly cited ranges by age group).
+  // We use the midpoint as the numeric target for deficit/ahead calculations.
+  if (!Number.isFinite(age as number)) {
+    return { minHours: 7, maxHours: 9, midHours: 8 }
+  }
+  const a = Number(age)
+  if (a <= 2) return { minHours: 11, maxHours: 14, midHours: 12.5 }
+  if (a <= 5) return { minHours: 10, maxHours: 13, midHours: 11.5 }
+  if (a <= 13) return { minHours: 9, maxHours: 11, midHours: 10 }
+  if (a <= 17) return { minHours: 8, maxHours: 10, midHours: 9 }
+  if (a <= 64) return { minHours: 7, maxHours: 9, midHours: 8 }
+  return { minHours: 7, maxHours: 8, midHours: 7.5 }
+}
+
 /** Intersection of [startMs, endMs) with [winStart, winEndExclusive). */
 function clipInterval(
   startMs: number,
@@ -227,60 +251,31 @@ export async function GET(req: NextRequest) {
     day: '2-digit',
   }).format(new Date())
 
-  const fromDate = new Date()
-  fromDate.setDate(fromDate.getDate() - DAYS_TO_FETCH)
-  const fromYmd = fromDate.toISOString().slice(0, 10)
+  const blockEndDate = todayYmd
+  const blockStartDate = addCalendarDaysToYmd(blockEndDate, -6)
+  const dayCount = 7
 
-  const { data: shiftRowsRaw, error: shiftsError } = await supabase
-    .from('shifts')
-    .select('date, label, start_ts, end_ts')
-    .eq('user_id', userId)
-    .gte('date', fromYmd)
-    .lte('date', todayYmd)
-    .order('date', { ascending: true })
-
-  if (shiftsError) {
-    console.error('[api/sleep/last-work-block] shifts error:', shiftsError)
-    return NextResponse.json({ error: 'Failed to load shifts' }, { status: 500 })
-  }
-
-  if (!shiftRowsRaw || shiftRowsRaw.length === 0) {
-    return NextResponse.json({ block: null })
-  }
-
-  const shiftRows: ShiftRow[] = shiftRowsRaw.map((r) => ({
-    date: r.date,
-    label: r.label ?? null,
-    start_ts: r.start_ts ?? null,
-    end_ts: r.end_ts ?? null,
-  }))
-
-  // Rota + calendar holidays, plus any shift row whose label is already leave/holiday/OFF.
-  let holidayDates = await fetchHolidayLocalDatesSet(supabase, userId, fromYmd, todayYmd, tz)
-  holidayDates = augmentHolidayDatesFromShiftLabels(shiftRows, holidayDates, fromYmd, todayYmd)
-
-  let shiftsForBlocks = applyHolidayAsOffToShiftRows(shiftRows, holidayDates)
-  shiftsForBlocks = mergeHolidayDatesIntoShiftRows(shiftsForBlocks, holidayDates, fromYmd, todayYmd)
-
-  const result = detectLastCompletedWorkBlock(shiftsForBlocks, todayYmd)
-  if (!result || result.blockDates.length === 0) {
-    return NextResponse.json({ block: null })
-  }
-
-  const { blockDates } = result
-  const blockStartDate = blockDates[0]
-  const blockEndShiftRow = shiftRows.find((r) => r.date === blockDates[blockDates.length - 1])
-  const blockEndDate = blockEndShiftRow
-    ? effectiveEndDate(blockEndShiftRow)
-    : blockDates[blockDates.length - 1]
-  const shiftCount = blockDates.length
-
-  // Align window with the user's calendar (same `tz` as shift dates) so we don't pull in pre-block sleep.
+  // Align window with the user's calendar (same `tz` as requested `tz`) so we don't pull in
+  // sleep from outside the last-7-local-days range.
   const winStartMs = startOfLocalDayUtcMs(blockStartDate, tz)
-  // Same span as before: through start of calendar day (blockEnd + 3), exclusive upper bound.
-  const winEndExclusiveMs = startOfLocalDayUtcMs(addCalendarDaysToYmd(blockEndDate, 3), tz)
+  // Exclusive upper bound: start of the day after the last day in the window.
+  const winEndExclusiveMs = startOfLocalDayUtcMs(addCalendarDaysToYmd(blockEndDate, 1), tz)
   const windowStartIso = new Date(winStartMs).toISOString()
   const windowEndIso = new Date(winEndExclusiveMs).toISOString()
+
+  // Get user age so we can apply WHO age bands.
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('date_of_birth, age')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  // Use the age already stored on the user's profile (WHO bands should not re-derive age here).
+  // If age is missing, we fall back to the adult range in getWhoRecommendedDailySleepHours().
+  const userAge: number | null = profile?.age ?? null
+
+  const whoRange = getWhoRecommendedDailySleepHours(userAge)
+  const expectedSleepMinutes = Math.round(whoRange.midHours * dayCount * 60)
 
   const { data: sleepLogs, error: sleepError } = await supabase
     .from('sleep_logs')
@@ -311,16 +306,24 @@ export async function GET(req: NextRequest) {
 
   const totalSleepMinutes = mergedOverlapMinutes(clipped)
 
-  const expectedSleepMinutes = shiftCount * EXPECTED_SLEEP_PER_SHIFT_MINUTES
   const status = deriveStatus(totalSleepMinutes, expectedSleepMinutes)
+
+  const sleepDebtMinutes = Math.max(0, expectedSleepMinutes - totalSleepMinutes)
+  const sleepAheadMinutes = Math.max(0, totalSleepMinutes - expectedSleepMinutes)
 
   const payload: LastWorkBlockPayload = {
     totalSleepMinutes,
-    shiftCount,
+    dayCount,
     status,
     blockStartDate,
     blockEndDate,
     expectedSleepMinutes,
+    whoAgeYears: userAge,
+    whoRecommendedDailyHoursMin: whoRange.minHours,
+    whoRecommendedDailyHoursMax: whoRange.maxHours,
+    whoRecommendedDailyHoursMid: whoRange.midHours,
+    sleepDebtMinutes,
+    sleepAheadMinutes,
   }
 
   return NextResponse.json({ block: payload })

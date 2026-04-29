@@ -924,7 +924,7 @@ export default function RotaSetup() {
 
   return (
     <>
-    <div className="min-h-screen bg-slate-100">
+    <div className="min-h-screen bg-[var(--bg)]">
       <div className="mx-auto max-w-md px-4 py-6">
           {!isOnline && (
             <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3" role="status" aria-live="polite">
@@ -1173,7 +1173,7 @@ export default function RotaSetup() {
           </div>
 
           {/* Main setup card */}
-          <div className="mt-5 relative overflow-hidden rounded-3xl bg-white border border-slate-100 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] p-6">
+          <div className="mt-5 relative overflow-hidden rounded-3xl bg-white border border-slate-100 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] p-6 dark:bg-[var(--card)] dark:border-[var(--border-subtle)] dark:shadow-[var(--shadow-soft)]">
               {/* STEP 1 – SHIFT HOURS */}
               {currentStep === 1 && (
                 <div>
@@ -1357,14 +1357,14 @@ export default function RotaSetup() {
                     {currentStep === 2 && (
                       <>
                         <div className="relative">
-                          <label className="mb-3 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          <label className="mb-3 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600 dark:text-[var(--text-soft)]">
                             {t('rota.setup.shiftPatternLabel')}
                           </label>
                           <div className="relative">
                             <select
                               value={selectedPattern || ''}
                               onChange={(e) => setSelectedPattern(e.target.value)}
-                              className="w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 py-3.5 pr-10 text-sm font-semibold text-slate-900 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_12px_-8px_rgba(0,0,0,0.12)] transition-all focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 hover:border-slate-300"
+                              className="w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 py-3.5 pr-10 text-sm font-semibold text-slate-900 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_12px_-8px_rgba(0,0,0,0.12)] transition-all focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 hover:border-slate-300 dark:border-[var(--border-subtle)] dark:bg-[var(--card)] dark:text-[var(--text-main)] dark:shadow-none dark:focus:border-indigo-400 dark:focus:ring-indigo-400/30 dark:focus:ring-offset-[var(--card)]"
                             >
                               <option value="">{t('rota.setup.selectPatternPh')}</option>
                               {availablePatterns.map((pattern) => (
@@ -1374,26 +1374,26 @@ export default function RotaSetup() {
                               ))}
                             </select>
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                              <ChevronDown className="h-4 w-4 text-slate-400" strokeWidth={2} />
+                              <ChevronDown className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2} />
                             </div>
                           </div>
                         </div>
 
                         {selectedPattern && (
-                          <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_12px_-8px_rgba(0,0,0,0.12)]">
-                            <p className="text-sm text-slate-600 leading-relaxed">
+                          <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_12px_-8px_rgba(0,0,0,0.12)] dark:border-[var(--border-subtle)] dark:from-slate-900/35 dark:to-slate-900/10 dark:bg-[color:color-mix(in_srgb,var(--card)_95%,transparent)]">
+                            <p className="text-sm text-slate-600 leading-relaxed dark:text-[var(--text-soft)]">
                               {availablePatterns.find((p) => p.id === selectedPattern)?.description}
                             </p>
                             {availablePatterns.find((p) => p.id === selectedPattern)?.commonIn &&
                               availablePatterns.find((p) => p.id === selectedPattern)!.commonIn!.length > 0 && (
                                 <div className="mt-4 flex flex-wrap items-center gap-2">
-                                  <span className="text-xs font-medium text-slate-500">{t('rota.setup.commonIn')}</span>
+                                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{t('rota.setup.commonIn')}</span>
                                   {availablePatterns
                                     .find((p) => p.id === selectedPattern)!
                                     .commonIn!.map((location) => (
                                       <span
                                         key={location}
-                                        className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600"
+                                        className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:bg-slate-900/40 dark:border-slate-700/60 dark:text-slate-200"
                                       >
                                         {location}
                                       </span>
@@ -1739,11 +1739,11 @@ export default function RotaSetup() {
 
           {/* Navigation controls – for steps 2 and 3 only, stay at bottom of card */}
           {currentStep >= 2 && (
-            <div className="mt-6 pt-5 flex items-center justify-between border-t border-slate-200/60">
+            <div className="mt-6 pt-5 flex items-center justify-between border-t border-slate-200/60 dark:border-white/10">
               <button
                 type="button"
                 onClick={() => setCurrentStep((prev) => (prev > 1 ? ((prev - 1) as SetupStep) : prev))}
-                className="rounded-full px-5 py-3 bg-white border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2"
+                className="rounded-full px-5 py-3 bg-white border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 dark:bg-[var(--card)] dark:border-[var(--border-subtle)] dark:text-[var(--text-soft)] dark:hover:bg-[color:color-mix(in_srgb,var(--card)_92%,transparent)] dark:focus-visible:ring-indigo-400/30 dark:focus-visible:ring-offset-[var(--card)]"
               >
                 {t('rota.setup.back')}
               </button>
@@ -1752,7 +1752,7 @@ export default function RotaSetup() {
                   type="button"
                   onClick={() => setCurrentStep((prev) => (prev < 3 ? ((prev + 1) as SetupStep) : prev))}
                   disabled={!canContinue}
-                className="rounded-full px-6 py-3 bg-slate-900 text-white text-sm font-semibold shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] hover:bg-slate-800 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-full px-6 py-3 bg-slate-900 text-white text-sm font-semibold shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] hover:bg-slate-800 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-slate-800"
                 >
                   {t('rota.setup.continue')}
                 </button>

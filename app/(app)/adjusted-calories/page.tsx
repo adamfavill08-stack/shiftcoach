@@ -590,8 +590,10 @@ export default function AdjustedCaloriesPage() {
         {/* Disclaimer */}
         <div className="pt-4 pb-4">
           <div className="text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">ShiftCoach</p>
-            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-200">
+              ShiftCoach
+            </p>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-400 dark:text-slate-200">
               A coaching app only and does not replace medical advice.
               <br />
               Please speak to a healthcare professional about any health concerns.

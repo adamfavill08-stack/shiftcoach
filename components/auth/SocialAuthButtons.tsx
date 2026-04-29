@@ -7,6 +7,21 @@ import { supabase } from '@/lib/supabase'
 import { buildOAuthRedirectTo } from '@/lib/auth/oauthRedirect'
 import { useTranslation } from '@/components/providers/language-provider'
 
+const AUTH_OAUTH_CONTINUE_PATH = '/auth/oauth-continue'
+const OAUTH_NEXT_COOKIE_NAME = 'oauth_next'
+
+function setOAuthNextCookie(nextPath: string) {
+  // Used so our server-side `/auth/callback` route can redirect correctly without
+  // forcing Google to match an exact redirect URL including query params.
+  if (typeof window === 'undefined') return
+  const secure = window.location.protocol === 'https:'
+  const maxAgeSeconds = 10 * 60 // 10 minutes
+
+  document.cookie = `${OAUTH_NEXT_COOKIE_NAME}=${encodeURIComponent(
+    nextPath,
+  )}; Path=/auth/callback; Max-Age=${maxAgeSeconds}; SameSite=Lax${secure ? '; Secure' : ''}`
+}
+
 function GoogleGlyph({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden>
@@ -65,9 +80,17 @@ type SocialAuthButtonsProps = {
   isOnline?: boolean
   onError: (message: string) => void
   onPendingChange?: (pending: boolean) => void
+  /** When true, hide the "more sign-in options" dropdown and only show Google. */
+  googleOnly?: boolean
 }
 
-export function SocialAuthButtons({ disabled, isOnline = true, onError, onPendingChange }: SocialAuthButtonsProps) {
+export function SocialAuthButtons({
+  disabled,
+  isOnline = true,
+  onError,
+  onPendingChange,
+  googleOnly = false,
+}: SocialAuthButtonsProps) {
   const { t } = useTranslation()
   const [pending, setPending] = useState<SocialProvider | null>(null)
   const moreRef = useRef<HTMLDetailsElement>(null)
@@ -84,6 +107,10 @@ export function SocialAuthButtons({ disabled, isOnline = true, onError, onPendin
         onError(t('auth.oauth.errorStart'))
         return
       }
+
+      // Ensure `/auth/callback` knows where to go next after OAuth completes.
+      setOAuthNextCookie(AUTH_OAUTH_CONTINUE_PATH)
+
       setPending(provider)
       onPendingChange?.(true)
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -127,34 +154,36 @@ export function SocialAuthButtons({ disabled, isOnline = true, onError, onPendin
         {pending === 'google' ? t('auth.oauth.redirecting') : t('auth.oauth.continueGoogle')}
       </button>
 
-      <details
-        ref={moreRef}
-        className="group rounded-xl border border-slate-200 bg-slate-50/80 open:bg-white open:shadow-sm"
-      >
-        <summary className="flex h-11 cursor-pointer list-none items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium text-slate-600 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 [&::-webkit-details-marker]:hidden">
-          <span>{t('auth.oauth.moreOptions')}</span>
-          <ChevronDown
-            className="h-4 w-4 shrink-0 text-slate-400 transition group-open:rotate-180"
-            aria-hidden
-          />
-        </summary>
-        <div className="border-t border-slate-200/80 px-2 pb-2 pt-1">
-          <div className="flex flex-col gap-2">
-            {OTHER_PROVIDERS.map(({ id, labelKey, Icon }) => (
-              <button
-                key={id}
-                type="button"
-                disabled={busy}
-                onClick={() => void startOther(id)}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-transparent bg-white text-sm font-semibold text-slate-800 transition hover:border-slate-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                {pending === id ? t('auth.oauth.redirecting') : t(labelKey)}
-              </button>
-            ))}
+      {googleOnly ? null : (
+        <details
+          ref={moreRef}
+          className="group rounded-xl border border-slate-200 bg-slate-50/80 open:bg-white open:shadow-sm"
+        >
+          <summary className="flex h-11 cursor-pointer list-none items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium text-slate-600 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 [&::-webkit-details-marker]:hidden">
+            <span>{t('auth.oauth.moreOptions')}</span>
+            <ChevronDown
+              className="h-4 w-4 shrink-0 text-slate-400 transition group-open:rotate-180"
+              aria-hidden
+            />
+          </summary>
+          <div className="border-t border-slate-200/80 px-2 pb-2 pt-1">
+            <div className="flex flex-col gap-2">
+              {OTHER_PROVIDERS.map(({ id, labelKey, Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void startOther(id)}
+                  className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-transparent bg-white text-sm font-semibold text-slate-800 transition hover:border-slate-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Icon className="h-5 w-5 shrink-0" />
+                  {pending === id ? t('auth.oauth.redirecting') : t(labelKey)}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      </details>
+        </details>
+      )}
     </div>
   )
 }

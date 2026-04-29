@@ -36,8 +36,13 @@ export function deriveSleepMotivationBand(args: {
 
   if (totalMinutes <= 0) return 'no_sleep'
 
-  if (sleepDebtMinutes != null && sleepDebtMinutes >= 120) return 'high_debt'
-  if (sleepDebtMinutes != null && sleepDebtMinutes >= 45) return 'moderate_debt'
+  // If the user is carrying any sleep debt, prefer debt-focused messaging
+  // even when they're close to the daily target (strong/on-track).
+  if (sleepDebtMinutes != null && sleepDebtMinutes > 0) {
+    if (sleepDebtMinutes >= 120) return 'high_debt'
+    if (sleepDebtMinutes >= 45) return 'moderate_debt'
+    return 'catch_up'
+  }
 
   const target =
     adjustedTargetMinutes > 0 ? adjustedTargetMinutes : Math.round(7.5 * 60)

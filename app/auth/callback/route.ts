@@ -21,7 +21,19 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get('code')
   const tokenHash = requestUrl.searchParams.get('token_hash')
   const typeRaw = requestUrl.searchParams.get('type')
-  const next = requestUrl.searchParams.get('next') ?? '/auth/sign-in'
+  const cookieNextRaw = request.cookies.get('oauth_next')?.value
+  let nextFromCookie: string | null = null
+  if (cookieNextRaw) {
+    try {
+      nextFromCookie = decodeURIComponent(cookieNextRaw)
+    } catch {
+      nextFromCookie = cookieNextRaw
+    }
+  }
+  const next =
+    nextFromCookie && nextFromCookie.startsWith('/')
+      ? nextFromCookie
+      : requestUrl.searchParams.get('next') ?? '/auth/sign-in'
   const error = requestUrl.searchParams.get('error')
   const errorDescription = requestUrl.searchParams.get('error_description')
 
@@ -30,7 +42,9 @@ export async function GET(request: NextRequest) {
     console.error('[auth/callback] OAuth error:', { error, errorDescription })
     const errorUrl = new URL('/auth/sign-in', request.url)
     errorUrl.searchParams.set('error', errorDescription || error)
-    return NextResponse.redirect(errorUrl)
+    const res = NextResponse.redirect(errorUrl)
+    res.cookies.delete('oauth_next')
+    return res
   }
 
   if (!code && !(tokenHash && typeRaw)) {
@@ -82,7 +96,9 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('[auth/callback] Auth callback OK, redirecting to:', nextUrl.toString())
-    return NextResponse.redirect(nextUrl)
+    const res = NextResponse.redirect(nextUrl)
+    res.cookies.delete('oauth_next')
+    return res
   } catch (err: any) {
     console.error('[auth/callback] Unexpected error:', {
       name: err?.name,
@@ -91,7 +107,9 @@ export async function GET(request: NextRequest) {
     })
     const errorUrl = new URL('/auth/sign-in', request.url)
     errorUrl.searchParams.set('error', 'An unexpected error occurred. Please try again.')
-    return NextResponse.redirect(errorUrl)
+    const res = NextResponse.redirect(errorUrl)
+    res.cookies.delete('oauth_next')
+    return res
   }
 }
 

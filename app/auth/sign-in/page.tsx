@@ -135,7 +135,8 @@ function SignInContent() {
                   alt="ShiftCoach Logo"
                   width={220}
                   height={110}
-                  className="h-12 w-auto max-w-full object-contain"
+                  // Logo SVG is authored in black; invert in dark mode.
+                  className="h-12 w-auto max-w-full object-contain dark:[filter:invert(1)]"
                   priority
                   unoptimized
                 />
@@ -169,6 +170,7 @@ function SignInContent() {
                 isOnline={isOnline}
                 onError={setErr}
                 onPendingChange={setOauthBusy}
+                googleOnly
               />
               {emailConfirmedBanner && (
                 <div

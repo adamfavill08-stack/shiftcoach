@@ -1,8 +1,7 @@
-/** Path after `/auth/callback` exchanges the code; client then routes by profile. */
-export const AUTH_OAUTH_CONTINUE_PATH = '/auth/oauth-continue'
-
 export function buildOAuthRedirectTo(): string {
   if (typeof window === 'undefined') return ''
-  const next = encodeURIComponent(AUTH_OAUTH_CONTINUE_PATH)
-  return `${window.location.origin}/auth/callback?next=${next}`
+  // Important: Google (and other providers) require the redirect URI to match an
+  // authorized redirect exactly. Many configs only allow `/auth/callback` without query params.
+  // We pass any "next" routing hint via a cookie (set by the client) instead.
+  return `${window.location.origin}/auth/callback`
 }
