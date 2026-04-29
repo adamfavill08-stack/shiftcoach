@@ -301,7 +301,7 @@ function DayViewContent() {
       return
     }
     if (view === 'month') {
-      router.push(`/rota?month=${format(day, 'yyyy-MM')}`)
+      router.push(`/rota?month=${format(today, 'yyyy-MM')}`)
       return
     }
     if (view === 'year') {

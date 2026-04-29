@@ -168,7 +168,7 @@ function YearViewContent() {
       return
     }
     if (view === 'month') {
-      router.push(`/rota?month=${format(currentYear, 'yyyy-01')}`)
+      router.push(`/rota?month=${format(today, 'yyyy-MM')}`)
       return
     }
     if (view === 'week') {
