@@ -409,6 +409,14 @@ export default function CircadianCard({
     return () => clearInterval(id)
   }, [])
 
+  // Preload the (large) circadian ring SVG so it doesn't feel delayed
+  // when the server data finishes fetching.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const img = new window.Image()
+    img.src = "/circadian-ring.svg"
+  }, [])
+
   const loadRecentNapEnds = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -478,7 +486,7 @@ export default function CircadianCard({
           if (retryData) {
             setData(retryData)
             setStatus("ok")
-            setTimeout(() => setRevealed(true), 120)
+            setRevealed(true)
             return
           }
         }
@@ -489,7 +497,7 @@ export default function CircadianCard({
 
       setData(circadian)
       setStatus("ok")
-      setTimeout(() => setRevealed(true), 120)
+      setRevealed(true)
     } catch (err) {
       console.error("[CircadianCard] fetchData error:", err)
       setStatus("unavailable")
@@ -612,11 +620,85 @@ export default function CircadianCard({
 
   // ── Loading state ─────────────────────────────────────────────
   if (status === "loading") {
+    // On the dashboard we want the ring artwork immediately (even while
+    // circadian data is still fetching), so the page feels fast.
+    if (!showMainSections) {
+      return (
+        <div
+          className={inter.className}
+          style={{ padding: "24px 18px", display: "flex", flexDirection: "column", gap: 12 }}
+        >
+          {[120, 80, 200].map((w, i) => (
+            <div
+              key={i}
+              style={{
+                height: 16,
+                width: w,
+                borderRadius: 8,
+                background: "var(--ring-bg)",
+                opacity: 0.5,
+              }}
+            />
+          ))}
+        </div>
+      )
+    }
+
     return (
-      <div className={inter.className} style={{ padding: "24px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
-        {[120, 80, 200].map((w, i) => (
-          <div key={i} style={{ height: 16, width: w, borderRadius: 8, background: "var(--ring-bg)", opacity: 0.5 }} />
-        ))}
+      <div className={inter.className} style={{ margin: `12px ${sidePad}` }}>
+        <div
+          style={{
+            padding: "16px 18px",
+            background: "var(--card)",
+            borderRadius: 12,
+            border: "1px solid var(--border-subtle)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 9,
+              letterSpacing: "2.4px",
+              color: "var(--text-muted)",
+              textTransform: "uppercase",
+              fontWeight: 500,
+              marginBottom: 8,
+            }}
+          >
+            Circadian Rhythm
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 400, color: "var(--text-main)", marginBottom: 6 }}>
+            Body clock data loading
+          </div>
+          <div style={{ fontSize: 13, color: "var(--text-soft)", lineHeight: 1.6, fontWeight: 300 }}>
+            Calculating your today-body-clock alignment...
+          </div>
+        </div>
+
+        {/* Placeholder ring — start loading immediately */}
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 8, opacity: 0.3 }}>
+          <svg width={300} height={300} viewBox="0 0 340 340">
+            <image
+              href="/circadian-ring.svg"
+              x={0}
+              y={0}
+              width={340}
+              height={340}
+              preserveAspectRatio="xMidYMid meet"
+              opacity={0.9}
+            />
+            <text
+              x={170}
+              y={170}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="rgba(128,128,128,0.55)"
+              fontSize={11}
+              fontFamily="Inter"
+            >
+              Loading...
+            </text>
+          </svg>
+        </div>
       </div>
     )
   }
@@ -742,20 +824,20 @@ export default function CircadianCard({
                 height={340}
                 preserveAspectRatio="xMidYMid meet"
                 opacity={revealed ? 1 : 0}
-                style={{ transition: "opacity 1.15s ease 0.08s" }}
+                style={{ transition: "opacity 0.6s ease 0s" }}
               />
 
               {/* Misalignment arc (dashes read as “dots” on coloured zones) */}
               <path d={arcPath(BODY_A, NOW_A, R_MID)}
                 stroke="var(--circ-misalign-track, rgba(255,255,255,0.2))" strokeWidth={SW + 8} fill="none"
                 strokeOpacity={revealed ? 1 : 0}
-                style={{ transition: "stroke-opacity 1.2s ease 1s" }}
+                style={{ transition: "stroke-opacity 0.45s ease 0.05s" }}
               />
               <path d={arcPath(BODY_A, NOW_A, R_MID)}
                 stroke="var(--circ-misalign-dash, rgba(255,255,255,0.76))" strokeWidth={2} fill="none"
                 strokeOpacity={revealed ? 1 : 0}
                 strokeDasharray="4 3"
-                style={{ transition: "stroke-opacity 1.2s ease 1s" }}
+                style={{ transition: "stroke-opacity 0.45s ease 0.05s" }}
               />
 
               {/* Centre dial copy — only SVG handle callout bubbles were removed */}

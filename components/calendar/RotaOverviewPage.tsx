@@ -768,7 +768,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
     }
 
     if (view === 'week') {
-      const weekStart = startOfWeek(baseDate, { weekStartsOn })
+      const weekStart = startOfWeek(todayDate, { weekStartsOn })
       const weekCode = formatDate(weekStart, 'yyyyMMdd')
       router.push(`/calendar/week?week=${weekCode}`)
       return
