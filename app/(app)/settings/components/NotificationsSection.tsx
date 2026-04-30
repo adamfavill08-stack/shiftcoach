@@ -17,7 +17,9 @@ type DebugNotificationItem = {
 export function NotificationsSection() {
   const { t } = useTranslation()
   const { settings, saving, saveField, loading } = useSettings()
-  const [permissionState, setPermissionState] = useState<'granted' | 'denied' | 'prompt' | 'unknown'>('unknown')
+  const [permissionState, setPermissionState] = useState<
+    'granted' | 'denied' | 'prompt' | 'prompt-with-rationale' | 'unknown'
+  >('unknown')
   const [pendingNotifications, setPendingNotifications] = useState<DebugNotificationItem[]>([])
   const [debugLoading, setDebugLoading] = useState(false)
   const isNative = Capacitor.isNativePlatform()
