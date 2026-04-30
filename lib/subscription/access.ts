@@ -50,11 +50,15 @@ export function normalizePlan(
 export function deriveSubscriptionAccess(input: {
   subscriptionStatus?: string | null
   subscriptionPlan?: string | null
+  trialEndsAt?: string | null
   revenuecatEntitlements?: unknown
   revenuecatSubscriptionId?: string | null
 }): { isPro: boolean; plan: EffectivePlan } {
   const normalizedPlan = normalizePlan(input.subscriptionPlan)
   const status = (input.subscriptionStatus ?? '').toLowerCase()
+  const trialEndsAtMs = input.trialEndsAt ? new Date(input.trialEndsAt).getTime() : NaN
+  const hasValidTrialWindow = Number.isFinite(trialEndsAtMs) && trialEndsAtMs > Date.now()
+  const isTrialing = status === 'trialing' && hasValidTrialWindow
   const entitlementActive = isEntitlementActive(input.revenuecatEntitlements)
   const mappedPlan = getPlanFromProductId(input.revenuecatSubscriptionId)
 
@@ -62,7 +66,7 @@ export function deriveSubscriptionAccess(input: {
     return { isPro: true, plan: 'tester' }
   }
 
-  const statusSuggestsPaid = status === 'active' || status === 'trialing'
+  const statusSuggestsPaid = status === 'active' || isTrialing
   const hasPaidSignal = statusSuggestsPaid || entitlementActive
 
   if (!hasPaidSignal) {

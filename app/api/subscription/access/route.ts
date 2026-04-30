@@ -23,13 +23,14 @@ export async function GET() {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('subscription_status, subscription_plan, revenuecat_entitlements, revenuecat_subscription_id')
+      .select('subscription_status, subscription_plan, trial_ends_at, revenuecat_entitlements, revenuecat_subscription_id')
       .eq('user_id', userId)
       .maybeSingle()
 
     const access = deriveSubscriptionAccess({
       subscriptionStatus: profile?.subscription_status ?? null,
       subscriptionPlan: profile?.subscription_plan ?? null,
+      trialEndsAt: profile?.trial_ends_at ?? null,
       revenuecatEntitlements: profile?.revenuecat_entitlements ?? null,
       revenuecatSubscriptionId: profile?.revenuecat_subscription_id ?? null,
     })

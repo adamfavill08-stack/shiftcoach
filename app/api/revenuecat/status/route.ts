@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     // Get user's RevenueCat user ID from profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('revenuecat_user_id, subscription_platform, subscription_status, subscription_plan, revenuecat_entitlements, revenuecat_subscription_id')
+      .select('revenuecat_user_id, subscription_platform, subscription_status, subscription_plan, trial_ends_at, revenuecat_entitlements, revenuecat_subscription_id')
       .eq('user_id', userId)
       .single()
 
@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
       const access = deriveSubscriptionAccess({
         subscriptionStatus: profile?.subscription_status,
         subscriptionPlan: profile?.subscription_plan,
+        trialEndsAt: profile?.trial_ends_at,
         revenuecatEntitlements: profile?.revenuecat_entitlements,
         revenuecatSubscriptionId: profile?.revenuecat_subscription_id,
       })
@@ -45,6 +46,7 @@ export async function GET(req: NextRequest) {
       const access = deriveSubscriptionAccess({
         subscriptionStatus: profile?.subscription_status,
         subscriptionPlan: profile?.subscription_plan,
+        trialEndsAt: profile?.trial_ends_at,
         revenuecatEntitlements: profile?.revenuecat_entitlements,
         revenuecatSubscriptionId: profile?.revenuecat_subscription_id,
       })
@@ -72,6 +74,7 @@ export async function GET(req: NextRequest) {
       const access = deriveSubscriptionAccess({
         subscriptionStatus: profile.subscription_status,
         subscriptionPlan: profile.subscription_plan,
+        trialEndsAt: profile?.trial_ends_at,
         revenuecatEntitlements: profile.revenuecat_entitlements,
         revenuecatSubscriptionId: profile.revenuecat_subscription_id,
       })

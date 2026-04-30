@@ -16,31 +16,44 @@ export function EventNotificationLoader() {
   const { requestPermission } = useEventNotifications()
 
   useEffect(() => {
-    // Request permission and load notifications
-    const init = async () => {
-      const granted = await requestPermission()
-      if (granted) {
-        // Small delay to ensure app is fully loaded
-        setTimeout(() => {
-          loadAndScheduleEventNotifications()
-          void scheduleFatigueRiskAlerts()
-        }, 1000)
-      }
+    const rescheduleAll = () => {
+      loadAndScheduleEventNotifications()
+      void scheduleFatigueRiskAlerts()
     }
 
-    init()
+    // Request permission and schedule on startup.
+    const init = async () => {
+      const granted = await requestPermission()
+      if (!granted) return
+      // Small delay to ensure app is fully loaded.
+      setTimeout(rescheduleAll, 1000)
+    }
+
+    void init()
 
     const onRefresh = () => {
-      void scheduleFatigueRiskAlerts()
+      rescheduleAll()
+    }
+    const onFocus = () => {
+      rescheduleAll()
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        rescheduleAll()
+      }
     }
     window.addEventListener('sleep-refreshed', onRefresh)
     window.addEventListener('rota-saved', onRefresh)
     window.addEventListener('rota-cleared', onRefresh)
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
       window.removeEventListener('sleep-refreshed', onRefresh)
       window.removeEventListener('rota-saved', onRefresh)
       window.removeEventListener('rota-cleared', onRefresh)
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
       cancelScheduledFatigueRiskAlerts()
     }
   }, [requestPermission])

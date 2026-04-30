@@ -16,6 +16,48 @@ export type Notification = {
   read: boolean
 }
 
+const NOTIFICATION_INBOX_STORAGE_KEY = 'notification-inbox-v1'
+
+function loadPersistedNotifications(): Notification[] {
+  try {
+    const raw = localStorage.getItem(NOTIFICATION_INBOX_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as Array<{
+      id: string
+      type: Notification['type']
+      title: string
+      message: string
+      timestamp: string
+      read: boolean
+    }>
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .map((n) => ({
+        ...n,
+        timestamp: new Date(n.timestamp),
+      }))
+      .filter((n) => !Number.isNaN(n.timestamp.getTime()))
+  } catch {
+    return []
+  }
+}
+
+function persistNotifications(notifications: Notification[]) {
+  try {
+    localStorage.setItem(
+      NOTIFICATION_INBOX_STORAGE_KEY,
+      JSON.stringify(
+        notifications.map((n) => ({
+          ...n,
+          timestamp: n.timestamp.toISOString(),
+        })),
+      ),
+    )
+  } catch {
+    // Ignore storage write failures.
+  }
+}
+
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
@@ -39,45 +81,6 @@ export function useNotifications() {
           setNotifications([])
           setLoading(false)
           return
-        }
-
-        // Check for mood/focus alerts
-        const moodFocusNotifications: Notification[] = []
-        try {
-          const res = await fetch('/api/today', { 
-            credentials: 'include',
-            cache: 'no-store',
-          }).catch(() => null)
-          
-          if (res && res.ok) {
-            try {
-              const data = await res.json()
-              const mood = data.mood ?? 3
-              const focus = data.focus ?? 3
-              
-              // Show notification if mood or focus is low (1 or 2)
-              if (mood <= 2 || focus <= 2) {
-                moodFocusNotifications.push({
-                  id: 'mood-focus-low',
-                  type: 'mood_focus',
-                  title: 'Low Mood or Focus',
-                  message: mood <= 2 && focus <= 2
-                    ? 'Your mood and focus are low today. Consider taking it easy and prioritizing rest.'
-                    : mood <= 2
-                    ? 'Your mood is low today. Take care of yourself and consider speaking with your coach.'
-                    : 'Your focus is low today. You might benefit from lighter activities and rest.',
-                  timestamp: new Date(),
-                  read: false,
-                })
-              }
-            } catch (parseErr) {
-              // Silently handle JSON parse errors
-              console.warn('[useNotifications] Failed to parse mood/focus response')
-            }
-          }
-        } catch (err) {
-          // Silently handle fetch errors - notifications are non-critical
-          console.warn('[useNotifications] Failed to fetch mood/focus:', err)
         }
 
         // Check for upcoming events (next 24 hours)
@@ -235,26 +238,39 @@ export function useNotifications() {
           // meal reminders are non-critical
         }
 
-        // Combine all notifications
+        // Combine all currently active notifications
         const allNotifications = [
-          ...moodFocusNotifications,
           ...eventNotifications,
           ...dailyNotifications,
           ...mealNotifications,
         ]
-        
-        // Load read state from localStorage
-        try {
-          const readIdsJson = localStorage.getItem('notification-read-ids')
-          const readIds = readIdsJson ? JSON.parse(readIdsJson) : []
-          const notificationsWithReadState = allNotifications.map(n => ({
+
+        // Keep unread notifications visible until acknowledged, even if they
+        // are no longer "currently active" in this refresh cycle.
+        const persisted = loadPersistedNotifications()
+        const persistedById = new Map(persisted.map((n) => [n.id, n]))
+        const mergedById = new Map<string, Notification>()
+
+        allNotifications.forEach((n) => {
+          const existing = persistedById.get(n.id)
+          mergedById.set(n.id, {
             ...n,
-            read: readIds.includes(n.id),
-          }))
-          setNotifications(notificationsWithReadState)
-        } catch {
-          setNotifications(allNotifications)
-        }
+            read: existing?.read ?? false,
+            timestamp: existing?.timestamp ?? n.timestamp,
+          })
+        })
+
+        persisted.forEach((n) => {
+          if (!mergedById.has(n.id) && !n.read) {
+            mergedById.set(n.id, n)
+          }
+        })
+
+        const merged = Array.from(mergedById.values()).sort(
+          (a, b) => b.timestamp.getTime() - a.timestamp.getTime(),
+        )
+        setNotifications(merged)
+        persistNotifications(merged)
       } catch (err) {
         // Silently handle errors - notifications are non-critical
         console.warn('[useNotifications] Failed to load notifications:', err)
@@ -270,19 +286,13 @@ export function useNotifications() {
     // Refresh notifications every 5 minutes
     const interval = setInterval(loadNotifications, 5 * 60 * 1000)
     
-    // Listen for mood/focus updates
-    const handleMoodFocusUpdate = () => {
-      loadNotifications()
-    }
     const handleSleepRefresh = () => {
       loadNotifications()
     }
-    window.addEventListener('mood-focus-updated', handleMoodFocusUpdate)
     window.addEventListener('sleep-refreshed', handleSleepRefresh)
     
     return () => {
       clearInterval(interval)
-      window.removeEventListener('mood-focus-updated', handleMoodFocusUpdate)
       window.removeEventListener('sleep-refreshed', handleSleepRefresh)
     }
   }, [])
@@ -290,11 +300,7 @@ export function useNotifications() {
   const markAsRead = (id: string) => {
     setNotifications(prev => {
       const updated = prev.map(n => n.id === id ? { ...n, read: true } : n)
-      // Persist read state
-      try {
-        const readIds = updated.filter(n => n.read).map(n => n.id)
-        localStorage.setItem('notification-read-ids', JSON.stringify(readIds))
-      } catch {}
+      persistNotifications(updated)
       return updated
     })
   }
@@ -302,11 +308,7 @@ export function useNotifications() {
   const markAllAsRead = () => {
     setNotifications(prev => {
       const updated = prev.map(n => ({ ...n, read: true }))
-      // Persist read state
-      try {
-        const readIds = updated.map(n => n.id)
-        localStorage.setItem('notification-read-ids', JSON.stringify(readIds))
-      } catch {}
+      persistNotifications(updated)
       return updated
     })
   }

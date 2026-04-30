@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core'
+import { ensureLocalNotificationChannel } from '@/lib/notifications/nativeLocalNotifications'
 
 /** Stable IDs for Capacitor local notifications (per saved task). */
 export function taskNotificationIds(taskId: number) {
@@ -42,6 +43,7 @@ export async function scheduleTaskReminders(params: {
 
   try {
     const { LocalNotifications } = await import('@capacitor/local-notifications')
+    const channelId = await ensureLocalNotificationChannel()
     const perm = await LocalNotifications.checkPermissions()
     if (perm.display !== 'granted') {
       const req = await LocalNotifications.requestPermissions()
@@ -66,6 +68,7 @@ export async function scheduleTaskReminders(params: {
         title: titleBefore1h,
         body: title,
         schedule: { at: new Date(oneHourMs) },
+        channelId,
         extra: { taskId, kind: 'before' },
       })
     }
@@ -75,6 +78,7 @@ export async function scheduleTaskReminders(params: {
       title: titleAtStart,
       body: description?.trim() ? `${title} — ${description.trim()}` : title,
       schedule: { at: new Date(startMs) },
+      channelId,
       extra: { taskId, kind: 'start' },
     })
 

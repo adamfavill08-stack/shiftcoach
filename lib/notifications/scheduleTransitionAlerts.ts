@@ -2,9 +2,11 @@
  * Schedules browser notifications for active shift transitions (userShiftState.activeTransition).
  * Integrates with the same Web Notification stack as `eventNotifications.ts`.
  */
+import { Capacitor } from '@capacitor/core'
 import type { UserShiftState } from '@/lib/shift-agent/types'
 import { cancelScheduledNotifications } from '@/lib/notifications/eventNotifications'
 import { isTransitionPlanPanelVisible } from '@/lib/notifications/transitionAlertVisibility'
+import { ensureLocalNotificationChannel } from '@/lib/notifications/nativeLocalNotifications'
 
 const MS_H = 60 * 60 * 1000
 const STORAGE_KEY = 'shiftcoach-transition-alerts-sent-v1'
@@ -12,6 +14,14 @@ const MAX_STORED_IDS = 80
 
 /** In-flight timeouts for the current transition batch (cancel on rota / state change). */
 let activeTimeoutIds: number[] = []
+
+function notificationIdFromKey(key: string): number {
+  let hash = 0
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) | 0
+  }
+  return 400_000_000 + (Math.abs(hash) % 500_000_000)
+}
 
 function loadSentIds(): Set<string> {
   if (typeof localStorage === 'undefined') return new Set()
@@ -159,12 +169,44 @@ export function scheduleTransitionAlerts(
 ): void {
   cancelScheduledTransitionAlerts()
 
-  if (typeof window === 'undefined' || !('Notification' in window)) return
+  if (typeof window === 'undefined') return
 
   const now = opts.now ?? new Date()
   const alerts = buildTransitionAlerts(state, now)
   if (!alerts.length) return
 
+  if (Capacitor.isNativePlatform()) {
+    void (async () => {
+      try {
+        const { LocalNotifications } = await import('@capacitor/local-notifications')
+        const perm = await LocalNotifications.checkPermissions()
+        if (perm.display !== 'granted') return
+        const channelId = await ensureLocalNotificationChannel()
+
+        const nativeNotifications = alerts
+          .map((a) => {
+            const delay = a.fireAt.getTime() - now.getTime()
+            if (delay < 0 || delay > 365 * 24 * 60 * 60 * 1000) return null
+            return {
+              id: notificationIdFromKey(a.stableId),
+              title: a.title,
+              body: a.body,
+              schedule: { at: a.fireAt },
+              channelId,
+            }
+          })
+          .filter((n): n is { id: number; title: string; body: string; schedule: { at: Date }; channelId?: string } => n !== null)
+
+        if (!nativeNotifications.length) return
+        await LocalNotifications.schedule({ notifications: nativeNotifications })
+      } catch {
+        // ignore
+      }
+    })()
+    return
+  }
+
+  if (!('Notification' in window)) return
   const sent = loadSentIds()
 
   for (const a of alerts) {

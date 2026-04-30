@@ -1,6 +1,8 @@
 /**
  * Event notification scheduling and management
  */
+import { Capacitor } from '@capacitor/core'
+import { ensureLocalNotificationChannel } from '@/lib/notifications/nativeLocalNotifications'
 
 export type NotificationConfig = {
   type: 'before' | 'at'
@@ -15,10 +17,31 @@ export type EventNotification = {
   config: NotificationConfig
 }
 
+function notificationIdFromKey(key: string): number {
+  let hash = 0
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) | 0
+  }
+  // Keep IDs in a safe positive range for Capacitor local notifications.
+  return 200_000_000 + (Math.abs(hash) % 700_000_000)
+}
+
 /**
  * Request notification permission from the browser
  */
 export async function requestNotificationPermission(): Promise<boolean> {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const { LocalNotifications } = await import('@capacitor/local-notifications')
+      const perm = await LocalNotifications.checkPermissions()
+      if (perm.display === 'granted') return true
+      const req = await LocalNotifications.requestPermissions()
+      return req.display === 'granted'
+    } catch {
+      return false
+    }
+  }
+
   if (!('Notification' in window)) {
     console.warn('[notifications] Browser does not support notifications')
     return false
@@ -64,7 +87,8 @@ export function calculateNotificationTime(
 export function scheduleNotification(
   eventTitle: string,
   notificationTime: Date,
-  eventStart: Date
+  eventStart: Date,
+  idKey?: string,
 ): number | null {
   const now = new Date()
   const delay = notificationTime.getTime() - now.getTime()
@@ -80,6 +104,37 @@ export function scheduleNotification(
   if (delay > 365 * 24 * 60 * 60 * 1000) {
     console.log('[notifications] Notification too far in future, will need to reschedule')
     return null
+  }
+
+  if (Capacitor.isNativePlatform()) {
+    const localId = notificationIdFromKey(
+      idKey ?? `event-${eventTitle}-${eventStart.getTime()}-${notificationTime.getTime()}`,
+    )
+    const isAtEventTime = notificationTime.getTime() === eventStart.getTime()
+    const message = isAtEventTime
+      ? `${eventTitle} is starting now`
+      : `${eventTitle} starts ${formatTimeUntil(notificationTime, eventStart)}`
+
+    void (async () => {
+      try {
+        const { LocalNotifications } = await import('@capacitor/local-notifications')
+        const channelId = await ensureLocalNotificationChannel()
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              id: localId,
+              title: 'Shift Coach Event',
+              body: message,
+              schedule: { at: notificationTime },
+              channelId,
+            },
+          ],
+        })
+      } catch (err) {
+        console.warn('[notifications] Failed to schedule native event notification', err)
+      }
+    })()
+    return localId
   }
 
   const timeoutId = setTimeout(() => {
@@ -132,9 +187,14 @@ export function scheduleEventNotifications(
 ): number[] {
   const timeoutIds: number[] = []
 
-  notificationConfigs.forEach((config) => {
+  notificationConfigs.forEach((config, index) => {
     const notificationTime = calculateNotificationTime(eventStart, config)
-    const timeoutId = scheduleNotification(eventTitle, notificationTime, eventStart)
+    const timeoutId = scheduleNotification(
+      eventTitle,
+      notificationTime,
+      eventStart,
+      `event-${eventTitle}-${eventStart.getTime()}-${config.type}-${config.value || '0'}-${index}`,
+    )
     if (timeoutId !== null) {
       timeoutIds.push(timeoutId)
     }
@@ -147,6 +207,19 @@ export function scheduleEventNotifications(
  * Cancel scheduled notifications
  */
 export function cancelScheduledNotifications(timeoutIds: number[]): void {
+  if (Capacitor.isNativePlatform()) {
+    void (async () => {
+      try {
+        const { LocalNotifications } = await import('@capacitor/local-notifications')
+        await LocalNotifications.cancel({
+          notifications: timeoutIds.map((id) => ({ id })),
+        })
+      } catch (err) {
+        console.warn('[notifications] Failed to cancel native notifications', err)
+      }
+    })()
+  }
+
   timeoutIds.forEach((id) => {
     clearTimeout(id)
   })

@@ -342,7 +342,7 @@ export default function OnboardingPage() {
       }).eq("user_id", user.id)
       if (err) throw err
       sessionStorage.setItem("fromOnboarding", "true")
-      router.push("/welcome")
+      router.push("/onboarding/plan")
     } catch (e: any) {
       setError(e.message || "Something went wrong. Please try again.")
       setSaving(false)

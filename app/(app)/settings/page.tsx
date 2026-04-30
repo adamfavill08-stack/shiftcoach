@@ -14,6 +14,7 @@ import { TesterFeedbackSection } from './components/TesterFeedbackSection'
 import { WearablesSection } from './components/WearablesSection'
 import { RateAppSection } from './components/RateAppSection'
 import { useTranslation } from '@/components/providers/language-provider'
+import { TrialDaysBanner } from '@/components/subscription/TrialDaysBanner'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -43,6 +44,7 @@ export default function SettingsPage() {
               </h1>
               <div className="w-8" />
             </div>
+            <TrialDaysBanner />
 
             {/* Settings Sections */}
             <div className="divide-y divide-slate-100">

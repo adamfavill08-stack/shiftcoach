@@ -1,13 +1,16 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, Check } from 'lucide-react'
 import { useSubscriptionAccess } from '@/lib/hooks/useSubscriptionAccess'
 import { useNativePurchases } from '@/lib/hooks/useNativePurchases'
 import { useTranslation } from '@/components/providers/language-provider'
 
 export default function UpgradePage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { t } = useTranslation()
   const { isLoading, isPro, plan } = useSubscriptionAccess()
   const {
@@ -19,6 +22,9 @@ export default function UpgradePage() {
     getPlanPriceLabel,
     getPlanPriceAmount,
   } = useNativePurchases()
+  const fromOnboarding = searchParams.get('from') === 'onboarding'
+  const highlightedPlan = searchParams.get('plan')
+  const returnTo = searchParams.get('returnTo') || '/dashboard'
 
   const proFeatures = useMemo(
     () => [
@@ -51,15 +57,22 @@ export default function UpgradePage() {
     return t('upgrade.buttons.annualSavings')
   }, [monthlyPriceAmount, yearlyPriceAmount, t])
 
+  useEffect(() => {
+    if (!fromOnboarding || isLoading) return
+    if (isAlreadyPro) {
+      router.replace(returnTo)
+    }
+  }, [fromOnboarding, isAlreadyPro, isLoading, returnTo, router])
+
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-6 pb-20">
       <div className="mx-auto w-full max-w-md">
         <div className="rounded-3xl border border-slate-100 bg-white shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)]">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <Link
-              href="/settings"
+              href={fromOnboarding ? '/onboarding/plan' : '/settings'}
               className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-sky-50 hover:text-slate-900"
-              aria-label={t('upgrade.backToSettingsAria')}
+              aria-label={fromOnboarding ? 'Back to plan selection' : t('upgrade.backToSettingsAria')}
             >
               <ChevronLeft className="h-4 w-4" />
             </Link>
@@ -99,7 +112,9 @@ export default function UpgradePage() {
                   type="button"
                   onClick={() => void purchaseSubscription('monthly')}
                   disabled={isBusy || !isAvailable || isLoading}
-                  className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition-colors enabled:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  className={`w-full rounded-xl px-4 py-3 text-sm font-semibold text-white transition-colors enabled:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 ${
+                    highlightedPlan === 'monthly' ? 'bg-slate-800 ring-2 ring-sky-300' : 'bg-slate-900'
+                  }`}
                 >
                   {isPurchasing
                     ? t('upgrade.buttons.processing')
@@ -112,7 +127,9 @@ export default function UpgradePage() {
                   type="button"
                   onClick={() => void purchaseSubscription('yearly')}
                   disabled={isBusy || !isAvailable || isLoading}
-                  className="w-full rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors enabled:hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className={`w-full rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-colors enabled:hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60 ${
+                    highlightedPlan === 'yearly' ? 'bg-sky-700 ring-2 ring-sky-300' : 'bg-sky-600'
+                  }`}
                 >
                   {isPurchasing ? (
                     t('upgrade.buttons.processing')

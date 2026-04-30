@@ -1,5 +1,7 @@
+import { Capacitor } from '@capacitor/core'
 import { supabase } from '@/lib/supabase'
 import { getCircadianData } from '@/lib/circadian/circadianCache'
+import { ensureLocalNotificationChannel } from '@/lib/notifications/nativeLocalNotifications'
 
 const MINUTE_MS = 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -7,6 +9,15 @@ const STORAGE_KEY = 'shiftcoach-fatigue-alerts-sent-v1'
 const MAX_SENT_IDS = 80
 
 let activeFatigueAlertTimeoutId: number | null = null
+let activeFatigueAlertNativeId: number | null = null
+
+function notificationIdFromKey(key: string): number {
+  let hash = 0
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) | 0
+  }
+  return 300_000_000 + (Math.abs(hash) % 600_000_000)
+}
 
 function loadSentIds(): Set<string> {
   if (typeof localStorage === 'undefined') return new Set()
@@ -71,12 +82,35 @@ export function cancelScheduledFatigueRiskAlerts(): void {
     window.clearTimeout(activeFatigueAlertTimeoutId)
     activeFatigueAlertTimeoutId = null
   }
+  if (Capacitor.isNativePlatform() && activeFatigueAlertNativeId !== null) {
+    const id = activeFatigueAlertNativeId
+    activeFatigueAlertNativeId = null
+    void (async () => {
+      try {
+        const { LocalNotifications } = await import('@capacitor/local-notifications')
+        await LocalNotifications.cancel({ notifications: [{ id }] })
+      } catch {
+        // non-critical
+      }
+    })()
+  }
 }
 
 export async function scheduleFatigueRiskAlerts(): Promise<void> {
   cancelScheduledFatigueRiskAlerts()
-  if (typeof window === 'undefined' || !('Notification' in window)) return
-  if (Notification.permission !== 'granted') return
+  if (typeof window === 'undefined') return
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const { LocalNotifications } = await import('@capacitor/local-notifications')
+      const perm = await LocalNotifications.checkPermissions()
+      if (perm.display !== 'granted') return
+    } catch {
+      return
+    }
+  } else {
+    if (!('Notification' in window)) return
+    if (Notification.permission !== 'granted') return
+  }
 
   try {
     const { data: auth } = await supabase.auth.getSession()
@@ -96,13 +130,37 @@ export async function scheduleFatigueRiskAlerts(): Promise<void> {
     const troughClock = formatClockHour(nextTroughHour)
     const dayKey = alertAt.toISOString().slice(0, 10)
     const stableId = `fatigue-risk-${dayKey}-${troughClock}`
-    if (loadSentIds().has(stableId)) return
+    const nativeId = notificationIdFromKey(stableId)
+    activeFatigueAlertNativeId = nativeId
+
+    if (!Capacitor.isNativePlatform() && loadSentIds().has(stableId)) return
 
     const fatigueScore =
       circadian && typeof circadian.fatigueScore === 'number'
         ? Math.max(0, Math.min(100, Math.round(circadian.fatigueScore)))
         : 50
     const advice = buildAdvice(fatigueScore)
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { LocalNotifications } = await import('@capacitor/local-notifications')
+        const channelId = await ensureLocalNotificationChannel()
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              id: nativeId,
+              title: 'Shift Coach Fatigue Alert',
+              body: `High-risk window around ${troughClock}. ${advice}`,
+              schedule: { at: alertAt },
+              channelId,
+            },
+          ],
+        })
+      } catch {
+        // non-critical
+      }
+      return
+    }
 
     activeFatigueAlertTimeoutId = window.setTimeout(() => {
       if (Notification.permission !== 'granted') return

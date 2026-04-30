@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { ChevronLeft, Watch, CheckCircle2, XCircle } from "lucide-react";
+import { Inter } from "next/font/google";
 import SyncWearableButton from "@/components/wearables/SyncWearableButton";
 import { useTranslation } from "@/components/providers/language-provider";
 
@@ -26,6 +27,7 @@ const deviceTitleIdle = "block font-semibold text-slate-900 dark:text-[var(--tex
 const deviceTitleActive = "block font-semibold text-emerald-900 dark:text-emerald-200";
 const deviceSubIdle = "block text-xs mt-0.5 text-slate-600 dark:text-[var(--text-soft)]";
 const deviceSubActive = "block text-xs mt-0.5 text-emerald-800 dark:text-emerald-300/95";
+const inter = Inter({ subsets: ["latin"] });
 
 export default function WearablesSetupPage() {
   const { t } = useTranslation();
@@ -77,37 +79,69 @@ export default function WearablesSetupPage() {
     };
   }, [fetchStatus]);
 
+  const nowLabel = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
   return (
-    <main
-      style={{
-        backgroundImage: "radial-gradient(circle at top, var(--bg-soft), var(--bg))",
-      }}
-    >
-      <div className="max-w-[430px] mx-auto min-h-screen px-4 pb-8 pt-4 flex flex-col gap-5">
-        <header className="flex items-center gap-2 mb-2">
+    <main className="min-h-screen bg-[var(--bg)]">
+      <div
+        className={`max-w-[430px] mx-auto min-h-screen px-2 pb-10 pt-4 flex flex-col gap-4 ${inter.className}`}
+        style={{
+          backgroundImage: "radial-gradient(circle at top, var(--bg-soft), var(--bg))",
+        }}
+      >
+        <header className="flex items-center gap-2">
           <Link
             href="/dashboard"
-            className="p-2 rounded-full backdrop-blur-xl border transition-all"
-            style={{
-              backgroundColor: "var(--card)",
-              borderColor: "var(--border-subtle)",
-              color: "var(--text-main)",
-            }}
+            className="p-2 rounded-full border border-[var(--border-subtle)] bg-[var(--card)] text-[var(--text-soft)] shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.35)]"
             aria-label={t("detail.common.backToDashboard")}
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
-          <h1
-            className="text-xl font-semibold tracking-tight"
-            style={{ color: "var(--text-main)" }}
-          >
+          <h1 className="text-xl font-semibold tracking-tight text-[var(--text-main)]">
             {t("detail.wearablesSetup.title")}
           </h1>
         </header>
 
+        <section
+          className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-4 py-4"
+          style={{ boxShadow: "var(--shadow-soft)" }}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold tracking-[0.22em] uppercase text-[var(--text-muted)]">
+              ShiftCoach Wearables
+            </span>
+            <Watch className="h-4 w-4 text-[var(--text-muted)]" aria-hidden />
+          </div>
+          <div className="mt-2 flex justify-center">
+            <img src="/circadian-ring.svg" alt="" className="h-[190px] w-[190px] opacity-95" />
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-2 py-1.5 text-center">
+              <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">Now</p>
+              <p className="text-xs font-semibold text-[var(--text-main)]">{nowLabel}</p>
+            </div>
+            <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-2 py-1.5 text-center">
+              <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">Provider</p>
+              <p className="text-xs font-semibold text-[var(--text-main)]">
+                {status?.provider === "google_fit" ? "Google Fit" : "Health APIs"}
+              </p>
+            </div>
+            <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-2 py-1.5 text-center">
+              <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">Status</p>
+              <p
+                className={`text-xs font-semibold ${
+                  status?.connected ? "text-emerald-400 dark:text-emerald-300" : "text-rose-500 dark:text-rose-300"
+                }`}
+              >
+                {status?.connected ? "Connected" : "Waiting"}
+              </p>
+            </div>
+          </div>
+        </section>
+
         {/* Intro */}
         <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3 [&_p::selection]:bg-indigo-500/25 dark:[&_p::selection]:bg-indigo-400/35 [&_p::selection]:text-[var(--text-main)]"
+          className="rounded-xl border px-5 py-5 flex flex-col gap-3 [&_p::selection]:bg-indigo-500/25 dark:[&_p::selection]:bg-indigo-400/35 [&_p::selection]:text-[var(--text-main)]"
           style={{
             backgroundColor: "var(--card)",
             borderColor: "var(--border-subtle)",
@@ -208,7 +242,7 @@ export default function WearablesSetupPage() {
         {/* Apple Watch section */}
         {choice === "apple" && (
           <section
-            className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
+            className="rounded-xl border px-5 py-5 flex flex-col gap-3"
             style={{
               backgroundColor: "var(--card)",
               borderColor: "var(--border-subtle)",
@@ -235,7 +269,7 @@ export default function WearablesSetupPage() {
         {/* Samsung / Android section */}
         {choice === "samsung" && (
           <section
-            className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-4"
+            className="rounded-xl border px-5 py-5 flex flex-col gap-4"
             style={{
               backgroundColor: "var(--card)",
               borderColor: "var(--border-subtle)",
@@ -270,7 +304,7 @@ export default function WearablesSetupPage() {
         {/* Other devices section */}
         {choice === "other" && (
           <section
-            className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
+            className="rounded-xl border px-5 py-5 flex flex-col gap-3"
             style={{
               backgroundColor: "var(--card)",
               borderColor: "var(--border-subtle)",
@@ -291,7 +325,7 @@ export default function WearablesSetupPage() {
 
         {/* Why it matters */}
         <section
-          className="rounded-3xl backdrop-blur-2xl border px-5 py-5 flex flex-col gap-3"
+          className="rounded-xl border px-5 py-5 flex flex-col gap-3"
           style={{
             backgroundColor: "var(--card)",
             borderColor: "var(--border-subtle)",

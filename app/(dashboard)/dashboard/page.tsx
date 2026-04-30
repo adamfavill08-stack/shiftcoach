@@ -14,6 +14,7 @@ import { DashboardPager } from '@/components/dashboard/DashboardPager'
 import DashboardHeader from '@/components/dashboard/DashboardHeader'
 import { ShiftWeekStrip } from '@/components/dashboard/ShiftWeekStrip'
 import CircadianCard from '@/components/circadian/CircadianCard'
+import { TrialDaysBanner } from '@/components/subscription/TrialDaysBanner'
 import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import type { FatigueRiskResult } from '@/lib/fatigue/calculateFatigueRisk'
 
@@ -379,6 +380,7 @@ function DashboardContent() {
             {t('dashboard.cachedNotice')}
           </div>
         )}
+        <TrialDaysBanner />
         <div className="min-h-screen pb-6 bg-slate-100">
           <div id="phone-root" className="pb-4 relative">
             <DashboardHeader />

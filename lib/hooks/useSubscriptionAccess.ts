@@ -52,12 +52,13 @@ export function useSubscriptionAccess(): SubscriptionAccessState {
       }
       const { data: profile } = await supabase
         .from('profiles')
-        .select('subscription_plan, subscription_status, revenuecat_entitlements, revenuecat_subscription_id')
+        .select('subscription_plan, subscription_status, trial_ends_at, revenuecat_entitlements, revenuecat_subscription_id')
         .eq('user_id', user.id)
         .maybeSingle()
       const access = deriveSubscriptionAccess({
         subscriptionStatus: profile?.subscription_status ?? null,
         subscriptionPlan: profile?.subscription_plan ?? null,
+        trialEndsAt: profile?.trial_ends_at ?? null,
         revenuecatEntitlements: profile?.revenuecat_entitlements ?? null,
         revenuecatSubscriptionId: profile?.revenuecat_subscription_id ?? null,
       })
