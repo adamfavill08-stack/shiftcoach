@@ -187,15 +187,15 @@ export function scheduleTransitionAlerts(
           .map((a) => {
             const delay = a.fireAt.getTime() - now.getTime()
             if (delay < 0 || delay > 365 * 24 * 60 * 60 * 1000) return null
-            return {
+            const baseNotification = {
               id: notificationIdFromKey(a.stableId),
               title: a.title,
               body: a.body,
               schedule: { at: a.fireAt },
-              channelId,
             }
+            return channelId ? { ...baseNotification, channelId } : baseNotification
           })
-          .filter((n): n is { id: number; title: string; body: string; schedule: { at: Date }; channelId?: string } => n !== null)
+          .filter((n): n is NonNullable<typeof n> => n !== null)
 
         if (!nativeNotifications.length) return
         await LocalNotifications.schedule({ notifications: nativeNotifications })
