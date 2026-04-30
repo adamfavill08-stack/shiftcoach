@@ -58,6 +58,7 @@ export async function scheduleTaskReminders(params: {
       title: string
       body: string
       schedule: { at: Date }
+      channelId?: string
       extra?: Record<string, unknown>
     }[] = []
 
