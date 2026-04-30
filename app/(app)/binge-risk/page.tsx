@@ -111,7 +111,7 @@ function RiskGauge({ score }: { score: number }) {
           <div className="h-3 w-full overflow-hidden rounded-full">
             <div className="grid h-full w-full grid-cols-3">
               <div className="bg-emerald-300" />
-              <div className="bg-emerald-400" />
+              <div className="bg-orange-400" />
               <div className="bg-red-500" />
             </div>
           </div>

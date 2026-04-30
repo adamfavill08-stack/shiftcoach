@@ -29,9 +29,9 @@ function hoursUntil(fromHour: number, toHour: number): number {
 
 function fatigueTrackColorAt(progressPct: number): string {
   const p = Math.max(0, Math.min(100, progressPct))
-  if (p < 33) return '#6EE7B7' // emerald-300
-  if (p < 60) return '#A3E635' // lime-400
-  return '#FB923C' // orange-400
+  if (p < 33) return '#34C759' // green
+  if (p < 66) return '#FF9500' // orange
+  return '#FF3B30' // red
 }
 
 function fatigueRiskLevelKey(level: string): string {
@@ -340,7 +340,7 @@ export default function FatigueRiskPage() {
             {/* Marker sits outside overflow-hidden so it is not clipped to the thin track */}
             <div className="relative w-full pt-2 pb-2">
               <div className="h-3 w-full overflow-hidden rounded-full bg-[var(--card-subtle)]">
-                <div className="h-full w-full bg-gradient-to-r from-emerald-300 via-lime-300 via-60% to-orange-400" />
+                <div className="h-full w-full bg-gradient-to-r from-emerald-300 via-orange-400 to-red-500" />
               </div>
               <div
                 className="pointer-events-none absolute left-0 z-10 h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white shadow-[0_2px_10px_rgba(0,0,0,0.35)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.55)]"

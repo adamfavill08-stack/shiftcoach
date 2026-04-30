@@ -173,8 +173,8 @@ export function ShiftLagCard({ compact = false }: ShiftLagCardProps) {
                 <div className="h-3 w-full overflow-hidden rounded-full">
                   <div className="grid h-full w-full grid-cols-3">
                     <div className="bg-emerald-300" />
-                    <div className="bg-emerald-400" />
-                    <div className="bg-gradient-to-r from-amber-400 to-orange-500" />
+                    <div className="bg-orange-400" />
+                    <div className="bg-red-500" />
                   </div>
                 </div>
                 <span
@@ -191,8 +191,8 @@ export function ShiftLagCard({ compact = false }: ShiftLagCardProps) {
               <div className="h-2.5 w-full overflow-hidden rounded-full">
                 <div className="grid h-full w-full grid-cols-3">
                   <div className="bg-emerald-300" />
-                  <div className="bg-emerald-400" />
-                  <div className="bg-gradient-to-r from-amber-400 to-orange-500" />
+                  <div className="bg-orange-400" />
+                  <div className="bg-red-500" />
                 </div>
               </div>
               <span

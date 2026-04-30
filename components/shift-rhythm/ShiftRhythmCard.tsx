@@ -606,9 +606,9 @@ function fatigueHoursUntil(fromHour: number, toHour: number): number {
 
 function fatigueTrackMarkerColor(progressPct: number): string {
   const p = Math.max(0, Math.min(100, progressPct));
-  if (p < 33) return "#6EE7B7";
-  if (p < 60) return "#A3E635";
-  return "#FB923C";
+  if (p < 33) return "#34C759";
+  if (p < 66) return "#FF9500";
+  return "#FF3B30";
 }
 
 function HomeFatigueRiskCard({
@@ -758,8 +758,8 @@ function HomeFatigueRiskCard({
             <div className="h-3 w-full overflow-hidden rounded-full">
               <div className="grid h-full w-full grid-cols-3">
                 <div className="bg-emerald-300" />
-                <div className="bg-emerald-400" />
-                <div className="bg-gradient-to-r from-amber-400 to-orange-500" />
+                <div className="bg-orange-400" />
+                <div className="bg-red-500" />
               </div>
             </div>
             <div
@@ -1484,8 +1484,8 @@ const BingeRiskCard = memo(function BingeRiskCard({
                 <div className="h-3 w-full overflow-hidden rounded-full">
                   <div className="grid h-full w-full grid-cols-3">
                     <div className="bg-emerald-300" />
-                    <div className="bg-emerald-400" />
-                    <div className="bg-gradient-to-r from-amber-400 to-orange-500" />
+                    <div className="bg-orange-400" />
+                    <div className="bg-red-500" />
                   </div>
                 </div>
                 <span
