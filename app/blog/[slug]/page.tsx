@@ -24,6 +24,7 @@ type Meta = {
 }
 
 const META_BY_SLUG: Record<string, Meta> = {
+  'founders-story': { category: 'Founder', accent: '#05afc5', readTime: '9 min read' },
   'manage-fatigue': { category: 'Fatigue', accent: '#FF9500', readTime: '5 min read' },
   'impact-of-shift-work': { category: 'Health', accent: '#FF3B30', readTime: '8 min read' },
   'meal-timing-tips': { category: 'Nutrition', accent: '#34C759', readTime: '6 min read' },
@@ -41,6 +42,7 @@ const FALLBACK_META: Meta = {
 
 /** Full-bleed hero on the article header: same art as /blog row thumbnails. */
 const ARTICLE_HERO_IMAGE_BY_SLUG: Record<string, string> = {
+  'founders-story': '/blog/thumbnails/founders-story.png',
   'manage-fatigue': '/blog/thumbnails/fatigue.svg',
   'impact-of-shift-work': '/blog/thumbnails/health.svg',
   'meal-timing-tips': '/blog/thumbnails/nutrition.svg',

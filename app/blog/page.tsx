@@ -12,6 +12,7 @@ import { FREE_BLOG_ARTICLE_LIMIT, getBlogArticleLimit } from '@/lib/subscription
 import { UpgradeCard } from '@/components/subscription/UpgradeCard'
 
 type BlogCategory =
+  | 'Founder'
   | 'Fatigue'
   | 'Health'
   | 'Nutrition'
@@ -29,6 +30,7 @@ type Meta = {
 }
 
 const META_BY_SLUG: Record<string, Meta> = {
+  'founders-story': { category: 'Founder', accent: '#05afc5', readTime: '9 min', thumb: 'founders-story' },
   'manage-fatigue': { category: 'Fatigue', accent: '#FF9500', readTime: '5 min', thumb: 'fatigue' },
   'impact-of-shift-work': { category: 'Health', accent: '#FF3B30', readTime: '8 min', thumb: 'health' },
   'meal-timing-tips': { category: 'Nutrition', accent: '#34C759', readTime: '6 min', thumb: 'nutrition' },
@@ -63,7 +65,17 @@ function writeFavSet(set: Set<string>) {
   localStorage.setItem(BLOG_FAV_KEY, JSON.stringify(Array.from(set.values())))
 }
 
+const PINNED_SLUGS = ['founders-story'] as const
+
+function pinRank(slug: string): number {
+  const i = (PINNED_SLUGS as readonly string[]).indexOf(slug)
+  return i === -1 ? PINNED_SLUGS.length : i
+}
+
 function badgeForSlug(slug: string): { label: string; color: string } | null {
+  if (slug === 'founders-story') {
+    return { label: 'Pinned', color: META_BY_SLUG[slug]?.accent ?? '#05afc5' }
+  }
   if (slug === 'manage-fatigue' || slug === 'shift-work-and-families' || slug === 'why-shift-workers-matter') {
     return { label: 'New Article', color: META_BY_SLUG[slug]?.accent ?? '#007AFF' }
   }
@@ -112,7 +124,12 @@ export default function BlogIndexPage() {
       const i = slugOrder.indexOf(slug)
       return i === -1 ? 999 : i
     }
-    return [...list].sort((a, b) => (sort === 'recent' ? idx(b.slug) - idx(a.slug) : idx(a.slug) - idx(b.slug)))
+    return [...list].sort((a, b) => {
+      const pa = pinRank(a.slug)
+      const pb = pinRank(b.slug)
+      if (pa !== pb) return pa - pb
+      return sort === 'recent' ? idx(b.slug) - idx(a.slug) : idx(a.slug) - idx(b.slug)
+    })
   }, [favSlugs, postsWithMeta, showFavsOnly, slugOrder, sort])
   const blogAccess = useMemo(() => ({ isPro, plan }), [isPro, plan])
   const articleLimit = getBlogArticleLimit(blogAccess)

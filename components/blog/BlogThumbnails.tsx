@@ -1,6 +1,7 @@
 'use client'
 
 export type ThumbKind =
+  | 'founders-story'
   | 'fatigue'
   | 'health'
   | 'nutrition'
@@ -10,6 +11,7 @@ export type ThumbKind =
   | 'nightworker'
 
 const THUMB_SRC: Record<ThumbKind, string> = {
+  'founders-story': '/blog/thumbnails/founders-story.png',
   fatigue: '/blog/thumbnails/fatigue.svg',
   health: '/blog/thumbnails/health.svg',
   nutrition: '/blog/thumbnails/nutrition.svg',

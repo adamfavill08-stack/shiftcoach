@@ -1,6 +1,14 @@
 import type { BlogPostSource } from './blogTypes'
+import { FOUNDERS_STORY_CONTENT } from './postContents/foundersStoryContent'
 
 export const BLOG_POSTS_SOURCE: BlogPostSource[] = [
+  {
+    slug: 'founders-story',
+    title: "Founder's Story",
+    description:
+      'Why I built ShiftCoach — a personal note from the founder on nights, fatigue, recovery, and building an app for real shift workers, not nine-to-five routines.',
+    content: FOUNDERS_STORY_CONTENT,
+  },
   {
     slug: "manage-fatigue",
     title: "How to Manage Fatigue as a Shift Worker",

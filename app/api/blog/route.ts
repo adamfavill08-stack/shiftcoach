@@ -10,6 +10,12 @@ type BlogPost = {
 // Fallback static posts in case the remote feed is not available.
 const FALLBACK_POSTS: BlogPost[] = [
   {
+    slug: 'founders-story',
+    title: "Founder's Story",
+    description:
+      'Why I built ShiftCoach — a personal note from the founder on nights, fatigue, recovery, and building an app for real shift workers.',
+  },
+  {
     slug: 'manage-fatigue',
     title: 'How to Manage Fatigue as a Shift Worker',
     description: 'Practical strategies to help reduce tiredness at work',
