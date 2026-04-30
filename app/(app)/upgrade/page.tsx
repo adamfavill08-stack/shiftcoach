@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { Suspense, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, Check } from 'lucide-react'
@@ -8,7 +8,7 @@ import { useSubscriptionAccess } from '@/lib/hooks/useSubscriptionAccess'
 import { useNativePurchases } from '@/lib/hooks/useNativePurchases'
 import { useTranslation } from '@/components/providers/language-provider'
 
-export default function UpgradePage() {
+function UpgradePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { t } = useTranslation()
@@ -167,5 +167,13 @@ export default function UpgradePage() {
         </div>
       </div>
     </main>
+  )
+}
+
+export default function UpgradePage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-slate-100 px-4 py-6 pb-20" />}>
+      <UpgradePageContent />
+    </Suspense>
   )
 }
