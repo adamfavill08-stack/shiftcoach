@@ -12,6 +12,7 @@ import {
   Purchases,
   PURCHASES_ERROR_CODE,
   type CustomerInfo,
+  type PurchasesOfferings,
   type PurchasesOffering,
   type PurchasesPackage,
 } from '@revenuecat/purchases-capacitor'
@@ -59,6 +60,68 @@ function formatPurchasesError(error: any, fallback: string): string {
   return parts.join(' | ')
 }
 
+/** Safe copy for alerts; technical detail stays in console. */
+export function userFacingPurchasesError(error: unknown, fallback = 'Billing is temporarily unavailable.'): string {
+  const e = error as Record<string, unknown> | null
+  const code = Number(e?.code)
+  const readable = String(e?.userInfo && typeof e.userInfo === 'object' && 'readableErrorCode' in e.userInfo
+    ? (e.userInfo as { readableErrorCode?: string }).readableErrorCode ?? ''
+    : '')
+  const msg = String(e?.message ?? '').toLowerCase()
+
+  if (
+    code === 23 ||
+    /\bconfiguration\b/i.test(readable) ||
+    /\bconfiguration\b/i.test(String(e?.message ?? ''))
+  ) {
+    return 'Store setup is incomplete. Confirm RevenueCat offerings, Google Play product IDs, and that you are signed into a tester account.'
+  }
+  if (code === PURCHASES_ERROR_CODE.PURCHASE_NOT_ALLOWED_ERROR || /not.?allowed/i.test(msg)) {
+    return 'Purchases are not allowed on this device or account.'
+  }
+  if (code === PURCHASES_ERROR_CODE.STORE_PROBLEM_ERROR || /store problem/i.test(readable)) {
+    return 'Google Play Store is not available right now. Try again later.'
+  }
+  if (code === PURCHASES_ERROR_CODE.NETWORK_ERROR) {
+    return 'Network error. Check your connection and try again.'
+  }
+  if (/billing|bff|play store|unable/i.test(msg) && /\b(unavailable|disconnect|billing)\b/i.test(msg)) {
+    return 'Google Play Billing is unavailable. Update Play Store or try again later.'
+  }
+  return fallback
+}
+
+export function logRevenueCatOfferings(offerings: PurchasesOfferings, label: string): void {
+  try {
+    const current = offerings.current
+    console.log(`[native-purchases] ${label} — current offering:`, current?.identifier ?? '(none)')
+    console.log(`[native-purchases] ${label} — offerings.all keys:`, Object.keys(offerings.all ?? {}))
+    const pkgs = current?.availablePackages ?? []
+    console.log(`[native-purchases] ${label} — availablePackages count:`, pkgs.length)
+    for (const p of pkgs) {
+      const id = p.product?.identifier ?? '?'
+      console.log(
+        `[native-purchases] ${label} — package ${p.identifier} → product ${id} (${p.product?.priceString ?? 'no price'})`,
+      )
+    }
+    if (!current) {
+      console.warn(`[native-purchases] ${label} — no current offering. Set an Offering as "current" in RevenueCat.`)
+    } else if (pkgs.length === 0) {
+      console.warn(`[native-purchases] ${label} — current offering has no packages. Attach products in RevenueCat.`)
+    }
+  } catch (err) {
+    console.warn(`[native-purchases] logRevenueCatOfferings failed (${label})`, err)
+  }
+}
+
+export type AvailableProductsLoad = {
+  products: PurchaseProduct[]
+  /** Surface on upgrade UI when storefront did not return prices */
+  configWarning: string | null
+}
+
+const EXPECTED_PRODUCT_IDS = [PRODUCT_IDS.monthly, PRODUCT_IDS.yearly] as const
+
 function hasProEntitlement(customerInfo: CustomerInfo | null | undefined): boolean {
   if (!customerInfo) return false
   return Boolean(customerInfo.entitlements?.active?.[PRO_ENTITLEMENT_ID])
@@ -93,50 +156,78 @@ export function isNativePurchaseAvailable(): boolean {
  * 
  * Note: This will need to be implemented with the actual Capacitor plugin
  */
-export async function getAvailableProducts(appUserId?: string | null): Promise<PurchaseProduct[]> {
+export async function getAvailableProducts(appUserId?: string | null): Promise<AvailableProductsLoad> {
   const platform = getPurchasePlatform()
-  
+
   if (platform === 'web') {
-    // Web does not support native purchases in this app
-    return []
+    return { products: [], configWarning: null }
   }
 
-  await ensureRevenueCatConfigured(appUserId)
-  const offerings = await Purchases.getOfferings()
-  const current = offerings.current ?? null
-  const packages = getAllOfferingPackages(current)
+  try {
+    await ensureRevenueCatConfigured(appUserId)
+    const offerings = await Purchases.getOfferings()
+    logRevenueCatOfferings(offerings, 'getAvailableProducts')
 
-  const preferredById = new Map<string, PurchasesPackage>()
-  for (const pkg of packages) {
-    preferredById.set(pkg.product.identifier, pkg)
+    const current = offerings.current ?? null
+    const packages = getAllOfferingPackages(current)
+
+    const preferredById = new Map<string, PurchasesPackage>()
+    for (const pkg of packages) {
+      preferredById.set(pkg.product.identifier, pkg)
+    }
+
+    const monthlyProduct = preferredById.get(PRODUCT_IDS.monthly)?.product ?? null
+    const yearlyProduct = preferredById.get(PRODUCT_IDS.yearly)?.product ?? null
+
+    const missingIds = EXPECTED_PRODUCT_IDS.filter((id) => !preferredById.has(id))
+    if (missingIds.length > 0) {
+      console.warn(
+        '[native-purchases] Expected product identifiers not found in current offering:',
+        missingIds.join(', '),
+        '— RevenueCat Offering must include packages for these Store product IDs.',
+      )
+    }
+
+    const mapped: PurchaseProduct[] = []
+    if (monthlyProduct) {
+      mapped.push({
+        id: monthlyProduct.identifier,
+        price: monthlyProduct.priceString,
+        priceAmount: monthlyProduct.price,
+        currency: monthlyProduct.currencyCode,
+        title: monthlyProduct.title,
+        description: monthlyProduct.description,
+      })
+    }
+    if (yearlyProduct) {
+      mapped.push({
+        id: yearlyProduct.identifier,
+        price: yearlyProduct.priceString,
+        priceAmount: yearlyProduct.price,
+        currency: yearlyProduct.currencyCode,
+        title: yearlyProduct.title,
+        description: yearlyProduct.description,
+      })
+    }
+
+    let configWarning: string | null = null
+    if (!current) {
+      configWarning = 'Subscriptions are still configuring. Check RevenueCat has a current Offering with packages.'
+    } else if (mapped.length === 0) {
+      configWarning =
+        'No subscription prices loaded. Confirm Google Play products and RevenueCat Offering match (' +
+        EXPECTED_PRODUCT_IDS.join(', ') +
+        ').'
+    }
+
+    return { products: mapped, configWarning }
+  } catch (error: unknown) {
+    console.error('[native-purchases] getAvailableProducts failed', formatPurchasesError(error as Error, String(error)))
+    return {
+      products: [],
+      configWarning: userFacingPurchasesError(error, 'Could not load subscription options.'),
+    }
   }
-
-  const monthlyProduct = preferredById.get(PRODUCT_IDS.monthly)?.product ?? null
-  const yearlyProduct = preferredById.get(PRODUCT_IDS.yearly)?.product ?? null
-
-  const mapped: PurchaseProduct[] = []
-  if (monthlyProduct) {
-    mapped.push({
-      id: monthlyProduct.identifier,
-      price: monthlyProduct.priceString,
-      priceAmount: monthlyProduct.price,
-      currency: monthlyProduct.currencyCode,
-      title: monthlyProduct.title,
-      description: monthlyProduct.description,
-    })
-  }
-  if (yearlyProduct) {
-    mapped.push({
-      id: yearlyProduct.identifier,
-      price: yearlyProduct.priceString,
-      priceAmount: yearlyProduct.price,
-      currency: yearlyProduct.currencyCode,
-      title: yearlyProduct.title,
-      description: yearlyProduct.description,
-    })
-  }
-
-  return mapped
 }
 
 /**
@@ -158,14 +249,17 @@ export async function purchaseProduct(productId: string, appUserId?: string | nu
   try {
     await ensureRevenueCatConfigured(appUserId)
     const offerings = await Purchases.getOfferings()
+    logRevenueCatOfferings(offerings, 'purchaseProduct')
     const current = offerings.current ?? null
     const packages = getAllOfferingPackages(current)
     const selectedPackage = packages.find((pkg) => pkg.product.identifier === productId)
 
     if (!selectedPackage) {
+      console.error('[native-purchases] No package for productId', productId, 'offerings snapshot logged above.')
       return {
         success: false,
-        error: `Product ${productId} is not available in current offerings.`,
+        error:
+          'This plan is not available from the store yet. Check RevenueCat offering packages and Play product IDs.',
       }
     }
 
@@ -187,18 +281,18 @@ export async function purchaseProduct(productId: string, appUserId?: string | nu
       productId: result.productIdentifier ?? productId,
       customerInfo: result.customerInfo,
     }
-  } catch (error: any) {
-    console.error('[native-purchases] purchaseProduct failed', error)
-    const code = String(error?.code ?? '')
+  } catch (error: unknown) {
+    console.error('[native-purchases] purchaseProduct failed', formatPurchasesError(error as Error, 'Purchase failed'))
+    const code = String((error as { code?: string })?.code ?? '')
     const cancelled =
       code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR ||
-      error?.userCancelled === true
+      (error as { userCancelled?: boolean })?.userCancelled === true
     if (cancelled) {
       return { success: false, error: 'Purchase cancelled.' }
     }
     return {
       success: false,
-      error: formatPurchasesError(error, 'Purchase failed'),
+      error: userFacingPurchasesError(error, 'Purchase could not complete.'),
     }
   }
 }
@@ -227,10 +321,12 @@ export async function restorePurchases(appUserId?: string | null): Promise<Purch
         customerInfo: result.customerInfo,
       },
     ]
-  } catch (error: any) {
-    console.error('[native-purchases] restorePurchases failed', error)
-    // Surface structured details in logs for Play/RevenueCat config debugging.
-    console.error('[native-purchases] restore error details', formatPurchasesError(error, 'Restore failed'))
+  } catch (error: unknown) {
+    console.error(
+      '[native-purchases] restorePurchases failed',
+      formatPurchasesError(error as Error, 'Restore failed'),
+    )
+    console.error('[native-purchases] restore user-facing:', userFacingPurchasesError(error, 'Restore failed'))
     return []
   }
 }

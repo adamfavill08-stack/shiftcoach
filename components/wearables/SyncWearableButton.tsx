@@ -6,6 +6,17 @@ import type { ShiftCoachHealthConnectPlugin } from '@/lib/native/shiftCoachHealt
 
 const ANDROID_HEALTH_PROVIDER = 'android_health_connect'
 
+const HC_INCOMPLETE_PERMISSIONS_MESSAGE =
+  'Permission was not completed. Open Health Connect and allow Steps, Sleep, Heart Rate, and Activity permissions for ShiftCoach.'
+
+function capacitorErrorCode(err: unknown): string {
+  if (err && typeof err === 'object' && 'code' in err) {
+    const c = (err as { code?: string }).code
+    return typeof c === 'string' ? c : ''
+  }
+  return ''
+}
+
 type StatusPayload = {
   connected?: boolean
   provider?: string | null
@@ -65,6 +76,7 @@ export default function SyncWearableButton() {
   const [isConnected, setIsConnected] = useState(false)
   const [loading, setLoading] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [showOpenHealthConnectSettings, setShowOpenHealthConnectSettings] = useState(false)
   const [isAndroidNative, setIsAndroidNative] = useState(false)
   const [hasHealthConnectAvailable, setHasHealthConnectAvailable] = useState(false)
   const [debugStatus, setDebugStatus] = useState<Awaited<ReturnType<ShiftCoachHealthConnectPlugin['getStatus']>> | null>(null)
@@ -93,9 +105,22 @@ export default function SyncWearableButton() {
     }
   }, [])
 
+  async function openHealthConnectAppSettings() {
+    setShowOpenHealthConnectSettings(false)
+    try {
+      const { ShiftCoachHealthConnect } = await import('@/lib/native/shiftCoachHealthConnect')
+      await ShiftCoachHealthConnect.openPermissionSettings()
+      setFeedback('When you have allowed access, return here and tap Sync again.')
+    } catch (e) {
+      console.warn('[SyncWearableButton] openPermissionSettings', e)
+      setFeedback('Could not open settings. Open Health Connect from your app list and allow data access for ShiftCoach.')
+    }
+  }
+
   async function handleClick() {
     setLoading(true)
     setFeedback(null)
+    setShowOpenHealthConnectSettings(false)
 
     try {
       if (isAndroidNative) {
@@ -112,9 +137,17 @@ export default function SyncWearableButton() {
         // Always re-check native permission on tap. Backend "connected" can be stale
         // if user revoked Health Connect permission after a prior successful sync.
         if (!nativeStatus.hasPermissions) {
-          const permission = await ShiftCoachHealthConnect.requestConnectPermissions()
-          if (!permission.granted) {
-            setFeedback('Health Connect permission was not granted.')
+          try {
+            const permission = await ShiftCoachHealthConnect.requestConnectPermissions()
+            if (!permission.granted) {
+              setFeedback(HC_INCOMPLETE_PERMISSIONS_MESSAGE)
+              setShowOpenHealthConnectSettings(true)
+              return
+            }
+          } catch (permErr) {
+            console.warn('[SyncWearableButton] requestConnectPermissions', permErr)
+            setFeedback(HC_INCOMPLETE_PERMISSIONS_MESSAGE)
+            setShowOpenHealthConnectSettings(true)
             return
           }
 
@@ -122,18 +155,28 @@ export default function SyncWearableButton() {
           setFeedback('Health Connect connected successfully.')
         }
 
-        const syncResult = await ShiftCoachHealthConnect.syncNow()
-        if (syncResult.ok) {
-          const ts = syncResult.lastSyncedAt ? new Date(syncResult.lastSyncedAt).getTime() : Date.now()
-          localStorage.setItem('wearables:lastSyncedAt', String(ts))
-          window.dispatchEvent(new CustomEvent('wearables-synced', { detail: { ts } }))
-          setIsConnected(true)
-          if (isConnected) {
-            setFeedback('Synced successfully.')
-          } else {
-            setFeedback('Health Connect connected successfully.')
+        try {
+          const syncResult = await ShiftCoachHealthConnect.syncNow()
+          if (syncResult.ok) {
+            const ts = syncResult.lastSyncedAt ? new Date(syncResult.lastSyncedAt).getTime() : Date.now()
+            localStorage.setItem('wearables:lastSyncedAt', String(ts))
+            window.dispatchEvent(new CustomEvent('wearables-synced', { detail: { ts } }))
+            setIsConnected(true)
+            if (isConnected) {
+              setFeedback('Synced successfully.')
+            } else {
+              setFeedback('Health Connect connected successfully.')
+            }
+            return
           }
-          return
+        } catch (syncErr: unknown) {
+          const code = capacitorErrorCode(syncErr)
+          if (code === 'health_connect_permissions') {
+            setFeedback(HC_INCOMPLETE_PERMISSIONS_MESSAGE)
+            setShowOpenHealthConnectSettings(true)
+            return
+          }
+          throw syncErr
         }
 
         setFeedback('Sync failed. Please try again.')
@@ -169,8 +212,14 @@ export default function SyncWearableButton() {
       setFeedback('Synced successfully.')
     } catch (err) {
       if (!feedback) {
-        const msg = err instanceof Error ? err.message : ''
-        setFeedback(msg ? `Health Connect error: ${msg}` : 'Health Connect error. Please try again.')
+        const code = capacitorErrorCode(err)
+        if (code === 'health_connect_permissions' || code === 'health_connect_open_settings_failed') {
+          setFeedback(HC_INCOMPLETE_PERMISSIONS_MESSAGE)
+          setShowOpenHealthConnectSettings(true)
+        } else {
+          const msg = err instanceof Error ? err.message : ''
+          setFeedback(msg ? `Health Connect error: ${msg}` : 'Health Connect error. Please try again.')
+        }
       }
     } finally {
       setLoading(false)
@@ -211,7 +260,27 @@ export default function SyncWearableButton() {
       ) : null}
 
       {feedback ? (
-        <p className="mt-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">{feedback}</p>
+        <p
+          className={`mt-2 text-xs font-medium leading-relaxed ${
+            feedback === HC_INCOMPLETE_PERMISSIONS_MESSAGE ||
+            showOpenHealthConnectSettings ||
+            feedback.includes('return here')
+              ? 'text-amber-800 dark:text-amber-200'
+              : 'text-emerald-700 dark:text-emerald-300'
+          }`}
+        >
+          {feedback}
+        </p>
+      ) : null}
+
+      {isAndroidNative && showOpenHealthConnectSettings ? (
+        <button
+          type="button"
+          onClick={() => void openHealthConnectAppSettings()}
+          className="mt-2 w-full rounded-lg border border-sky-600 bg-white px-4 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-50 dark:border-sky-500 dark:bg-slate-900 dark:text-sky-300 dark:hover:bg-slate-800"
+        >
+          Open Health Connect settings
+        </button>
       ) : null}
 
       {process.env.NODE_ENV !== 'production' && debugStatus ? (

@@ -39,7 +39,12 @@ export async function GET(request: NextRequest) {
 
   // Handle OAuth errors
   if (error) {
-    console.error('[auth/callback] OAuth error:', { error, errorDescription })
+    console.error('[auth/callback] OAuth error:', {
+      error,
+      errorDescription,
+      hint_redirect_uri_mismatch:
+        'Google Cloud Console → OAuth Web client → add exactly: {SUPABASE_URL}/auth/v1/callback',
+    })
     const errorUrl = new URL('/auth/sign-in', request.url)
     errorUrl.searchParams.set('error', errorDescription || error)
     const res = NextResponse.redirect(errorUrl)

@@ -25,6 +25,7 @@ export function useNativePurchases() {
   const [isPurchasing, setIsPurchasing] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
   const [products, setProducts] = useState<PurchaseProduct[]>([])
+  const [storeConfigWarning, setStoreConfigWarning] = useState<string | null>(null)
   const [appUserId, setAppUserId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -53,10 +54,16 @@ export function useNativePurchases() {
     let cancelled = false
     const loadProducts = async () => {
       try {
-        const available = await getAvailableProducts(appUserId)
-        if (!cancelled) setProducts(Array.isArray(available) ? available : [])
+        const { products: nextProducts, configWarning } = await getAvailableProducts(appUserId)
+        if (!cancelled) {
+          setProducts(Array.isArray(nextProducts) ? nextProducts : [])
+          setStoreConfigWarning(configWarning ?? null)
+        }
       } catch {
-        if (!cancelled) setProducts([])
+        if (!cancelled) {
+          setProducts([])
+          setStoreConfigWarning('Could not load subscription options.')
+        }
       }
     }
     void loadProducts()
@@ -139,6 +146,8 @@ export function useNativePurchases() {
     isAvailable,
     isPurchasing,
     isRestoring,
+    products,
+    storeConfigWarning,
     getPlanPriceLabel,
     getPlanPriceAmount,
     purchaseSubscription,

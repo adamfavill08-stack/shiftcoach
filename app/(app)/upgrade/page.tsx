@@ -21,6 +21,7 @@ function UpgradePageContent() {
     restore,
     getPlanPriceLabel,
     getPlanPriceAmount,
+    storeConfigWarning,
   } = useNativePurchases()
   const fromOnboarding = searchParams.get('from') === 'onboarding'
   const highlightedPlan = searchParams.get('plan')
@@ -108,6 +109,11 @@ function UpgradePageContent() {
               </section>
             ) : (
               <section className="space-y-3">
+                {storeConfigWarning && isAvailable ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-center text-xs text-amber-900">
+                    {storeConfigWarning}
+                  </div>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => void purchaseSubscription('monthly')}

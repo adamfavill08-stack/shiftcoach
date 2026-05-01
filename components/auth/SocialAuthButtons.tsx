@@ -5,6 +5,7 @@ import type { Provider } from '@supabase/supabase-js'
 import { ChevronDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { buildOAuthRedirectTo } from '@/lib/auth/oauthRedirect'
+import { getSupabaseGoogleOAuthCallbackUrl } from '@/lib/auth/supabaseGoogleOAuth'
 import { useTranslation } from '@/components/providers/language-provider'
 
 const AUTH_OAUTH_CONTINUE_PATH = '/auth/oauth-continue'
@@ -108,6 +109,17 @@ export function SocialAuthButtons({
         return
       }
 
+      const supabaseCallback = getSupabaseGoogleOAuthCallbackUrl(process.env.NEXT_PUBLIC_SUPABASE_URL)
+      console.info('[SocialAuthButtons] OAuth redirectTo (app / Supabase client):', redirectTo)
+      if (supabaseCallback) {
+        console.info(
+          '[SocialAuthButtons] Must be in Google Cloud → OAuth Web client → Authorized redirect URIs:',
+          supabaseCallback,
+        )
+      } else {
+        console.warn('[SocialAuthButtons] NEXT_PUBLIC_SUPABASE_URL missing — cannot log Supabase /auth/v1/callback for Google Console')
+      }
+
       // Ensure `/auth/callback` knows where to go next after OAuth completes.
       setOAuthNextCookie(AUTH_OAUTH_CONTINUE_PATH)
 
@@ -118,7 +130,21 @@ export function SocialAuthButtons({
         options: { redirectTo },
       })
       if (error) {
-        console.error('[SocialAuthButtons] OAuth start failed:', provider, error)
+        const desc = (error as { error_description?: string })?.error_description
+        console.error('[SocialAuthButtons] OAuth start failed:', provider, {
+          message: error.message,
+          name: error.name,
+          status: (error as { status?: number }).status,
+          error_description: desc,
+        })
+        if (
+          /redirect_uri|redirect uri|mismatch/i.test(String(error.message || desc || ''))
+        ) {
+          console.error(
+            '[SocialAuthButtons] redirect_uri_mismatch: add this exact URI in Google Cloud Console (Web client used by Supabase):',
+            supabaseCallback ?? '(set NEXT_PUBLIC_SUPABASE_URL to print URL)',
+          )
+        }
         setPending(null)
         onPendingChange?.(false)
         onError(error.message || t('auth.oauth.errorStart'))

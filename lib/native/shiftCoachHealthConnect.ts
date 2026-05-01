@@ -19,6 +19,8 @@ export interface ShiftCoachHealthConnectPlugin {
   }>;
   /** Health Connect data access (not Capacitor manifest permissions). */
   requestConnectPermissions(): Promise<{ granted: boolean }>;
+  /** Android: Health Connect permission UI for this app (or app details in Settings). */
+  openPermissionSettings(): Promise<void>;
   syncNow(): Promise<{
     ok: boolean;
     lastSyncedAt?: string;
@@ -50,6 +52,10 @@ class ShiftCoachHealthConnectWeb extends WebPlugin implements ShiftCoachHealthCo
 
   async requestConnectPermissions() {
     return { granted: false };
+  }
+
+  async openPermissionSettings() {
+    return;
   }
 
   async syncNow() {

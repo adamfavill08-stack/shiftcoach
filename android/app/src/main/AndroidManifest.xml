@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Health Connect (Android 14+); required for Play health-data declarations when using HC SDK -->
+    <!--
+      Health Connect: declare every permission the app reads (Play health-data policy).
+      ShiftCoachHealthConnectPlugin reads Steps, Sleep sessions, Heart rate only.
+      Add READ_ACTIVE_CALORIES_BURNED / exercise types here + Kotlin permissions if sync extends.
+    -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <uses-permission android:name="android.permission.health.READ_SLEEP" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
@@ -44,11 +48,16 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
 
+        <!-- Filtered MESSAGE_RECEIVED (BIND_LISTENER is deprecated; WearableBindListener lint) -->
         <service
             android:name=".PhoneWearListenerService"
             android:exported="true">
             <intent-filter>
-                <action android:name="com.google.android.gms.wearable.BIND_LISTENER" />
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:pathPrefix="/shiftcoach/" />
             </intent-filter>
         </service>
     </application>

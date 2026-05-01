@@ -2,7 +2,10 @@ package com.shiftcoach.app
 
 import android.net.Uri
 import android.content.Context
+import android.content.Intent
+import android.health.connect.HealthConnectManager
 import android.os.Build
+import android.provider.Settings
 import android.os.ext.SdkExtensions
 import android.webkit.CookieManager
 import androidx.activity.result.ActivityResultLauncher
@@ -167,7 +170,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 var clientCreateError: String? = null
                 var granted: Set<String> = emptySet()
                 try {
-                    val client = HealthConnectClient.getOrCreate(ctx)
+                    val client = createHealthConnectClient(ctx)
                     canCreateClient = true
                     granted = runBlocking { client.permissionController.getGrantedPermissions() }
                 } catch (e: Throwable) {
@@ -231,6 +234,41 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
             return
         }
         launcher.launch(requiredPermissions)
+    }
+
+    /**
+     * Opens Health Connect permission UI for this app (API 34+), or app system settings as fallback.
+     */
+    @PluginMethod
+    fun openPermissionSettings(call: PluginCall) {
+        val ctx = context
+        if (Build.VERSION.SDK_INT >= 34) {
+            try {
+                val intent =
+                    Intent(HealthConnectManager.ACTION_MANAGE_HEALTH_PERMISSIONS).apply {
+                        putExtra(Intent.EXTRA_PACKAGE_NAME, ctx.packageName)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                if (intent.resolveActivity(ctx.packageManager) != null) {
+                    ctx.startActivity(intent)
+                    call.resolve()
+                    return
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("ShiftCoachHC", "openPermissionSettings: HC manager intent failed", e)
+            }
+        }
+        try {
+            val intent =
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.fromParts("package", ctx.packageName, null)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            ctx.startActivity(intent)
+            call.resolve()
+        } catch (e: Exception) {
+            call.reject("health_connect_open_settings_failed", e.message ?: "unknown", e)
+        }
     }
 
     @PluginMethod

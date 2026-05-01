@@ -13,6 +13,25 @@ function getRevenueCatApiKey(platform: 'ios' | 'android'): string | null {
   return process.env.NEXT_PUBLIC_REVENUECAT_ANDROID_API_KEY ?? null
 }
 
+/** Public SDK keys only — never ship RevenueCat secret keys (sk_) in client bundles. */
+function warnIfPublicSdkKeyLooksWrong(platform: 'ios' | 'android', key: string): void {
+  const trimmed = key.trim()
+  if (trimmed.startsWith('sk_')) {
+    console.error(
+      '[revenuecat-client] Invalid: secret API key detected. Use the platform public SDK key from RevenueCat only.',
+    )
+    return
+  }
+  if (platform === 'android' && !trimmed.startsWith('goog_')) {
+    console.warn(
+      '[revenuecat-client] Android: expected public SDK key (goog_…). Wrong key causes offerings / billing errors.',
+    )
+  }
+  if (platform === 'ios' && !trimmed.startsWith('appl_')) {
+    console.warn('[revenuecat-client] iOS: expected public SDK key (appl_…).')
+  }
+}
+
 export function getNativePlatform(): 'ios' | 'android' | 'web' {
   const platform = Capacitor.getPlatform()
   if (platform === 'ios') return 'ios'
@@ -32,6 +51,8 @@ export async function ensureRevenueCatConfigured(appUserId?: string | null): Pro
         : 'Missing NEXT_PUBLIC_REVENUECAT_ANDROID_API_KEY',
     )
   }
+
+  warnIfPublicSdkKeyLooksWrong(platform, apiKey)
 
   if (!isConfigured) {
     await Purchases.configure({
