@@ -46,6 +46,21 @@ const PRODUCT_IDS = {
 
 const PRO_ENTITLEMENT_ID = 'pro'
 
+/**
+ * Google Play Billing subscription v2 exposes products as `subscriptionId:basePlanId`.
+ * iOS / older Android may use the logical id alone. Match either form.
+ */
+function storeProductIdMatchesLogicalId(storeIdentifier: string, logicalId: string): boolean {
+  return storeIdentifier === logicalId || storeIdentifier.startsWith(`${logicalId}:`)
+}
+
+function findPackageByLogicalProductId(
+  packages: PurchasesPackage[],
+  logicalId: string,
+): PurchasesPackage | undefined {
+  return packages.find((pkg) => storeProductIdMatchesLogicalId(pkg.product.identifier, logicalId))
+}
+
 function formatPurchasesError(error: any, fallback: string): string {
   const code = String(error?.code ?? '')
   const readableCode = String(error?.userInfo?.readableErrorCode ?? '')
@@ -171,15 +186,12 @@ export async function getAvailableProducts(appUserId?: string | null): Promise<A
     const current = offerings.current ?? null
     const packages = getAllOfferingPackages(current)
 
-    const preferredById = new Map<string, PurchasesPackage>()
-    for (const pkg of packages) {
-      preferredById.set(pkg.product.identifier, pkg)
-    }
+    const monthlyPkg = findPackageByLogicalProductId(packages, PRODUCT_IDS.monthly)
+    const yearlyPkg = findPackageByLogicalProductId(packages, PRODUCT_IDS.yearly)
+    const monthlyProduct = monthlyPkg?.product ?? null
+    const yearlyProduct = yearlyPkg?.product ?? null
 
-    const monthlyProduct = preferredById.get(PRODUCT_IDS.monthly)?.product ?? null
-    const yearlyProduct = preferredById.get(PRODUCT_IDS.yearly)?.product ?? null
-
-    const missingIds = EXPECTED_PRODUCT_IDS.filter((id) => !preferredById.has(id))
+    const missingIds = EXPECTED_PRODUCT_IDS.filter((id) => !findPackageByLogicalProductId(packages, id))
     if (missingIds.length > 0) {
       console.warn(
         '[native-purchases] Expected product identifiers not found in current offering:',
@@ -191,7 +203,7 @@ export async function getAvailableProducts(appUserId?: string | null): Promise<A
     const mapped: PurchaseProduct[] = []
     if (monthlyProduct) {
       mapped.push({
-        id: monthlyProduct.identifier,
+        id: PRODUCT_IDS.monthly,
         price: monthlyProduct.priceString,
         priceAmount: monthlyProduct.price,
         currency: monthlyProduct.currencyCode,
@@ -201,7 +213,7 @@ export async function getAvailableProducts(appUserId?: string | null): Promise<A
     }
     if (yearlyProduct) {
       mapped.push({
-        id: yearlyProduct.identifier,
+        id: PRODUCT_IDS.yearly,
         price: yearlyProduct.priceString,
         priceAmount: yearlyProduct.price,
         currency: yearlyProduct.currencyCode,
@@ -252,7 +264,7 @@ export async function purchaseProduct(productId: string, appUserId?: string | nu
     logRevenueCatOfferings(offerings, 'purchaseProduct')
     const current = offerings.current ?? null
     const packages = getAllOfferingPackages(current)
-    const selectedPackage = packages.find((pkg) => pkg.product.identifier === productId)
+    const selectedPackage = findPackageByLogicalProductId(packages, productId)
 
     if (!selectedPackage) {
       console.error('[native-purchases] No package for productId', productId, 'offerings snapshot logged above.')
