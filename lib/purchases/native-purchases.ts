@@ -61,6 +61,12 @@ function findPackageByLogicalProductId(
   return packages.find((pkg) => storeProductIdMatchesLogicalId(pkg.product.identifier, logicalId))
 }
 
+/** RevenueCat errors use `code` as number or string; PURCHASES_ERROR_CODE is a string enum in typings. */
+function purchasesErrorCodeMatches(err: unknown, expected: PURCHASES_ERROR_CODE): boolean {
+  const raw = (err as { code?: unknown })?.code
+  return raw === expected || String(raw) === String(expected)
+}
+
 function formatPurchasesError(error: any, fallback: string): string {
   const code = String(error?.code ?? '')
   const readableCode = String(error?.userInfo?.readableErrorCode ?? '')
@@ -78,26 +84,32 @@ function formatPurchasesError(error: any, fallback: string): string {
 /** Safe copy for alerts; technical detail stays in console. */
 export function userFacingPurchasesError(error: unknown, fallback = 'Billing is temporarily unavailable.'): string {
   const e = error as Record<string, unknown> | null
-  const code = Number(e?.code)
+  const rawCode = (e as { code?: unknown })?.code
+  const codeNum =
+    typeof rawCode === 'number' && Number.isFinite(rawCode)
+      ? rawCode
+      : typeof rawCode === 'string' && rawCode !== '' && Number.isFinite(Number(rawCode))
+        ? Number(rawCode)
+        : NaN
   const readable = String(e?.userInfo && typeof e.userInfo === 'object' && 'readableErrorCode' in e.userInfo
     ? (e.userInfo as { readableErrorCode?: string }).readableErrorCode ?? ''
     : '')
   const msg = String(e?.message ?? '').toLowerCase()
 
   if (
-    code === 23 ||
+    codeNum === 23 ||
     /\bconfiguration\b/i.test(readable) ||
     /\bconfiguration\b/i.test(String(e?.message ?? ''))
   ) {
     return 'Store setup is incomplete. Confirm RevenueCat offerings, Google Play product IDs, and that you are signed into a tester account.'
   }
-  if (code === PURCHASES_ERROR_CODE.PURCHASE_NOT_ALLOWED_ERROR || /not.?allowed/i.test(msg)) {
+  if (purchasesErrorCodeMatches(error, PURCHASES_ERROR_CODE.PURCHASE_NOT_ALLOWED_ERROR) || /not.?allowed/i.test(msg)) {
     return 'Purchases are not allowed on this device or account.'
   }
-  if (code === PURCHASES_ERROR_CODE.STORE_PROBLEM_ERROR || /store problem/i.test(readable)) {
+  if (purchasesErrorCodeMatches(error, PURCHASES_ERROR_CODE.STORE_PROBLEM_ERROR) || /store problem/i.test(readable)) {
     return 'Google Play Store is not available right now. Try again later.'
   }
-  if (code === PURCHASES_ERROR_CODE.NETWORK_ERROR) {
+  if (purchasesErrorCodeMatches(error, PURCHASES_ERROR_CODE.NETWORK_ERROR)) {
     return 'Network error. Check your connection and try again.'
   }
   if (/billing|bff|play store|unable/i.test(msg) && /\b(unavailable|disconnect|billing)\b/i.test(msg)) {
@@ -295,9 +307,8 @@ export async function purchaseProduct(productId: string, appUserId?: string | nu
     }
   } catch (error: unknown) {
     console.error('[native-purchases] purchaseProduct failed', formatPurchasesError(error as Error, 'Purchase failed'))
-    const code = String((error as { code?: string })?.code ?? '')
     const cancelled =
-      code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR ||
+      purchasesErrorCodeMatches(error, PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) ||
       (error as { userCancelled?: boolean })?.userCancelled === true
     if (cancelled) {
       return { success: false, error: 'Purchase cancelled.' }
