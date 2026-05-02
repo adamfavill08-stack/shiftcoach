@@ -1,8 +1,10 @@
 'use client'
 
 import { Capacitor } from '@capacitor/core'
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import type { ShiftCoachHealthConnectPlugin } from '@/lib/native/shiftCoachHealthConnect'
+import { prepareHealthConnectNativeAuth } from '@/lib/native/prepareHealthConnectNativeAuth'
 
 const ANDROID_HEALTH_PROVIDER = 'android_health_connect'
 
@@ -20,6 +22,9 @@ const HC_CONNECTED =
 
 const HC_NO_RECENT_DATA =
   'Health Connect is connected, but no recent data was found. Make sure Samsung Health or Google Fit is writing data to Health Connect.'
+
+const HC_SIGN_IN_TO_SYNC =
+  'Health Connect is connected, but ShiftCoach needs you to sign in again before syncing.'
 
 const HC_SETTINGS_OPEN_FAILED =
   'Could not open Health Connect settings. Open Android Settings, search for Health Connect, then allow data access for ShiftCoach.'
@@ -135,7 +140,8 @@ function isWarningFeedback(
     feedback.includes('Install or update Health Connect') ||
     feedback.includes('Google Play') ||
     feedback.includes('not installed or needs an update') ||
-    feedback.includes('no recent data was found')
+    feedback.includes('no recent data was found') ||
+    feedback.includes('needs you to sign in again before syncing')
   )
 }
 
@@ -144,6 +150,7 @@ export default function SyncWearableButton() {
   const [loading, setLoading] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [showOpenHealthConnectSettings, setShowOpenHealthConnectSettings] = useState(false)
+  const [showSignInAgainPrompt, setShowSignInAgainPrompt] = useState(false)
   const [isAndroidNative, setIsAndroidNative] = useState(false)
   const [hasHealthConnectAvailable, setHasHealthConnectAvailable] = useState(false)
   const [debugStatus, setDebugStatus] = useState<Awaited<ReturnType<ShiftCoachHealthConnectPlugin['getStatus']>> | null>(
@@ -200,6 +207,7 @@ export default function SyncWearableButton() {
     setLoading(true)
     setFeedback(null)
     setShowOpenHealthConnectSettings(false)
+    setShowSignInAgainPrompt(false)
 
     try {
       if (isAndroidNative) {
@@ -257,6 +265,16 @@ export default function SyncWearableButton() {
         }
 
         try {
+          const authReady = await prepareHealthConnectNativeAuth()
+          if (!authReady) {
+            setFeedback(HC_SIGN_IN_TO_SYNC)
+            setShowSignInAgainPrompt(true)
+            return
+          }
+
+          if (isDevBuild) {
+            console.info('[HealthConnect] calling syncNow')
+          }
           const syncResult = await ShiftCoachHealthConnect.syncNow()
           if (isDevBuild) {
             console.info('[ShiftCoach HC] syncNow', syncResult)
@@ -280,6 +298,11 @@ export default function SyncWearableButton() {
           if (code === 'health_connect_permissions') {
             setFeedback(HC_INCOMPLETE_PERMISSIONS_MESSAGE)
             setShowOpenHealthConnectSettings(true)
+            return
+          }
+          if (code === 'health_connect_auth_missing' || code === 'health_connect_http_401') {
+            setFeedback(HC_SIGN_IN_TO_SYNC)
+            setShowSignInAgainPrompt(true)
             return
           }
           throw syncErr
@@ -317,7 +340,10 @@ export default function SyncWearableButton() {
       setFeedback('Synced successfully.')
     } catch (err) {
       const code = capacitorErrorCode(err)
-      if (code === 'health_connect_permissions' || code === 'health_connect_open_settings_failed') {
+      if (code === 'health_connect_auth_missing' || code === 'health_connect_http_401') {
+        setFeedback(HC_SIGN_IN_TO_SYNC)
+        setShowSignInAgainPrompt(true)
+      } else if (code === 'health_connect_permissions' || code === 'health_connect_open_settings_failed') {
         setFeedback(
           code === 'health_connect_open_settings_failed'
             ? HC_SETTINGS_OPEN_FAILED
@@ -406,6 +432,15 @@ export default function SyncWearableButton() {
         >
           Open Health Connect settings
         </button>
+      ) : null}
+
+      {showSignInAgainPrompt ? (
+        <Link
+          href="/auth/sign-in"
+          className="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+        >
+          Sign in again
+        </Link>
       ) : null}
 
     </div>

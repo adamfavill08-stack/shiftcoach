@@ -72,6 +72,11 @@ export interface ShiftCoachHealthConnectPlugin {
   openPermissionSettings(): Promise<void>;
   /** Android: Google Play listing for the Health Connect app (install / update). */
   openHealthConnectInstallPage(): Promise<void>;
+  /**
+   * Android: set Supabase access token for the next native `/api/health-connect/sync` POST (in-memory only).
+   * Pass empty/null to clear. Call immediately before {@link syncNow}.
+   */
+  setAuthToken(options: { accessToken?: string | null }): Promise<void>;
   syncNow(): Promise<{
     ok: boolean;
     lastSyncedAt?: string;
@@ -120,6 +125,10 @@ class ShiftCoachHealthConnectWeb extends WebPlugin implements ShiftCoachHealthCo
   }
 
   async openHealthConnectInstallPage() {
+    return;
+  }
+
+  async setAuthToken(_options: { accessToken?: string | null }) {
     return;
   }
 

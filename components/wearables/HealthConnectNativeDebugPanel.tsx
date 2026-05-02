@@ -69,6 +69,31 @@ export function HealthConnectNativeDebugPanel() {
     }
   }, [refresh])
 
+  const runNativeSync = useCallback(async () => {
+    setBusy(true)
+    setLastErr(null)
+    try {
+      const { prepareHealthConnectNativeAuth } = await import('@/lib/native/prepareHealthConnectNativeAuth')
+      const { ShiftCoachHealthConnect } = await import('@/lib/native/shiftCoachHealthConnect')
+      const authOk = await prepareHealthConnectNativeAuth()
+      if (!authOk) {
+        setLastErr('No Supabase session token (hydrate + getSession + refreshSession). Sign in again.')
+        return
+      }
+      if (!isProdBuild) {
+        console.info('[HealthConnect] calling syncNow')
+      }
+      const r = await ShiftCoachHealthConnect.syncNow()
+      console.info('[ShiftCoach HC debug] syncNow', r)
+      await refresh()
+    } catch (e) {
+      setLastErr(String(e))
+      console.warn('[ShiftCoach HC debug] syncNow failed', e)
+    } finally {
+      setBusy(false)
+    }
+  }, [refresh])
+
   const diag = status?.hcDiagnostics
   const launcherDiag = status?.hcLauncherDiagnostics as HcLauncherDiagnostics | undefined
 
@@ -125,6 +150,14 @@ export function HealthConnectNativeDebugPanel() {
           className="rounded-md bg-amber-800 px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
         >
           Open HC settings
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void runNativeSync()}
+          className="rounded-md bg-emerald-700 px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
+        >
+          Run native HC sync
         </button>
       </div>
       {summary ? (

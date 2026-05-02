@@ -40,13 +40,18 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Phone-side Health Connect → POST /api/health-connect/sync (session cookies from WebView).
+ * Phone-side Health Connect → POST /api/health-connect/sync.
+ * Auth: [setAuthToken] supplies a Supabase access token; [syncNow] sends `Authorization: Bearer …`.
+ * WebView cookies may still be sent when present but are not relied on for native sync.
  * [StepsRecord] aggregation includes all sources the user allowed in Health Connect (watch, phone, apps).
  */
 @CapacitorPlugin(name = "ShiftCoachHealthConnect")
 class ShiftCoachHealthConnectPlugin : Plugin() {
 
     companion object {
+        /** Production hosted app; matches `capacitor.config.ts` default. Emulator dev uses live WebView URL when set. */
+        private const val DEFAULT_SYNC_API_ORIGIN = "https://www.shiftcoach.app"
+
         @Volatile
         private var instance: ShiftCoachHealthConnectPlugin? = null
 
@@ -79,6 +84,20 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
         )
 
     private val pendingPermissionCall = AtomicReference<PluginCall?>(null)
+
+    /**
+     * API origin for `/api/health-connect/sync`, set only on the main thread from [WebView.getUrl].
+     * [syncNow] runs on `CapacitorPlugins` — it must never read the WebView there (wrong-thread crash).
+     */
+    @Volatile
+    private var cachedWebOrigin: String = ""
+
+    /**
+     * Supabase access token for `/api/health-connect/sync`, set from JS via [setAuthToken].
+     * In-memory only; never logged; cleared when JS passes an empty token.
+     */
+    @Volatile
+    private var bearerAccessToken: String? = null
 
     /** Permission-flow diagnostics for debug logcat / optional getStatus.hcDiagnostics (no health sample values). */
     @Volatile
@@ -255,6 +274,56 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
         hci(
             "plugin.load() instance bound for HC callbacks; launcherOwnedByMainActivity=${HealthConnectPermissionBridge.isRegistered()}",
         )
+        Handler(Looper.getMainLooper()).post {
+            refreshCachedWebOriginFromWebView()
+        }
+    }
+
+    /** Must run on the main thread — touches [android.webkit.WebView]. */
+    private fun refreshCachedWebOriginFromWebView() {
+        try {
+            val wv = bridge?.webView
+            if (wv == null) {
+                hci("refreshCachedWebOriginFromWebView: bridge.webView null")
+                return
+            }
+            val url = wv.url
+            if (url.isNullOrBlank()) {
+                hci("refreshCachedWebOriginFromWebView: url blank")
+                return
+            }
+            val u = Uri.parse(url)
+            val scheme = u.scheme ?: return
+            val host = u.host ?: return
+            val port = u.port
+            cachedWebOrigin =
+                if (port != -1 && port != 80 && port != 443) {
+                    "$scheme://$host:$port"
+                } else {
+                    "$scheme://$host"
+                }
+            hci("refreshCachedWebOriginFromWebView: cached=$cachedWebOrigin")
+        } catch (e: Exception) {
+            hcw("refreshCachedWebOriginFromWebView failed", e)
+        }
+    }
+
+    /**
+     * Resolves sync POST origin without touching WebView (may run on [bridge.execute] / CapacitorPlugins thread).
+     */
+    private fun syncApiOrigin(): String {
+        val trimmed = cachedWebOrigin.trim().trimEnd('/')
+        val resolved =
+            if (trimmed.isNotEmpty()) {
+                trimmed
+            } else {
+                DEFAULT_SYNC_API_ORIGIN.trimEnd('/')
+            }
+        android.util.Log.i(
+            "ShiftCoachHC",
+            "syncApiOrigin=$resolved (fromWebViewCache=${trimmed.isNotEmpty()} thread=${Thread.currentThread().name})",
+        )
+        return resolved
     }
 
     @PluginMethod
@@ -575,6 +644,25 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun setAuthToken(call: PluginCall) {
+        bridge.execute {
+            val raw = call.getString("accessToken")
+            val trimmed = raw?.trim()
+            bearerAccessToken = if (trimmed.isNullOrEmpty()) null else trimmed
+            if (BuildConfig.DEBUG) {
+                android.util.Log.i(
+                    "ShiftCoachHC",
+                    "setAuthToken authTokenPresent=${bearerAccessToken != null}",
+                )
+            }
+            if (BuildConfig.HC_VERBOSE_LOG) {
+                hci("setAuthToken path=/api/health-connect/sync")
+            }
+            call.resolve()
+        }
+    }
+
+    @PluginMethod
     fun syncNow(call: PluginCall) {
         hci("syncNow: PluginMethod entry")
         bridge.execute {
@@ -597,6 +685,18 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                         "health_connect_permissions",
                         "Grant Health Connect permissions first",
                         err,
+                    )
+                    return@execute
+                }
+
+                val bearer = bearerAccessToken?.trim()?.takeIf { it.isNotEmpty() }
+                if (bearer == null) {
+                    if (BuildConfig.HC_VERBOSE_LOG) {
+                        hci("syncNow aborted authTokenPresent=false path=/api/health-connect/sync")
+                    }
+                    call.reject(
+                        "health_connect_auth_missing",
+                        "Please sign in again before syncing Health Connect.",
                     )
                     return@execute
                 }
@@ -667,15 +767,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 body.put("heartRate", hrArr)
                 body.put("syncedAt", syncedAt)
 
-                val origin =
-                    webOrigin()
-                        ?: run {
-                            call.reject(
-                                "health_connect_no_origin",
-                                "Could not read app URL for API call",
-                            )
-                            return@execute
-                        }
+                val origin = syncApiOrigin()
 
                 val cookie = CookieManager.getInstance().getCookie(origin) ?: ""
                 val url = URL(origin.trimEnd('/') + "/api/health-connect/sync")
@@ -686,6 +778,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 conn.doOutput = true
                 conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 conn.setRequestProperty("Accept", "application/json")
+                conn.setRequestProperty("Authorization", "Bearer $bearer")
                 if (cookie.isNotEmpty()) {
                     conn.setRequestProperty("Cookie", cookie)
                 }
@@ -695,14 +788,17 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 val code = conn.responseCode
                 val stream =
                     if (code in 200..299) conn.inputStream else conn.errorStream ?: conn.inputStream
-                val text =
-                    BufferedReader(InputStreamReader(stream, StandardCharsets.UTF_8)).use { it.readText() }
+                BufferedReader(InputStreamReader(stream, StandardCharsets.UTF_8)).use { it.readText() }
                 conn.disconnect()
+
+                if (BuildConfig.HC_VERBOSE_LOG) {
+                    hci("syncNow httpStatus=$code authTokenPresent=true path=/api/health-connect/sync")
+                }
 
                 if (code !in 200..299) {
                     call.reject(
                         "health_connect_http_$code",
-                        "Sync failed: HTTP $code ${text.take(200)}",
+                        "Sync failed: HTTP $code",
                     )
                     return@execute
                 }
@@ -812,24 +908,6 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
             diag.put("lastNativeError", JSONObject.NULL)
         }
         ret.put("hcDiagnostics", diag)
-    }
-
-    private fun webOrigin(): String? {
-        val wv = bridge?.webView ?: return null
-        val url = wv.url ?: return null
-        return try {
-            val u = Uri.parse(url)
-            val scheme = u.scheme ?: return null
-            val host = u.host ?: return null
-            val port = u.port
-            if (port != -1 && port != 80 && port != 443) {
-                "$scheme://$host:$port"
-            } else {
-                "$scheme://$host"
-            }
-        } catch (_: Exception) {
-            null
-        }
     }
 
     private fun sdkStatusLabel(status: Int): String =
