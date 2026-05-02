@@ -672,7 +672,7 @@ const messages: Record<string, string> = {
     'detail.wearablesSetup.title': 'Conectar tu wearable',
     'detail.wearablesSetup.howReadsData': 'Cómo ShiftCoach lee tus datos',
     'detail.wearablesSetup.intro1':
-      'ShiftCoach no habla directamente con tu reloj. Lee pasos, sueño y actividad desde Apple Health (iPhone) o Health Connect (Android). Esas apps unen datos del móvil y del wearable cuando ambos están permitidos: el movimiento del iPhone y los pasos del reloj pueden contar juntos sin otra configuración en ShiftCoach.',
+      'ShiftCoach no habla directamente con tu reloj. En Android lee pasos, sueño y frecuencia cardíaca a través de Health Connect cuando lo permites. En iPhone, Apple Health puede aportar datos similares si está conectado. Las apps de salud combinan móvil y reloj cuando ambos están permitidos.',
     'detail.wearablesSetup.intro2':
       'Usa Sincronizar cuando estés listo. Abre las secciones de abajo para ver qué obtienes, permisos y ayuda.',
     'detail.wearablesSetup.appleWatch': 'Apple Watch',
@@ -689,10 +689,13 @@ const messages: Record<string, string> = {
     'detail.wearablesSetup.appleBeta': 'En la beta actual, los datos de Apple Watch aparecerán cuando el soporte HealthKit esté activado en la versión de ShiftCoach de la App Store.',
     'detail.wearablesSetup.stepsSamsung': 'Pasos para relojes Samsung / Android',
     'detail.wearablesSetup.samsungStep1': 'Abre Samsung Health en el móvil y ve a Ajustes → Servicios conectados.',
-    'detail.wearablesSetup.samsungStep2': 'Conecta Health Connect y activa la sincronización de pasos (y sueño si está disponible).',
-    'detail.wearablesSetup.samsungStep3': 'Comprueba que la app de tu reloj (por ejemplo Samsung Health) comparte actividad con Health Connect.',
+    'detail.wearablesSetup.samsungStep2':
+      'Conecta Health Connect y activa la sincronización de pasos, sueño y frecuencia cardíaca (el texto en apps del fabricante puede variar).',
+    'detail.wearablesSetup.samsungStep3':
+      'Comprueba que la app de tu reloj (por ejemplo Samsung Health) escribe pasos, sueño y frecuencia cardíaca en Health Connect.',
     'detail.wearablesSetup.samsungStep4': 'En ShiftCoach, pulsa el botón "Sincronizar wearables" en el panel e inicia sesión con la misma cuenta de Google.',
-    'detail.wearablesSetup.samsungDone': 'Hecho esto, ShiftCoach obtendrá automáticamente tus pasos y sueño de Health Connect al abrir la app.',
+    'detail.wearablesSetup.samsungDone':
+      'Hecho esto, ShiftCoach obtendrá automáticamente pasos, sueño y frecuencia cardíaca de Health Connect al abrir la app.',
     'detail.wearablesSetup.otherTitle': 'Otros wearables (Fitbit, Garmin, etc.)',
     'detail.wearablesSetup.otherP1': 'En futuras versiones añadiremos conexiones directas para más marcas. Por ahora, la forma más fácil es sincronizar el dispositivo con Apple Health o Health Connect en el móvil y dejar que ShiftCoach lea desde ahí.',
     'detail.wearablesSetup.otherP2': 'Muchas apps (incluidas Fitbit y Garmin) pueden escribir pasos y sueño en estos hubs de salud desde su propia configuración.',
@@ -703,14 +706,15 @@ const messages: Record<string, string> = {
     'detail.wearablesSetup.readyToSync': '¿Listo para sincronizar?',
     'detail.wearablesSetup.tapBelow': 'Pulsa abajo después de seguir los pasos de tu dispositivo.',
     'detail.wearablesSetup.statusConnected': 'Datos de salud conectados',
-    'detail.wearablesSetup.statusConnectedDesc': 'Apple Health o Health Connect está vinculado. Pulsa sincronizar para obtener los últimos pasos y sueño.',
+    'detail.wearablesSetup.statusConnectedDesc':
+      'Apple Health o Health Connect está vinculado. Pulsa sincronizar para obtener los últimos pasos, sueño y frecuencia cardíaca.',
     'detail.wearablesSetup.verifiedWorking': 'Conexión verificada: los datos de salud llegan a ShiftCoach.',
     'detail.wearablesSetup.stepsToday': 'Pasos hoy: {count}',
     'detail.wearablesSetup.verifiedConfirmation':
-      'Conectado y funcionando. Los pasos y el sueño aparecerán en el panel tras sincronizar (desde Apple Health o Health Connect, incluyendo móvil + reloj cuando el sistema los combina).',
+      'Conectado y funcionando. Pasos, sueño y frecuencia cardíaca aparecerán en el panel tras sincronizar (desde Apple Health o Health Connect, incluyendo móvil + reloj cuando el sistema los combina).',
     'detail.wearablesSetup.statusNotConnected': 'No conectado',
     'detail.wearablesSetup.notConnectedWhy':
-      'ShiftCoach necesita permiso para leer desde Apple Health en el iPhone o Health Connect en Android. Conecta tu app de salud (Samsung Health, Google Fit donde aplique, etc.) para que pasos y sueño lleguen a Health Connect, o usa Apple Health en el iPhone.',
+      'ShiftCoach necesita permiso para leer pasos, sueño y frecuencia cardíaca desde Apple Health en el iPhone o Health Connect en Android. Conecta Samsung Health, Google Fit donde aplique o la app del reloj para que esos datos se escriban en Health Connect, o usa Apple Health en el iPhone.',
     'detail.wearablesSetup.notConnectedWhyInfo': 'Por qué hace falta la conexión de salud',
     'detail.wearablesSetup.notConnectedHint': 'Pulsa el icono de información para ver más.',
     'detail.wearablesSetup.connectGoogleFit': 'Abrir configuración de wearable',

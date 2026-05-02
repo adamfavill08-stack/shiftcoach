@@ -715,7 +715,7 @@ const messages: Record<string, string> = {
     'detail.wearablesSetup.title': 'Connect your wearable',
     'detail.wearablesSetup.howReadsData': 'How ShiftCoach reads your data',
     'detail.wearablesSetup.intro1':
-      "ShiftCoach doesn't talk directly to your watch. It reads steps, sleep and activity from Apple Health (iPhone) or Health Connect (Android). Those apps combine data from your phone and wearable when both are allowed—so iPhone motion and watch steps can count together without a separate setup in ShiftCoach.",
+      "ShiftCoach doesn't talk directly to your watch. On Android, it reads steps, sleep, and heart rate through Health Connect when you allow it. On iPhone, Apple Health can supply similar data when connected. Health apps combine phone and watch when both are allowed—so phone sensors and watch can count together without extra setup in ShiftCoach.",
     'detail.wearablesSetup.intro2':
       "Use Sync when you're ready. Open the sections below for what you'll get, permission tips, and troubleshooting.",
     'detail.wearablesSetup.appleWatch': 'Apple Watch',
@@ -732,10 +732,13 @@ const messages: Record<string, string> = {
     'detail.wearablesSetup.appleBeta': 'For the current beta, Apple Watch data will appear once HealthKit support is enabled in the App Store version of ShiftCoach.',
     'detail.wearablesSetup.stepsSamsung': 'Steps for Samsung / Android watches',
     'detail.wearablesSetup.samsungStep1': 'Open Samsung Health on your phone and go to Settings → Connected services.',
-    'detail.wearablesSetup.samsungStep2': 'Connect Health Connect and turn on syncing for Steps (and sleep if available).',
-    'detail.wearablesSetup.samsungStep3': 'Make sure your watch app (for example Samsung Health) is writing activity into Health Connect.',
+    'detail.wearablesSetup.samsungStep2':
+      'Connect Health Connect and turn on syncing for steps, sleep, and heart rate (wording in vendor apps may vary).',
+    'detail.wearablesSetup.samsungStep3':
+      'Make sure your watch app (for example Samsung Health) is writing steps, sleep, and heart rate into Health Connect.',
     'detail.wearablesSetup.samsungStep4': 'In ShiftCoach, tap the "Sync wearables" button on the dashboard and sign in with the same Google account.',
-    'detail.wearablesSetup.samsungDone': 'Once this is done, ShiftCoach will automatically pull your steps and sleep from Health Connect when you open the app.',
+    'detail.wearablesSetup.samsungDone':
+      'Once this is done, ShiftCoach will automatically pull steps, sleep, and heart rate from Health Connect when you open the app.',
     'detail.wearablesSetup.otherTitle': 'Other wearables (Fitbit, Garmin, etc.)',
     'detail.wearablesSetup.otherP1': 'In future versions we\'ll add direct connections for more brands. For now, the easiest way is to sync your device into Apple Health or Health Connect on your phone, then let ShiftCoach read from there.',
     'detail.wearablesSetup.otherP2': 'Many apps (including Fitbit and Garmin) can write steps and sleep into these health hubs in their own settings.',
@@ -746,14 +749,15 @@ const messages: Record<string, string> = {
     'detail.wearablesSetup.readyToSync': 'Ready to sync?',
     'detail.wearablesSetup.tapBelow': "Tap below after you've followed the steps for your device.",
     'detail.wearablesSetup.statusConnected': 'Health data connected',
-    'detail.wearablesSetup.statusConnectedDesc': 'Apple Health or Health Connect is linked. Tap sync to pull the latest steps and sleep.',
+    'detail.wearablesSetup.statusConnectedDesc':
+      'Apple Health or Health Connect is linked. Tap sync to pull the latest steps, sleep, and heart rate.',
     'detail.wearablesSetup.verifiedWorking': 'Connection verified – health data is reaching ShiftCoach.',
     'detail.wearablesSetup.stepsToday': 'Steps today: {count}',
     'detail.wearablesSetup.verifiedConfirmation':
-      'Connected and working. Steps and sleep will appear on the dashboard after sync (from Apple Health or Health Connect, including phone + watch when the OS combines them).',
+      'Connected and working. Steps, sleep, and heart rate will appear on the dashboard after sync (from Apple Health or Health Connect, including phone + watch when the OS combines them).',
     'detail.wearablesSetup.statusNotConnected': 'Not connected',
     'detail.wearablesSetup.notConnectedWhy':
-      'ShiftCoach needs permission to read from Apple Health on iPhone or Health Connect on Android. Connect your health app (Samsung Health, Google Fit where supported, etc.) so steps and sleep flow into Health Connect, or use Apple Health on iPhone.',
+      'ShiftCoach needs permission to read steps, sleep, and heart rate from Apple Health on iPhone or Health Connect on Android. Connect Samsung Health, Google Fit where supported, or your watch app so those types are written into Health Connect, or use Apple Health on iPhone.',
     'detail.wearablesSetup.notConnectedWhyInfo': 'Why health connection is needed',
     'detail.wearablesSetup.notConnectedHint': 'Tap the info icon for details.',
     'detail.wearablesSetup.connectGoogleFit': 'Open wearable setup',

@@ -9,6 +9,7 @@ import android.webkit.CookieManager;
 import android.webkit.WebView;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.WindowCompat;
+import androidx.fragment.app.FragmentActivity;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.WebViewListener;
 import com.google.android.gms.tasks.Tasks;
@@ -20,9 +21,6 @@ import java.util.List;
 
 public class MainActivity extends BridgeActivity {
     private static final String TAG = "ShiftCoachPhone";
-    /** Health Connect may start MainActivity for a privacy rationale step before permissions. */
-    private static final String ACTION_HEALTH_PERMISSIONS_RATIONALE =
-            "androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE";
 
     /**
      * Cordova/Capacitor calls {@code window.Capacitor.triggerEvent} from native on pause/resume
@@ -89,32 +87,21 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        android.util.Log.i(
-                "ShiftCoachHC",
-                "MainActivity.onCreate registerPlugin order: ShiftCoachHealthConnect, ShiftCoachAppReview");
         registerPlugin(ShiftCoachHealthConnectPlugin.class);
         registerPlugin(ShiftCoachAppReviewPlugin.class);
         super.onCreate(savedInstanceState);
-        Intent intent = getIntent();
-        if (intent != null && ACTION_HEALTH_PERMISSIONS_RATIONALE.equals(intent.getAction())) {
-            android.util.Log.i("ShiftCoachHC", "MainActivity: ACTION_SHOW_PERMISSIONS_RATIONALE — finishing with RESULT_OK");
-            setResult(RESULT_OK);
-            finish();
-            return;
+        // Health Connect permission sheet: ActivityResultLauncher must live on MainActivity (not lazy plugin registration).
+        if (this instanceof FragmentActivity) {
+            HealthConnectPermissionBridge.registerWithMainActivity((FragmentActivity) this);
+        } else {
+            android.util.Log.e(
+                    "ShiftCoachHC",
+                    "MainActivity is not a FragmentActivity; HC permission launcher cannot register: "
+                            + getClass().getName());
         }
+        android.util.Log.i("ShiftCoachHC", "MainActivity onCreate completed");
         // Keep content below status bar until Capacitor StatusBar runs (avoids transparent overlay defaults).
         WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
-    }
-
-    @Override
-    protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-        setIntent(intent);
-        if (intent != null && ACTION_HEALTH_PERMISSIONS_RATIONALE.equals(intent.getAction())) {
-            android.util.Log.i("ShiftCoachHC", "MainActivity.onNewIntent: ACTION_SHOW_PERMISSIONS_RATIONALE");
-            setResult(RESULT_OK);
-            finish();
-        }
     }
 
     /**

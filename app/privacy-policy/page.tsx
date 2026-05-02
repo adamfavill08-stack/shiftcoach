@@ -27,15 +27,24 @@ export default function PrivacyPolicyPage() {
                 <li>Profile information (name, age, height, weight, goals, activity level)</li>
                 <li>Shift schedule and work patterns</li>
                 <li>Sleep logs and patterns</li>
-                <li>Activity and step data (from Health Connect on Android or Apple Health on iOS, if connected)</li>
+                <li>Step, sleep, and heart-rate data from Health Connect on Android or Apple Health on iOS, when you connect those services</li>
                 <li>Mood and focus ratings</li>
                 <li>Nutrition preferences and goals</li>
                 <li>Subscription and purchase metadata (processed via RevenueCat and Google Play)</li>
               </ul>
               <p className="mt-4">
-                <strong>Health Data:</strong> With your explicit permission, we may collect health data
-                from connected services such as Health Connect or Apple Health, including steps, sleep data,
-                and activity metrics.
+                <strong>Health Data:</strong> With your explicit permission, we may collect health-related
+                data you choose to connect, including from Apple Health on iPhone and from{' '}
+                <strong>Google Health Connect</strong> on Android.
+              </p>
+              <p className="mt-3">
+                <strong>Google Health Connect (Android):</strong> Shift Coach requests access only to{' '}
+                <strong>read</strong> your <strong>steps</strong>, <strong>sleep</strong>, and{' '}
+                <strong>heart rate</strong> through Health Connect. Access is <strong>read-only</strong>,{' '}
+                <strong>user-initiated</strong> when you tap Connect in the app, and you can{' '}
+                <strong>revoke</strong> it at any time in Android Settings → Health Connect → App permissions.
+                We do <strong>not</strong> use Health Connect data for advertising and we do <strong>not</strong>{' '}
+                sell Health Connect data.
               </p>
             </section>
 

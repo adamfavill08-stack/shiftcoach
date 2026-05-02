@@ -15,6 +15,11 @@
         <intent>
             <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
         </intent>
+        <!-- Android 14+: Health Connect resolves VIEW_PERMISSION_USAGE → rationale / usage disclosure. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+            <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+        </intent>
         <!-- Package visibility (Android 11+): resolve Health Connect permission manager intent. -->
         <intent>
             <action android:name="android.health.connect.action.MANAGE_HEALTH_PERMISSIONS" />
@@ -55,12 +60,31 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Lets Health Connect open a rationale step before granting (Jetpack / Play expectations). -->
+
+        </activity>
+
+        <!-- Health Connect may start this before the permission sheet; shows in-app rationale (Play policy). -->
+        <activity
+            android:name=".HealthConnectRationaleActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar">
             <intent-filter>
                 <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
             </intent-filter>
-
         </activity>
+
+        <!-- Android 14+: required so Health Connect does not finish with "App should support rationale intent". -->
+        <activity-alias
+            android:name="ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity=".HealthConnectRationaleActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
 
         <provider
             android:name="androidx.core.content.FileProvider"

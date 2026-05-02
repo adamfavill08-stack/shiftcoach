@@ -10,6 +10,9 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace "com.shiftcoach.app"
+    buildFeatures {
+        buildConfig true
+    }
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "com.shiftcoach.app"
@@ -18,8 +21,8 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Bump these for every Play Store upload. versionCode must be unique and increasing.
         // Closed testing was already at 12 (1.0.10); next upload must exceed that versionCode.
-        versionCode 14
-        versionName "1.0.12"
+        versionCode 16
+        versionName "1.0.14"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -46,12 +49,18 @@ android {
     }
 
     buildTypes {
+        debug {
+            minifyEnabled false
+            // Verbose ShiftCoachHC logcat + extra fields on getStatus (no health sample values).
+            buildConfigField "boolean", "HC_VERBOSE_LOG", "true"
+        }
         release {
             // Enable minification and code shrinking for production
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
+            buildConfigField "boolean", "HC_VERBOSE_LOG", "false"
         }
     }
 }

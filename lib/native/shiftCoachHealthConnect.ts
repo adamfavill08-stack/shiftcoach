@@ -1,10 +1,49 @@
 import { registerPlugin, WebPlugin } from "@capacitor/core";
 
+/** Present only on debug Android builds (HC_VERBOSE_LOG); permission metadata only — no health samples. */
+export type HcDiagnostics = {
+  appVersionName?: string | null;
+  appVersionCode?: number;
+  packageName?: string;
+  permissionLauncherRegistered?: boolean;
+  lastPermissionLaunchMs?: number;
+  lastPermissionCallbackMs?: number;
+  sdkStatus?: string;
+  requiredPermissionsCount?: number;
+  grantedPermissionsCount?: number;
+  grantedPermissionsSnapshot?: string;
+  missingPermissionsCount?: number;
+  launchCalled?: boolean;
+  callbackFired?: boolean;
+  lastNativeError?: string | null;
+};
+
+/** Always returned from native getStatus: MainActivity-owned launcher + activity wiring (debug builds add hcDiagnostics too). */
+export type HcLauncherDiagnostics = {
+  sdkStatus?: string;
+  packageName?: string;
+  activityClass?: string | null;
+  activityIsFragmentActivity?: boolean;
+  activityIsComponentActivity?: boolean;
+  launcherRegistered?: boolean;
+  lastPermissionLaunchMs?: number;
+  lastPermissionCallbackMs?: number;
+  launchCalled?: boolean;
+  callbackFired?: boolean;
+  lastRegistrationError?: string | null;
+  lastLaunchError?: string | null;
+  lastNativeError?: string | null;
+  grantedPermissions?: string[];
+  missingPermissions?: string[];
+};
+
 export interface ShiftCoachHealthConnectPlugin {
   getStatus(): Promise<{
     available: boolean;
     /** False if the Activity never registered the HC permission launcher (native wiring bug). */
     permissionFlowReady?: boolean;
+    hcDiagnostics?: HcDiagnostics;
+    hcLauncherDiagnostics?: HcLauncherDiagnostics;
     sdkStatus: string;
     sdkStatusDefault?: string;
     sdkStatusProvider?: string;
@@ -39,6 +78,8 @@ export interface ShiftCoachHealthConnectPlugin {
     steps?: number;
     sleepCount?: number;
     heartRateCount?: number;
+    /** True when the read window returned no steps, sleep sessions, or heart-rate samples (writers may be missing). */
+    recentDataLikelyEmpty?: boolean;
   }>;
 }
 
@@ -47,6 +88,7 @@ class ShiftCoachHealthConnectWeb extends WebPlugin implements ShiftCoachHealthCo
     return {
       available: false,
       permissionFlowReady: false,
+      hcLauncherDiagnostics: undefined,
       sdkStatus: "web",
       sdkStatusDefault: "web",
       sdkStatusProvider: "web",
@@ -82,7 +124,7 @@ class ShiftCoachHealthConnectWeb extends WebPlugin implements ShiftCoachHealthCo
   }
 
   async syncNow() {
-    return { ok: false };
+    return { ok: false, recentDataLikelyEmpty: false };
   }
 }
 

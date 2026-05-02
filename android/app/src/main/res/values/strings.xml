@@ -4,4 +4,12 @@
     <string name="title_activity_main">shiftcoach</string>
     <string name="package_name">com.shiftcoach.app</string>
     <string name="custom_url_scheme">com.shiftcoach.app</string>
+
+    <!-- Health Connect privacy rationale (androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE) -->
+    <string name="hc_rationale_title">Health data in ShiftCoach</string>
+    <string name="hc_rationale_body">ShiftCoach uses Health Connect to read steps, sleep, and heart rate to provide recovery, fatigue, shift rhythm, and wellbeing insights for shift workers.</string>
+    <string name="hc_rationale_readonly_note">This access is read-only, started by you in the app, and you can revoke it at any time in Android Health Connect settings.</string>
+    <string name="hc_rationale_privacy_link_label">Privacy policy (opens in browser)</string>
+    <string name="hc_privacy_policy_url" translatable="false">https://www.shiftcoach.app/privacy-policy</string>
+    <string name="hc_rationale_continue">Continue</string>
 </resources>

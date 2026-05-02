@@ -3,6 +3,7 @@ package com.shiftcoach.app
 import android.net.Uri
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.health.connect.HealthConnectManager
 import android.os.Build
 import android.os.Handler
@@ -10,10 +11,9 @@ import android.os.Looper
 import android.provider.Settings
 import android.os.ext.SdkExtensions
 import android.webkit.CookieManager
-import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.ComponentActivity
 import androidx.fragment.app.FragmentActivity
 import androidx.health.connect.client.HealthConnectClient
-import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
@@ -46,8 +46,26 @@ import org.json.JSONObject
 @CapacitorPlugin(name = "ShiftCoachHealthConnect")
 class ShiftCoachHealthConnectPlugin : Plugin() {
 
+    companion object {
+        @Volatile
+        private var instance: ShiftCoachHealthConnectPlugin? = null
+
+        @JvmStatic
+        fun handleHcContractResult(contractGranted: Set<String>) {
+            val p = instance
+            if (p == null) {
+                android.util.Log.e(
+                    "ShiftCoachHC",
+                    "handleHcContractResult: ShiftCoachHealthConnectPlugin instance is null",
+                )
+                return
+            }
+            p.deliverPermissionActivityResult(contractGranted)
+        }
+    }
+
     init {
-        android.util.Log.i("ShiftCoachHC", "ShiftCoachHealthConnectPlugin constructor / class load OK (${javaClass.name})")
+        hci("ShiftCoachHealthConnectPlugin constructor / class load OK (${javaClass.name})")
     }
 
     /** Google Health Connect provider (see Health Connect Jetpack docs). */
@@ -60,8 +78,41 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
             HealthPermission.getReadPermission(HeartRateRecord::class),
         )
 
-    private var permissionLauncher: ActivityResultLauncher<Set<String>>? = null
     private val pendingPermissionCall = AtomicReference<PluginCall?>(null)
+
+    /** Permission-flow diagnostics for debug logcat / optional getStatus.hcDiagnostics (no health sample values). */
+    @Volatile
+    private var lastPermissionLaunchMs: Long = 0L
+
+    @Volatile
+    private var lastPermissionCallbackMs: Long = 0L
+
+    @Volatile
+    private var lastNativeErrorBrief: String? = null
+
+    private fun hci(msg: String) {
+        if (BuildConfig.HC_VERBOSE_LOG) android.util.Log.i("ShiftCoachHC", msg)
+    }
+
+    private fun hcd(msg: String) {
+        if (BuildConfig.HC_VERBOSE_LOG) android.util.Log.d("ShiftCoachHC", msg)
+    }
+
+    private fun hcw(msg: String, t: Throwable? = null) {
+        if (!BuildConfig.HC_VERBOSE_LOG) return
+        if (t != null) android.util.Log.w("ShiftCoachHC", msg, t) else android.util.Log.w("ShiftCoachHC", msg)
+    }
+
+    private fun hce(msg: String, t: Throwable? = null) {
+        if (!BuildConfig.HC_VERBOSE_LOG) return
+        if (t != null) android.util.Log.e("ShiftCoachHC", msg, t) else android.util.Log.e("ShiftCoachHC", msg)
+    }
+
+    private fun recordNativeError(t: Throwable) {
+        lastNativeErrorBrief =
+            (t.javaClass.simpleName + ": " + (t.message ?: "") + "\n" + android.util.Log.getStackTraceString(t))
+                .take(8000)
+    }
 
     /**
      * Health Connect provider resolution differs across Android releases.
@@ -80,19 +131,21 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 val s =
                     (oneArg.invoke(null, ctx) as? Int)
                         ?: HealthConnectClient.getSdkStatus(ctx, healthConnectProviderPackage)
-                android.util.Log.d("ShiftCoachHC", "resolveSdkStatus: used single-arg getSdkStatus → ${sdkStatusLabel(s)}")
+                hcd("resolveSdkStatus: used single-arg getSdkStatus → ${sdkStatusLabel(s)}")
                 s
             } else {
                 val s = HealthConnectClient.getSdkStatus(ctx, healthConnectProviderPackage)
-                android.util.Log.d("ShiftCoachHC", "resolveSdkStatus: no single-arg API; provider getSdkStatus → ${sdkStatusLabel(s)}")
+                hcd("resolveSdkStatus: no single-arg API; provider getSdkStatus → ${sdkStatusLabel(s)}")
                 s
             }
         } catch (t: Throwable) {
-            android.util.Log.w("ShiftCoachHC", "resolveSdkStatus: exception, falling back to provider package", t)
+            hcw("resolveSdkStatus: exception, falling back to provider package", t)
+            recordNativeError(t)
             try {
                 HealthConnectClient.getSdkStatus(ctx, healthConnectProviderPackage)
             } catch (t2: Throwable) {
-                android.util.Log.e("ShiftCoachHC", "resolveSdkStatus: fallback failed", t2)
+                hce("resolveSdkStatus: fallback failed", t2)
+                recordNativeError(t2)
                 HealthConnectClient.SDK_UNAVAILABLE
             }
         }
@@ -127,62 +180,23 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
         }
     }
 
-    /**
-     * Must run on the main thread — [FragmentActivity.registerForActivityResult] requirement.
-     */
-    private fun registerPermissionLauncherIfNeeded(): Boolean {
-        if (permissionLauncher != null) {
-            android.util.Log.d("ShiftCoachHC", "registerPermissionLauncherIfNeeded: already registered")
-            return true
-        }
-        val rawAct = activity
-        android.util.Log.i(
-            "ShiftCoachHC",
-            "registerPermissionLauncherIfNeeded: activityClass=${rawAct?.javaClass?.name} " +
-                "isFragmentActivity=${rawAct is FragmentActivity} mainLooper=${Looper.myLooper() == Looper.getMainLooper()}",
-        )
-        val act = rawAct as? FragmentActivity
-        if (act == null) {
-            android.util.Log.e(
-                "ShiftCoachHC",
-                "registerPermissionLauncherIfNeeded: FAIL — activity is " +
-                    (if (rawAct == null) "null" else rawAct.javaClass.name) +
-                    " (need FragmentActivity for ActivityResultRegistryOwner)",
-            )
-            return false
-        }
-        return try {
-            permissionLauncher =
-                act.registerForActivityResult(
-                    PermissionController.createRequestPermissionResultContract(),
-                ) { activityResultGranted ->
-                    deliverPermissionActivityResult(activityResultGranted)
-                }
-            android.util.Log.i("ShiftCoachHC", "requestPermissionLauncher registerForActivityResult SUCCESS")
-            true
-        } catch (e: Exception) {
-            android.util.Log.e("ShiftCoachHC", "requestPermissionLauncher registerForActivityResult FAILED", e)
-            false
-        }
-    }
-
     /** Health Connect permission dialog result — always re-query granted set from the platform. */
     private fun deliverPermissionActivityResult(activityResultGranted: Set<String>) {
-        android.util.Log.i(
-            "ShiftCoachHC",
+        lastPermissionCallbackMs = System.currentTimeMillis()
+        hci(
             "ActivityResult callback fired contractGrantedSize=${activityResultGranted.size} " +
                 activityResultGranted.joinToString(prefix = "[", postfix = "]"),
         )
         val call = pendingPermissionCall.getAndSet(null)
         if (call == null) {
-            android.util.Log.w("ShiftCoachHC", "ActivityResult callback: no pending PluginCall (already consumed or stray)")
+            hcw("ActivityResult callback: no pending PluginCall (already consumed or stray)")
             return
         }
         bridge.execute {
             try {
                 val ctx = context
                 if (resolveSdkStatus(ctx) != HealthConnectClient.SDK_AVAILABLE) {
-                    android.util.Log.w("ShiftCoachHC", "post-dialog resolveSdkStatus != SDK_AVAILABLE")
+                    hcw("post-dialog resolveSdkStatus != SDK_AVAILABLE")
                     val ret = JSObject()
                     ret.put("granted", false)
                     ret.put("sdkUnavailable", true)
@@ -194,16 +208,12 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 val client = createHealthConnectClient(ctx)
                 val actualGranted =
                     runBlocking { client.permissionController.getGrantedPermissions() }
-                android.util.Log.i(
-                    "ShiftCoachHC",
-                    "getGrantedPermissions after dialog: size=${actualGranted.size} $actualGranted",
+                hci(
+                    "getGrantedPermissions after request: size=${actualGranted.size} ids=${actualGranted.sorted().joinToString()}",
                 )
                 val hasAll = requiredPermissions.all { p -> p in actualGranted }
                 val missing = requiredPermissions.filter { it !in actualGranted }.sorted()
-                android.util.Log.i(
-                    "ShiftCoachHC",
-                    "afterDialog hasAll=$hasAll missingPermissions=${missing.joinToString()}",
-                )
+                hci("afterDialog hasAll=$hasAll missingPermissionIds=${missing.joinToString()}")
                 val grantedArr = JSONArray()
                 actualGranted.sorted().forEach { grantedArr.put(it) }
                 val missingArr = JSONArray()
@@ -225,9 +235,11 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 ret.put("requiredPermissions", requiredArr)
                 ret.put("grantedPermissions", grantedArr)
                 ret.put("missingPermissions", missingArr)
+                lastNativeErrorBrief = null
                 call.resolve(ret)
             } catch (e: Exception) {
-                android.util.Log.e("ShiftCoachHC", "permission ActivityResult callback failed", e)
+                hce("permission ActivityResult callback failed", e)
+                recordNativeError(e)
                 call.reject(
                     "health_connect_permission_callback_failed",
                     e.message ?: "unknown",
@@ -239,39 +251,30 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
 
     override fun load() {
         super.load()
-        android.util.Log.i(
-            "ShiftCoachHC",
-            "plugin.load() invoked thread=${Thread.currentThread().name}; scheduling registerPermissionLauncherIfNeeded on main",
+        instance = this
+        hci(
+            "plugin.load() instance bound for HC callbacks; launcherOwnedByMainActivity=${HealthConnectPermissionBridge.isRegistered()}",
         )
-        Handler(Looper.getMainLooper()).post {
-            val ok = registerPermissionLauncherIfNeeded()
-            if (!ok) {
-                android.util.Log.e(
-                    "ShiftCoachHC",
-                    "plugin.load deferred registerPermissionLauncherIfNeeded FAILED — Connect Health Connect will not open the system sheet",
-                )
-            }
-        }
     }
 
     @PluginMethod
     fun getStatus(call: PluginCall) {
-        android.util.Log.i("ShiftCoachHC", "getStatus: PluginMethod entry thread=${Thread.currentThread().name}")
+        hci("getStatus: PluginMethod entry thread=${Thread.currentThread().name}")
         bridge.execute {
             try {
                 val ctx = context
-                android.util.Log.i(
-                    "ShiftCoachHC",
+                hci(
                     "getStatus: bridge.execute packageName=${ctx.packageName} activity=${activity?.javaClass?.name} " +
-                        "permissionFlowReady=${permissionLauncher != null}",
+                        "permissionFlowReady=${HealthConnectPermissionBridge.isRegistered()}",
                 )
                 val sdkDefault =
                     try {
                         val s = HealthConnectClient.getSdkStatus(ctx)
-                        android.util.Log.i("ShiftCoachHC", "HealthConnectClient.getSdkStatus(Context) → ${sdkStatusLabel(s)} ($s)")
+                        hci("HealthConnectClient.getSdkStatus(Context) → ${sdkStatusLabel(s)} ($s)")
                         s
                     } catch (t: Throwable) {
-                        android.util.Log.e("ShiftCoachHC", "HealthConnectClient.getSdkStatus(Context) threw", t)
+                        hce("HealthConnectClient.getSdkStatus(Context) threw", t)
+                        recordNativeError(t)
                         HealthConnectClient.SDK_UNAVAILABLE
                     }
                 val defaultProviderPackageName =
@@ -279,17 +282,16 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 val sdkProvider =
                     try {
                         val s = HealthConnectClient.getSdkStatus(ctx, defaultProviderPackageName)
-                        android.util.Log.i(
-                            "ShiftCoachHC",
+                        hci(
                             "HealthConnectClient.getSdkStatus(Context, \"$defaultProviderPackageName\") → ${sdkStatusLabel(s)} ($s)",
                         )
                         s
                     } catch (t: Throwable) {
-                        android.util.Log.e("ShiftCoachHC", "HealthConnectClient.getSdkStatus(Context, provider) threw", t)
+                        hce("HealthConnectClient.getSdkStatus(Context, provider) threw", t)
+                        recordNativeError(t)
                         HealthConnectClient.SDK_UNAVAILABLE
                     }
-                android.util.Log.d(
-                    "ShiftCoachHC",
+                hcd(
                     "requiredPermissions (${requiredPermissions.size}): ${requiredPermissions.joinToString()}",
                 )
                 val extensionVersion: Int? =
@@ -303,7 +305,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                         null
                     }
                 val ret = JSObject()
-                ret.put("permissionFlowReady", permissionLauncher != null)
+                ret.put("permissionFlowReady", HealthConnectPermissionBridge.isRegistered())
                 ret.put("sdkStatus", sdkStatusLabel(sdkDefault))
                 ret.put("sdkStatusDefault", sdkStatusLabel(sdkDefault))
                 ret.put("sdkStatusProvider", sdkStatusLabel(sdkProvider))
@@ -322,14 +324,14 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                     val client = createHealthConnectClient(ctx)
                     canCreateClient = true
                     granted = runBlocking { client.permissionController.getGrantedPermissions() }
-                    android.util.Log.d(
-                        "ShiftCoachHC",
-                        "getStatus: getGrantedPermissions size=${granted.size} $granted",
+                    hcd(
+                        "getStatus: getGrantedPermissions size=${granted.size} ids=${granted.sorted().joinToString()}",
                     )
                 } catch (e: Throwable) {
                     canCreateClient = false
                     clientCreateError = e.message ?: e.javaClass.simpleName
-                    android.util.Log.e("ShiftCoachHC", "getStatus: createHealthConnectClient or getGrantedPermissions failed", e)
+                    hce("getStatus: createHealthConnectClient or getGrantedPermissions failed", e)
+                    recordNativeError(e)
                 }
                 ret.put("canCreateClient", canCreateClient)
                 if (clientCreateError != null) {
@@ -358,19 +360,23 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 ret.put("available", available)
                 if (!available) {
                     ret.put("hasPermissions", false)
+                    attachHcLauncherDiagnostics(ret, ctx, sdkDefault, granted, missingJson)
+                    putHcDiagnostics(ret, ctx, sdkDefault, granted, missingJson.length())
                     call.resolve(ret)
                     return@execute
                 }
                 val hasAll = requiredPermissions.all { it in granted }
                 ret.put("hasPermissions", hasAll)
-                android.util.Log.i(
-                    "ShiftCoachHC",
+                hci(
                     "getStatus sdk=${sdkStatusLabel(sdkDefault)} canCreate=$canCreateClient " +
                         "hasPermissions=$hasAll missing=${missingJson.length()}",
                 )
+                attachHcLauncherDiagnostics(ret, ctx, sdkDefault, granted, missingJson)
+                putHcDiagnostics(ret, ctx, sdkDefault, granted, missingJson.length())
                 call.resolve(ret)
             } catch (e: Exception) {
-                android.util.Log.e("ShiftCoachHC", "getStatus: outer catch", e)
+                hce("getStatus: outer catch", e)
+                recordNativeError(e)
                 call.reject("health_connect_status_failed", e.message ?: "unknown", e)
             }
         }
@@ -382,8 +388,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
      */
     @PluginMethod
     fun requestConnectPermissions(call: PluginCall) {
-        android.util.Log.i(
-            "ShiftCoachHC",
+        hci(
             "requestConnectPermissions: entry thread=${Thread.currentThread().name} activity=${activity?.javaClass?.name}",
         )
         try {
@@ -392,35 +397,25 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 val client = createHealthConnectClient(ctx)
                 val pre =
                     runBlocking { client.permissionController.getGrantedPermissions() }
-                android.util.Log.i(
-                    "ShiftCoachHC",
-                    "getGrantedPermissions before launch: size=${pre.size} $pre",
+                hci(
+                    "getGrantedPermissions before request: size=${pre.size} ids=${pre.sorted().joinToString()}",
                 )
             } else {
-                android.util.Log.w(
-                    "ShiftCoachHC",
+                hcw(
                     "requestConnectPermissions: SDK not AVAILABLE before main-thread launch; proceeding to register+launch for diagnostics",
                 )
             }
         } catch (e: Exception) {
-            android.util.Log.w("ShiftCoachHC", "requestConnectPermissions: pre-launch getGrantedPermissions skipped", e)
+            hcw("requestConnectPermissions: pre-launch getGrantedPermissions skipped", e)
         }
         // registerForActivityResult / launch must run on the main thread (ActivityResultRegistryOwner).
         Handler(Looper.getMainLooper()).post {
-            android.util.Log.i("ShiftCoachHC", "requestConnectPermissions: on main looper")
-            if (!registerPermissionLauncherIfNeeded()) {
+            hci("requestConnectPermissions: on main looper")
+            if (!HealthConnectPermissionBridge.isRegistered()) {
+                hce("requestConnectPermissions: HealthConnectPermissionBridge launcher not registered")
                 call.reject(
                     "health_connect_ui_unavailable",
-                    "Could not register Health Connect permission UI (activity not FragmentActivity?)",
-                )
-                return@post
-            }
-            val launcher = permissionLauncher
-            if (launcher == null) {
-                android.util.Log.e("ShiftCoachHC", "requestConnectPermissions: permissionLauncher still null after register")
-                call.reject(
-                    "health_connect_ui_unavailable",
-                    "ActivityResultLauncher not registered",
+                    "Health Connect permission UI is not registered on MainActivity",
                 )
                 return@post
             }
@@ -429,16 +424,20 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 return@post
             }
             try {
-                android.util.Log.i(
-                    "ShiftCoachHC",
-                    "requestPermissionLauncher.launch called with ${requiredPermissions.size} permissions: " +
-                        requiredPermissions.joinToString(),
-                )
-                launcher.launch(requiredPermissions)
-                android.util.Log.i("ShiftCoachHC", "requestPermissionLauncher.launch returned (sheet should be visible)")
+                hci("Plugin requestConnectPermissions calling MainActivity launchHealthConnectPermissions")
+                lastPermissionLaunchMs = System.currentTimeMillis()
+                val launched = HealthConnectPermissionBridge.launchHealthConnectPermissions(requiredPermissions)
+                if (!launched) {
+                    pendingPermissionCall.set(null)
+                    call.reject(
+                        "health_connect_launch_failed",
+                        HealthConnectPermissionBridge.lastLaunchError ?: "launch returned false",
+                    )
+                }
             } catch (e: Exception) {
                 pendingPermissionCall.set(null)
-                android.util.Log.e("ShiftCoachHC", "requestPermissionLauncher.launch FAILED", e)
+                hce("requestConnectPermissions launch path FAILED", e)
+                recordNativeError(e)
                 call.reject("health_connect_launch_failed", e.message ?: "unknown", e)
             }
         }
@@ -463,7 +462,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                     }
                     true
                 } catch (e: Exception) {
-                    android.util.Log.w("ShiftCoachHC", "startIntent failed action=${intent.action}", e)
+                    hcw("startIntent failed action=${intent.action}", e)
                     false
                 }
             }
@@ -477,8 +476,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                             putExtra(Intent.EXTRA_PACKAGE_NAME, ctx.packageName)
                         }
                     val target = intent.resolveActivity(ctx.packageManager)
-                    android.util.Log.d(
-                        "ShiftCoachHC",
+                    hcd(
                         "MANAGE_HEALTH_PERMISSIONS resolve=$target pkg=${ctx.packageName}",
                     )
                     if (target != null && startIntent(intent)) {
@@ -486,7 +484,8 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                         return@execute
                     }
                 } catch (e: Exception) {
-                    android.util.Log.e("ShiftCoachHC", "MANAGE_HEALTH_PERMISSIONS failed", e)
+                    hce("MANAGE_HEALTH_PERMISSIONS failed", e)
+                    recordNativeError(e)
                 }
             }
 
@@ -545,7 +544,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                     }
                     true
                 } catch (e: Exception) {
-                    android.util.Log.w("ShiftCoachHC", "openInstall startIntent failed", e)
+                    hcw("openInstall startIntent failed", e)
                     false
                 }
             }
@@ -553,7 +552,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
             val market =
                 Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$healthConnectProviderPackage"))
             if (startIntent(market)) {
-                android.util.Log.i("ShiftCoachHC", "opened Play market for Health Connect")
+                hci("opened Play market for Health Connect")
                 call.resolve()
                 return@execute
             }
@@ -566,7 +565,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
             if (startIntent(web)) {
-                android.util.Log.i("ShiftCoachHC", "opened Play https page for Health Connect")
+                hci("opened Play https page for Health Connect")
                 call.resolve()
                 return@execute
             }
@@ -577,7 +576,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
 
     @PluginMethod
     fun syncNow(call: PluginCall) {
-        android.util.Log.i("ShiftCoachHC", "syncNow: PluginMethod entry")
+        hci("syncNow: PluginMethod entry")
         bridge.execute {
             try {
                 val ctx = context
@@ -711,15 +710,108 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 val ret = JSObject()
                 ret.put("ok", true)
                 ret.put("lastSyncedAt", syncedAt)
-                ret.put("steps", stepsTotal.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt())
-                ret.put("sleepCount", sleepArr.length())
-                ret.put("heartRateCount", hrArr.length())
+                val stepsOut = stepsTotal.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+                val sleepC = sleepArr.length()
+                val hrC = hrArr.length()
+                ret.put("steps", stepsOut)
+                ret.put("sleepCount", sleepC)
+                ret.put("heartRateCount", hrC)
+                val emptyIngestion = stepsOut == 0 && sleepC == 0 && hrC == 0
+                ret.put("recentDataLikelyEmpty", emptyIngestion)
+                hci("syncNow completed ok recentDataLikelyEmpty=$emptyIngestion")
                 call.resolve(ret)
             } catch (e: Exception) {
-                android.util.Log.e("ShiftCoachHC", "syncNow failed", e)
+                hce("syncNow failed", e)
+                recordNativeError(e)
                 call.reject("health_connect_sync_failed", e.message ?: "unknown", e)
             }
         }
+    }
+
+    private fun attachHcLauncherDiagnostics(
+        ret: JSObject,
+        ctx: Context,
+        sdkDefault: Int,
+        granted: Set<String>,
+        missingJson: JSONArray,
+    ) {
+        val act = activity
+        val o = JSObject()
+        o.put("sdkStatus", sdkStatusLabel(sdkDefault))
+        o.put("packageName", ctx.packageName)
+        o.put("activityClass", act?.javaClass?.name ?: JSONObject.NULL)
+        o.put("activityIsFragmentActivity", act is FragmentActivity)
+        o.put("activityIsComponentActivity", act is ComponentActivity)
+        o.put("launcherRegistered", HealthConnectPermissionBridge.isRegistered())
+        o.put("lastPermissionLaunchMs", lastPermissionLaunchMs)
+        o.put("lastPermissionCallbackMs", lastPermissionCallbackMs)
+        o.put("launchCalled", lastPermissionLaunchMs > 0L)
+        o.put("callbackFired", lastPermissionCallbackMs > 0L)
+        val regErr = HealthConnectPermissionBridge.lastRegistrationError
+        o.put("lastRegistrationError", regErr ?: JSONObject.NULL)
+        val launchErr = HealthConnectPermissionBridge.lastLaunchError
+        o.put("lastLaunchError", launchErr ?: JSONObject.NULL)
+        if (lastNativeErrorBrief != null) {
+            o.put("lastNativeError", lastNativeErrorBrief!!)
+        } else {
+            o.put("lastNativeError", JSONObject.NULL)
+        }
+        val gArr = JSONArray()
+        granted.sorted().forEach { gArr.put(it) }
+        o.put("grantedPermissions", gArr)
+        o.put("missingPermissions", missingJson)
+        ret.put("hcLauncherDiagnostics", o)
+    }
+
+    private fun putHcDiagnostics(
+        ret: JSObject,
+        ctx: Context,
+        sdkDefault: Int,
+        granted: Set<String>,
+        missingJsonLen: Int,
+    ) {
+        if (!BuildConfig.HC_VERBOSE_LOG) return
+        val diag = JSObject()
+        try {
+            val pm = ctx.packageManager
+            val pInfo =
+                if (Build.VERSION.SDK_INT >= 33) {
+                    pm.getPackageInfo(ctx.packageName, PackageManager.PackageInfoFlags.of(0))
+                } else {
+                    @Suppress("DEPRECATION")
+                    pm.getPackageInfo(ctx.packageName, 0)
+                }
+            diag.put("appVersionName", pInfo.versionName ?: JSONObject.NULL)
+            val vc =
+                if (Build.VERSION.SDK_INT >= 28) {
+                    pInfo.longVersionCode
+                } else {
+                    @Suppress("DEPRECATION")
+                    pInfo.versionCode.toLong()
+                }
+            diag.put("appVersionCode", vc)
+        } catch (t: Throwable) {
+            recordNativeError(t)
+            diag.put("appVersionName", JSONObject.NULL)
+            diag.put("appVersionCode", JSONObject.NULL)
+        }
+        diag.put("packageName", ctx.packageName)
+        diag.put("permissionLauncherRegistered", HealthConnectPermissionBridge.isRegistered())
+        diag.put("lastPermissionLaunchMs", lastPermissionLaunchMs)
+        diag.put("lastPermissionCallbackMs", lastPermissionCallbackMs)
+        diag.put("sdkStatus", sdkStatusLabel(sdkDefault))
+        diag.put("requiredPermissionsCount", requiredPermissions.size)
+        diag.put("grantedPermissionsCount", granted.size)
+        diag.put("grantedPermissionsSnapshot", granted.sorted().joinToString(","))
+        diag.put("missingPermissionsCount", missingJsonLen)
+        diag.put("launchCalled", lastPermissionLaunchMs > 0L)
+        diag.put("callbackFired", lastPermissionCallbackMs > 0L)
+        if (lastNativeErrorBrief != null) {
+            diag.put("lastNativeError", lastNativeErrorBrief!!)
+        } else {
+            diag.put("lastNativeError", JSONObject.NULL)
+        }
+        ret.put("hcDiagnostics", diag)
     }
 
     private fun webOrigin(): String? {

@@ -8,18 +8,24 @@ const ANDROID_HEALTH_PROVIDER = 'android_health_connect'
 
 const isDevBuild = process.env.NODE_ENV !== 'production'
 
+const HC_UNAVAILABLE =
+  'Health Connect is not available on this device. Install or update Health Connect, then try again.'
+
 /** Shown when the user cancels, denies, or leaves the HC dialog without all required reads. */
 const HC_INCOMPLETE_PERMISSIONS_MESSAGE =
-  'Permission was not completed. Open Health Connect and allow Steps, Sleep, and Heart Rate permissions for ShiftCoach.'
+  'Permission was not completed. Open Health Connect and allow Steps, Sleep, and Heart Rate for ShiftCoach.'
 
-const HC_PARTIAL_PERMISSIONS_MESSAGE =
-  'Some permissions are still missing: Steps, Sleep, or Heart Rate. Open Health Connect and allow the missing permissions for ShiftCoach.'
+const HC_CONNECTED =
+  'Connected to Health Connect. ShiftCoach can read Steps, Sleep, and Heart Rate.'
+
+const HC_NO_RECENT_DATA =
+  'Health Connect is connected, but no recent data was found. Make sure Samsung Health or Google Fit is writing data to Health Connect.'
 
 const HC_SETTINGS_OPEN_FAILED =
   'Could not open Health Connect settings. Open Android Settings, search for Health Connect, then allow data access for ShiftCoach.'
 
 const SAMSUNG_HC_SOURCE_NOTE =
-  'Samsung Health, Google Fit, or your watch app must be allowed to write into Health Connect — permissions here only let ShiftCoach read what is already stored.'
+  'Samsung Health, Google Fit, or your watch app must be allowed to write steps, sleep, and heart rate into Health Connect. ShiftCoach only reads those types once they appear in Health Connect.'
 
 const HC_PERMISSION_LAUNCHER_BROKEN =
   'Health Connect is available, but this build could not attach the permission screen. Please reinstall the app or contact support, and send a screenshot of the debug panel below if shown.'
@@ -43,8 +49,20 @@ function asStringArray(v: unknown): string[] | undefined {
   return undefined
 }
 
-function buildPartialPermissionMessage(_missing: string[] | undefined): string {
-  return HC_PARTIAL_PERMISSIONS_MESSAGE
+const HC_PERM_LABEL: Record<string, string> = {
+  'android.permission.health.READ_STEPS': 'Steps',
+  'android.permission.health.READ_SLEEP': 'Sleep',
+  'android.permission.health.READ_HEART_RATE': 'Heart Rate',
+}
+
+function formatMissingLabels(missing: string[] | undefined): string {
+  if (!missing?.length) return 'Steps, Sleep, and Heart Rate'
+  const labels = missing.map((p) => HC_PERM_LABEL[p] ?? p)
+  return labels.join(', ')
+}
+
+function buildPartialPermissionMessage(missing: string[] | undefined): string {
+  return `Some permissions are missing: ${formatMissingLabels(missing)}. Open Health Connect and allow the missing permissions.`
 }
 
 type StatusPayload = {
@@ -53,11 +71,6 @@ type StatusPayload = {
   providers?: {
     healthConnectConnected?: boolean
   }
-}
-
-type DevDiag = {
-  lastPermissionResult?: Awaited<ReturnType<ShiftCoachHealthConnectPlugin['requestConnectPermissions']>>
-  lastSyncResult?: Awaited<ReturnType<ShiftCoachHealthConnectPlugin['syncNow']>> | { error: string }
 }
 
 async function getBackendHealthConnectConnected(): Promise<boolean> {
@@ -115,12 +128,14 @@ function isWarningFeedback(
   if (showOpenHealthConnectSettings) return true
   return (
     feedback.includes('Permission was not completed') ||
-    feedback.includes('Some permissions are still missing') ||
+    feedback.includes('Some permissions are missing') ||
     feedback.includes('Could not open Health Connect settings') ||
     feedback.includes('return here and tap') ||
     feedback.includes('Health Connect is not available') ||
+    feedback.includes('Install or update Health Connect') ||
     feedback.includes('Google Play') ||
-    feedback.includes('not installed or needs an update')
+    feedback.includes('not installed or needs an update') ||
+    feedback.includes('no recent data was found')
   )
 }
 
@@ -134,8 +149,6 @@ export default function SyncWearableButton() {
   const [debugStatus, setDebugStatus] = useState<Awaited<ReturnType<ShiftCoachHealthConnectPlugin['getStatus']>> | null>(
     null,
   )
-  const [devDiag, setDevDiag] = useState<DevDiag>({})
-
   useEffect(() => {
     let cancelled = false
 
@@ -205,14 +218,13 @@ export default function SyncWearableButton() {
         }
 
         if (!available) {
-          setFeedback(HC_INSTALL_HINT)
+          setFeedback(HC_UNAVAILABLE)
           return
         }
 
         if (!nativeStatus.hasPermissions) {
           try {
             const permission = await ShiftCoachHealthConnect.requestConnectPermissions()
-            setDevDiag((d) => ({ ...d, lastPermissionResult: permission }))
             if (isDevBuild) {
               console.info('[ShiftCoach HC] requestConnectPermissions result', permission)
             }
@@ -241,12 +253,11 @@ export default function SyncWearableButton() {
           }
 
           setIsConnected(true)
-          setFeedback('Health Connect connected successfully.')
+          setFeedback(HC_CONNECTED)
         }
 
         try {
           const syncResult = await ShiftCoachHealthConnect.syncNow()
-          setDevDiag((d) => ({ ...d, lastSyncResult: syncResult }))
           if (isDevBuild) {
             console.info('[ShiftCoach HC] syncNow', syncResult)
           }
@@ -255,15 +266,16 @@ export default function SyncWearableButton() {
             localStorage.setItem('wearables:lastSyncedAt', String(ts))
             window.dispatchEvent(new CustomEvent('wearables-synced', { detail: { ts } }))
             setIsConnected(true)
-            if (isConnected) {
+            if (syncResult.recentDataLikelyEmpty) {
+              setFeedback(HC_NO_RECENT_DATA)
+            } else if (isConnected) {
               setFeedback('Synced successfully.')
             } else {
-              setFeedback('Health Connect connected successfully.')
+              setFeedback(HC_CONNECTED)
             }
             return
           }
         } catch (syncErr: unknown) {
-          setDevDiag((d) => ({ ...d, lastSyncResult: { error: String(syncErr) } }))
           const code = capacitorErrorCode(syncErr)
           if (code === 'health_connect_permissions') {
             setFeedback(HC_INCOMPLETE_PERMISSIONS_MESSAGE)
@@ -325,11 +337,11 @@ export default function SyncWearableButton() {
   const helperText =
     isAndroidNative && hasHealthConnectAvailable
       ? !isConnected
-        ? 'Tap Connect — Android opens Health Connect and asks for Steps, Sleep, and Heart rate. You can change this later in Health Connect settings.'
-        : 'Your Health Connect data is linked. Tap to sync latest data.'
+        ? 'Tap Connect — Android opens Health Connect and asks for Steps, Sleep, and Heart Rate. You can change this later in Health Connect settings.'
+        : 'Health Connect is linked. Tap to sync the latest Steps, Sleep, and Heart Rate.'
       : !isConnected
-        ? 'Connect to Health Connect to sync your steps, sleep, and heart rate.'
-        : 'Your Health Connect data is linked. Tap to sync latest data.'
+        ? 'Connect to Health Connect to sync Steps, Sleep, and Heart Rate.'
+        : 'Health Connect is linked. Tap to sync the latest Steps, Sleep, and Heart Rate.'
   const isButtonDisabled = loading
   const warnStyle = isWarningFeedback(feedback, showOpenHealthConnectSettings)
 
@@ -396,24 +408,6 @@ export default function SyncWearableButton() {
         </button>
       ) : null}
 
-      {isDevBuild && (debugStatus || devDiag.lastPermissionResult || devDiag.lastSyncResult) ? (
-        <pre className="mt-3 max-h-80 overflow-auto rounded-md bg-slate-950/95 p-2 text-[10px] leading-snug text-slate-100">
-          {JSON.stringify(
-            {
-              healthConnectAvailable: debugStatus?.available,
-              permissionFlowReady: debugStatus?.permissionFlowReady,
-              sdkStatus: debugStatus?.sdkStatus,
-              requiredPermissions: debugStatus?.requiredPermissions,
-              grantedPermissions: debugStatus?.grantedPermissions,
-              missingPermissions: debugStatus?.missingPermissions,
-              lastPermissionFlow: devDiag.lastPermissionResult,
-              lastSync: devDiag.lastSyncResult,
-            },
-            null,
-            2,
-          )}
-        </pre>
-      ) : null}
     </div>
   )
 }
