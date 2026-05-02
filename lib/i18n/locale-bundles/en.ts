@@ -81,6 +81,7 @@ const messages: Record<string, string> = {
 
     'upgrade.backToSettingsAria': 'Back to settings',
     'upgrade.pageTitle': 'Upgrade to Pro',
+    'upgrade.trustedBy': 'Trusted by shift workers worldwide',
     'upgrade.bannerKicker': 'ShiftCoach Pro',
     'upgrade.bannerTitle': 'Get full access to your shift health tools',
     'upgrade.bannerSubtitle':

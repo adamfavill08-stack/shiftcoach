@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, Check } from 'lucide-react'
+import { ChevronLeft, Check, Shield } from 'lucide-react'
 import { useSubscriptionAccess } from '@/lib/hooks/useSubscriptionAccess'
 import { useNativePurchases } from '@/lib/hooks/useNativePurchases'
 import { useTranslation } from '@/components/providers/language-provider'
@@ -112,6 +112,20 @@ function UpgradePageContent() {
                 {t('upgrade.bannerSubtitle')}
               </p>
             </section>
+
+            <div
+              className="flex items-center justify-center gap-2 rounded-xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
+              role="note"
+            >
+              <Shield
+                className="h-3.5 w-3.5 shrink-0 text-slate-400/90"
+                strokeWidth={1.35}
+                aria-hidden
+              />
+              <p className="text-center text-[11px] font-medium leading-snug tracking-[0.02em] text-slate-500">
+                {t('upgrade.trustedBy')}
+              </p>
+            </div>
 
             <section className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">{t('upgrade.benefitsTitle')}</p>
