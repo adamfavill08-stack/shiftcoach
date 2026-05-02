@@ -7,6 +7,10 @@ import { Inter } from "next/font/google";
 import SyncWearableButton from "@/components/wearables/SyncWearableButton";
 import { HealthConnectNativeDebugPanel } from "@/components/wearables/HealthConnectNativeDebugPanel";
 import { useTranslation } from "@/components/providers/language-provider";
+import {
+  readHealthConnectNativeLinkedPersisted,
+  refreshPersistedHealthConnectIfNativeRevoked,
+} from "@/lib/native/wearablesHealthConnectPersisted";
 
 const HELP_APPLE_MOTION =
   "https://support.apple.com/guide/iphone/change-motion-and-fitness-settings-iphb7926e9b9/ios";
@@ -27,6 +31,7 @@ export default function WearablesSetupPage() {
 
   const fetchStatus = useCallback(async () => {
     try {
+      await refreshPersistedHealthConnectIfNativeRevoked();
       const now = Date.now();
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
@@ -34,14 +39,26 @@ export default function WearablesSetupPage() {
       const url = `/api/wearables/status?startTimeMillis=${startTimeMillis}&endTimeMillis=${now}`;
       const res = await fetch(url, { credentials: "include" });
       const data = await res.json().catch(() => ({}));
+      const localHcLinked = readHealthConnectNativeLinkedPersisted();
       setStatus({
-        connected: !!data.connected,
+        connected: Boolean(data.connected) || localHcLinked,
         verified: data.verified === true,
         stepsToday: typeof data.stepsToday === "number" ? data.stepsToday : undefined,
-        provider: typeof data.provider === "string" ? data.provider : undefined,
+        provider:
+          typeof data.provider === "string"
+            ? data.provider
+            : localHcLinked
+              ? "android_health_connect"
+              : undefined,
       });
     } catch {
-      setStatus({ connected: false });
+      const localHcLinked = readHealthConnectNativeLinkedPersisted();
+      setStatus({
+        connected: localHcLinked,
+        verified: false,
+        stepsToday: undefined,
+        provider: localHcLinked ? "android_health_connect" : undefined,
+      });
     }
   }, []);
 
@@ -55,13 +72,6 @@ export default function WearablesSetupPage() {
       if (document.visibilityState === "visible") fetchStatus();
     };
     const onWearablesSynced = () => {
-      // Native HC sync updates the server immediately; reflect connected UI before refetch completes.
-      setStatus((prev) => ({
-        connected: true,
-        verified: prev?.verified ?? false,
-        stepsToday: prev?.stepsToday,
-        provider: prev?.provider ?? "android_health_connect",
-      }));
       void fetchStatus();
     };
     window.addEventListener("focus", onFocus);

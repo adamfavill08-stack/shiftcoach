@@ -5,6 +5,10 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import type { ShiftCoachHealthConnectPlugin } from '@/lib/native/shiftCoachHealthConnect'
 import { runHealthConnectNativeSync } from '@/lib/native/runHealthConnectNativeSync'
+import {
+  persistHealthConnectNativeLinked,
+  readHealthConnectNativeLinkedPersisted,
+} from '@/lib/native/wearablesHealthConnectPersisted'
 
 const ANDROID_HEALTH_PROVIDER = 'android_health_connect'
 
@@ -86,7 +90,7 @@ async function getBackendHealthConnectConnected(): Promise<boolean> {
     const startTimeMillis = startOfDay.getTime()
     const res = await fetch(
       `/api/wearables/status?startTimeMillis=${startTimeMillis}&endTimeMillis=${now}`,
-      { method: 'GET' },
+      { method: 'GET', credentials: 'include' },
     )
     if (!res.ok) return false
     const data = (await res.json().catch(() => ({}))) as StatusPayload
@@ -169,7 +173,13 @@ export default function SyncWearableButton() {
 
       setIsAndroidNative(nativeStatus.isAndroidNative)
       setHasHealthConnectAvailable(nativeStatus.available)
-      setIsConnected(Boolean(nativeStatus.hasPermissions || backendConnected))
+      setIsConnected(
+        Boolean(
+          nativeStatus.hasPermissions ||
+            backendConnected ||
+            readHealthConnectNativeLinkedPersisted(),
+        ),
+      )
       setDebugStatus(nativeStatus.debug ?? null)
     }
 
@@ -262,6 +272,7 @@ export default function SyncWearableButton() {
 
           setIsConnected(true)
           setFeedback(HC_CONNECTED)
+          persistHealthConnectNativeLinked()
         }
 
         try {
@@ -272,6 +283,7 @@ export default function SyncWearableButton() {
           if (syncResult.ok) {
             const ts = syncResult.lastSyncedAt ? new Date(syncResult.lastSyncedAt).getTime() : Date.now()
             localStorage.setItem('wearables:lastSyncedAt', String(ts))
+            persistHealthConnectNativeLinked()
             window.dispatchEvent(new CustomEvent('wearables-synced', { detail: { ts } }))
             setIsConnected(true)
             if (syncResult.recentDataLikelyEmpty) {
