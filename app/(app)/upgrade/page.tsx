@@ -114,15 +114,15 @@ function UpgradePageContent() {
             </section>
 
             <div
-              className="flex items-center justify-center gap-2 rounded-xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
+              className="flex items-center justify-center gap-2 rounded-lg border border-[#05afc5]/20 bg-[#05afc5]/10 px-3 py-2 dark:border-[#05afc5]/25 dark:bg-[#05afc5]/15"
               role="note"
             >
               <Shield
-                className="h-3.5 w-3.5 shrink-0 text-slate-400/90"
+                className="h-3.5 w-3.5 shrink-0 text-[#05afc5]"
                 strokeWidth={1.35}
                 aria-hidden
               />
-              <p className="text-center text-[11px] font-medium leading-snug tracking-[0.02em] text-slate-500">
+              <p className="text-center text-[11px] font-medium leading-snug tracking-[0.02em] text-slate-600 dark:text-slate-400">
                 {t('upgrade.trustedBy')}
               </p>
             </div>
