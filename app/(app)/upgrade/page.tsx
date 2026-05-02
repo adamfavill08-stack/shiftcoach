@@ -22,6 +22,7 @@ function UpgradePageContent() {
     getPlanPriceLabel,
     getPlanPriceAmount,
     storeConfigWarning,
+    storePriceLabelsLoading,
   } = useNativePurchases()
   const fromOnboarding = searchParams.get('from') === 'onboarding'
   const highlightedPlan = searchParams.get('plan')
@@ -41,10 +42,14 @@ function UpgradePageContent() {
   )
   const isAlreadyPro = useMemo(() => !isLoading && (isPro || plan === 'tester'), [isLoading, isPro, plan])
   const isBusy = isPurchasing || isRestoring
-  const monthlyPriceLabel = getPlanPriceLabel('monthly')
-  const yearlyPriceLabel = getPlanPriceLabel('yearly')
+  const monthlyPriceLabel = storePriceLabelsLoading ? null : getPlanPriceLabel('monthly')
+  const yearlyPriceLabel = storePriceLabelsLoading ? null : getPlanPriceLabel('yearly')
   const monthlyPriceAmount = getPlanPriceAmount('monthly')
   const yearlyPriceAmount = getPlanPriceAmount('yearly')
+  const formatPlanPrice = (label: string | null) => {
+    if (storePriceLabelsLoading) return '…'
+    return label?.trim() ? label : '—'
+  }
   const annualSavingsText = useMemo(() => {
     if (
       typeof monthlyPriceAmount === 'number' &&
@@ -56,6 +61,19 @@ function UpgradePageContent() {
       return t('upgrade.buttons.annualSavingsDynamic', { percent: pct })
     }
     return t('upgrade.buttons.annualSavings')
+  }, [monthlyPriceAmount, yearlyPriceAmount, t])
+
+  const yearlySaveBadge = useMemo(() => {
+    if (
+      typeof monthlyPriceAmount === 'number' &&
+      typeof yearlyPriceAmount === 'number' &&
+      monthlyPriceAmount > 0
+    ) {
+      const monthlyAnnualized = monthlyPriceAmount * 12
+      const pct = Math.max(0, Math.round(((monthlyAnnualized - yearlyPriceAmount) / monthlyAnnualized) * 100))
+      return t('upgrade.planCard.saveBadge', { percent: pct })
+    }
+    return t('upgrade.planCard.saveBadgeStatic')
   }, [monthlyPriceAmount, yearlyPriceAmount, t])
 
   useEffect(() => {
@@ -118,38 +136,107 @@ function UpgradePageContent() {
                   type="button"
                   onClick={() => void purchaseSubscription('monthly')}
                   disabled={isBusy || !isAvailable || isLoading}
-                  className={`w-full rounded-xl px-4 py-3 text-sm font-semibold text-white transition-colors enabled:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 ${
-                    highlightedPlan === 'monthly' ? 'bg-slate-800 ring-2 ring-sky-300' : 'bg-slate-900'
+                  className={`group relative w-full overflow-hidden rounded-xl border px-3.5 py-2.5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
+                    highlightedPlan === 'monthly'
+                      ? 'border-[#05afc5]/60 bg-[#e9f7fa] dark:bg-[#05afc5]/12'
+                      : 'border-[var(--border-subtle)] bg-[var(--card-subtle)] enabled:hover:border-[#05afc5]/45 enabled:hover:bg-[var(--card)]'
                   }`}
                 >
-                  {isPurchasing
-                    ? t('upgrade.buttons.processing')
-                    : monthlyPriceLabel
-                      ? t('upgrade.buttons.monthlyWithDynamicPrice', { price: monthlyPriceLabel })
-                      : t('upgrade.buttons.monthlyWithPrice')}
+                  {isPurchasing ? (
+                    <p className="py-1 text-center text-sm font-semibold text-[var(--text-main)]">
+                      {t('upgrade.buttons.processing')}
+                    </p>
+                  ) : (
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span
+                          className={`grid h-5 w-5 place-items-center rounded-full border-2 ${
+                            highlightedPlan === 'monthly'
+                              ? 'border-[#2b7fff] bg-white/90'
+                              : 'border-[var(--border-subtle)] bg-transparent'
+                          }`}
+                          aria-hidden
+                        >
+                          {highlightedPlan === 'monthly' ? (
+                            <span className="h-2.5 w-2.5 rounded-full bg-[#2b7fff]" />
+                          ) : null}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-[15px] font-semibold text-[var(--text-main)]">
+                            {t('upgrade.planCard.monthlyTitle')}
+                          </p>
+                          <p className="mt-0.5 truncate text-xs text-[var(--text-soft)]">
+                            {t('upgrade.planCard.monthlySubtitle')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right leading-tight">
+                        <p className="text-base font-semibold text-black dark:text-[var(--text-main)]">
+                          {formatPlanPrice(monthlyPriceLabel)}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-[var(--text-soft)]">
+                          {t('upgrade.planCard.perMonth')}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </button>
 
                 <button
                   type="button"
                   onClick={() => void purchaseSubscription('yearly')}
                   disabled={isBusy || !isAvailable || isLoading}
-                  className={`w-full rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-colors enabled:hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60 ${
-                    highlightedPlan === 'yearly' ? 'bg-sky-700 ring-2 ring-sky-300' : 'bg-sky-600'
+                  className={`group relative w-full overflow-hidden rounded-xl border px-3.5 py-2.5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
+                    highlightedPlan === 'yearly'
+                      ? 'border-[#05afc5]/60 bg-[#e9f7fa] shadow-[0_3px_12px_-8px_rgba(5,175,197,0.65)] dark:bg-[#05afc5]/12 dark:border-[#05afc5]/70'
+                      : 'border-[var(--border-subtle)] bg-[var(--card-subtle)] enabled:hover:border-[#05afc5]/45 enabled:hover:bg-[var(--card)]'
                   }`}
                 >
                   {isPurchasing ? (
-                    t('upgrade.buttons.processing')
+                    <p className="py-1 text-center text-sm font-semibold text-[var(--text-main)]">
+                      {t('upgrade.buttons.processing')}
+                    </p>
                   ) : (
-                    <span className="flex flex-col items-center leading-tight">
-                      <span>
-                        {yearlyPriceLabel
-                          ? t('upgrade.buttons.annualWithDynamicPrice', { price: yearlyPriceLabel })
-                          : t('upgrade.buttons.annualWithPrice')}
-                      </span>
-                      <span className="mt-0.5 text-[11px] font-medium text-white/90">
-                        {annualSavingsText}
-                      </span>
-                    </span>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span
+                          className={`grid h-6 w-6 place-items-center rounded-full border-2 ${
+                            highlightedPlan === 'yearly'
+                              ? 'border-[#2b7fff] bg-white/90'
+                              : 'border-[var(--border-subtle)] bg-transparent'
+                          }`}
+                          aria-hidden
+                        >
+                          {highlightedPlan === 'yearly' ? (
+                            <span className="h-3 w-3 rounded-full bg-[#2b7fff]" />
+                          ) : null}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate text-[15px] font-semibold text-slate-800 dark:text-[var(--text-main)]">
+                              {t('upgrade.planCard.yearlyTitle')}
+                            </p>
+                            <span className="rounded-full border border-[#8cc8ff] bg-[#ebf6ff] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#2b7fff] dark:border-[#63b6ff]/65 dark:bg-[#2b7fff]/20 dark:text-[#8fd0ff]">
+                              {yearlySaveBadge}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 truncate text-xs text-slate-600 dark:text-[var(--text-soft)]">
+                            {t('upgrade.planCard.yearlySubtitle')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right leading-tight">
+                        <p className="text-base font-semibold text-slate-800 dark:text-[var(--text-main)]">
+                          {formatPlanPrice(yearlyPriceLabel)}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-[var(--text-soft)]">
+                          {t('upgrade.planCard.perYear')}
+                        </p>
+                        <p className="mt-1 max-w-[9.5rem] text-[11px] font-medium leading-snug text-slate-500 dark:text-[var(--text-soft)]">
+                          {annualSavingsText}
+                        </p>
+                      </div>
+                    </div>
                   )}
                 </button>
 
