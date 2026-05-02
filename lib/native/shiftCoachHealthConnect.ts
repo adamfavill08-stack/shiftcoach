@@ -73,10 +73,12 @@ export interface ShiftCoachHealthConnectPlugin {
   /** Android: Google Play listing for the Health Connect app (install / update). */
   openHealthConnectInstallPage(): Promise<void>;
   /**
-   * Android: set Supabase access token for the next native `/api/health-connect/sync` POST (in-memory only).
-   * Pass empty/null to clear. Call immediately before {@link syncNow}.
+   * Android: read Supabase session from WebView `localStorage` and store the access token in native memory
+   * for the next `/api/health-connect/sync` POST. **No arguments** — avoids JWT in Capacitor `methodData` logs.
    */
-  setAuthToken(options: { accessToken?: string | null }): Promise<void>;
+  pullAuthFromWebSession(): Promise<{ tokenPresent: boolean }>;
+  /** Android: clear in-memory bearer used for Health Connect sync (call on sign-out). */
+  clearNativeHealthConnectAuth(): Promise<void>;
   syncNow(): Promise<{
     ok: boolean;
     lastSyncedAt?: string;
@@ -128,7 +130,11 @@ class ShiftCoachHealthConnectWeb extends WebPlugin implements ShiftCoachHealthCo
     return;
   }
 
-  async setAuthToken(_options: { accessToken?: string | null }) {
+  async pullAuthFromWebSession() {
+    return { tokenPresent: false };
+  }
+
+  async clearNativeHealthConnectAuth() {
     return;
   }
 

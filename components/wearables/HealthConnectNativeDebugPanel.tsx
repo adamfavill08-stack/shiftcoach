@@ -73,17 +73,8 @@ export function HealthConnectNativeDebugPanel() {
     setBusy(true)
     setLastErr(null)
     try {
-      const { prepareHealthConnectNativeAuth } = await import('@/lib/native/prepareHealthConnectNativeAuth')
-      const { ShiftCoachHealthConnect } = await import('@/lib/native/shiftCoachHealthConnect')
-      const authOk = await prepareHealthConnectNativeAuth()
-      if (!authOk) {
-        setLastErr('No Supabase session token (hydrate + getSession + refreshSession). Sign in again.')
-        return
-      }
-      if (!isProdBuild) {
-        console.info('[HealthConnect] calling syncNow')
-      }
-      const r = await ShiftCoachHealthConnect.syncNow()
+      const { runHealthConnectNativeSync } = await import('@/lib/native/runHealthConnectNativeSync')
+      const r = await runHealthConnectNativeSync('HealthConnectNativeDebugPanel/runNativeSync')
       console.info('[ShiftCoach HC debug] syncNow', r)
       await refresh()
     } catch (e) {

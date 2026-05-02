@@ -38,11 +38,12 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONTokener
 
 /**
  * Phone-side Health Connect → POST /api/health-connect/sync.
- * Auth: [setAuthToken] supplies a Supabase access token; [syncNow] sends `Authorization: Bearer …`.
- * WebView cookies may still be sent when present but are not relied on for native sync.
+ * Auth: [pullAuthFromWebSession] reads the Supabase session from WebView `localStorage` (no token in Capacitor `methodData`).
+ * [syncNow] sends `Authorization: Bearer …`. WebView cookies may still be sent when present.
  * [StepsRecord] aggregation includes all sources the user allowed in Health Connect (watch, phone, apps).
  */
 @CapacitorPlugin(name = "ShiftCoachHealthConnect")
@@ -93,8 +94,8 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
     private var cachedWebOrigin: String = ""
 
     /**
-     * Supabase access token for `/api/health-connect/sync`, set from JS via [setAuthToken].
-     * In-memory only; never logged; cleared when JS passes an empty token.
+     * Supabase access token for `/api/health-connect/sync`, populated by [pullAuthFromWebSession] from WebView storage.
+     * In-memory only; never logged; cleared by [clearNativeHealthConnectAuth].
      */
     @Volatile
     private var bearerAccessToken: String? = null
@@ -319,8 +320,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
             } else {
                 DEFAULT_SYNC_API_ORIGIN.trimEnd('/')
             }
-        android.util.Log.i(
-            "ShiftCoachHC",
+        hci(
             "syncApiOrigin=$resolved (fromWebViewCache=${trimmed.isNotEmpty()} thread=${Thread.currentThread().name})",
         )
         return resolved
@@ -643,20 +643,95 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
         }
     }
 
+    private fun decodeJsStringReturn(encoded: String?): String? {
+        if (encoded == null) return null
+        val trimmed = encoded.trim()
+        if (trimmed.isEmpty() || trimmed == "null") return null
+        return try {
+            (JSONTokener(trimmed).nextValue() as? String)?.trim()?.takeIf { it.isNotEmpty() }
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    private fun readAccessTokenFromCall(call: PluginCall): String? {
+        for (key in listOf("accessToken", "access_token")) {
+            val s = call.getString(key)?.trim()
+            if (!s.isNullOrEmpty()) return s
+        }
+        return null
+    }
+
+    /**
+     * **Deprecated / back-compat only:** older Web bundles may still call this after a native-only update.
+     * Prefer [pullAuthFromWebSession] (no JWT in bridge `methodData`). Never logs the token string.
+     */
     @PluginMethod
     fun setAuthToken(call: PluginCall) {
         bridge.execute {
-            val raw = call.getString("accessToken")
-            val trimmed = raw?.trim()
+            val trimmed = readAccessTokenFromCall(call)
             bearerAccessToken = if (trimmed.isNullOrEmpty()) null else trimmed
-            if (BuildConfig.DEBUG) {
-                android.util.Log.i(
-                    "ShiftCoachHC",
-                    "setAuthToken authTokenPresent=${bearerAccessToken != null}",
-                )
-            }
             if (BuildConfig.HC_VERBOSE_LOG) {
-                hci("setAuthToken path=/api/health-connect/sync")
+                hci("setAuthToken (compat) authTokenPresent=${bearerAccessToken != null}")
+            }
+            call.resolve()
+        }
+    }
+
+    /**
+     * Reads Supabase `access_token` from WebView `localStorage` (keys containing `-auth-token`).
+     * Invoked with **no plugin arguments** so Capacitor bridge logs cannot contain the JWT.
+     */
+    @PluginMethod
+    fun pullAuthFromWebSession(call: PluginCall) {
+        val act = activity
+        if (act == null) {
+            call.reject("health_connect_pull_auth_failed", "Activity unavailable")
+            return
+        }
+        act.runOnUiThread {
+            try {
+                val wv = bridge.webView
+                if (wv == null) {
+                    bearerAccessToken = null
+                    val r = JSObject()
+                    r.put("tokenPresent", false)
+                    call.resolve(r)
+                    return@runOnUiThread
+                }
+                val js =
+                    "(function(){try{var k=Object.keys(localStorage||{});" +
+                        "for(var i=0;i<k.length;i++){var key=k[i];" +
+                        "if(key.indexOf('-auth-token')!==-1){" +
+                        "var raw=localStorage.getItem(key);if(!raw)continue;" +
+                        "var o=JSON.parse(raw);var t=o&&o.access_token;" +
+                        "if(typeof t==='string'&&t.length>0)return t;}}" +
+                        "}catch(e){}return '';})()"
+                wv.evaluateJavascript(js) { encoded ->
+                    bridge.execute {
+                        try {
+                            bearerAccessToken = decodeJsStringReturn(encoded)?.takeIf { it.isNotBlank() }
+                        } catch (_: Throwable) {
+                            bearerAccessToken = null
+                        }
+                        val r = JSObject()
+                        r.put("tokenPresent", bearerAccessToken != null)
+                        call.resolve(r)
+                    }
+                }
+            } catch (e: Exception) {
+                bearerAccessToken = null
+                call.reject("health_connect_pull_auth_failed", e.message ?: "unknown", e)
+            }
+        }
+    }
+
+    @PluginMethod
+    fun clearNativeHealthConnectAuth(call: PluginCall) {
+        bridge.execute {
+            bearerAccessToken = null
+            if (BuildConfig.HC_VERBOSE_LOG) {
+                hci("clearNativeHealthConnectAuth done")
             }
             call.resolve()
         }

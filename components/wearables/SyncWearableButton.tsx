@@ -4,7 +4,8 @@ import { Capacitor } from '@capacitor/core'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import type { ShiftCoachHealthConnectPlugin } from '@/lib/native/shiftCoachHealthConnect'
-import { prepareHealthConnectNativeAuth } from '@/lib/native/prepareHealthConnectNativeAuth'
+import { HC_AUTH_BRIDGE_BUILD_ID } from '@/lib/native/hcAuthBridgeBuild'
+import { runHealthConnectNativeSync } from '@/lib/native/runHealthConnectNativeSync'
 
 const ANDROID_HEALTH_PROVIDER = 'android_health_connect'
 
@@ -265,17 +266,7 @@ export default function SyncWearableButton() {
         }
 
         try {
-          const authReady = await prepareHealthConnectNativeAuth()
-          if (!authReady) {
-            setFeedback(HC_SIGN_IN_TO_SYNC)
-            setShowSignInAgainPrompt(true)
-            return
-          }
-
-          if (isDevBuild) {
-            console.info('[HealthConnect] calling syncNow')
-          }
-          const syncResult = await ShiftCoachHealthConnect.syncNow()
+          const syncResult = await runHealthConnectNativeSync('SyncWearableButton/handleClick')
           if (isDevBuild) {
             console.info('[ShiftCoach HC] syncNow', syncResult)
           }
@@ -441,6 +432,12 @@ export default function SyncWearableButton() {
         >
           Sign in again
         </Link>
+      ) : null}
+
+      {isAndroidNative ? (
+        <p className="mt-2 font-mono text-[10px] leading-snug text-slate-500 dark:text-slate-400">
+          HC auth bridge build: {HC_AUTH_BRIDGE_BUILD_ID}
+        </p>
       ) : null}
 
     </div>

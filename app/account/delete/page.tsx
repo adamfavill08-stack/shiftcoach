@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { clearHealthConnectNativeAuth } from '@/lib/native/clearHealthConnectNativeAuth'
 import { showToast } from '@/components/ui/Toast'
 import { useTranslation } from '@/components/providers/language-provider'
 
@@ -59,7 +60,7 @@ export default function DeleteAccountPage() {
         setIsDeleting(false)
       } else {
         showToast(t('account.delete.toastSuccess'), 'success')
-        // Sign out and redirect
+        await clearHealthConnectNativeAuth()
         await supabase.auth.signOut()
         setTimeout(() => {
           router.push('/auth/sign-in')

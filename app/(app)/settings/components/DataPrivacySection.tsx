@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronRight, ChevronDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { clearHealthConnectNativeAuth } from '@/lib/native/clearHealthConnectNativeAuth'
 import { showToast } from '@/components/ui/Toast'
 import { useTranslation } from '@/components/providers/language-provider'
 
@@ -60,6 +61,7 @@ export function DataPrivacySection() {
     
     setIsLoggingOut(true)
     try {
+      await clearHealthConnectNativeAuth()
       const { error } = await supabase.auth.signOut()
       if (error) {
         console.error('Logout error:', error)
@@ -104,7 +106,7 @@ export function DataPrivacySection() {
         showToast(t('settings.dataPrivacy.toast.deleteFailed'), 'error')
       } else {
         showToast(t('settings.dataPrivacy.toast.deleteSuccess'), 'success')
-        // Sign out and redirect
+        await clearHealthConnectNativeAuth()
         await supabase.auth.signOut()
         router.push('/auth/sign-in')
       }

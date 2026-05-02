@@ -33,9 +33,13 @@ object HealthConnectPermissionBridge {
     @JvmStatic
     fun registerWithMainActivity(activity: FragmentActivity) {
         lastRegistrationError = null
-        android.util.Log.i("ShiftCoachHC", "HealthConnectPermissionBridge: registration started activityClass=${activity.javaClass.name}")
+        if (BuildConfig.HC_VERBOSE_LOG) {
+            android.util.Log.i("ShiftCoachHC", "HealthConnectPermissionBridge: registration started activityClass=${activity.javaClass.name}")
+        }
         if (launcher != null && hostActivity === activity) {
-            android.util.Log.i("ShiftCoachHC", "HealthConnectPermissionBridge: already registered for this activity instance")
+            if (BuildConfig.HC_VERBOSE_LOG) {
+                android.util.Log.i("ShiftCoachHC", "HealthConnectPermissionBridge: already registered for this activity instance")
+            }
             return
         }
         launcher = null
@@ -45,15 +49,19 @@ object HealthConnectPermissionBridge {
                 activity.registerForActivityResult(
                     PermissionController.createRequestPermissionResultContract(),
                 ) { granted ->
-                    android.util.Log.i(
-                        "ShiftCoachHC",
-                        "callback fired contractGrantedSize=${granted.size} ids=${granted.joinToString(",")}",
-                    )
+                    if (BuildConfig.HC_VERBOSE_LOG) {
+                        android.util.Log.i(
+                            "ShiftCoachHC",
+                            "callback fired contractGrantedSize=${granted.size} ids=${granted.joinToString(",")}",
+                        )
+                    }
                     ShiftCoachHealthConnectPlugin.handleHcContractResult(granted)
                 }
             launcher = newLauncher
             hostActivity = activity
-            android.util.Log.i("ShiftCoachHC", "HealthConnectPermissionBridge: registration succeeded")
+            if (BuildConfig.HC_VERBOSE_LOG) {
+                android.util.Log.i("ShiftCoachHC", "HealthConnectPermissionBridge: registration succeeded")
+            }
         } catch (t: Throwable) {
             lastRegistrationError =
                 (t.javaClass.simpleName + ": " + (t.message ?: "") + "\n" + android.util.Log.getStackTraceString(t))
@@ -76,10 +84,12 @@ object HealthConnectPermissionBridge {
             return false
         }
         return try {
-            android.util.Log.i(
-                "ShiftCoachHC",
-                "launch called permissionCount=${permissions.size} ids=${permissions.joinToString(",")}",
-            )
+            if (BuildConfig.HC_VERBOSE_LOG) {
+                android.util.Log.i(
+                    "ShiftCoachHC",
+                    "launch called permissionCount=${permissions.size} ids=${permissions.joinToString(",")}",
+                )
+            }
             l.launch(permissions)
             true
         } catch (t: Throwable) {

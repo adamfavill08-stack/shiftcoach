@@ -22,6 +22,15 @@ const config: CapacitorConfig = {
   appId: 'com.shiftcoach.app',
   appName: 'shiftcoach',
   webDir: 'public',
+  /**
+   * Default Capacitor Android bridge logs include full plugin `methodData` (would expose secrets).
+   * Android: disable bridge/plugin payload logging; use `android.loggingBehavior: 'debug'` in
+   * `capacitor.config.dev.ts` only when you intentionally need verbose bridge logs.
+   */
+  android: {
+    overrideUserAgent: CHROME_MOBILE_UA,
+    loggingBehavior: 'none',
+  },
   /** Native defaults before JS runs — avoids transparent overlay + black bar from plugin init */
   plugins: {
     /** Keep App plugin’s OnBackPressedCallback enabled so `App.addListener('backButton')` receives events. */
@@ -39,10 +48,6 @@ const config: CapacitorConfig = {
     // Default: hosted site. Emulator live reload: CAPACITOR_LIVE_RELOAD=1 before cap sync, or CAPACITOR_SERVER_URL.
     url: serverUrl,
     cleartext: serverUrl.startsWith('http://'),
-  },
-  android: {
-    // Avoid ERR_CONNECTION_ABORTED when loading https://www.shiftcoach.app in WebView
-    overrideUserAgent: CHROME_MOBILE_UA,
   },
 };
 

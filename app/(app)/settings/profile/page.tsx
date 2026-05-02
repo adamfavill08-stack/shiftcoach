@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
+import { clearHealthConnectNativeAuth } from '@/lib/native/clearHealthConnectNativeAuth'
 import { getMyProfile, updateProfile, type Profile } from '@/lib/profile'
 import { ChevronLeft, ChevronRight, User, Target, Scale, Ruler, Calendar } from 'lucide-react'
 import { showToast } from '@/components/ui/Toast'
@@ -401,6 +402,7 @@ function ProfilePageContent() {
     
     setIsLoggingOut(true)
     try {
+      await clearHealthConnectNativeAuth()
       const { error } = await supabase.auth.signOut()
       if (error) {
         console.error('Logout error:', error)

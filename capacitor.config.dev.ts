@@ -8,6 +8,13 @@ const config: CapacitorConfig = {
   appId: 'com.shiftcoach.app',
   appName: 'shiftcoach',
   webDir: 'public',
+  /**
+   * Dev-only: re-enable Capacitor Android bridge logs when debugging (may include plugin `methodData`).
+   * Do not ship production APKs with this config. Prefer `capacitor.config.ts` for release syncs.
+   */
+  android: {
+    loggingBehavior: 'debug',
+  },
   plugins: {
     StatusBar: {
       overlaysWebView: false,
