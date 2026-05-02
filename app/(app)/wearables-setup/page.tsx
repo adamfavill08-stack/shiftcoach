@@ -32,7 +32,7 @@ export default function WearablesSetupPage() {
       startOfDay.setHours(0, 0, 0, 0);
       const startTimeMillis = startOfDay.getTime();
       const url = `/api/wearables/status?startTimeMillis=${startTimeMillis}&endTimeMillis=${now}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { credentials: "include" });
       const data = await res.json().catch(() => ({}));
       setStatus({
         connected: !!data.connected,
@@ -54,7 +54,16 @@ export default function WearablesSetupPage() {
     const onVisible = () => {
       if (document.visibilityState === "visible") fetchStatus();
     };
-    const onWearablesSynced = () => fetchStatus();
+    const onWearablesSynced = () => {
+      // Native HC sync updates the server immediately; reflect connected UI before refetch completes.
+      setStatus((prev) => ({
+        connected: true,
+        verified: prev?.verified ?? false,
+        stepsToday: prev?.stepsToday,
+        provider: prev?.provider ?? "android_health_connect",
+      }));
+      void fetchStatus();
+    };
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("wearables-synced", onWearablesSynced);
