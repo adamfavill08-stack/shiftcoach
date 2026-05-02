@@ -3,7 +3,8 @@
     <color name="colorPrimary">#03B4C1</color>
     <color name="colorPrimaryDark">#028A96</color>
     <color name="colorAccent">#03B4C1</color>
-    <!-- System bars: align with web shell (`--bg` light / dark chrome). -->
+    <!-- Status / top chrome (app `--bg` light). Nav bar uses solid white in light mode. -->
     <color name="shiftcoach_bar_light">#f5f3f0</color>
+    <color name="shiftcoach_nav_bar_light">#FFFFFF</color>
     <color name="shiftcoach_bar_dark">#17171d</color>
 </resources>

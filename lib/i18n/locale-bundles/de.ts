@@ -673,7 +673,8 @@ const messages: Record<string, string> = {
     'detail.wearablesSetup.howReadsData': 'Wie ShiftCoach deine Daten liest',
     'detail.wearablesSetup.intro1':
       'ShiftCoach spricht nicht direkt mit deiner Uhr. Es liest Schritte, Schlaf und Aktivität aus Apple Health (iPhone) oder Health Connect (Android). Diese Apps führen Handy- und Wearable-Daten zusammen, wenn beides erlaubt ist – iPhone-Bewegung und Uhr-Schritte können gemeinsam zählen, ohne extra Setup in ShiftCoach.',
-    'detail.wearablesSetup.intro2': "Wähle unten dein Gerät und wir zeigen dir einfache, gerätespezifische Schritte zur Einrichtung.",
+    'detail.wearablesSetup.intro2':
+      'Nutze „Synchronisieren“, wenn du soweit bist. Öffne die Bereiche unten für Vorteile, Berechtigungen und Hilfe.',
     'detail.wearablesSetup.appleWatch': 'Apple Watch',
     'detail.wearablesSetup.appleWatchDesc': 'Apple Health auf dem iPhone (Uhr + Handy)',
     'detail.wearablesSetup.samsungAndroid': 'Samsung- / Android-Uhr',
@@ -710,6 +711,8 @@ const messages: Record<string, string> = {
     'detail.wearablesSetup.statusNotConnected': 'Nicht verbunden',
     'detail.wearablesSetup.notConnectedWhy':
       'ShiftCoach braucht Lesezugriff auf Apple Health (iPhone) oder Health Connect (Android). Verbinde deine Gesundheits-App (z. B. Samsung Health, ggf. Google Fit), damit Schritte und Schlaf in Health Connect ankommen, oder nutze Apple Health auf dem iPhone.',
+    'detail.wearablesSetup.notConnectedWhyInfo': 'Warum eine Gesundheitsverbindung nötig ist',
+    'detail.wearablesSetup.notConnectedHint': 'Tippe auf das Info-Symbol für Details.',
     'detail.wearablesSetup.connectGoogleFit': 'Wearable-Einrichtung öffnen',
 }
 

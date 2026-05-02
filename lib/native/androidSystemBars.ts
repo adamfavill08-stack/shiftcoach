@@ -2,8 +2,9 @@
 
 import { Capacitor } from '@capacitor/core'
 import { readResolvedAppTheme } from '@/lib/theme/preference'
+import { applyAndroidNavigationBarForResolvedTheme } from '@/lib/native/androidNavigationBar'
 
-/** Matches light mode `--bg` in `app/globals.css`. */
+/** Matches light mode `--bg` in `app/globals.css` (status bar only). */
 export const ANDROID_SYSTEM_BAR_BG_LIGHT = '#f5f3f0'
 
 /** Dark chrome; close to app dark shell without pure black. */
@@ -17,10 +18,7 @@ async function applyOnce(resolved: 'light' | 'dark'): Promise<void> {
   const isDark = resolved === 'dark'
   const bg = isDark ? ANDROID_SYSTEM_BAR_BG_DARK : ANDROID_SYSTEM_BAR_BG_LIGHT
 
-  const [{ StatusBar, Style }, { NavigationBar }] = await Promise.all([
-    import('@capacitor/status-bar'),
-    import('@capgo/capacitor-navigation-bar'),
-  ])
+  const { StatusBar, Style } = await import('@capacitor/status-bar')
 
   await StatusBar.show()
   await StatusBar.setOverlaysWebView({ overlay: false })
@@ -28,10 +26,7 @@ async function applyOnce(resolved: 'light' | 'dark'): Promise<void> {
   // Style.Light = dark icons on light bar; Style.Dark = light icons on dark bar
   await StatusBar.setStyle({ style: isDark ? Style.Dark : Style.Light })
 
-  await NavigationBar.setNavigationBarColor({
-    color: bg,
-    darkButtons: !isDark,
-  })
+  await applyAndroidNavigationBarForResolvedTheme(resolved)
 }
 
 /**

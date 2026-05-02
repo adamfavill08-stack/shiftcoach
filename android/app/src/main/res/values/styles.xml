@@ -14,9 +14,10 @@
         <item name="android:background">@null</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:statusBarColor">@color/shiftcoach_bar_light</item>
-        <item name="android:navigationBarColor">@color/shiftcoach_bar_light</item>
+        <item name="android:navigationBarColor">@color/shiftcoach_nav_bar_light</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowNavigationBarContrastEnforced" tools:targetApi="29">false</item>
         <item name="android:windowOptOutEdgeToEdgeEnforcement" tools:targetApi="35">true</item>
     </style>
 
@@ -26,9 +27,10 @@
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:statusBarColor">@color/shiftcoach_bar_light</item>
-        <item name="android:navigationBarColor">@color/shiftcoach_bar_light</item>
+        <item name="android:navigationBarColor">@color/shiftcoach_nav_bar_light</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowNavigationBarContrastEnforced" tools:targetApi="29">false</item>
         <item name="android:windowOptOutEdgeToEdgeEnforcement" tools:targetApi="35">true</item>
     </style>
 </resources>

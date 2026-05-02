@@ -2,8 +2,10 @@
 
 import { useEffect } from 'react'
 import { Capacitor } from '@capacitor/core'
+import { App } from '@capacitor/app'
 import { THEME_STORAGE_EVENT, THEME_PREFERENCE_KEY, THEME_LEGACY_STORAGE_KEY } from '@/lib/theme/preference'
 import { applyAndroidSystemBarsFromDocument } from '@/lib/native/androidSystemBars'
+import { applyAndroidNavigationBarFromDocument } from '@/lib/native/androidNavigationBar'
 
 const DATA_ATTR = 'data-cap-android-statusbar'
 
@@ -41,11 +43,19 @@ export function NativeAndroidStatusBar() {
 
     document.documentElement.setAttribute(DATA_ATTR, '')
 
+    let resumeListener: { remove: () => Promise<void> } | undefined
+    void App.addListener('resume', () => {
+      void applyAndroidNavigationBarFromDocument()
+    }).then((handle) => {
+      resumeListener = handle
+    })
+
     return () => {
       media.removeEventListener('change', onSystemScheme)
       window.removeEventListener('storage', onStorage)
       window.removeEventListener(THEME_STORAGE_EVENT, onCustomTheme)
       observer.disconnect()
+      void resumeListener?.remove()
       document.documentElement.removeAttribute(DATA_ATTR)
     }
   }, [])

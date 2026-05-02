@@ -1,43 +1,28 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { ChevronLeft, Watch, CheckCircle2, XCircle } from "lucide-react";
+import { ChevronLeft, ChevronDown, Watch, CheckCircle2, XCircle, Info } from "lucide-react";
 import { Inter } from "next/font/google";
 import SyncWearableButton from "@/components/wearables/SyncWearableButton";
 import { useTranslation } from "@/components/providers/language-provider";
 
-/** OS help — Motion & Fitness (iPhone) and Health Connect (Android). */
 const HELP_APPLE_MOTION =
   "https://support.apple.com/guide/iphone/change-motion-and-fitness-settings-iphb7926e9b9/ios";
 const HELP_ANDROID_HEALTH_CONNECT = "https://support.google.com/android/answer/12982602";
 
-type DeviceChoice = "apple" | "samsung" | "other";
-
-const deviceOptionBase =
-  "flex w-full items-center justify-between rounded-lg px-4 py-3.5 text-left text-sm border transition-all shadow-sm [-webkit-tap-highlight-color:transparent] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card)] dark:focus-visible:ring-offset-[var(--card)]";
-
-const deviceOptionIdle =
-  "border-slate-200/80 bg-white hover:shadow-md hover:border-slate-300/80 dark:border-[var(--border-subtle)] dark:bg-[var(--card-subtle)] dark:hover:border-[var(--text-muted)]/50 dark:hover:bg-[var(--card)]";
-
-const deviceOptionActive =
-  "border-emerald-500 bg-emerald-50 shadow-sm dark:border-emerald-500/70 dark:bg-emerald-950/40 dark:shadow-none";
-
-const deviceTitleIdle = "block font-semibold text-slate-900 dark:text-[var(--text-main)]";
-const deviceTitleActive = "block font-semibold text-emerald-900 dark:text-emerald-200";
-const deviceSubIdle = "block text-xs mt-0.5 text-slate-600 dark:text-[var(--text-soft)]";
-const deviceSubActive = "block text-xs mt-0.5 text-emerald-800 dark:text-emerald-300/95";
 const inter = Inter({ subsets: ["latin"] });
 
 export default function WearablesSetupPage() {
   const { t } = useTranslation();
-  const [choice, setChoice] = useState<DeviceChoice | null>(null);
   const [status, setStatus] = useState<{
     connected: boolean;
     verified?: boolean;
     stepsToday?: number;
     provider?: string;
   } | null>(null);
+  const [notConnectedInfoOpen, setNotConnectedInfoOpen] = useState(false);
+  const notConnectedInfoRef = useRef<HTMLDivElement>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -79,101 +64,108 @@ export default function WearablesSetupPage() {
     };
   }, [fetchStatus]);
 
-  const nowLabel = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  useEffect(() => {
+    if (status?.connected !== false) setNotConnectedInfoOpen(false);
+  }, [status?.connected]);
+
+  useEffect(() => {
+    if (!notConnectedInfoOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const el = notConnectedInfoRef.current;
+      if (el && !el.contains(e.target as Node)) setNotConnectedInfoOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setNotConnectedInfoOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [notConnectedInfoOpen]);
 
   return (
-    <main className="min-h-screen bg-[var(--bg)]">
-      <div
-        className={`max-w-[430px] mx-auto min-h-screen px-2 pb-10 pt-4 flex flex-col gap-4 ${inter.className}`}
-        style={{
-          backgroundImage: "radial-gradient(circle at top, var(--bg-soft), var(--bg))",
-        }}
-      >
-        <header className="flex items-center gap-2">
+    <main className={`min-h-screen bg-[var(--bg)] ${inter.className}`}>
+      <div className="mx-auto max-w-[430px] min-h-screen px-4 pb-14 pt-3">
+        <header className="mb-5 flex items-center gap-2">
           <Link
             href="/dashboard"
-            className="p-2 rounded-full border border-[var(--border-subtle)] bg-[var(--card)] text-[var(--text-soft)] shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.35)]"
+            className="rounded-full border border-[var(--border-subtle)] bg-[var(--card)] p-2 text-[var(--text-soft)]"
             aria-label={t("detail.common.backToDashboard")}
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-xl font-semibold tracking-tight text-[var(--text-main)]">
+          <h1 className="text-lg font-semibold tracking-tight text-[var(--text-main)]">
             {t("detail.wearablesSetup.title")}
           </h1>
         </header>
 
-        <section
-          className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-4 py-4"
-          style={{ boxShadow: "var(--shadow-soft)" }}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold tracking-[0.22em] uppercase text-[var(--text-muted)]">
-              ShiftCoach Wearables
-            </span>
-            <Watch className="h-4 w-4 text-[var(--text-muted)]" aria-hidden />
-          </div>
-          <div className="mt-2 flex justify-center">
-            <img src="/circadian-ring.svg" alt="" className="h-[190px] w-[190px] opacity-95" />
-          </div>
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-2 py-1.5 text-center">
-              <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">Now</p>
-              <p className="text-xs font-semibold text-[var(--text-main)]">{nowLabel}</p>
+        <section className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--card)] shadow-sm">
+          <details className="group px-4">
+            <summary className="flex cursor-pointer list-none items-start justify-between gap-2 py-4 [&::-webkit-details-marker]:hidden">
+              <div className="flex min-w-0 flex-1 gap-3">
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-500/12 text-indigo-600 dark:bg-indigo-400/18 dark:text-indigo-300">
+                  <Watch className="h-3.5 w-3.5" aria-hidden />
+                </span>
+                <span className="text-sm font-semibold leading-snug text-[var(--text-main)] pt-0.5">
+                  {t("detail.wearablesSetup.howReadsData")}
+                </span>
+              </div>
+              <ChevronDown
+                className="mt-1 h-4 w-4 shrink-0 text-[var(--text-muted)] transition group-open:rotate-180"
+                aria-hidden
+              />
+            </summary>
+            <div className="space-y-2 border-t border-[var(--border-subtle)] pb-4 pt-3">
+              <p className="text-sm leading-relaxed text-[var(--text-soft)]">{t("detail.wearablesSetup.intro1")}</p>
+              <p className="text-xs leading-relaxed text-[var(--text-muted)]">{t("detail.wearablesSetup.intro2")}</p>
             </div>
-            <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-2 py-1.5 text-center">
-              <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">Provider</p>
-              <p className="text-xs font-semibold text-[var(--text-main)]">
-                {status?.provider === "google_fit" ? "Google Fit" : "Health APIs"}
-              </p>
-            </div>
-            <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-2 py-1.5 text-center">
-              <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">Status</p>
-              <p
-                className={`text-xs font-semibold ${
-                  status?.connected ? "text-emerald-400 dark:text-emerald-300" : "text-rose-500 dark:text-rose-300"
-                }`}
-              >
-                {status?.connected ? "Connected" : "Waiting"}
-              </p>
-            </div>
-          </div>
-        </section>
+          </details>
 
-        {/* Intro */}
-        <section
-          className="rounded-xl border px-5 py-5 flex flex-col gap-3 [&_p::selection]:bg-indigo-500/25 dark:[&_p::selection]:bg-indigo-400/35 [&_p::selection]:text-[var(--text-main)]"
-          style={{
-            backgroundColor: "var(--card)",
-            borderColor: "var(--border-subtle)",
-            boxShadow: "var(--shadow-soft)",
-          }}
-        >
-          <div className="flex items-start gap-3">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-500/15 text-indigo-600 dark:bg-indigo-400/20 dark:text-indigo-300">
-              <Watch className="h-4 w-4" aria-hidden />
-            </span>
-            <p className="text-sm font-semibold leading-snug text-[var(--text-main)] pt-1">
-              {t("detail.wearablesSetup.howReadsData")}
-            </p>
-          </div>
-          <p className="text-sm leading-relaxed text-[var(--text-main)]">
-            {t("detail.wearablesSetup.intro1")}
-          </p>
-          <p className="text-sm leading-relaxed text-[var(--text-soft)]">
-            {t("detail.wearablesSetup.intro2")}
-          </p>
+          <div className="h-px bg-[var(--border-subtle)]" aria-hidden />
 
-          <div className="mt-2 rounded-xl border px-3 py-2.5" style={{ borderColor: "var(--border-subtle)" }}>
-            <p className="text-xs font-medium leading-snug text-[var(--text-main)]">
-              {t("detail.wearablesSetup.permissionHelpIntro")}
-            </p>
-            <ul className="mt-1.5 space-y-1 text-xs list-disc list-inside text-[var(--text-soft)]">
+          <details className="group px-4 py-2">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-2 text-sm font-medium text-[var(--text-main)] [&::-webkit-details-marker]:hidden">
+              <span>{t("detail.wearablesSetup.whatYouGet")}</span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-[var(--text-muted)] transition group-open:rotate-180" aria-hidden />
+            </summary>
+            <ul className="space-y-2 pb-3 pl-0.5 text-sm leading-relaxed text-[var(--text-soft)]">
+              <li className="flex gap-2">
+                <span className="text-emerald-600 dark:text-emerald-400" aria-hidden>
+                  ·
+                </span>
+                <span>{t("detail.wearablesSetup.benefit1")}</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-emerald-600 dark:text-emerald-400" aria-hidden>
+                  ·
+                </span>
+                <span>{t("detail.wearablesSetup.benefit2")}</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-emerald-600 dark:text-emerald-400" aria-hidden>
+                  ·
+                </span>
+                <span>{t("detail.wearablesSetup.benefit3")}</span>
+              </li>
+            </ul>
+          </details>
+
+          <div className="h-px bg-[var(--border-subtle)]" aria-hidden />
+
+          <details className="group px-4 py-2">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-2 text-sm font-medium text-[var(--text-main)] [&::-webkit-details-marker]:hidden">
+              <span>{t("detail.wearablesSetup.permissionHelpIntro")}</span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-[var(--text-muted)] transition group-open:rotate-180" aria-hidden />
+            </summary>
+            <ul className="space-y-2 pb-3 text-sm">
               <li>
                 <a
                   href={HELP_APPLE_MOTION}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-indigo-600 underline underline-offset-2 hover:opacity-90 dark:text-indigo-400"
+                  className="text-indigo-600 underline decoration-indigo-600/30 underline-offset-2 hover:opacity-90 dark:text-indigo-400 dark:decoration-indigo-400/30"
                 >
                   {t("detail.wearablesSetup.helpLinkAppleLabel")}
                 </a>
@@ -183,249 +175,109 @@ export default function WearablesSetupPage() {
                   href={HELP_ANDROID_HEALTH_CONNECT}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-indigo-600 underline underline-offset-2 hover:opacity-90 dark:text-indigo-400"
+                  className="text-indigo-600 underline decoration-indigo-600/30 underline-offset-2 hover:opacity-90 dark:text-indigo-400 dark:decoration-indigo-400/30"
                 >
                   {t("detail.wearablesSetup.helpLinkAndroidLabel")}
                 </a>
               </li>
             </ul>
-          </div>
+          </details>
 
-          <div className="mt-2 grid grid-cols-1 gap-3">
-            <button
-              type="button"
-              onClick={() => setChoice("apple")}
-              className={`${deviceOptionBase} ${choice === "apple" ? deviceOptionActive : deviceOptionIdle}`}
-            >
-              <span className="min-w-0 pr-2">
-                <span className={choice === "apple" ? deviceTitleActive : deviceTitleIdle}>
-                  {t("detail.wearablesSetup.appleWatch")}
-                </span>
-                <span className={choice === "apple" ? deviceSubActive : deviceSubIdle}>
-                  {t("detail.wearablesSetup.appleWatchDesc")}
-                </span>
-              </span>
-            </button>
+          <div className="h-px bg-[var(--border-subtle)]" aria-hidden />
 
-            <button
-              type="button"
-              onClick={() => setChoice("samsung")}
-              className={`${deviceOptionBase} ${choice === "samsung" ? deviceOptionActive : deviceOptionIdle}`}
-            >
-              <span className="min-w-0 pr-2">
-                <span className={choice === "samsung" ? deviceTitleActive : deviceTitleIdle}>
-                  {t("detail.wearablesSetup.samsungAndroid")}
-                </span>
-                <span className={choice === "samsung" ? deviceSubActive : deviceSubIdle}>
-                  {t("detail.wearablesSetup.samsungAndroidDesc")}
-                </span>
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setChoice("other")}
-              className={`${deviceOptionBase} ${choice === "other" ? deviceOptionActive : deviceOptionIdle}`}
-            >
-              <span className="min-w-0 pr-2">
-                <span className={choice === "other" ? deviceTitleActive : deviceTitleIdle}>
-                  {t("detail.wearablesSetup.otherWearable")}
-                </span>
-                <span className={choice === "other" ? deviceSubActive : deviceSubIdle}>
-                  {t("detail.wearablesSetup.otherWearableDesc")}
-                </span>
-              </span>
-            </button>
-          </div>
-        </section>
-
-        {/* Apple Watch section */}
-        {choice === "apple" && (
-          <section
-            className="rounded-xl border px-5 py-5 flex flex-col gap-3"
-            style={{
-              backgroundColor: "var(--card)",
-              borderColor: "var(--border-subtle)",
-              boxShadow: "var(--shadow-soft)",
-            }}
+          {/* Sync */}
+          <div
+            className={[
+              "relative px-4 py-4",
+              status?.connected === true
+                ? "bg-emerald-500/[0.06] dark:bg-emerald-950/20"
+                : "bg-[var(--card-subtle)]",
+            ].join(" ")}
           >
-            <h2 className="text-sm font-semibold" style={{ color: "var(--text-main)" }}>
-              {t("detail.wearablesSetup.stepsApple")}
-            </h2>
-            <ol
-              className="text-sm list-decimal list-inside space-y-2"
-              style={{ color: "var(--text-main)" }}
-            >
-              <li>{t("detail.wearablesSetup.appleStep1")}</li>
-              <li>{t("detail.wearablesSetup.appleStep2")}</li>
-              <li>{t("detail.wearablesSetup.appleStep3")}</li>
-            </ol>
-            <p className="text-xs" style={{ color: "var(--text-soft)" }}>
-              {t("detail.wearablesSetup.appleBeta")}
-            </p>
-          </section>
-        )}
-
-        {/* Samsung / Android section */}
-        {choice === "samsung" && (
-          <section
-            className="rounded-xl border px-5 py-5 flex flex-col gap-4"
-            style={{
-              backgroundColor: "var(--card)",
-              borderColor: "var(--border-subtle)",
-              boxShadow: "var(--shadow-soft)",
-            }}
-          >
-            <div className="space-y-1.5">
-              <h2 className="text-sm font-semibold" style={{ color: "var(--text-main)" }}>
-                Android Health Connect
-              </h2>
-              <p className="text-xs leading-relaxed" style={{ color: "var(--text-soft)" }}>
-                Samsung Health shares data through Health Connect.
-              </p>
+            {status?.connected === false ? (
+              <div ref={notConnectedInfoRef} className="absolute right-2 top-2 z-20">
+                <button
+                  type="button"
+                  onClick={() => setNotConnectedInfoOpen((o) => !o)}
+                  className="rounded-full border border-[var(--border-subtle)] bg-[var(--card)] p-1.5 text-[var(--text-muted)] shadow-sm transition hover:bg-[var(--card-subtle)] hover:text-[var(--text-main)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+                  aria-expanded={notConnectedInfoOpen}
+                  aria-controls="wearables-not-connected-info"
+                  aria-label={t("detail.wearablesSetup.notConnectedWhyInfo")}
+                >
+                  <Info className="h-4 w-4" strokeWidth={2} aria-hidden />
+                </button>
+                {notConnectedInfoOpen ? (
+                  <div
+                    id="wearables-not-connected-info"
+                    role="region"
+                    className="absolute right-0 top-10 z-30 w-[min(calc(100vw-2.5rem),20rem)] rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] p-3 shadow-lg"
+                  >
+                    <p className="text-xs leading-relaxed text-[var(--text-soft)]">
+                      {t("detail.wearablesSetup.notConnectedWhy")}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            <div className={`mb-4 min-w-0 ${status?.connected === false ? "pr-11" : ""}`}>
+              {status === null ? (
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-[var(--text-main)]">{t("detail.wearablesSetup.readyToSync")}</p>
+                  <p className="text-xs leading-relaxed text-[var(--text-soft)]">{t("detail.wearablesSetup.tapBelow")}</p>
+                </div>
+              ) : status.connected ? (
+                <div className="flex gap-2.5">
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
+                  <div className="min-w-0 space-y-1.5">
+                    <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                      {t("detail.wearablesSetup.statusConnected")}
+                    </p>
+                    {status.verified ? (
+                      <p className="text-xs leading-relaxed text-emerald-800 dark:text-emerald-200/90">
+                        {t("detail.wearablesSetup.verifiedWorking")}
+                      </p>
+                    ) : (
+                      <p className="text-xs leading-relaxed text-emerald-800 dark:text-emerald-200/90">
+                        {t("detail.wearablesSetup.statusConnectedDesc")}
+                      </p>
+                    )}
+                    {typeof status.stepsToday === "number" && (
+                      <p className="text-xs text-emerald-800 dark:text-emerald-200/85">
+                        {t("detail.wearablesSetup.stepsToday", { count: status.stepsToday })}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex gap-2.5">
+                  <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-rose-900 dark:text-rose-100">
+                      {t("detail.wearablesSetup.statusNotConnected")}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">
+                      {t("detail.wearablesSetup.notConnectedHint")}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
-            <ol
-              className="text-sm list-decimal list-inside space-y-2.5 pt-1"
-              style={{ color: "var(--text-main)" }}
-            >
-              <li>{t("detail.wearablesSetup.samsungWearStep1")}</li>
-              <li>{t("detail.wearablesSetup.samsungWearStep2")}</li>
-              <li>{t("detail.wearablesSetup.samsungWearStep3")}</li>
-              <li>{t("detail.wearablesSetup.samsungWearStep4")}</li>
-              <li>{t("detail.wearablesSetup.samsungWearStep5")}</li>
-              <li>{t("detail.wearablesSetup.samsungWearStep6")}</li>
-            </ol>
-            <p className="text-xs" style={{ color: "var(--text-soft)" }}>
-              {t("detail.wearablesSetup.samsungWearFooter")}
-            </p>
-          </section>
-        )}
-
-        {/* Other devices section */}
-        {choice === "other" && (
-          <section
-            className="rounded-xl border px-5 py-5 flex flex-col gap-3"
-            style={{
-              backgroundColor: "var(--card)",
-              borderColor: "var(--border-subtle)",
-              boxShadow: "var(--shadow-soft)",
-            }}
-          >
-            <h2 className="text-sm font-semibold" style={{ color: "var(--text-main)" }}>
-              {t("detail.wearablesSetup.otherTitle")}
-            </h2>
-            <p className="text-sm leading-relaxed" style={{ color: "var(--text-main)" }}>
-              {t("detail.wearablesSetup.otherP1")}
-            </p>
-            <p className="text-sm leading-relaxed" style={{ color: "var(--text-main)" }}>
-              {t("detail.wearablesSetup.otherP2")}
-            </p>
-          </section>
-        )}
-
-        {/* Why it matters */}
-        <section
-          className="rounded-xl border px-5 py-5 flex flex-col gap-3"
-          style={{
-            backgroundColor: "var(--card)",
-            borderColor: "var(--border-subtle)",
-            boxShadow: "var(--shadow-soft)",
-          }}
-        >
-          <h2 className="text-sm font-semibold" style={{ color: "var(--text-main)" }}>
-            {t("detail.wearablesSetup.whatYouGet")}
-          </h2>
-          <ul
-            className="text-sm list-disc list-inside space-y-2"
-            style={{ color: "var(--text-main)" }}
-          >
-            <li>{t("detail.wearablesSetup.benefit1")}</li>
-            <li>{t("detail.wearablesSetup.benefit2")}</li>
-            <li>{t("detail.wearablesSetup.benefit3")}</li>
-          </ul>
-        </section>
-
-        {/* Connection status: green if connected (with verified + steps when available), red if not */}
-        <section
-          className={[
-            "border px-5 py-5 flex flex-col gap-5 rounded-lg",
-            status?.connected === true
-              ? "bg-emerald-50 border-emerald-500 shadow-[0_1px_3px_rgba(34,197,94,0.15)] dark:bg-emerald-950/35 dark:border-emerald-700 dark:shadow-none"
-              : status?.connected === false
-                ? "bg-red-50 border-red-500 shadow-[0_1px_3px_rgba(239,68,68,0.15)] dark:bg-red-950/40 dark:border-red-800/80 dark:shadow-none"
-                : "bg-[var(--card)] border-[var(--border-subtle)] shadow-[var(--shadow-soft)]",
-          ].join(" ")}
-          style={{ borderRadius: 8 }}
-        >
-          <div className="w-full min-w-0">
-            {status === null ? (
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-slate-900 dark:text-[var(--text-main)]">
-                  {t("detail.wearablesSetup.readyToSync")}
-                </p>
-                <p className="text-sm leading-relaxed text-slate-600 dark:text-[var(--text-soft)]">
-                  {t("detail.wearablesSetup.tapBelow")}
-                </p>
-              </div>
-            ) : status.connected ? (
-              <div className="flex gap-3 items-start">
-                <CheckCircle2
-                  className="h-5 w-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5"
-                  aria-hidden
-                />
-                <div className="min-w-0 flex-1 space-y-2">
-                  <p className="text-sm font-semibold leading-snug text-emerald-900 dark:text-emerald-100">
-                    {t("detail.wearablesSetup.statusConnected")}
-                  </p>
-                  {status.verified && (
-                    <p className="text-sm leading-relaxed font-medium text-emerald-800 dark:text-emerald-200/90">
-                      {t("detail.wearablesSetup.verifiedWorking")}
-                    </p>
-                  )}
-                  {typeof status.stepsToday === "number" && (
-                    <p className="text-sm leading-relaxed text-emerald-800 dark:text-emerald-200/90">
-                      {t('detail.wearablesSetup.stepsToday', { count: status.stepsToday })}
-                    </p>
-                  )}
-                  {!status.verified && (
-                    <p className="text-sm leading-relaxed text-emerald-800 dark:text-emerald-200/90">
-                      {t("detail.wearablesSetup.statusConnectedDesc")}
-                    </p>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="flex gap-3 items-start">
-                <XCircle className="h-5 w-5 flex-shrink-0 text-red-600 dark:text-red-400 mt-0.5" aria-hidden />
-                <div className="min-w-0 flex-1 space-y-2">
-                  <p className="text-sm font-semibold leading-snug text-red-900 dark:text-red-100">
-                    {t("detail.wearablesSetup.statusNotConnected")}
-                  </p>
-                  <p className="text-sm leading-relaxed text-red-800 dark:text-red-200/90">
-                    {t("detail.wearablesSetup.notConnectedWhy")}
-                  </p>
-                </div>
-              </div>
+            <SyncWearableButton />
+            {status?.provider === "google_fit" && (
+              <p className="mt-3 text-center text-[11px] leading-snug text-amber-700 dark:text-amber-400/95">
+                {t("detail.wearablesSetup.legacyGoogleFitBanner")}
+              </p>
+            )}
+            {status?.connected && status.verified && (
+              <p className="mt-2 text-center text-[11px] text-emerald-700 dark:text-emerald-400/95">
+                {t("detail.wearablesSetup.verifiedConfirmation")}
+              </p>
             )}
           </div>
-          <div className="w-full flex flex-col items-stretch pt-3 border-t border-black/5 dark:border-white/10">
-            <div className="w-full">
-              <SyncWearableButton />
-            </div>
-          </div>
         </section>
-        {status?.provider === "google_fit" && (
-          <p className="text-center text-xs text-amber-700 dark:text-amber-400">
-            {t("detail.wearablesSetup.legacyGoogleFitBanner")}
-          </p>
-        )}
-        {status?.connected && status.verified && (
-          <p className="text-center text-xs text-emerald-700 dark:text-emerald-400">
-            {t("detail.wearablesSetup.verifiedConfirmation")}
-          </p>
-        )}
-        <p className="text-center text-xs">
-          <Link href="/wearables-debug" className="underline" style={{ color: "var(--text-soft)" }}>
+
+        <p className="mt-6 text-center text-xs">
+          <Link href="/wearables-debug" className="text-[var(--text-muted)] underline decoration-[var(--text-muted)]/40 underline-offset-2 hover:text-[var(--text-soft)]">
             {t("detail.wearablesSetup.debugWearablesLink")}
           </Link>
         </p>
