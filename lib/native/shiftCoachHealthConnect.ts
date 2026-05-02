@@ -3,6 +3,8 @@ import { registerPlugin, WebPlugin } from "@capacitor/core";
 export interface ShiftCoachHealthConnectPlugin {
   getStatus(): Promise<{
     available: boolean;
+    /** False if the Activity never registered the HC permission launcher (native wiring bug). */
+    permissionFlowReady?: boolean;
     sdkStatus: string;
     sdkStatusDefault?: string;
     sdkStatusProvider?: string;
@@ -18,9 +20,19 @@ export interface ShiftCoachHealthConnectPlugin {
     hasPermissions: boolean;
   }>;
   /** Health Connect data access (not Capacitor manifest permissions). */
-  requestConnectPermissions(): Promise<{ granted: boolean }>;
+  requestConnectPermissions(): Promise<{
+    granted: boolean;
+    sdkUnavailable?: boolean;
+    permissionResult?: "all_granted" | "none_granted" | "partial" | "sdk_unavailable";
+    activityResultGrantedCount?: number;
+    grantedPermissions?: string[];
+    missingPermissions?: string[];
+    requiredPermissions?: string[];
+  }>;
   /** Android: Health Connect permission UI for this app (or app details in Settings). */
   openPermissionSettings(): Promise<void>;
+  /** Android: Google Play listing for the Health Connect app (install / update). */
+  openHealthConnectInstallPage(): Promise<void>;
   syncNow(): Promise<{
     ok: boolean;
     lastSyncedAt?: string;
@@ -34,6 +46,7 @@ class ShiftCoachHealthConnectWeb extends WebPlugin implements ShiftCoachHealthCo
   async getStatus() {
     return {
       available: false,
+      permissionFlowReady: false,
       sdkStatus: "web",
       sdkStatusDefault: "web",
       sdkStatusProvider: "web",
@@ -51,10 +64,20 @@ class ShiftCoachHealthConnectWeb extends WebPlugin implements ShiftCoachHealthCo
   }
 
   async requestConnectPermissions() {
-    return { granted: false };
+    return {
+      granted: false,
+      permissionResult: "none_granted" as const,
+      grantedPermissions: [] as string[],
+      missingPermissions: [] as string[],
+      requiredPermissions: [] as string[],
+    };
   }
 
   async openPermissionSettings() {
+    return;
+  }
+
+  async openHealthConnectInstallPage() {
     return;
   }
 

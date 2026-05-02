@@ -17,7 +17,6 @@
         <item name="android:navigationBarColor">@color/shiftcoach_nav_bar_light</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
-        <item name="android:windowNavigationBarContrastEnforced" tools:targetApi="29">false</item>
         <item name="android:windowOptOutEdgeToEdgeEnforcement" tools:targetApi="35">true</item>
     </style>
 
@@ -30,7 +29,6 @@
         <item name="android:navigationBarColor">@color/shiftcoach_nav_bar_light</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
-        <item name="android:windowNavigationBarContrastEnforced" tools:targetApi="29">false</item>
         <item name="android:windowOptOutEdgeToEdgeEnforcement" tools:targetApi="35">true</item>
     </style>
 </resources>

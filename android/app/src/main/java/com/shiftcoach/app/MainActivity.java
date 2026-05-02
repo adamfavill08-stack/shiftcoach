@@ -20,6 +20,9 @@ import java.util.List;
 
 public class MainActivity extends BridgeActivity {
     private static final String TAG = "ShiftCoachPhone";
+    /** Health Connect may start MainActivity for a privacy rationale step before permissions. */
+    private static final String ACTION_HEALTH_PERMISSIONS_RATIONALE =
+            "androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE";
 
     /**
      * Cordova/Capacitor calls {@code window.Capacitor.triggerEvent} from native on pause/resume
@@ -86,11 +89,32 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        android.util.Log.i(
+                "ShiftCoachHC",
+                "MainActivity.onCreate registerPlugin order: ShiftCoachHealthConnect, ShiftCoachAppReview");
         registerPlugin(ShiftCoachHealthConnectPlugin.class);
         registerPlugin(ShiftCoachAppReviewPlugin.class);
         super.onCreate(savedInstanceState);
+        Intent intent = getIntent();
+        if (intent != null && ACTION_HEALTH_PERMISSIONS_RATIONALE.equals(intent.getAction())) {
+            android.util.Log.i("ShiftCoachHC", "MainActivity: ACTION_SHOW_PERMISSIONS_RATIONALE — finishing with RESULT_OK");
+            setResult(RESULT_OK);
+            finish();
+            return;
+        }
         // Keep content below status bar until Capacitor StatusBar runs (avoids transparent overlay defaults).
         WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent != null && ACTION_HEALTH_PERMISSIONS_RATIONALE.equals(intent.getAction())) {
+            android.util.Log.i("ShiftCoachHC", "MainActivity.onNewIntent: ACTION_SHOW_PERMISSIONS_RATIONALE");
+            setResult(RESULT_OK);
+            finish();
+        }
     }
 
     /**

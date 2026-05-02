@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { useTranslation } from "@/components/providers/language-provider";
 
 type DebugPayload = {
@@ -51,6 +52,10 @@ export default function WearablesDebugPage() {
 
     void run();
   }, []);
+
+  if (process.env.NODE_ENV === "production") {
+    notFound();
+  }
 
   return (
     <main className="max-w-[900px] mx-auto px-4 py-4 flex flex-col gap-4">

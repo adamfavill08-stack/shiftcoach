@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronDown, Watch, CheckCircle2, XCircle, Info } from "lucide-react";
 import { Inter } from "next/font/google";
 import SyncWearableButton from "@/components/wearables/SyncWearableButton";
+import { HealthConnectNativeDebugPanel } from "@/components/wearables/HealthConnectNativeDebugPanel";
 import { useTranslation } from "@/components/providers/language-provider";
 
 const HELP_APPLE_MOTION =
@@ -263,6 +264,7 @@ export default function WearablesSetupPage() {
               )}
             </div>
             <SyncWearableButton />
+            <HealthConnectNativeDebugPanel />
             {status?.provider === "google_fit" && (
               <p className="mt-3 text-center text-[11px] leading-snug text-amber-700 dark:text-amber-400/95">
                 {t("detail.wearablesSetup.legacyGoogleFitBanner")}
@@ -276,11 +278,16 @@ export default function WearablesSetupPage() {
           </div>
         </section>
 
-        <p className="mt-6 text-center text-xs">
-          <Link href="/wearables-debug" className="text-[var(--text-muted)] underline decoration-[var(--text-muted)]/40 underline-offset-2 hover:text-[var(--text-soft)]">
-            {t("detail.wearablesSetup.debugWearablesLink")}
-          </Link>
-        </p>
+        {process.env.NODE_ENV !== "production" ? (
+          <p className="mt-6 text-center text-xs">
+            <Link
+              href="/wearables-debug"
+              className="text-[var(--text-muted)] underline decoration-[var(--text-muted)]/40 underline-offset-2 hover:text-[var(--text-soft)]"
+            >
+              {t("detail.wearablesSetup.debugWearablesLink")}
+            </Link>
+          </p>
+        ) : null}
       </div>
     </main>
   );
