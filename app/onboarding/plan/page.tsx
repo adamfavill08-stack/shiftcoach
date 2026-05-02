@@ -12,7 +12,13 @@ export default function OnboardingPlanPage() {
   const [selectedPlan, setSelectedPlan] = useState<PlanSelection | null>('yearly')
   const [saving, setSaving] = useState<PlanSelection | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const { getPlanPriceLabel, storePriceLabelsLoading } = useNativePurchases()
+  const {
+    getPlanPriceLabel,
+    storePriceLabelsLoading,
+    isAvailable,
+    isPurchasing,
+    purchaseSubscription,
+  } = useNativePurchases()
   const monthlyPriceLabel = storePriceLabelsLoading ? null : getPlanPriceLabel('monthly')
   const yearlyPriceLabel = storePriceLabelsLoading ? null : getPlanPriceLabel('yearly')
   const formatPlanPrice = (label: string | null) => {
@@ -36,18 +42,34 @@ export default function OnboardingPlanPage() {
 
       if (selection === 'free') {
         window.dispatchEvent(new CustomEvent('subscription-updated'))
+        setSaving(null)
         router.push('/welcome')
         return
       }
 
-      router.push(`/upgrade?from=onboarding&plan=${selection}&returnTo=/welcome`)
+      if (!isAvailable) {
+        router.push(`/upgrade?from=onboarding&plan=${selection}&returnTo=/welcome`)
+        setSaving(null)
+        return
+      }
+
+      const plan = selection === 'monthly' ? 'monthly' : 'yearly'
+      const result = await purchaseSubscription(plan)
+      if (result.success) {
+        setSaving(null)
+        router.push('/welcome')
+        return
+      }
+
+      setError(result.error || 'Purchase did not complete.')
+      setSaving(null)
     } catch (e: any) {
       setError(e?.message || 'Something went wrong. Please try again.')
       setSaving(null)
     }
   }
 
-  const isBusy = saving !== null
+  const isBusy = saving !== null || isPurchasing
 
   const handleContinue = async () => {
     if (!selectedPlan || isBusy) return
@@ -209,7 +231,11 @@ export default function OnboardingPlanPage() {
           ) : null}
           {isBusy ? (
             <p className="px-5 pb-5 text-xs text-[var(--text-soft)]">
-              {saving === 'free' ? 'Activating your free access...' : 'Opening secure checkout...'}
+              {saving === 'free'
+                ? 'Activating your free access...'
+                : isPurchasing
+                  ? 'Complete your purchase in the store…'
+                  : 'Preparing checkout…'}
             </p>
           ) : null}
         </div>
