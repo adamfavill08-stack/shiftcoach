@@ -12,9 +12,13 @@ export default function OnboardingPlanPage() {
   const [selectedPlan, setSelectedPlan] = useState<PlanSelection | null>('yearly')
   const [saving, setSaving] = useState<PlanSelection | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const { getPlanPriceLabel } = useNativePurchases()
-  const monthlyPriceLabel = getPlanPriceLabel('monthly') ?? '£2.50'
-  const yearlyPriceLabel = getPlanPriceLabel('yearly') ?? '£19.50'
+  const { getPlanPriceLabel, storePriceLabelsLoading } = useNativePurchases()
+  const monthlyPriceLabel = storePriceLabelsLoading ? null : getPlanPriceLabel('monthly')
+  const yearlyPriceLabel = storePriceLabelsLoading ? null : getPlanPriceLabel('yearly')
+  const formatPlanPrice = (label: string | null) => {
+    if (storePriceLabelsLoading) return '…'
+    return label?.trim() ? label : '—'
+  }
 
   const handleSelect = async (selection: PlanSelection) => {
     setSaving(selection)
@@ -127,7 +131,9 @@ export default function OnboardingPlanPage() {
                   </div>
                 </div>
                 <div className="shrink-0 text-right leading-tight">
-                  <p className="text-base font-semibold text-black dark:text-[var(--text-main)]">{monthlyPriceLabel}</p>
+                  <p className="text-base font-semibold text-black dark:text-[var(--text-main)]">
+                    {formatPlanPrice(monthlyPriceLabel)}
+                  </p>
                   <p className="text-xs text-slate-500 dark:text-[var(--text-soft)]">Per month</p>
                 </div>
               </div>
@@ -164,7 +170,9 @@ export default function OnboardingPlanPage() {
                   </div>
                 </div>
                 <div className="text-right leading-tight">
-                  <p className="text-base font-semibold text-slate-800 dark:text-[var(--text-main)]">{yearlyPriceLabel}</p>
+                  <p className="text-base font-semibold text-slate-800 dark:text-[var(--text-main)]">
+                    {formatPlanPrice(yearlyPriceLabel)}
+                  </p>
                   <p className="text-xs text-slate-500 dark:text-[var(--text-soft)]">Per year</p>
                 </div>
               </div>

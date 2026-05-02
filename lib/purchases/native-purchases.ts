@@ -17,6 +17,7 @@ import {
   type PurchasesPackage,
 } from '@revenuecat/purchases-capacitor'
 import { ensureRevenueCatConfigured } from '@/lib/purchases/revenuecat-client'
+import { storeProductIdMatchesLogicalId } from '@/lib/revenuecat/parse-offering-prices'
 
 export type PurchasePlatform = 'ios' | 'android' | 'web'
 
@@ -45,14 +46,6 @@ const PRODUCT_IDS = {
 } as const
 
 const PRO_ENTITLEMENT_ID = 'pro'
-
-/**
- * Google Play Billing subscription v2 exposes products as `subscriptionId:basePlanId`.
- * iOS / older Android may use the logical id alone. Match either form.
- */
-function storeProductIdMatchesLogicalId(storeIdentifier: string, logicalId: string): boolean {
-  return storeIdentifier === logicalId || storeIdentifier.startsWith(`${logicalId}:`)
-}
 
 function findPackageByLogicalProductId(
   packages: PurchasesPackage[],
