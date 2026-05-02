@@ -36,6 +36,10 @@ Current working directory: ${process.cwd()}
   throw new Error(errorMsg)
 }
 
+/** Narrowed for TS (closure in `createSupabaseSingleton` does not inherit control-flow narrowing). */
+const resolvedSupabaseUrl: string = effectiveSupabaseUrl
+const resolvedSupabaseKey: string = effectiveSupabaseKey
+
 /**
  * Capacitor WebView often fails to persist auth cookies across process death; `localStorage`
  * survives. OAuth still lands with cookies first — see `hydrateNativeAuthFromCookiesIfNeeded`.
@@ -46,7 +50,7 @@ function useNativePersistentAuth(): boolean {
 
 function createSupabaseSingleton(): SupabaseClient {
   if (useNativePersistentAuth()) {
-    return createClient(effectiveSupabaseUrl, effectiveSupabaseKey, {
+    return createClient(resolvedSupabaseUrl, resolvedSupabaseKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
@@ -59,7 +63,7 @@ function createSupabaseSingleton(): SupabaseClient {
       },
     })
   }
-  return createBrowserClient(effectiveSupabaseUrl, effectiveSupabaseKey)
+  return createBrowserClient(resolvedSupabaseUrl, resolvedSupabaseKey)
 }
 
 // Create singleton browser / native client.
