@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { useEffect } from 'react'
+import { Capacitor } from '@capacitor/core'
 import {
   THEME_STORAGE_EVENT,
   THEME_PREFERENCE_KEY,
@@ -36,12 +37,18 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       const preference = getStoredThemePreference(window.localStorage)
       setStoredThemePreference(window.localStorage, preference)
       applyThemePreference(preference, media.matches)
+      if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+        void import('@/lib/native/androidSystemBars').then((m) => m.applyAndroidSystemBarsFromDocument())
+      }
     }
 
     const handleSystemThemeChange = () => {
       const preference = getStoredThemePreference(window.localStorage)
       if (preference === 'system') {
         applyThemePreference(preference, media.matches)
+        if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+          void import('@/lib/native/androidSystemBars').then((m) => m.applyAndroidSystemBarsFromDocument())
+        }
       }
     }
 

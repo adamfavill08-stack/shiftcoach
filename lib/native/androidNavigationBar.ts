@@ -22,17 +22,39 @@ async function applyNavigationBarOnce(resolved: 'light' | 'dark'): Promise<void>
   })
 }
 
+/** Cancels in-flight delayed retries when a newer theme apply starts. */
+let navBarApplyGeneration = 0
+
 /**
  * Apply navigation bar for an already-resolved theme (no extra storage read).
+ * Re-tries on a short schedule: the Capacitor bridge can be late on cold start
+ * or after splash, so a single useEffect pass is not always enough.
  */
 export async function applyAndroidNavigationBarForResolvedTheme(resolved: 'light' | 'dark'): Promise<void> {
   if (typeof window === 'undefined' || !isAndroidNative()) return
+  const gen = ++navBarApplyGeneration
+
+  const runIfCurrent = async () => {
+    if (gen !== navBarApplyGeneration) return
+    try {
+      await applyNavigationBarOnce(resolved)
+    } catch (e) {
+      console.warn('[AndroidNavigationBar] apply failed', e)
+    }
+  }
+
   try {
-    await applyNavigationBarOnce(resolved)
+    await runIfCurrent()
     await new Promise<void>((r) => requestAnimationFrame(() => r()))
-    await applyNavigationBarOnce(resolved)
+    await runIfCurrent()
   } catch (e) {
     console.warn('[AndroidNavigationBar] apply failed', e)
+  }
+
+  for (const ms of [150, 400, 1000]) {
+    window.setTimeout(() => {
+      void runIfCurrent()
+    }, ms)
   }
 }
 
