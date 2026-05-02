@@ -1,4 +1,7 @@
 import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
+import { Capacitor } from '@capacitor/core'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 // Get environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -33,31 +36,54 @@ Current working directory: ${process.cwd()}
   throw new Error(errorMsg)
 }
 
-// Create singleton browser client.
-const supabaseClient = createBrowserClient(effectiveSupabaseUrl, effectiveSupabaseKey)
+/**
+ * Capacitor WebView often fails to persist auth cookies across process death; `localStorage`
+ * survives. OAuth still lands with cookies first — see `hydrateNativeAuthFromCookiesIfNeeded`.
+ */
+function useNativePersistentAuth(): boolean {
+  return typeof window !== 'undefined' && Capacitor.isNativePlatform()
+}
+
+function createSupabaseSingleton(): SupabaseClient {
+  if (useNativePersistentAuth()) {
+    return createClient(effectiveSupabaseUrl, effectiveSupabaseKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storage: localStorage,
+        flowType: 'pkce',
+      },
+      global: {
+        headers: { 'X-Client-Info': 'shiftcoach-capacitor' },
+      },
+    })
+  }
+  return createBrowserClient(effectiveSupabaseUrl, effectiveSupabaseKey)
+}
+
+// Create singleton browser / native client.
+const supabaseClient = createSupabaseSingleton()
 
 // Wrap auth.getUser to catch AuthSessionMissingError silently
 const originalGetUser = supabaseClient.auth.getUser.bind(supabaseClient.auth)
-supabaseClient.auth.getUser = async function(...args: any[]) {
+supabaseClient.auth.getUser = async function (...args: any[]) {
   try {
     return await originalGetUser(...args)
   } catch (err: any) {
-    // Catch AuthSessionMissingError silently - it's expected in dev/serverless
-    if (err?.name === 'AuthSessionMissingError' || 
-        err?.message?.includes('Auth session missing') ||
-        err?.__isAuthError) {
-      // Return empty result instead of throwing
+    if (
+      err?.name === 'AuthSessionMissingError' ||
+      err?.message?.includes('Auth session missing') ||
+      err?.__isAuthError
+    ) {
       return { data: { user: null }, error: err }
     }
-    // Re-throw unexpected errors
     throw err
   }
 }
 
 export const supabase = supabaseClient
 
-// Compatibility helper used by existing client components.
 export function createClientComponentClient() {
   return supabaseClient
 }
-

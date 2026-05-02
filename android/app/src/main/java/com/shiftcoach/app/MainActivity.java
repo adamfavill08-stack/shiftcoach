@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.webkit.CookieManager;
 import android.webkit.WebView;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.WindowCompat;
@@ -90,6 +91,16 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         // Keep content below status bar until Capacitor StatusBar runs (avoids transparent overlay defaults).
         WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+    }
+
+    /**
+     * Persist WebView auth cookies to disk before backgrounding; otherwise sessions can look
+     * "logged out" on next cold start (Capacitor / Chromium delay writing cookies).
+     */
+    @Override
+    public void onPause() {
+        CookieManager.getInstance().flush();
+        super.onPause();
     }
 
     private final BroadcastReceiver wearDataBridgeReceiver =
