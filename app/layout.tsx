@@ -73,8 +73,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Safe area insets for Android/iOS notches and status bars */}
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
         {/* Match Android navigation bar color to app background to avoid dark strip */}
-        <meta name="theme-color" content="#f5F3F0" media="(prefers-color-scheme: light)" />
-        <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+        <meta name="theme-color" content="#f5f3f0" media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content="#17171d" media="(prefers-color-scheme: dark)" />
         <style dangerouslySetInnerHTML={{ __html: `
           :root {
             --safe-area-inset-top: env(safe-area-inset-top, 0px);

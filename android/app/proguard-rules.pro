@@ -11,6 +11,7 @@
 # Keep Capacitor classes (required for Capacitor to work)
 -keep class com.getcapacitor.** { *; }
 -keep class com.capacitorjs.** { *; }
+-keep class ee.forgr.capacitor_navigation_bar.** { *; }
 -dontwarn com.getcapacitor.**
 -dontwarn com.capacitorjs.**
 

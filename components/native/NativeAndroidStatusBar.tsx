@@ -2,62 +2,50 @@
 
 import { useEffect } from 'react'
 import { Capacitor } from '@capacitor/core'
-
-/** Light shell to match app background (layout theme-color / main bg) */
-const STATUS_BAR_BACKGROUND = '#f1f1f3'
+import { THEME_STORAGE_EVENT, THEME_PREFERENCE_KEY, THEME_LEGACY_STORAGE_KEY } from '@/lib/theme/preference'
+import { applyAndroidSystemBarsFromDocument } from '@/lib/native/androidSystemBars'
 
 const DATA_ATTR = 'data-cap-android-statusbar'
 
 /**
- * Configure the system status bar on Capacitor Android only.
+ * Keeps Android status + navigation bars in sync with resolved app theme (System / Light / Dark).
  * No-ops on web and iOS.
- *
- * Capacitor: Style.Light => dark status-bar icons (light bar). Style.Dark => light icons.
  */
 export function NativeAndroidStatusBar() {
   useEffect(() => {
     if (typeof document === 'undefined') return
     if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return
 
-    let cancelled = false
+    const sync = () => {
+      void applyAndroidSystemBarsFromDocument()
+    }
 
-    void import('@capacitor/status-bar').then(({ StatusBar, Style }) => {
-      if (cancelled) return
-      void (async () => {
-        try {
-          await StatusBar.show()
-          await StatusBar.setOverlaysWebView({ overlay: false })
-          await StatusBar.setBackgroundColor({ color: STATUS_BAR_BACKGROUND })
-          await StatusBar.setStyle({ style: Style.Light })
+    sync()
 
-          const info = await StatusBar.getInfo()
-          console.log('[NativeAndroidStatusBar] STATUS BAR INFO', info)
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const onSystemScheme = () => sync()
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === THEME_PREFERENCE_KEY || e.key === THEME_LEGACY_STORAGE_KEY) sync()
+    }
+    const onCustomTheme = () => sync()
 
-          // Second pass: WebView / edge-to-edge can reset flags after first paint
-          requestAnimationFrame(() => {
-            if (cancelled) return
-            void (async () => {
-              try {
-                await StatusBar.setOverlaysWebView({ overlay: false })
-                await StatusBar.setBackgroundColor({ color: STATUS_BAR_BACKGROUND })
-                await StatusBar.setStyle({ style: Style.Light })
-                const again = await StatusBar.getInfo()
-                console.log('[NativeAndroidStatusBar] STATUS BAR INFO (after rAF)', again)
-              } catch (e) {
-                console.warn('[NativeAndroidStatusBar] rAF reapply failed', e)
-              }
-            })()
-          })
-        } catch (e) {
-          console.warn('[NativeAndroidStatusBar] configuration failed', e)
-        }
-      })()
+    media.addEventListener('change', onSystemScheme)
+    window.addEventListener('storage', onStorage)
+    window.addEventListener(THEME_STORAGE_EVENT, onCustomTheme)
+
+    const root = document.documentElement
+    const observer = new MutationObserver(() => {
+      sync()
     })
+    observer.observe(root, { attributes: true, attributeFilter: ['class'] })
 
     document.documentElement.setAttribute(DATA_ATTR, '')
 
     return () => {
-      cancelled = true
+      media.removeEventListener('change', onSystemScheme)
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener(THEME_STORAGE_EVENT, onCustomTheme)
+      observer.disconnect()
       document.documentElement.removeAttribute(DATA_ATTR)
     }
   }, [])

@@ -30,8 +30,9 @@ const config: CapacitorConfig = {
     },
     StatusBar: {
       overlaysWebView: false,
+      /** Native default before JS; `NativeAndroidStatusBar` syncs to resolved theme. */
       style: 'LIGHT',
-      backgroundColor: '#ffffff',
+      backgroundColor: '#f5f3f0',
     },
   },
   server: {

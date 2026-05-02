@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, Check, Shield } from 'lucide-react'
+import { ChevronLeft, Check } from 'lucide-react'
 import { useSubscriptionAccess } from '@/lib/hooks/useSubscriptionAccess'
 import { useNativePurchases } from '@/lib/hooks/useNativePurchases'
 import { useTranslation } from '@/components/providers/language-provider'
@@ -91,7 +91,7 @@ function UpgradePageContent() {
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-6 pb-20">
       <div className="mx-auto w-full max-w-md">
-        <div className="rounded-3xl border border-slate-100 bg-white shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)]">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)]">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <Link
               href={fromOnboarding ? '/onboarding/plan' : '/settings'}
@@ -105,21 +105,16 @@ function UpgradePageContent() {
           </div>
 
           <div className="space-y-5 px-4 pb-5 pt-4">
-            <section className="rounded-2xl bg-gradient-to-br from-sky-500 to-cyan-500 px-4 py-4 text-white">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/85">{t('upgrade.bannerKicker')}</p>
-              <h2 className="mt-1 text-xl font-semibold leading-tight">{t('upgrade.bannerTitle')}</h2>
-              <p className="mt-2 text-sm text-white/90">
-                {t('upgrade.bannerSubtitle')}
-              </p>
-            </section>
-
             <div
-              className="flex items-center justify-center gap-2 rounded-lg border border-[#05afc5]/20 bg-[#05afc5]/10 px-3 py-2 dark:border-[#05afc5]/25 dark:bg-[#05afc5]/15"
+              className="flex items-center justify-center gap-2 rounded-md border border-[#05afc5]/20 bg-[#05afc5]/10 px-3 py-2 dark:border-[#05afc5]/25 dark:bg-[#05afc5]/15"
               role="note"
             >
-              <Shield
-                className="h-3.5 w-3.5 shrink-0 text-[#05afc5]"
-                strokeWidth={1.35}
+              <img
+                src="/trusted-shield.png"
+                alt=""
+                width={14}
+                height={14}
+                className="h-3.5 w-3.5 shrink-0 object-contain"
                 aria-hidden
               />
               <p className="text-center text-[11px] font-medium leading-snug tracking-[0.02em] text-slate-600 dark:text-slate-400">
@@ -127,7 +122,15 @@ function UpgradePageContent() {
               </p>
             </div>
 
-            <section className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+            <section className="rounded-xl bg-gradient-to-br from-sky-500 to-cyan-500 px-4 py-4 text-white">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/85">{t('upgrade.bannerKicker')}</p>
+              <h2 className="mt-1 text-xl font-semibold leading-tight">{t('upgrade.bannerTitle')}</h2>
+              <p className="mt-2 text-sm text-white/90">
+                {t('upgrade.bannerSubtitle')}
+              </p>
+            </section>
+
+            <section className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">{t('upgrade.benefitsTitle')}</p>
               <ul className="mt-3 space-y-2">
                 {proFeatures.map((feature) => (
@@ -140,14 +143,14 @@ function UpgradePageContent() {
             </section>
 
             {isAlreadyPro ? (
-              <section className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-center">
+              <section className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-center">
                 <p className="text-base font-semibold text-emerald-800">{t('upgrade.alreadyPro.title')}</p>
                 <p className="mt-1 text-sm text-emerald-700">{t('upgrade.alreadyPro.message')}</p>
               </section>
             ) : (
               <section className="space-y-3">
                 {storeConfigWarning && isAvailable ? (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-center text-xs text-amber-900">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-center text-xs text-amber-900">
                     {storeConfigWarning}
                   </div>
                 ) : null}
@@ -155,7 +158,7 @@ function UpgradePageContent() {
                   type="button"
                   onClick={() => void purchaseSubscription('monthly')}
                   disabled={isBusy || !isAvailable || isLoading}
-                  className={`group relative w-full overflow-hidden rounded-xl border px-3.5 py-2.5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
+                  className={`group relative w-full overflow-hidden rounded-lg border px-3.5 py-2.5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
                     highlightedPlan === 'monthly'
                       ? 'border-[#05afc5]/60 bg-[#e9f7fa] dark:bg-[#05afc5]/12'
                       : 'border-[var(--border-subtle)] bg-[var(--card-subtle)] enabled:hover:border-[#05afc5]/45 enabled:hover:bg-[var(--card)]'
@@ -205,7 +208,7 @@ function UpgradePageContent() {
                   type="button"
                   onClick={() => void purchaseSubscription('yearly')}
                   disabled={isBusy || !isAvailable || isLoading}
-                  className={`group relative w-full overflow-hidden rounded-xl border px-3.5 py-2.5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
+                  className={`group relative w-full overflow-hidden rounded-lg border px-3.5 py-2.5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
                     highlightedPlan === 'yearly'
                       ? 'border-[#05afc5]/60 bg-[#e9f7fa] shadow-[0_3px_12px_-8px_rgba(5,175,197,0.65)] dark:bg-[#05afc5]/12 dark:border-[#05afc5]/70'
                       : 'border-[var(--border-subtle)] bg-[var(--card-subtle)] enabled:hover:border-[#05afc5]/45 enabled:hover:bg-[var(--card)]'
@@ -263,7 +266,7 @@ function UpgradePageContent() {
                   type="button"
                   onClick={() => void purchaseSubscription(planForContinuePurchase)}
                   disabled={isBusy || !isAvailable || isLoading}
-                  className="w-full rounded-xl bg-[#05afc5] px-4 py-3 text-sm font-semibold text-white transition-colors enabled:hover:bg-[#049cb1] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded-lg bg-[#05afc5] px-4 py-3 text-sm font-semibold text-white transition-colors enabled:hover:bg-[#049cb1] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isPurchasing
                     ? t('upgrade.buttons.processing')

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#03B4C1</color>
+    <color name="colorPrimaryDark">#028A96</color>
+    <color name="colorAccent">#03B4C1</color>
+    <!-- System bars: align with web shell (`--bg` light / dark chrome). -->
+    <color name="shiftcoach_bar_light">#f5f3f0</color>
+    <color name="shiftcoach_bar_dark">#17171d</color>
+</resources>
