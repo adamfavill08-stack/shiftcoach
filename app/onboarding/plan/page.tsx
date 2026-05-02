@@ -126,7 +126,7 @@ export default function OnboardingPlanPage() {
                     {selectedPlan === 'monthly' ? <span className="h-2.5 w-2.5 rounded-full bg-[#2b7fff]" /> : null}
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate text-[15px] font-semibold text-[var(--text-main)]">Monthly</p>
+                    <p className="truncate text-[15px] font-semibold text-[var(--text-main)]">Monthly Pro</p>
                     <p className="mt-0.5 truncate text-xs text-[var(--text-soft)]">Full pro access</p>
                   </div>
                 </div>
@@ -161,7 +161,7 @@ export default function OnboardingPlanPage() {
                   </span>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="truncate text-[15px] font-semibold text-slate-800 dark:text-[var(--text-main)]">Yearly</p>
+                      <p className="truncate text-[15px] font-semibold text-slate-800 dark:text-[var(--text-main)]">Annual Pro</p>
                       <span className="ml-8 mt-1 rounded-full border border-[#8cc8ff] bg-[#ebf6ff] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#2b7fff] dark:border-[#63b6ff]/65 dark:bg-[#2b7fff]/20 dark:text-[#8fd0ff]">
                         Save 35%
                       </span>

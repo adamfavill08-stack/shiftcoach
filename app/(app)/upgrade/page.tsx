@@ -63,6 +63,11 @@ function UpgradePageContent() {
     return t('upgrade.buttons.annualSavings')
   }, [monthlyPriceAmount, yearlyPriceAmount, t])
 
+  const planForContinuePurchase = useMemo((): 'monthly' | 'yearly' => {
+    if (highlightedPlan === 'monthly') return 'monthly'
+    return 'yearly'
+  }, [highlightedPlan])
+
   const yearlySaveBadge = useMemo(() => {
     if (
       typeof monthlyPriceAmount === 'number' &&
@@ -242,11 +247,22 @@ function UpgradePageContent() {
 
                 <button
                   type="button"
-                  onClick={() => void restore()}
+                  onClick={() => void purchaseSubscription(planForContinuePurchase)}
                   disabled={isBusy || !isAvailable || isLoading}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition-colors enabled:hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded-xl bg-[#05afc5] px-4 py-3 text-sm font-semibold text-white transition-colors enabled:hover:bg-[#049cb1] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isRestoring ? t('upgrade.buttons.restoring') : t('upgrade.buttons.restore')}
+                  {isPurchasing
+                    ? t('upgrade.buttons.processing')
+                    : t('upgrade.buttons.continuePurchase')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void restore()}
+                  disabled={isBusy || !isAvailable || isLoading || isPurchasing}
+                  className="w-full py-2 text-center text-sm font-medium text-sky-700 underline decoration-sky-700/50 underline-offset-2 transition-colors enabled:hover:text-sky-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-sky-400 dark:decoration-sky-400/50 dark:enabled:hover:text-sky-300"
+                >
+                  {isRestoring ? t('upgrade.buttons.restoring') : t('upgrade.buttons.restorePurchasesLink')}
                 </button>
 
                 {!isAvailable ? (
