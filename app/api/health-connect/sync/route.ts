@@ -9,6 +9,7 @@ import {
   fetchWearableDailyStepsForSource,
   supersedeManualLogsAfterWearableDelta,
 } from '@/lib/activity/manualWearableSupersede'
+import { mergeHealthConnectDailyStepsByDate } from '@/lib/health-connect/mergeHealthConnectDailyStepsByDate'
 
 const ANDROID_HEALTH_PROVIDER = 'android_health_connect'
 
@@ -40,6 +41,12 @@ const HealthConnectSyncSchema = z.object({
   activityDate: z.string().optional(),
   /** Last N local days from Health Connect (typically 7), one row per activity_date. */
   dailySteps: z.array(DailyStepItemSchema).optional().default([]),
+  /** Native: count of Steps interval records read for `activityDate` (same-day sum). */
+  stepRecordsReadToday: z.number().int().optional(),
+  firstStepRecordAt: z.string().optional(),
+  lastStepRecordAt: z.string().optional(),
+  /** Preferred `logged_at` for today's row (latest sample end or sync time). */
+  loggedAt: z.string().optional(),
   sleep: z.array(SleepItemSchema).optional().default([]),
   heartRate: z.array(HeartRateItemSchema).optional().default([]),
   syncedAt: z.string().optional(),
@@ -64,8 +71,18 @@ export async function POST(req: NextRequest) {
 
     const parsed = await parseJsonBody(req, HealthConnectSyncSchema)
     if (!parsed.ok) return parsed.response
-    const { steps: rawSteps, activityDate, dailySteps: rawDailySteps, sleep, heartRate, syncedAt: rawSyncedAt } =
-      parsed.data
+    const {
+      steps: rawSteps,
+      activityDate,
+      dailySteps: rawDailySteps,
+      stepRecordsReadToday,
+      firstStepRecordAt,
+      lastStepRecordAt,
+      loggedAt: rawLoggedAt,
+      sleep,
+      heartRate,
+      syncedAt: rawSyncedAt,
+    } = parsed.data
     const steps = typeof rawSteps === 'number' ? Math.max(0, Math.round(rawSteps)) : null
     const syncedAt = typeof rawSyncedAt === 'string' ? rawSyncedAt : new Date().toISOString()
 
@@ -83,28 +100,52 @@ export async function POST(req: NextRequest) {
     let persistedDailyStepsCount = 0
     let dailyStepsTotalReceived = 0
     const datesPersisted: string[] = []
-    const dailyLimited = (rawDailySteps ?? [])
+    const normalizedDaily = (rawDailySteps ?? [])
       .filter((d) => YMD.test(String(d.activityDate ?? '').trim()) && Number.isFinite(d.steps))
-      .slice(0, 14)
       .map((d) => ({
         activityDate: String(d.activityDate).trim().slice(0, 10),
         steps: Math.max(0, Math.round(d.steps)),
       }))
+    const dailyLimited = mergeHealthConnectDailyStepsByDate(normalizedDaily).slice(0, 14)
+
+    const clientToday =
+      typeof activityDate === 'string' && YMD.test(String(activityDate).trim())
+        ? String(activityDate).trim().slice(0, 10)
+        : null
+    const loggedAtForToday =
+      typeof lastStepRecordAt === 'string' && lastStepRecordAt.trim()
+        ? lastStepRecordAt.trim()
+        : typeof rawLoggedAt === 'string' && rawLoggedAt.trim()
+          ? rawLoggedAt.trim()
+          : syncedAt
+
+    let todayPersisted = false
+    let todayStepsWritten: number | null = null
+    let todayUpsertError: string | null = null
 
     for (const row of dailyLimited) {
       dailyStepsTotalReceived += row.steps
       const prevSteps = await fetchWearableDailyStepsForSource(supabase, userId, row.activityDate, 'health_connect')
+      const loggedAtForRow = clientToday != null && row.activityDate === clientToday ? loggedAtForToday : syncedAt
       const { error: actErr } = await upsertActivityLogDailySteps(supabase, userId, {
         steps: row.steps,
         syncedAt,
         source: 'health_connect',
         activityDate: row.activityDate,
+        loggedAt: loggedAtForRow,
       })
       if (actErr) {
         console.error('[health-connect/sync] activity_logs daily upsert:', row.activityDate, actErr.message ?? actErr)
+        if (clientToday != null && row.activityDate === clientToday) {
+          todayUpsertError = actErr.message ?? String(actErr)
+        }
       } else {
         persistedDailyStepsCount += 1
         datesPersisted.push(row.activityDate)
+        if (clientToday != null && row.activityDate === clientToday) {
+          todayPersisted = true
+          todayStepsWritten = row.steps
+        }
         if (prevSteps != null) {
           const delta = row.steps - prevSteps
           if (delta > 0) {
@@ -124,12 +165,20 @@ export async function POST(req: NextRequest) {
         syncedAt,
         source: 'health_connect',
         activityDate,
+        loggedAt: loggedAtForToday,
       })
       if (actErr) {
         console.error('[health-connect/sync] activity_logs upsert:', actErr.message ?? actErr)
         activityLogUpsertOk = false
+        if (ad && clientToday === ad) {
+          todayUpsertError = actErr.message ?? String(actErr)
+        }
       } else {
         activityLogUpsertOk = true
+        if (ad && clientToday === ad) {
+          todayPersisted = true
+          todayStepsWritten = steps
+        }
         if (ad && prevSteps != null) {
           const delta = steps - prevSteps
           if (delta > 0) {
@@ -248,6 +297,22 @@ export async function POST(req: NextRequest) {
       heartRateSamplesPersisted: heartRateUpsertOk ? heartRateSamplesPersisted : 0,
     }
 
+    const stepsRead =
+      clientToday != null
+        ? (dailyLimited.find((d) => d.activityDate === clientToday)?.steps ?? steps ?? 0)
+        : (steps ?? 0)
+    const stepRecordsRead = typeof stepRecordsReadToday === 'number' ? stepRecordsReadToday : 0
+    const stepsSaved = todayPersisted && todayStepsWritten != null ? todayStepsWritten : 0
+
+    const syncResult = {
+      stepsRead,
+      stepRecordsRead,
+      stepsSaved,
+      activityDate: clientToday ?? '',
+      saved: todayPersisted,
+      source: 'health_connect' as const,
+    }
+
     const jsonBody: Record<string, unknown> = {
       ok: true,
       provider: ANDROID_HEALTH_PROVIDER,
@@ -259,6 +324,7 @@ export async function POST(req: NextRequest) {
         heartRateCount: heartRate.length,
       },
       persisted,
+      syncResult,
     }
 
     if (isDevServer) {
@@ -313,8 +379,17 @@ export async function POST(req: NextRequest) {
           activityDate: activityDate ?? null,
           dailyStepsCount: dailyLimited.length,
           dailyStepsTotalReceived,
+          stepRecordsReadToday: stepRecordsReadToday ?? null,
+          firstStepRecordAt: firstStepRecordAt ?? null,
+          lastStepRecordAt: lastStepRecordAt ?? null,
+          loggedAt: rawLoggedAt ?? null,
           sleepSessionCount: sleep.length,
           heartRateSampleCount: heartRate.length,
+        },
+        todayPersist: {
+          todayPersisted,
+          todayStepsWritten,
+          todayUpsertError,
         },
         persistedDetails: {
           activityLogUpsertOk,

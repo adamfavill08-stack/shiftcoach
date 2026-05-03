@@ -22,5 +22,9 @@ export async function runHealthConnectNativeSync(from: string): Promise<SyncNowR
   }
 
   const { ShiftCoachHealthConnect } = await import('@/lib/native/shiftCoachHealthConnect')
-  return ShiftCoachHealthConnect.syncNow()
+  const result = await ShiftCoachHealthConnect.syncNow()
+  if (isDevClient && result?.syncResult && typeof result.syncResult === 'object') {
+    console.info('[HealthConnect] syncResult', result.syncResult)
+  }
+  return result
 }

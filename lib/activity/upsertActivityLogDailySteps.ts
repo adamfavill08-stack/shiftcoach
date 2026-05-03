@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { isPostgrestSchemaColumnError } from '@/lib/activity/isPostgrestSchemaColumnError'
 import { markAllManualSessionsSupersededForWearableDay } from '@/lib/activity/manualWearableSupersede'
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/
@@ -51,12 +52,7 @@ async function upsertByUtcTsWindow(
   }
 
   let r = await attempt('ts')
-  if (
-    r.error &&
-    (r.error.code === '42703' ||
-      String(r.error.message ?? '').includes('ts') ||
-      String(r.error.message ?? '').includes('column'))
-  ) {
+  if (r.error && isPostgrestSchemaColumnError(r.error)) {
     r = await attempt('created_at')
   }
   return r
@@ -78,6 +74,94 @@ async function maybeSupersedeManualsAfterWearableWrite(
   }
 }
 
+/**
+ * Writes (steps, source, activity_date, timestamps) trying column combinations so missing `ts`
+ * or `logged_at` on older DBs does not fail the whole upsert.
+ */
+async function writeWearableDailyByActivityDate(
+  supabase: SupabaseClient,
+  userId: string,
+  existingId: string | null,
+  steps: number,
+  source: string,
+  activityDate: string,
+  syncedAt: string,
+  loggedAtIso: string,
+  activeMinutes?: number | null,
+): Promise<{ error: { message?: string; code?: string } | null }> {
+  const baseVariants: Record<string, unknown>[] = [
+    { steps, source, activity_date: activityDate, ts: syncedAt, logged_at: loggedAtIso },
+    { steps, source, activity_date: activityDate, logged_at: loggedAtIso },
+    { steps, source, activity_date: activityDate, ts: syncedAt },
+    { steps, source, activity_date: activityDate },
+  ]
+
+  let lastErr: { message?: string; code?: string } | null = null
+
+  for (const base of baseVariants) {
+    const payload = withOptionalActiveMinutes(base, activeMinutes)
+    const payloadNoAm = base
+
+    if (existingId) {
+      let { error } = await supabase.from('activity_logs').update(payload).eq('id', existingId)
+      if (
+        error &&
+        activeMinutes != null &&
+        isPostgrestSchemaColumnError(error) &&
+        String(error.message ?? '').toLowerCase().includes('active_minutes')
+      ) {
+        ;({ error } = await supabase.from('activity_logs').update(payloadNoAm).eq('id', existingId))
+      }
+      if (!error) return { error: null }
+      if (!isPostgrestSchemaColumnError(error)) return { error }
+      lastErr = error
+      continue
+    }
+
+    let { error: insErr } = await supabase.from('activity_logs').insert({ user_id: userId, ...payload })
+    if (
+      insErr &&
+      activeMinutes != null &&
+      isPostgrestSchemaColumnError(insErr) &&
+      String(insErr.message ?? '').toLowerCase().includes('active_minutes')
+    ) {
+      ;({ error: insErr } = await supabase.from('activity_logs').insert({ user_id: userId, ...payloadNoAm }))
+    }
+
+    if (!insErr) return { error: null }
+
+    if (insErr.code === '23505') {
+      const { data: again } = await supabase
+        .from('activity_logs')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('activity_date', activityDate)
+        .or('source.neq.manual,source.is.null')
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (again?.id) {
+        return writeWearableDailyByActivityDate(
+          supabase,
+          userId,
+          String(again.id),
+          steps,
+          source,
+          activityDate,
+          syncedAt,
+          loggedAtIso,
+          activeMinutes,
+        )
+      }
+    }
+
+    if (!isPostgrestSchemaColumnError(insErr)) return { error: insErr }
+    lastErr = insErr
+  }
+
+  return { error: lastErr }
+}
+
 async function upsertByActivityDate(
   supabase: SupabaseClient,
   userId: string,
@@ -85,6 +169,7 @@ async function upsertByActivityDate(
   syncedAt: string,
   source: string,
   activityDate: string,
+  loggedAtIso: string,
   activeMinutes?: number | null,
 ): Promise<{ error: { message?: string; code?: string } | null }> {
   const { data: existing, error: selErr } = await supabase
@@ -104,74 +189,21 @@ async function upsertByActivityDate(
     return { error: selErr }
   }
 
-  const payload = withOptionalActiveMinutes(
-    { steps, source, ts: syncedAt, activity_date: activityDate },
+  const existingId = existing?.id != null ? String(existing.id) : null
+  const r = await writeWearableDailyByActivityDate(
+    supabase,
+    userId,
+    existingId,
+    steps,
+    source,
+    activityDate,
+    syncedAt,
+    loggedAtIso,
     activeMinutes,
   )
 
-  if (existing?.id) {
-    let { error } = await supabase.from('activity_logs').update(payload).eq('id', existing.id)
-    if (
-      error &&
-      activeMinutes != null &&
-      (error.code === '42703' ||
-        String(error.message ?? '').toLowerCase().includes('active_minutes'))
-    ) {
-      ;({ error } = await supabase
-        .from('activity_logs')
-        .update({ steps, source, ts: syncedAt, activity_date: activityDate })
-        .eq('id', existing.id))
-    }
-    return { error: error ?? null }
-  }
-
-  const { error: insErr } = await supabase
-    .from('activity_logs')
-    .insert({ user_id: userId, ...payload })
-
-  if (insErr?.code === '23505') {
-    const { data: again } = await supabase
-      .from('activity_logs')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('activity_date', activityDate)
-      .or('source.neq.manual,source.is.null')
-      .order('id', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (again?.id) {
-      let { error } = await supabase.from('activity_logs').update(payload).eq('id', again.id)
-      if (
-        error &&
-        activeMinutes != null &&
-        (error.code === '42703' ||
-          String(error.message ?? '').toLowerCase().includes('active_minutes'))
-      ) {
-        ;({ error } = await supabase
-          .from('activity_logs')
-          .update({ steps, source, ts: syncedAt, activity_date: activityDate })
-          .eq('id', again.id))
-      }
-      const err = error ?? null
-      await maybeSupersedeManualsAfterWearableWrite(supabase, userId, activityDate, source, steps, !err)
-      return { error: err }
-    }
-  }
-
-  if (
-    insErr &&
-    (insErr.code === '42703' || String(insErr.message ?? '').toLowerCase().includes('active_minutes'))
-  ) {
-    const payloadNoAm = { steps, source, ts: syncedAt, activity_date: activityDate }
-    const { error: ins2 } = await supabase.from('activity_logs').insert({ user_id: userId, ...payloadNoAm })
-    const err = ins2 ?? null
-    await maybeSupersedeManualsAfterWearableWrite(supabase, userId, activityDate, source, steps, !err)
-    return { error: err }
-  }
-
-  const finalErr = insErr ?? null
-  await maybeSupersedeManualsAfterWearableWrite(supabase, userId, activityDate, source, steps, !finalErr)
-  return { error: finalErr }
+  await maybeSupersedeManualsAfterWearableWrite(supabase, userId, activityDate, source, steps, !r.error)
+  return r
 }
 
 /**
@@ -188,14 +220,32 @@ export async function upsertActivityLogDailySteps(
     activityDate?: string | null
     /** When supported by DB, stored on the same daily row as steps. */
     activeMinutes?: number | null
+    /**
+     * Health Connect / device anchor for civil day (latest sample end or sync time).
+     * Defaults to `syncedAt`.
+     */
+    loggedAt?: string | null
   },
 ): Promise<{ error: { message?: string; code?: string } | null }> {
   const { steps, syncedAt, source, activeMinutes } = options
   const raw = typeof options.activityDate === 'string' ? options.activityDate.trim() : ''
   const activityDate = YMD.test(raw) ? raw : null
+  const loggedAtIso =
+    typeof options.loggedAt === 'string' && options.loggedAt.trim()
+      ? options.loggedAt.trim()
+      : syncedAt
 
   if (activityDate) {
-    return upsertByActivityDate(supabase, userId, steps, syncedAt, source, activityDate, activeMinutes)
+    return upsertByActivityDate(
+      supabase,
+      userId,
+      steps,
+      syncedAt,
+      source,
+      activityDate,
+      loggedAtIso,
+      activeMinutes,
+    )
   }
 
   return upsertByUtcTsWindow(supabase, userId, steps, syncedAt, source, activeMinutes)

@@ -790,8 +790,10 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 val dailyStepsArr = JSONArray()
                 var stepsTotalSevenDays = 0L
                 var stepsTodayForCompat = 0L
-                /** -1: per-day aggregates used; no single aggregate record count. */
-                val stepsRecordCount = -1
+                /** Today's interval record count from readRecords (0 if aggregate-only fallback). */
+                var todayStepRecordsCount = 0
+                var todayFirstStepAt: String? = null
+                var todayLastStepAt: String? = null
 
                 runBlocking {
                     for (offset in 6 downTo 0) {
@@ -800,27 +802,52 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                         val endExclusive = day.plusDays(1).atStartOfDay(zone).toInstant()
                         val end = if (endExclusive > now) now else endExclusive
                         var daySteps = 0L
+                        var recordCountForDay = 0
                         if (start < end) {
                             try {
-                                val agg =
-                                    client.aggregate(
-                                        AggregateRequest(
-                                            metrics = setOf(StepsRecord.COUNT_TOTAL),
-                                            timeRangeFilter = TimeRangeFilter.between(start, end),
-                                        ),
-                                    )
-                                daySteps = agg[StepsRecord.COUNT_TOTAL] ?: 0L
-                            } catch (e: Exception) {
-                                if (BuildConfig.HC_VERBOSE_LOG) {
-                                    hci("steps aggregate failed for $day, readRecords: ${e.message}")
-                                }
                                 val req =
                                     ReadRecordsRequest(
                                         StepsRecord::class,
                                         timeRangeFilter = TimeRangeFilter.between(start, end),
                                     )
                                 val resp = client.readRecords(req)
+                                recordCountForDay = resp.records.size
                                 daySteps = resp.records.sumOf { it.count.toLong() }
+                                if (resp.records.isNotEmpty()) {
+                                    val minStart = resp.records.minOf { it.startTime }
+                                    val maxEnd = resp.records.maxOf { it.endTime }
+                                    if (day == todayLocal) {
+                                        todayStepRecordsCount = recordCountForDay
+                                        todayFirstStepAt = minStart.toString()
+                                        todayLastStepAt = maxEnd.toString()
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                if (BuildConfig.HC_VERBOSE_LOG) {
+                                    hci("readRecords steps failed for $day: ${e.message}")
+                                }
+                                recordCountForDay = 0
+                                daySteps = 0L
+                            }
+                            // Many devices return many small intervals; aggregate can still be 0 — use HC aggregate as fallback only when no intervals.
+                            if (recordCountForDay == 0 && daySteps == 0L) {
+                                try {
+                                    val agg =
+                                        client.aggregate(
+                                            AggregateRequest(
+                                                metrics = setOf(StepsRecord.COUNT_TOTAL),
+                                                timeRangeFilter = TimeRangeFilter.between(start, end),
+                                            ),
+                                        )
+                                    daySteps = agg[StepsRecord.COUNT_TOTAL] ?: 0L
+                                    if (BuildConfig.HC_VERBOSE_LOG && daySteps > 0L) {
+                                        hci("steps aggregate fallback for $day → $daySteps (no interval records)")
+                                    }
+                                } catch (e2: Exception) {
+                                    if (BuildConfig.HC_VERBOSE_LOG) {
+                                        hci("aggregate fallback failed for $day: ${e2.message}")
+                                    }
+                                }
                             }
                         }
                         val dayStepsInt = daySteps.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
@@ -834,6 +861,15 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                         }
                     }
                 }
+
+                val stepsRecordCount =
+                    if (todayStepRecordsCount > 0) {
+                        todayStepRecordsCount
+                    } else if (stepsTodayForCompat > 0L) {
+                        -1
+                    } else {
+                        0
+                    }
 
                 val stepsTotal = stepsTodayForCompat
 
@@ -898,6 +934,24 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 body.put("sleep", sleepArr)
                 body.put("heartRate", hrArr)
                 body.put("syncedAt", syncedAt)
+                body.put("stepRecordsReadToday", todayStepRecordsCount)
+                if (todayFirstStepAt != null) {
+                    body.put("firstStepRecordAt", todayFirstStepAt)
+                }
+                if (todayLastStepAt != null) {
+                    body.put("lastStepRecordAt", todayLastStepAt)
+                }
+                body.put("loggedAt", todayLastStepAt ?: syncedAt)
+
+                if (BuildConfig.HC_VERBOSE_LOG) {
+                    hci(
+                        "HC steps debug: perms=${granted.contains(HealthPermission.getReadPermission(StepsRecord::class))} " +
+                            "range=[$stepsDateRangeStart .. $stepsDateRangeEnd] " +
+                            "today=$todayLocal todayRecords=$todayStepRecordsCount " +
+                            "first=$todayFirstStepAt last=$todayLastStepAt summedToday=$stepsOut " +
+                            "dailyRows=${dailyStepsArr.length()}",
+                    )
+                }
 
                 val origin = syncApiOrigin()
 
@@ -991,6 +1045,17 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                             "serverDevDiagnostics",
                             jsonObjectToJSObject(json.getJSONObject("_devSyncDiagnostics")),
                         )
+                    }
+                    if (json.has("syncResult")) {
+                        val sr = json.getJSONObject("syncResult")
+                        val syncObj = JSObject()
+                        syncObj.put("stepsRead", sr.optInt("stepsRead", stepsOut))
+                        syncObj.put("stepRecordsRead", sr.optInt("stepRecordsRead", todayStepRecordsCount))
+                        syncObj.put("stepsSaved", sr.optInt("stepsSaved", 0))
+                        syncObj.put("activityDate", sr.optString("activityDate", todayLocal.toString()))
+                        syncObj.put("saved", sr.optBoolean("saved", false))
+                        syncObj.put("source", sr.optString("source", "health_connect"))
+                        ret.put("syncResult", syncObj)
                     }
                 } catch (_: Exception) {
                     // Non-JSON or unexpected shape — native counts still returned.

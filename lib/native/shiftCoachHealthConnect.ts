@@ -113,6 +113,15 @@ export interface ShiftCoachHealthConnectPlugin {
       sleepSessionsPersisted?: number;
       heartRateSamplesPersisted?: number;
     };
+    /** Echo from `/api/health-connect/sync` when present (today’s civil day write). */
+    syncResult?: {
+      stepsRead: number;
+      stepRecordsRead: number;
+      stepsSaved: number;
+      activityDate: string;
+      saved: boolean;
+      source: string;
+    };
     /** Dev-only diagnostics from server (Android bridge may omit). */
     serverDevDiagnostics?: Record<string, unknown>;
   }>;

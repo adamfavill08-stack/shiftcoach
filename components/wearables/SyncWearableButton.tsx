@@ -144,7 +144,9 @@ function isWarningFeedback(
     feedback.includes('not installed or needs an update') ||
     feedback.includes('no recent Steps') ||
     feedback.includes('no recent data was found') ||
-    feedback.includes('needs you to sign in again before syncing')
+    feedback.includes('needs you to sign in again before syncing') ||
+    feedback.includes('could not be saved') ||
+    feedback.includes('no steps were found for today')
   )
 }
 
@@ -318,6 +320,7 @@ export default function SyncWearableButton() {
                     heartRateDateRangeStart: syncResult.heartRateDateRangeStart,
                     heartRateDateRangeEnd: syncResult.heartRateDateRangeEnd,
                     serverPersisted: sp ?? null,
+                    syncResult: syncResult.syncResult ?? null,
                   }),
                 )
                 if (syncResult.serverDevDiagnostics && typeof syncResult.serverDevDiagnostics === 'object') {
@@ -336,6 +339,24 @@ export default function SyncWearableButton() {
               setEmptyAfterSync(true)
             } else {
               setEmptyAfterSync(false)
+              const sr = syncResult.syncResult
+              if (sr?.saved === true && sr.stepsSaved > 0) {
+                const line = `Synced ${sr.stepsSaved} steps from Health Connect.`
+                setFeedback(connectedBeforeClick ? line : `${HC_CONNECTED} ${line}`.trim())
+                return
+              }
+              if (sr && sr.saved === false && sr.stepsRead > 0) {
+                const line = 'Steps were found but could not be saved.'
+                setFeedback(connectedBeforeClick ? line : `${HC_CONNECTED} ${line}`.trim())
+                return
+              }
+              if (sr && sr.stepsRead === 0 && sr.stepRecordsRead > 0) {
+                const line = 'Health Connect is linked, but no steps were found for today.'
+                setFeedback(connectedBeforeClick ? line : `${HC_CONNECTED} ${line}`.trim())
+                setEmptyAfterSync(true)
+                return
+              }
+
               const weekStepsTotal =
                 (sp != null && typeof sp.dailyStepsTotal === 'number' ? sp.dailyStepsTotal : null) ??
                 syncResult.dailyStepsTotal ??
