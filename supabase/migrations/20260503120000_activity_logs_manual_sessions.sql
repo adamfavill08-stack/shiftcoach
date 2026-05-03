@@ -19,6 +19,7 @@ ON public.activity_logs (user_id, activity_date)
 WHERE activity_date IS NOT NULL AND source IS DISTINCT FROM 'manual';
 
 ALTER TABLE public.activity_logs
+  ADD COLUMN IF NOT EXISTS active_minutes integer NULL,
   ADD COLUMN IF NOT EXISTS activity_type text NULL,
   ADD COLUMN IF NOT EXISTS start_time timestamptz NULL,
   ADD COLUMN IF NOT EXISTS end_time timestamptz NULL,

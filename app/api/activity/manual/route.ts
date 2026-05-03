@@ -10,6 +10,7 @@ import {
   type ManualActivityType,
 } from '@/lib/activity/insertManualActivityLog'
 import type { ManualHistoryEntry } from '@/lib/activity/manualHistoryApi'
+import { isPostgrestSchemaColumnError } from '@/lib/activity/isPostgrestSchemaColumnError'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,10 +50,15 @@ function parseIsoOrNull(s: string | null | undefined): Date | null {
   return Number.isNaN(d.getTime()) ? null : d
 }
 
-const MANUAL_HISTORY_SELECT_FULL =
+const MANUAL_HISTORY_SELECT_FULL_TS =
   'id, activity_type, steps, active_minutes, calories, distance_m, start_time, end_time, reason, merge_status, superseded_by_source, superseded_at, ts'
 
-const MANUAL_HISTORY_SELECT_MINIMAL = 'id, steps, ts, activity_date, source'
+const MANUAL_HISTORY_SELECT_FULL_CA =
+  'id, activity_type, steps, active_minutes, calories, distance_m, start_time, end_time, reason, merge_status, superseded_by_source, superseded_at, created_at'
+
+const MANUAL_HISTORY_SELECT_MINIMAL_TS = 'id, steps, ts, activity_date, source'
+
+const MANUAL_HISTORY_SELECT_MINIMAL_CA = 'id, steps, created_at, activity_date, source'
 
 function mapActivityLogRowToManualHistory(row: Record<string, unknown>): ManualHistoryEntry {
   const stepsRaw = row.steps
@@ -91,22 +97,32 @@ export async function GET(req: NextRequest) {
     const activityDate =
       dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : formatYmdInTimeZone(new Date(), tz)
 
-    const runSelect = async (cols: string) => {
+    const runSelect = async (cols: string, orderCol: 'ts' | 'created_at') => {
       return supabase
         .from('activity_logs')
         .select(cols)
         .eq('user_id', userId)
         .eq('source', 'manual')
         .eq('activity_date', activityDate)
-        .order('ts', { ascending: false })
+        .order(orderCol, { ascending: false })
     }
 
-    let { data: rows, error } = await runSelect(MANUAL_HISTORY_SELECT_FULL)
+    const strategies: Array<{ cols: string; order: 'ts' | 'created_at' }> = [
+      { cols: MANUAL_HISTORY_SELECT_FULL_TS, order: 'ts' },
+      { cols: MANUAL_HISTORY_SELECT_FULL_CA, order: 'created_at' },
+      { cols: MANUAL_HISTORY_SELECT_MINIMAL_TS, order: 'ts' },
+      { cols: MANUAL_HISTORY_SELECT_MINIMAL_CA, order: 'created_at' },
+    ]
 
-    if (error?.code === '42703') {
-      const second = await runSelect(MANUAL_HISTORY_SELECT_MINIMAL)
-      rows = second.data
-      error = second.error
+    let rows: unknown[] | null = null
+    let error: { message?: string; code?: string } | null = null
+
+    for (const s of strategies) {
+      const r = await runSelect(s.cols, s.order)
+      rows = r.data as unknown[] | null
+      error = r.error
+      if (!error) break
+      if (!isPostgrestSchemaColumnError(error)) break
     }
 
     if (error) {

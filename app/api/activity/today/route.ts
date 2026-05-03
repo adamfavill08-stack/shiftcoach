@@ -31,6 +31,7 @@ import {
 } from '@/lib/activity/computeShiftStepsDuringShifts'
 import { toShiftType, toActivityShiftType } from '@/lib/shifts/toShiftType'
 import { addCalendarDaysToYmd, formatYmdInTimeZone } from '@/lib/sleep/utils'
+import { fetchActivityLogsByActivityDateWindow } from '@/lib/activity/fetchActivityLogsByActivityDateWindow'
 import { fetchHolidayLocalDatesSet } from '@/lib/rota/holidayRotaPriority'
 import { getSleepDeficitForCircadian } from '@/lib/circadian/sleep'
 import { computePersonalizedActivityTargets } from '@/lib/activity/personalizedActivityTargets'
@@ -679,7 +680,18 @@ export async function GET(req: NextRequest) {
     const weeklyActivityData: DailyActivityData[] = []
     const activityByDate = new Map<string, { steps: number; activeMinutes: number | null; source?: string }>()
 
-    const weeklyLogs = (weeklyActivityQuery.data ?? []) as any[]
+    let weeklyLogs = (weeklyActivityQuery.data ?? []) as any[]
+    // Manual sessions (and some wearables) may have `activity_date` set but NULL `ts`; ts-window queries miss them.
+    const activityDateMergeFrom = addCalendarDaysToYmd(today, -14)
+    const logsByActivityDate = await fetchActivityLogsByActivityDateWindow(
+      supabase,
+      userId,
+      activityDateMergeFrom,
+      today,
+    )
+    if (logsByActivityDate.length) {
+      weeklyLogs = mergeActivityLogRowsDedupe(weeklyLogs, logsByActivityDate)
+    }
     // Rollout: legacy wearable rows (no activity_date) can duplicate new rows keyed by activity_date.
     const explicitWearableShiftedKeysByFamily = buildExplicitWearableShiftedKeysByFamily(
       weeklyLogs,

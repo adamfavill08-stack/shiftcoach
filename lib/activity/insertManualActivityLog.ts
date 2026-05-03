@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { isPostgrestSchemaColumnError } from '@/lib/activity/isPostgrestSchemaColumnError'
+import { withActivityLogSyncInstant } from '@/lib/activity/activityLogSyncInstant'
 
 export type ManualActivityReason = 'wearable_sync_missing' | 'forgot_watch' | 'other'
 
@@ -20,6 +22,7 @@ export type InsertManualActivityLogInput = {
 
 /**
  * Inserts a dedicated manual session row (never upserts into wearable daily totals).
+ * Some databases use `ts` for sync time, others only `created_at` — we try both like `upsertActivityLogDailySteps`.
  */
 export async function insertManualActivityLog(
   supabase: SupabaseClient,
@@ -39,12 +42,9 @@ export async function insertManualActivityLog(
     syncedAtIso,
   } = input
 
-  const full: Record<string, unknown> = {
-    user_id: userId,
-    source: 'manual',
-    steps: Math.round(Math.max(0, steps)),
-    ts: syncedAtIso,
-    activity_date: activityDate,
+  const stepVal = Math.round(Math.max(0, steps))
+
+  const metaBlock: Record<string, unknown> = {
     activity_type: activityType,
     start_time: startTimeIso,
     end_time: endTimeIso,
@@ -52,40 +52,81 @@ export async function insertManualActivityLog(
     merge_status: 'active',
   }
 
+  const rich: Record<string, unknown> = {
+    user_id: userId,
+    source: 'manual',
+    steps: stepVal,
+    activity_date: activityDate,
+    ...metaBlock,
+  }
+
   if (activeMinutes != null && Number.isFinite(activeMinutes)) {
-    full.active_minutes = Math.round(Math.max(0, Math.min(24 * 60, activeMinutes)))
+    rich.active_minutes = Math.round(Math.max(0, Math.min(24 * 60, activeMinutes)))
   }
   if (calories != null && Number.isFinite(calories)) {
-    full.calories = Math.round(Math.max(0, calories))
+    rich.calories = Math.round(Math.max(0, calories))
   }
   if (distanceMeters != null && Number.isFinite(distanceMeters)) {
-    full.distance_m = Math.round(Math.max(0, distanceMeters))
+    rich.distance_m = Math.round(Math.max(0, distanceMeters))
   }
+
+  const withoutAm: Record<string, unknown> = { ...rich }
+  delete withoutAm.active_minutes
+
+  const withoutMetrics: Record<string, unknown> = {
+    user_id: userId,
+    source: 'manual',
+    steps: stepVal,
+    activity_date: activityDate,
+    ...metaBlock,
+  }
+
+  const bare: Record<string, unknown> = {
+    user_id: userId,
+    source: 'manual',
+    steps: stepVal,
+    activity_date: activityDate,
+  }
+
+  const cores = [rich, withoutAm, withoutMetrics, bare]
 
   const attempt = async (payload: Record<string, unknown>) => {
     const { error } = await supabase.from('activity_logs').insert(payload)
     return error ?? null
   }
 
-  let err = await attempt(full)
-  if (
-    err &&
-    (err.code === '42703' ||
-      String(err.message ?? '')
-        .toLowerCase()
-        .includes('column'))
-  ) {
-    const minimal: Record<string, unknown> = {
-      user_id: userId,
-      source: 'manual',
-      steps: full.steps,
-      ts: syncedAtIso,
-      activity_date: activityDate,
-      merge_status: 'active',
+  let lastErr: { message?: string; code?: string } | null = null
+
+  for (const core of cores) {
+    for (const timeCol of ['ts', 'created_at'] as const) {
+      const payload = withActivityLogSyncInstant(core, syncedAtIso, timeCol)
+      const err = await attempt(payload)
+      if (!err) return { error: null }
+      if (!isPostgrestSchemaColumnError(err)) return { error: err }
+      lastErr = err
     }
-    if (full.active_minutes != null) minimal.active_minutes = full.active_minutes
-    err = await attempt(minimal)
   }
 
-  return { error: err }
+  const errNoTime = await attempt(bare)
+  if (!errNoTime) return { error: null }
+  if (!isPostgrestSchemaColumnError(errNoTime)) return { error: errNoTime }
+
+  const bareNoMerge: Record<string, unknown> = {
+    user_id: userId,
+    source: 'manual',
+    steps: stepVal,
+    activity_date: activityDate,
+    activity_type: activityType,
+    start_time: startTimeIso,
+    end_time: endTimeIso,
+    reason,
+  }
+  for (const timeCol of ['ts', 'created_at'] as const) {
+    const err = await attempt(withActivityLogSyncInstant(bareNoMerge, syncedAtIso, timeCol))
+    if (!err) return { error: null }
+    if (!isPostgrestSchemaColumnError(err)) return { error: err }
+    lastErr = err
+  }
+
+  return { error: lastErr }
 }
