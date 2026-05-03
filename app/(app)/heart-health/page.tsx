@@ -219,7 +219,8 @@ export default function HeartHealthPage() {
     return t("heartHealth.weekly.steady");
   })();
 
-  const steps = activity?.steps ?? 0;
+  const steps =
+    activity?.activityIntelligence?.activityDaySteps ?? activity?.steps ?? 0;
   const stepTarget =
     activity?.adaptedStepGoal ?? activity?.goal ?? activity?.stepTarget ?? 9000;
   const stepsPct = stepTarget > 0 ? Math.round((steps / stepTarget) * 100) : 0;

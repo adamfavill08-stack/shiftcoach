@@ -95,6 +95,15 @@ export type ActivityToday = {
   activityTotalsBreakdown?: ActivityTotalsBreakdown
 }
 
+/**
+ * Steps for the current activity day (shift-aware), matching `/activity` hero.
+ * Prefer `activityIntelligence.activityDaySteps` over top-level `steps`.
+ */
+export function getActivityDayStepsFromTodayApi(data: ActivityToday | null | undefined): number {
+  if (!data) return 0
+  return data.activityIntelligence?.activityDaySteps ?? data.steps ?? 0
+}
+
 const SHIFT_TYPES = new Set(['day', 'night', 'off', 'other'])
 
 function parseShiftStepsLast7Days(raw: unknown): ShiftStepsDuringShiftDay[] | undefined {

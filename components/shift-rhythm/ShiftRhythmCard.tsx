@@ -13,7 +13,7 @@ import { ShiftLagCard } from "@/components/shiftlag/ShiftLagCard";
 import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition";
 import { useTodaySleep } from "@/lib/hooks/useTodaySleep";
 import { useWeeklyProgress } from "@/lib/hooks/useWeeklyProgress";
-import { useActivityToday } from "@/lib/hooks/useActivityToday";
+import { getActivityDayStepsFromTodayApi, useActivityToday } from "@/lib/hooks/useActivityToday";
 import { useTranslation } from "@/components/providers/language-provider";
 import { useAuth } from "@/components/AuthProvider";
 import { useProfile } from "@/hooks/useProfile";
@@ -964,7 +964,7 @@ function HomeActivityCard() {
   const router = useRouter();
   const { data, loading } = useActivityToday();
 
-  const steps = data?.steps ?? 0;
+  const steps = loading ? 0 : getActivityDayStepsFromTodayApi(data);
   const goal = data?.adaptedStepGoal ?? data?.goal ?? data?.stepTarget ?? 9000;
   const activeMinutes = data?.activeMinutes ?? 0;
   const calories = data?.estimatedCaloriesBurned ?? 0;

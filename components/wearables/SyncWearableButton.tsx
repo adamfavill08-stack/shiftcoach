@@ -396,8 +396,15 @@ export default function SyncWearableButton() {
                 }
 
                 if (hasStepHistory) {
-                  const displayTotal = weekStepsTotal > 0 ? weekStepsTotal : nSteps
-                  let msg = `Synced successfully: ${displayTotal} steps over the last 7 days.`
+                  const todaySteps = nSteps > 0 ? nSteps : 0
+                  const weekOrFallback = weekStepsTotal > 0 ? weekStepsTotal : todaySteps
+                  let msg =
+                    todaySteps > 0
+                      ? `Synced successfully: ${todaySteps.toLocaleString()} steps today.`
+                      : `Synced successfully: ${weekOrFallback.toLocaleString()} steps saved.`
+                  if (todaySteps > 0 && weekStepsTotal > todaySteps) {
+                    msg += ` (${weekStepsTotal.toLocaleString()} across all days saved this sync.)`
+                  }
                   const extra = [sleepLine, hrLine].filter(Boolean)
                   if (extra.length > 0) {
                     msg += ` ${extra.join(', ')}.`
