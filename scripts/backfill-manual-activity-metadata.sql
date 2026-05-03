@@ -1,0 +1,21 @@
+-- Optional one-off repair for legacy manual rows with NULL session metadata.
+-- Review row counts BEFORE running; this can make many rows suddenly "active" in totals.
+--
+-- Example: scope to one user and one civil date:
+--
+-- UPDATE public.activity_logs
+-- SET
+--   merge_status = COALESCE(merge_status, 'active'),
+--   activity_type = COALESCE(activity_type, 'walk'),
+--   reason = COALESCE(reason, 'wearable_sync_missing'),
+--   end_time = COALESCE(end_time, COALESCE(ts, created_at)),
+--   start_time = COALESCE(
+--     start_time,
+--     COALESCE(ts, created_at) - interval '60 minutes'
+--   )
+-- WHERE source = 'manual'
+--   AND user_id = '<uuid>'
+--   AND activity_date = '2026-05-03'
+--   AND (merge_status IS NULL OR activity_type IS NULL OR start_time IS NULL OR end_time IS NULL);
+
+SELECT 1 AS ready_to_edit_this_script;

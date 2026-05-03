@@ -42,15 +42,18 @@ function omitActivityDate(core: Record<string, unknown>): Record<string, unknown
   return o
 }
 
+export type ManualInsertPayloadPhases = {
+  sessionAttempts: Record<string, unknown>[]
+  minimalAttempts: Record<string, unknown>[]
+  retry23505Session: Record<string, unknown>[]
+  retry23505Minimal: Record<string, unknown>[]
+}
+
 /**
- * Inserts a dedicated manual session row (never upserts into wearable daily totals).
- * Tries every compatible payload shape (ts / created_at / both / none) so we do not bail
- * early on errors that are not "missing column" but still recoverable with a slimmer row.
+ * Builds ordered insert payloads: full session shapes first, minimal compatibility last.
+ * Exported for regression tests (order and required session fields).
  */
-export async function insertManualActivityLog(
-  supabase: SupabaseClient,
-  input: InsertManualActivityLogInput,
-): Promise<{ error: { message?: string; code?: string } | null }> {
+export function buildManualInsertPayloadPhases(input: InsertManualActivityLogInput): ManualInsertPayloadPhases {
   const {
     userId,
     activityDate,
@@ -111,6 +114,7 @@ export async function insertManualActivityLog(
     activity_date: activityDate,
   }
 
+  /** Session row without optional metrics columns; always includes merge_status + window + type. */
   const bareNoMerge: Record<string, unknown> = {
     user_id: userId,
     source: 'manual',
@@ -120,6 +124,7 @@ export async function insertManualActivityLog(
     start_time: startTimeIso,
     end_time: endTimeIso,
     reason,
+    merge_status: 'active',
   }
 
   /** Legacy DBs with no activity_date column */
@@ -130,19 +135,47 @@ export async function insertManualActivityLog(
     ...metaBlock,
   }
 
-  const attempts: Record<string, unknown>[] = []
-  const seen = new Set<string>()
+  const sessionAttempts: Record<string, unknown>[] = []
+  const seenS = new Set<string>()
+  // Never place `bare` before session shapes: it can succeed and skip merge_status / activity_type / times.
+  for (const core of [rich, withoutAm, withoutMetrics, bareNoMerge]) {
+    registerTimeVariants(sessionAttempts, seenS, core, syncedAtIso)
+  }
+  registerPayload(sessionAttempts, seenS, stripActivityLogTimeKeys(bareNoMerge))
 
-  for (const core of [rich, withoutAm, withoutMetrics, bare]) {
-    registerTimeVariants(attempts, seen, core, syncedAtIso)
+  const minimalAttempts: Record<string, unknown>[] = []
+  const seenM = new Set<string>()
+  registerTimeVariants(minimalAttempts, seenM, bare, syncedAtIso)
+  registerPayload(minimalAttempts, seenM, stripActivityLogTimeKeys(bare))
+  registerTimeVariants(minimalAttempts, seenM, legacyNoDate, syncedAtIso)
+  registerPayload(minimalAttempts, seenM, stripActivityLogTimeKeys(legacyNoDate))
+
+  const retry23505Session: Record<string, unknown>[] = []
+  const seenR = new Set<string>()
+  for (const core of [rich, withoutAm, withoutMetrics, bareNoMerge].map(omitActivityDate)) {
+    registerTimeVariants(retry23505Session, seenR, core, syncedAtIso)
+    registerPayload(retry23505Session, seenR, stripActivityLogTimeKeys(core))
   }
 
-  registerPayload(attempts, seen, stripActivityLogTimeKeys(bare))
-  registerTimeVariants(attempts, seen, bareNoMerge, syncedAtIso)
-  registerPayload(attempts, seen, stripActivityLogTimeKeys(bareNoMerge))
+  const retry23505Minimal: Record<string, unknown>[] = []
+  const seenM2 = new Set<string>()
+  for (const core of [bare, legacyNoDate].map(omitActivityDate)) {
+    registerTimeVariants(retry23505Minimal, seenM2, core, syncedAtIso)
+    registerPayload(retry23505Minimal, seenM2, stripActivityLogTimeKeys(core))
+  }
 
-  registerTimeVariants(attempts, seen, legacyNoDate, syncedAtIso)
-  registerPayload(attempts, seen, stripActivityLogTimeKeys(legacyNoDate))
+  return { sessionAttempts, minimalAttempts, retry23505Session, retry23505Minimal }
+}
+
+/**
+ * Inserts a dedicated manual session row (never upserts into wearable daily totals).
+ * Tries full session payloads (merge_status, type, window, reason) before any minimal row.
+ */
+export async function insertManualActivityLog(
+  supabase: SupabaseClient,
+  input: InsertManualActivityLogInput,
+): Promise<{ error: { message?: string; code?: string } | null }> {
+  const { sessionAttempts, minimalAttempts, retry23505Session, retry23505Minimal } = buildManualInsertPayloadPhases(input)
 
   let lastErr: PostgrestError | null = null
 
@@ -155,21 +188,32 @@ export async function insertManualActivityLog(
     return { error: lastErr }
   }
 
-  const first = await runInserts(attempts)
+  const first = await runInserts(sessionAttempts)
   if (!first.error) return { error: null }
 
-  // Legacy idx_activity_logs_user_activity_date_unique (all sources): wearable row for this
-  // civil day blocks a second row with the same activity_date. Omit activity_date so the row
-  // still lands in the ts/created_at window for /api/activity/today until migrations catch up.
-  if (first.error.code === '23505') {
-    const retry: Record<string, unknown>[] = []
-    const seen2 = new Set<string>()
-    for (const core of [rich, withoutAm, withoutMetrics, bare, bareNoMerge, legacyNoDate].map(omitActivityDate)) {
-      registerTimeVariants(retry, seen2, core, syncedAtIso)
-      registerPayload(retry, seen2, stripActivityLogTimeKeys(core))
+  console.warn(
+    '[insertManualActivityLog] session-shaped inserts failed; trying minimal compatibility payloads',
+    first.error?.code,
+    first.error?.message,
+  )
+
+  const second = await runInserts(minimalAttempts)
+  if (!second.error) {
+    console.warn(
+      '[insertManualActivityLog] minimal row inserted; DB may be missing session columns or rejected richer payloads',
+    )
+    return { error: null }
+  }
+
+  if (second.error?.code === '23505') {
+    console.warn('[insertManualActivityLog] unique violation; retrying without activity_date', second.error.message)
+    const third = await runInserts(retry23505Session)
+    if (!third.error) return { error: null }
+    const fourth = await runInserts(retry23505Minimal)
+    if (!fourth.error) {
+      console.warn('[insertManualActivityLog] minimal row inserted after 23505 retry')
+      return { error: null }
     }
-    const second = await runInserts(retry)
-    if (!second.error) return { error: null }
   }
 
   return { error: lastErr }
