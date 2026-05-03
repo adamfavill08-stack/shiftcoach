@@ -154,8 +154,11 @@ export async function GET(req: NextRequest) {
       const isoFrom = new Date(dayStartMs).toISOString()
       const isoTo = new Date(dayEndMs).toISOString()
       const extra: Record<string, unknown>[] = []
+      const colHay = ` ${winning.cols} `
+      const colsHasTs = /\bts\b/.test(colHay)
+      const colsHasCreatedAt = /\bcreated_at\b/.test(colHay)
 
-      if (winning.cols.includes('ts')) {
+      if (colsHasTs) {
         const r = await supabase
           .from('activity_logs')
           .select(winning.cols)
@@ -168,7 +171,7 @@ export async function GET(req: NextRequest) {
         if (!r.error && Array.isArray(r.data)) extra.push(...(r.data as unknown as Record<string, unknown>[]))
       }
 
-      if (winning.cols.includes('created_at')) {
+      if (colsHasCreatedAt) {
         const r = await supabase
           .from('activity_logs')
           .select(winning.cols)

@@ -19,18 +19,30 @@ export type ManualHistoryResponse = {
   entries: ManualHistoryEntry[]
 }
 
+function coerceSteps(raw: unknown): number {
+  if (typeof raw === 'number' && Number.isFinite(raw)) return Math.max(0, Math.round(raw))
+  if (typeof raw === 'string' && raw.trim()) {
+    const n = Number(raw)
+    if (Number.isFinite(n)) return Math.max(0, Math.round(n))
+  }
+  return 0
+}
+
 export function parseManualHistoryResponse(json: unknown): ManualHistoryResponse | null {
   if (!json || typeof json !== 'object') return null
   const o = json as Record<string, unknown>
-  if (typeof o.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(o.date)) return null
-  if (!Array.isArray(o.entries)) return null
+  const dateRaw = o.date
+  const date = typeof dateRaw === 'string' ? dateRaw.trim() : ''
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null
+  const rawEntries = o.entries
+  const list = Array.isArray(rawEntries) ? rawEntries : []
   const entries: ManualHistoryEntry[] = []
-  for (const raw of o.entries) {
+  for (const raw of list) {
     if (!raw || typeof raw !== 'object') continue
     const e = raw as Record<string, unknown>
     const id = e.id != null ? String(e.id) : ''
     if (!id) continue
-    const steps = typeof e.steps === 'number' && Number.isFinite(e.steps) ? Math.max(0, Math.round(e.steps)) : 0
+    const steps = coerceSteps(e.steps)
     entries.push({
       id,
       activity_type: typeof e.activity_type === 'string' ? e.activity_type : null,
@@ -51,5 +63,5 @@ export function parseManualHistoryResponse(json: unknown): ManualHistoryResponse
       superseded_at: typeof e.superseded_at === 'string' ? e.superseded_at : null,
     })
   }
-  return { date: o.date, entries }
+  return { date, entries }
 }

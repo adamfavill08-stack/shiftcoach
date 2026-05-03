@@ -71,7 +71,12 @@ export function ManualActivityHistorySection({
         return
       }
       const parsed = parseManualHistoryResponse(json)
-      setEntries(parsed?.entries ?? [])
+      if (parsed == null) {
+        setEntries([])
+        setError('parse_failed')
+        return
+      }
+      setEntries(parsed.entries)
     } catch {
       setEntries([])
       setError('fetch_failed')
