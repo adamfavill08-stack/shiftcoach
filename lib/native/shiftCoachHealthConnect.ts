@@ -83,10 +83,38 @@ export interface ShiftCoachHealthConnectPlugin {
     ok: boolean;
     lastSyncedAt?: string;
     steps?: number;
+    /** Number of local days included in `dailyStepsTotal` (typically 7). */
+    dailyStepsCount?: number;
+    /** Sum of step counts across those local days (Health Connect aggregate per day). */
+    dailyStepsTotal?: number;
     sleepCount?: number;
     heartRateCount?: number;
+    /** Native read: HC aggregate path uses -1 (deduped total; record count not computed). */
+    stepsRecordCount?: number;
+    sleepSessionCount?: number;
+    sleepTotalMinutes?: number;
+    heartRateSampleCount?: number;
+    heartRateRecordCount?: number;
+    dateRangeStart?: string;
+    dateRangeEnd?: string;
+    sleepDateRangeStart?: string;
+    sleepDateRangeEnd?: string;
+    heartRateDateRangeStart?: string;
+    heartRateDateRangeEnd?: string;
     /** True when the read window returned no steps, sleep sessions, or heart-rate samples (writers may be missing). */
     recentDataLikelyEmpty?: boolean;
+    /** Echo from `/api/health-connect/sync` JSON when present. */
+    serverPersisted?: {
+      stepsPersisted?: boolean;
+      persistedDailyStepsCount?: number;
+      dailyStepsCount?: number;
+      dailyStepsTotal?: number;
+      datesPersisted?: string[];
+      sleepSessionsPersisted?: number;
+      heartRateSamplesPersisted?: number;
+    };
+    /** Dev-only diagnostics from server (Android bridge may omit). */
+    serverDevDiagnostics?: Record<string, unknown>;
   }>;
 }
 
@@ -139,7 +167,7 @@ class ShiftCoachHealthConnectWeb extends WebPlugin implements ShiftCoachHealthCo
   }
 
   async syncNow() {
-    return { ok: false, recentDataLikelyEmpty: false };
+    return { ok: false, recentDataLikelyEmpty: false, dailyStepsCount: 0, dailyStepsTotal: 0 };
   }
 }
 

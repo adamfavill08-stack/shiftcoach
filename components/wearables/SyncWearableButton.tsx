@@ -3,6 +3,7 @@
 import { Capacitor } from '@capacitor/core'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useTranslation } from '@/components/providers/language-provider'
 import type { ShiftCoachHealthConnectPlugin } from '@/lib/native/shiftCoachHealthConnect'
 import { runHealthConnectNativeSync } from '@/lib/native/runHealthConnectNativeSync'
 import {
@@ -24,17 +25,11 @@ const HC_INCOMPLETE_PERMISSIONS_MESSAGE =
 const HC_CONNECTED =
   'Connected to Health Connect. ShiftCoach can read Steps, Sleep, and Heart Rate.'
 
-const HC_NO_RECENT_DATA =
-  'Health Connect is connected, but no recent data was found. Make sure Samsung Health or Google Fit is writing data to Health Connect.'
-
 const HC_SIGN_IN_TO_SYNC =
   'Health Connect is connected, but ShiftCoach needs you to sign in again before syncing.'
 
 const HC_SETTINGS_OPEN_FAILED =
   'Could not open Health Connect settings. Open Android Settings, search for Health Connect, then allow data access for ShiftCoach.'
-
-const SAMSUNG_HC_SOURCE_NOTE =
-  'Samsung Health, Google Fit, or your watch app must be allowed to write steps, sleep, and heart rate into Health Connect. ShiftCoach only reads those types once they appear in Health Connect.'
 
 const HC_PERMISSION_LAUNCHER_BROKEN =
   'Health Connect is available, but this build could not attach the permission screen. Please reinstall the app or contact support, and send a screenshot of the debug panel below if shown.'
@@ -88,8 +83,11 @@ async function getBackendHealthConnectConnected(): Promise<boolean> {
     const startOfDay = new Date()
     startOfDay.setHours(0, 0, 0, 0)
     const startTimeMillis = startOfDay.getTime()
+    const tz =
+      typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : ''
+    const tzQs = tz ? `&tz=${encodeURIComponent(tz)}` : ''
     const res = await fetch(
-      `/api/wearables/status?startTimeMillis=${startTimeMillis}&endTimeMillis=${now}`,
+      `/api/wearables/status?startTimeMillis=${startTimeMillis}&endTimeMillis=${now}${tzQs}`,
       { method: 'GET', credentials: 'include' },
     )
     if (!res.ok) return false
@@ -144,15 +142,18 @@ function isWarningFeedback(
     feedback.includes('Install or update Health Connect') ||
     feedback.includes('Google Play') ||
     feedback.includes('not installed or needs an update') ||
+    feedback.includes('no recent Steps') ||
     feedback.includes('no recent data was found') ||
     feedback.includes('needs you to sign in again before syncing')
   )
 }
 
 export default function SyncWearableButton() {
+  const { t } = useTranslation()
   const [isConnected, setIsConnected] = useState(false)
   const [loading, setLoading] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [emptyAfterSync, setEmptyAfterSync] = useState(false)
   const [showOpenHealthConnectSettings, setShowOpenHealthConnectSettings] = useState(false)
   const [showSignInAgainPrompt, setShowSignInAgainPrompt] = useState(false)
   const [isAndroidNative, setIsAndroidNative] = useState(false)
@@ -214,8 +215,10 @@ export default function SyncWearableButton() {
   }
 
   async function handleClick() {
+    const connectedBeforeClick = isConnected
     setLoading(true)
     setFeedback(null)
+    setEmptyAfterSync(false)
     setShowOpenHealthConnectSettings(false)
     setShowSignInAgainPrompt(false)
 
@@ -285,13 +288,114 @@ export default function SyncWearableButton() {
             localStorage.setItem('wearables:lastSyncedAt', String(ts))
             persistHealthConnectNativeLinked()
             window.dispatchEvent(new CustomEvent('wearables-synced', { detail: { ts } }))
+            window.dispatchEvent(new CustomEvent('sleep-refreshed'))
             setIsConnected(true)
+
+            const nSteps = syncResult.steps ?? 0
+            const nSleep = syncResult.sleepSessionCount ?? syncResult.sleepCount ?? 0
+            const nHr = syncResult.heartRateSampleCount ?? syncResult.heartRateCount ?? 0
+            const sp = syncResult.serverPersisted
+
+            if (typeof localStorage !== 'undefined' && isDevBuild) {
+              try {
+                localStorage.setItem(
+                  'shiftcoach:hcLastNativeSync',
+                  JSON.stringify({
+                    at: Date.now(),
+                    steps: nSteps,
+                    dailyStepsCount: syncResult.dailyStepsCount,
+                    dailyStepsTotal: syncResult.dailyStepsTotal,
+                    stepsRecordCount: syncResult.stepsRecordCount,
+                    sleepSessionCount: nSleep,
+                    sleepTotalMinutes: syncResult.sleepTotalMinutes,
+                    heartRateSampleCount: nHr,
+                    heartRateRecordCount: syncResult.heartRateRecordCount,
+                    recentDataLikelyEmpty: syncResult.recentDataLikelyEmpty,
+                    dateRangeStart: syncResult.dateRangeStart,
+                    dateRangeEnd: syncResult.dateRangeEnd,
+                    sleepDateRangeStart: syncResult.sleepDateRangeStart,
+                    sleepDateRangeEnd: syncResult.sleepDateRangeEnd,
+                    heartRateDateRangeStart: syncResult.heartRateDateRangeStart,
+                    heartRateDateRangeEnd: syncResult.heartRateDateRangeEnd,
+                    serverPersisted: sp ?? null,
+                  }),
+                )
+                if (syncResult.serverDevDiagnostics && typeof syncResult.serverDevDiagnostics === 'object') {
+                  localStorage.setItem(
+                    'shiftcoach:hcLastApiSyncDiag',
+                    JSON.stringify({ at: Date.now(), ...syncResult.serverDevDiagnostics }),
+                  )
+                }
+              } catch {
+                /* ignore */
+              }
+            }
+
             if (syncResult.recentDataLikelyEmpty) {
-              setFeedback(HC_NO_RECENT_DATA)
-            } else if (isConnected) {
-              setFeedback('Synced successfully.')
+              setFeedback(t('detail.wearablesSync.hcConnectedNoDataBody'))
+              setEmptyAfterSync(true)
             } else {
-              setFeedback(HC_CONNECTED)
+              setEmptyAfterSync(false)
+              const weekStepsTotal =
+                (sp != null && typeof sp.dailyStepsTotal === 'number' ? sp.dailyStepsTotal : null) ??
+                syncResult.dailyStepsTotal ??
+                0
+              const nativeHadData =
+                weekStepsTotal > 0 || nSteps > 0 || nSleep > 0 || nHr > 0
+              const savedSomething =
+                sp != null &&
+                (Boolean(sp.stepsPersisted) ||
+                  (sp.persistedDailyStepsCount ?? 0) > 0 ||
+                  (sp.sleepSessionsPersisted ?? 0) > 0 ||
+                  (sp.heartRateSamplesPersisted ?? 0) > 0)
+              const persistFailed = nativeHadData && sp != null && !savedSomething
+
+              if (persistFailed) {
+                const fail =
+                  'Health Connect returned data, but nothing new was saved. Check your network and sign-in, then try Sync again.'
+                setFeedback(connectedBeforeClick ? fail : `${HC_CONNECTED} ${fail}`)
+              } else {
+                const sleepLine = (sp?.sleepSessionsPersisted ?? nSleep) > 0 ? `${sp?.sleepSessionsPersisted ?? nSleep} sleep session(s)` : ''
+                const hrLine =
+                  (sp?.heartRateSamplesPersisted ?? nHr) > 0
+                    ? `${sp?.heartRateSamplesPersisted ?? nHr} heart rate sample(s)`
+                    : ''
+                const persistedDays = sp?.persistedDailyStepsCount ?? 0
+                const hasStepHistory =
+                  weekStepsTotal > 0 || persistedDays > 0 || nSteps > 0
+
+                const appendHrDensityHint = (msg: string) => {
+                  if (savedSomething && nHr > 0 && nHr < 10) {
+                    return (
+                      msg +
+                      ' Heart data synced, but sample density is still low; heart-rate recovery views may need more readings over a day or two.'
+                    )
+                  }
+                  return msg
+                }
+
+                if (hasStepHistory) {
+                  const displayTotal = weekStepsTotal > 0 ? weekStepsTotal : nSteps
+                  let msg = `Synced successfully: ${displayTotal} steps over the last 7 days.`
+                  const extra = [sleepLine, hrLine].filter(Boolean)
+                  if (extra.length > 0) {
+                    msg += ` ${extra.join(', ')}.`
+                  }
+                  msg = appendHrDensityHint(msg)
+                  setFeedback(connectedBeforeClick ? msg : `${HC_CONNECTED} ${msg}`.trim())
+                } else if (sleepLine || hrLine) {
+                  let msg = `Synced successfully: ${[sleepLine, hrLine].filter(Boolean).join(', ')}.`
+                  msg = appendHrDensityHint(msg)
+                  setFeedback(connectedBeforeClick ? msg : `${HC_CONNECTED} ${msg}`.trim())
+                } else {
+                  setFeedback(
+                    connectedBeforeClick
+                      ? 'Health Connect is connected, but no recent Steps, Sleep, or Heart Rate data was found. Open Google Fit or Samsung Health and make sure it is writing data to Health Connect, then tap Sync now again.'
+                      : `${HC_CONNECTED} No recent Steps, Sleep, or Heart Rate data was read yet. Open Google Fit or Samsung Health, confirm they write to Health Connect, then tap Sync now again.`,
+                  )
+                  setEmptyAfterSync(true)
+                }
+              }
             }
             return
           }
@@ -339,6 +443,7 @@ export default function SyncWearableButton() {
       const ts = serverTs ? new Date(serverTs).getTime() : Date.now()
       localStorage.setItem('wearables:lastSyncedAt', String(ts))
       window.dispatchEvent(new CustomEvent('wearables-synced', { detail: { ts } }))
+      window.dispatchEvent(new CustomEvent('sleep-refreshed'))
       setFeedback('Synced successfully.')
     } catch (err) {
       const code = capacitorErrorCode(err)
@@ -361,17 +466,19 @@ export default function SyncWearableButton() {
     }
   }
 
-  const buttonText = !isConnected ? 'Connect Health Connect' : 'Sync now'
+  const buttonText = !isConnected
+    ? t('detail.wearablesSync.buttonConnectHc')
+    : t('detail.wearablesSync.buttonSyncNow')
   const helperText =
     isAndroidNative && hasHealthConnectAvailable
       ? !isConnected
-        ? 'Tap Connect — Android opens Health Connect and asks for Steps, Sleep, and Heart Rate. You can change this later in Health Connect settings.'
-        : 'Health Connect is linked. Tap to sync the latest Steps, Sleep, and Heart Rate.'
+        ? t('detail.wearablesSync.helperConnectFlow')
+        : t('detail.wearablesSync.helperLinkedNative')
       : !isConnected
-        ? 'Connect to Health Connect to sync Steps, Sleep, and Heart Rate.'
-        : 'Health Connect is linked. Tap to sync the latest Steps, Sleep, and Heart Rate.'
+        ? t('detail.wearablesSync.helperDisconnectedWeb')
+        : t('detail.wearablesSync.helperLinkedNative')
   const isButtonDisabled = loading
-  const warnStyle = isWarningFeedback(feedback, showOpenHealthConnectSettings)
+  const warnStyle = isWarningFeedback(feedback, showOpenHealthConnectSettings) || emptyAfterSync
 
   return (
     <div className="w-full sm:max-w-md">
@@ -384,7 +491,7 @@ export default function SyncWearableButton() {
         {loading ? (
           <>
             <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white" />
-            <span>Loading...</span>
+            <span>{t('detail.wearablesSync.syncing')}</span>
           </>
         ) : (
           <span>{buttonText}</span>
@@ -393,8 +500,21 @@ export default function SyncWearableButton() {
 
       <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">{helperText}</p>
 
+      {isAndroidNative && hasHealthConnectAvailable ? (
+        <div className="mt-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            {t('detail.wearablesSync.preSyncChecklistTitle')}
+          </p>
+          <p className="mt-1.5 whitespace-pre-line text-[11px] leading-relaxed text-[var(--text-soft)]">
+            {t('detail.wearablesSync.preSyncChecklistBody')}
+          </p>
+        </div>
+      ) : null}
+
       {isAndroidNative ? (
-        <p className="mt-1 text-[11px] leading-snug text-slate-500 dark:text-slate-400">{SAMSUNG_HC_SOURCE_NOTE}</p>
+        <p className="mt-2 text-[11px] leading-snug text-slate-500 dark:text-slate-400">
+          {t('detail.wearablesSync.sourceChainShort')}
+        </p>
       ) : null}
 
       {isAndroidNative &&

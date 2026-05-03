@@ -1,9 +1,24 @@
 import { NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
+import { formatYmdInTimeZone } from '@/lib/sleep/utils'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+function resolveRequestTimeZone(req: Request): string {
+  const url = new URL(req.url)
+  const raw = url.searchParams.get('tz') ?? url.searchParams.get('timeZone') ?? ''
+  const decoded = raw ? decodeURIComponent(raw.trim()) : ''
+  const zone = decoded.slice(0, 120)
+  if (!zone) return 'UTC'
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: zone })
+    return zone
+  } catch {
+    return 'UTC'
+  }
+}
+
+export async function GET(req: Request) {
   if (process.env.NODE_ENV === 'production') {
     return NextResponse.json({ error: 'not_found' }, { status: 404 })
   }
@@ -11,6 +26,9 @@ export async function GET() {
   try {
     const { supabase, userId } = await getServerSupabaseAndUserId()
     if (!userId) return buildUnauthorizedResponse()
+
+    const tz = resolveRequestTimeZone(req)
+    const localToday = formatYmdInTimeZone(new Date(), tz)
 
     const sourceRows = await supabase
       .from('device_sources')
@@ -22,7 +40,7 @@ export async function GET() {
     let activityError: string | null = null
     const activityTs = await supabase
       .from('activity_logs')
-      .select('id, steps, active_minutes, source, ts, created_at')
+      .select('id, steps, active_minutes, source, ts, created_at, activity_date')
       .eq('user_id', userId)
       .order('ts', { ascending: false })
       .limit(10)
@@ -40,6 +58,14 @@ export async function GET() {
       activityRows = activityTs.data ?? []
       activityError = activityTs.error?.message ?? null
     }
+
+    const activityToday = await supabase
+      .from('activity_logs')
+      .select('id, steps, ts, activity_date, source')
+      .eq('user_id', userId)
+      .eq('activity_date', localToday)
+      .order('ts', { ascending: false })
+      .limit(5)
 
     // Recent sleep logs (support old/new schemas)
     let sleepRows: any[] = []
@@ -65,9 +91,37 @@ export async function GET() {
       sleepError = sleepOld.error?.message ?? null
     }
 
+    const sleepRecordsRecent = await supabase
+      .from('sleep_records')
+      .select('id, start_at, end_at, source, stage')
+      .eq('user_id', userId)
+      .eq('source', 'health_connect')
+      .order('end_at', { ascending: false })
+      .limit(10)
+
+    const hrRecent = await supabase
+      .from('wearable_heart_rate_samples')
+      .select('recorded_at, bpm, source')
+      .eq('user_id', userId)
+      .order('recorded_at', { ascending: false })
+      .limit(10)
+
+    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const { count: hrCount24h } = await supabase
+      .from('wearable_heart_rate_samples')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('recorded_at', since24h)
+
     return NextResponse.json(
       {
-        userId,
+        authenticated: true,
+        hookAlignment: {
+          localTodayUsed: localToday,
+          timeZone: tz,
+          activityLogsForLocalToday: activityToday.data ?? [],
+          activityTodayQueryError: activityToday.error?.message ?? null,
+        },
         wearableConnection: {
           connected: (sourceRows.data?.length ?? 0) > 0,
           providerSources: sourceRows.data ?? [],
@@ -77,20 +131,24 @@ export async function GET() {
         rawData: {
           activityLogsRecent: activityRows,
           sleepLogsRecent: sleepRows,
+          sleepRecordsHealthConnectRecent: sleepRecordsRecent.data ?? [],
+          sleepRecordsHealthConnectError: sleepRecordsRecent.error?.message ?? null,
+          wearableHeartRateRecent: hrRecent.data ?? [],
+          wearableHeartRateError: hrRecent.error?.message ?? null,
+          heartRateSamplesLast24h: typeof hrCount24h === 'number' ? hrCount24h : null,
           activityError,
           sleepError,
         },
       },
-      { status: 200 }
+      { status: 200 },
     )
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
       {
         error: 'wearables_debug_failed',
-        details: err?.message || String(err),
+        details: err instanceof Error ? err.message : String(err),
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
-

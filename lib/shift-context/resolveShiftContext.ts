@@ -12,6 +12,7 @@ import type {
   ShiftContextSnapshot,
   TransitionState,
 } from '@/lib/shift-context/types'
+import { inferOffDayContext, inferOffDayNightAnchor } from '@/lib/shift-context/inferOffDayContext'
 
 export type ShiftRowInput = {
   date: string
@@ -237,6 +238,15 @@ export function resolveShiftContextFromRows(rows: ShiftRowInput[], now: Date = n
     transitionState,
   })
 
+  const offDayContext = inferOffDayContext(
+    { guidanceMode, lastCompletedShift, nextShift },
+    now,
+  )
+  const offDayNightAnchor = inferOffDayNightAnchor(
+    { nextShift, mealPlanningShift },
+    offDayContext,
+  )
+
   return {
     lastCompletedShift,
     currentShift,
@@ -245,6 +255,8 @@ export function resolveShiftContextFromRows(rows: ShiftRowInput[], now: Date = n
     mealPlanningShift,
     transitionState,
     guidanceMode,
+    offDayContext,
+    offDayNightAnchor,
   }
 }
 

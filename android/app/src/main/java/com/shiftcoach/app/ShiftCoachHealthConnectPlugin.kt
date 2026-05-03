@@ -18,6 +18,7 @@ import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.getcapacitor.JSObject
@@ -31,6 +32,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
@@ -44,7 +46,8 @@ import org.json.JSONTokener
  * Phone-side Health Connect → POST /api/health-connect/sync.
  * Auth: [pullAuthFromWebSession] reads the Supabase session from WebView `localStorage` (no token in Capacitor `methodData`).
  * [syncNow] sends `Authorization: Bearer …`. WebView cookies may still be sent when present.
- * [StepsRecord] aggregation includes all sources the user allowed in Health Connect (watch, phone, apps).
+ * Steps: use [HealthConnectClient.aggregate] with [StepsRecord.COUNT_TOTAL] so HC dedupes watch/phone
+ * (summing raw [StepsRecord] intervals can under-count or mis-handle merged sources). Falls back to readRecords sum.
  */
 @CapacitorPlugin(name = "ShiftCoachHealthConnect")
 class ShiftCoachHealthConnectPlugin : Plugin() {
@@ -778,30 +781,77 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
 
                 val zone = ZoneId.systemDefault()
                 val now = Instant.now()
-                val startOfDay =
-                    ZonedDateTime.now(zone).toLocalDate().atStartOfDay(zone).toInstant()
+                val todayLocal = ZonedDateTime.now(zone).toLocalDate()
+                // Last 7 local civil days (inclusive): today .. today-6
+                val stepsRangeStart = todayLocal.minusDays(6).atStartOfDay(zone).toInstant()
+                val stepsDateRangeStart = stepsRangeStart.toString()
+                val stepsDateRangeEnd = now.toString()
 
-                val stepsTotal =
-                    runBlocking {
-                        val req =
-                            ReadRecordsRequest(
-                                StepsRecord::class,
-                                TimeRangeFilter.between(startOfDay, now),
-                            )
-                        val resp = client.readRecords(req)
-                        resp.records.sumOf { it.count.toLong() }
+                val dailyStepsArr = JSONArray()
+                var stepsTotalSevenDays = 0L
+                var stepsTodayForCompat = 0L
+                /** -1: per-day aggregates used; no single aggregate record count. */
+                val stepsRecordCount = -1
+
+                runBlocking {
+                    for (offset in 6 downTo 0) {
+                        val day = todayLocal.minusDays(offset.toLong())
+                        val start = day.atStartOfDay(zone).toInstant()
+                        val endExclusive = day.plusDays(1).atStartOfDay(zone).toInstant()
+                        val end = if (endExclusive > now) now else endExclusive
+                        var daySteps = 0L
+                        if (start < end) {
+                            try {
+                                val agg =
+                                    client.aggregate(
+                                        AggregateRequest(
+                                            metrics = setOf(StepsRecord.COUNT_TOTAL),
+                                            timeRangeFilter = TimeRangeFilter.between(start, end),
+                                        ),
+                                    )
+                                daySteps = agg[StepsRecord.COUNT_TOTAL] ?: 0L
+                            } catch (e: Exception) {
+                                if (BuildConfig.HC_VERBOSE_LOG) {
+                                    hci("steps aggregate failed for $day, readRecords: ${e.message}")
+                                }
+                                val req =
+                                    ReadRecordsRequest(
+                                        StepsRecord::class,
+                                        timeRangeFilter = TimeRangeFilter.between(start, end),
+                                    )
+                                val resp = client.readRecords(req)
+                                daySteps = resp.records.sumOf { it.count.toLong() }
+                            }
+                        }
+                        val dayStepsInt = daySteps.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+                        val o = JSONObject()
+                        o.put("activityDate", day.toString())
+                        o.put("steps", dayStepsInt)
+                        dailyStepsArr.put(o)
+                        stepsTotalSevenDays += daySteps
+                        if (day == todayLocal) {
+                            stepsTodayForCompat = daySteps
+                        }
                     }
+                }
+
+                val stepsTotal = stepsTodayForCompat
+
+                val sleepFrom = now.minus(14, ChronoUnit.DAYS)
+                val sleepDateRangeStart = sleepFrom.toString()
+                val sleepDateRangeEnd = now.toString()
 
                 val sleepArr = JSONArray()
+                var sleepTotalMinutes = 0L
                 runBlocking {
-                    val from = now.minus(14, ChronoUnit.DAYS)
                     val req =
                         ReadRecordsRequest(
                             SleepSessionRecord::class,
-                            TimeRangeFilter.between(from, now),
+                            TimeRangeFilter.between(sleepFrom, now),
                         )
                     val resp = client.readRecords(req)
                     for (session in resp.records) {
+                        sleepTotalMinutes += ChronoUnit.MINUTES.between(session.startTime, session.endTime)
                         val o = JSONObject()
                         o.put("start", session.startTime.toString())
                         o.put("end", session.endTime.toString())
@@ -809,26 +859,32 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                         sleepArr.put(o)
                     }
                 }
+                val sleepSessionCount = sleepArr.length()
+
+                val hrFrom = now.minus(2, ChronoUnit.DAYS)
+                val heartRateDateRangeStart = hrFrom.toString()
+                val heartRateDateRangeEnd = now.toString()
 
                 val hrArr = JSONArray()
-                var hrCount = 0
+                var heartRateSampleCount = 0
+                var heartRateRecordCount = 0
                 val maxHr = 2500
                 runBlocking {
-                    val from = now.minus(2, ChronoUnit.DAYS)
                     val req =
                         ReadRecordsRequest(
                             HeartRateRecord::class,
-                            TimeRangeFilter.between(from, now),
+                            TimeRangeFilter.between(hrFrom, now),
                         )
                     val resp = client.readRecords(req)
+                    heartRateRecordCount = resp.records.size
                     outer@ for (rec in resp.records) {
                         for (sample in rec.samples) {
-                            if (hrCount >= maxHr) break@outer
+                            if (heartRateSampleCount >= maxHr) break@outer
                             val o = JSONObject()
                             o.put("bpm", sample.beatsPerMinute.toInt())
                             o.put("ts", sample.time.toString())
                             hrArr.put(o)
-                            hrCount++
+                            heartRateSampleCount++
                         }
                     }
                 }
@@ -837,7 +893,8 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 val body = JSONObject()
                 val stepsInt = stepsTotal.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
                 body.put("steps", stepsInt)
-                body.put("activityDate", ZonedDateTime.now(zone).toLocalDate().toString())
+                body.put("activityDate", todayLocal.toString())
+                body.put("dailySteps", dailyStepsArr)
                 body.put("sleep", sleepArr)
                 body.put("heartRate", hrArr)
                 body.put("syncedAt", syncedAt)
@@ -863,7 +920,8 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 val code = conn.responseCode
                 val stream =
                     if (code in 200..299) conn.inputStream else conn.errorStream ?: conn.inputStream
-                BufferedReader(InputStreamReader(stream, StandardCharsets.UTF_8)).use { it.readText() }
+                val responseText =
+                    BufferedReader(InputStreamReader(stream, StandardCharsets.UTF_8)).use { it.readText() }
                 conn.disconnect()
 
                 if (BuildConfig.HC_VERBOSE_LOG) {
@@ -882,14 +940,68 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 ret.put("ok", true)
                 ret.put("lastSyncedAt", syncedAt)
                 val stepsOut = stepsTotal.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
-                val sleepC = sleepArr.length()
-                val hrC = hrArr.length()
+                val dailyStepsTotalInt =
+                    stepsTotalSevenDays.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
                 ret.put("steps", stepsOut)
-                ret.put("sleepCount", sleepC)
-                ret.put("heartRateCount", hrC)
-                val emptyIngestion = stepsOut == 0 && sleepC == 0 && hrC == 0
+                ret.put("dailyStepsCount", dailyStepsArr.length())
+                ret.put("dailyStepsTotal", dailyStepsTotalInt)
+                ret.put("stepsRecordCount", stepsRecordCount)
+                ret.put("sleepCount", sleepSessionCount)
+                ret.put("sleepSessionCount", sleepSessionCount)
+                ret.put(
+                    "sleepTotalMinutes",
+                    sleepTotalMinutes.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt(),
+                )
+                ret.put("heartRateCount", heartRateSampleCount)
+                ret.put("heartRateSampleCount", heartRateSampleCount)
+                ret.put("heartRateRecordCount", heartRateRecordCount)
+                ret.put("dateRangeStart", stepsDateRangeStart)
+                ret.put("dateRangeEnd", stepsDateRangeEnd)
+                ret.put("sleepDateRangeStart", sleepDateRangeStart)
+                ret.put("sleepDateRangeEnd", sleepDateRangeEnd)
+                ret.put("heartRateDateRangeStart", heartRateDateRangeStart)
+                ret.put("heartRateDateRangeEnd", heartRateDateRangeEnd)
+                val emptyIngestion =
+                    dailyStepsTotalInt == 0 && sleepSessionCount == 0 && heartRateSampleCount == 0
                 ret.put("recentDataLikelyEmpty", emptyIngestion)
-                hci("syncNow completed ok recentDataLikelyEmpty=$emptyIngestion")
+
+                try {
+                    val json = JSONObject(responseText)
+                    if (json.has("persisted")) {
+                        val p = json.getJSONObject("persisted")
+                        val sp = JSObject()
+                        sp.put("stepsPersisted", p.optBoolean("stepsPersisted"))
+                        sp.put("persistedDailyStepsCount", p.optInt("persistedDailyStepsCount"))
+                        sp.put("dailyStepsCount", p.optInt("dailyStepsCount"))
+                        sp.put("dailyStepsTotal", p.optInt("dailyStepsTotal"))
+                        if (p.has("datesPersisted") && p.get("datesPersisted") is JSONArray) {
+                            val src = p.getJSONArray("datesPersisted")
+                            val datesArr = JSONArray()
+                            for (i in 0 until src.length()) {
+                                datesArr.put(src.optString(i))
+                            }
+                            sp.put("datesPersisted", datesArr)
+                        }
+                        sp.put("sleepSessionsPersisted", p.optInt("sleepSessionsPersisted"))
+                        sp.put("heartRateSamplesPersisted", p.optInt("heartRateSamplesPersisted"))
+                        ret.put("serverPersisted", sp)
+                    }
+                    if (json.has("_devSyncDiagnostics")) {
+                        ret.put(
+                            "serverDevDiagnostics",
+                            jsonObjectToJSObject(json.getJSONObject("_devSyncDiagnostics")),
+                        )
+                    }
+                } catch (_: Exception) {
+                    // Non-JSON or unexpected shape — native counts still returned.
+                }
+
+                hci(
+                    "syncNow completed ok recentDataLikelyEmpty=$emptyIngestion " +
+                        "stepsToday=$stepsOut dailyStepsTotal=$dailyStepsTotalInt dailyCount=${dailyStepsArr.length()} " +
+                        "sleepSessions=$sleepSessionCount sleepTotalMin=$sleepTotalMinutes " +
+                        "hrSamples=$heartRateSampleCount hrRecords=$heartRateRecordCount",
+                )
                 call.resolve(ret)
             } catch (e: Exception) {
                 hce("syncNow failed", e)
@@ -983,6 +1095,35 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
             diag.put("lastNativeError", JSONObject.NULL)
         }
         ret.put("hcDiagnostics", diag)
+    }
+
+    /** Shallow recursive copy for `/api/health-connect/sync` dev diagnostics (no raw health samples). */
+    private fun jsonObjectToJSObject(
+        o: JSONObject,
+        depth: Int = 0,
+    ): JSObject {
+        val out = JSObject()
+        if (depth > 5) return out
+        val it = o.keys()
+        while (it.hasNext()) {
+            val k = it.next()
+            val v = o.get(k)
+            when (v) {
+                is JSONObject -> out.put(k, jsonObjectToJSObject(v, depth + 1))
+                is JSONArray -> out.put(k, v.toString())
+                is Boolean -> out.put(k, v)
+                is Int -> out.put(k, v)
+                is Long -> out.put(k, v)
+                is Double -> out.put(k, v)
+                is Float -> out.put(k, v.toDouble())
+                is String -> out.put(k, v)
+                JSONObject.NULL -> {
+                    /* skip */
+                }
+                else -> out.put(k, v.toString())
+            }
+        }
+        return out
     }
 
     private fun sdkStatusLabel(status: Int): String =

@@ -271,10 +271,14 @@ export function useActivityToday() {
       if (!cancelled) fetchData()
     }
     window.addEventListener('activity-level-updated', handleUpdate)
-    
+    window.addEventListener('wearables-synced', handleUpdate)
+    window.addEventListener('activity-manual-logged', handleUpdate)
+
     return () => {
       cancelled = true
       window.removeEventListener('activity-level-updated', handleUpdate)
+      window.removeEventListener('wearables-synced', handleUpdate)
+      window.removeEventListener('activity-manual-logged', handleUpdate)
     }
   }, [])
 

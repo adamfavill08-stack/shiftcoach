@@ -1,6 +1,7 @@
 export type {
   FatigueShiftGuidance,
   GuidanceMode,
+  OffDayContext,
   OperationalShiftKind,
   ShiftContextResult,
   ShiftContextSnapshot,
@@ -11,6 +12,7 @@ export {
   operationalKindFromStandard,
   resolveShiftContextFromRows,
 } from '@/lib/shift-context/resolveShiftContext'
+export { inferOffDayContext, inferOffDayNightAnchor, snapshotIsNightWork } from '@/lib/shift-context/inferOffDayContext'
 export type { ShiftRowInput } from '@/lib/shift-context/resolveShiftContext'
 export { mealScheduleTemplateFromOperational } from '@/lib/shift-context/mealScheduleFromContext'
 export {

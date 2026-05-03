@@ -8,9 +8,12 @@ import {
   pickLoggedWakeAfterMorningShiftEnd,
 } from '@/lib/nutrition/nightShiftMorningEndMeals'
 import {
+  inferWakeAnchorRhythm,
   resolveDefaultWakeNoSleep,
-  resolveDiurnalWakeAnchor,
+  resolveWakeAnchorForMeals,
 } from '@/lib/nutrition/resolveDiurnalWakeAnchor'
+import { buildServerMealScheduleMeta } from '@/lib/nutrition/mealScheduleProvenance'
+import { getMealSlotDisplayCopy, getScheduleContextSubtitle } from '@/lib/nutrition/getMealSlotDisplayCopy'
 import { isoLocalDate } from '@/lib/shifts'
 import {
   fetchShiftContext,
@@ -112,9 +115,29 @@ export async function GET(req: NextRequest) {
     const bounds0 = shiftBoundsFromSnapshot(mealGuide.anchorShift)
 
     let shiftType: 'day' | 'night' | 'late' | 'off' = mealGuide.template
+    if (mealGuide.guidanceMode === 'off_day') {
+      shiftType = 'off'
+    }
+
+    const nightBoundsForOff = shiftBoundsFromSnapshot(shiftCtx.offDayNightAnchor)
     let shiftStart: Date | undefined = bounds0?.start
     let shiftEnd: Date | undefined = bounds0?.end
     let usedEstimatedShiftTimes = mealGuide.anchorShift?.usedEstimatedTimes ?? false
+
+    if (
+      mealGuide.guidanceMode === 'off_day' &&
+      (shiftCtx.offDayContext === 'before_first_night' || shiftCtx.offDayContext === 'between_nights') &&
+      nightBoundsForOff?.start &&
+      nightBoundsForOff?.end &&
+      !Number.isNaN(nightBoundsForOff.start.getTime()) &&
+      !Number.isNaN(nightBoundsForOff.end.getTime())
+    ) {
+      shiftStart = nightBoundsForOff.start
+      shiftEnd = nightBoundsForOff.end
+      if (shiftCtx.offDayNightAnchor) {
+        usedEstimatedShiftTimes = shiftCtx.offDayNightAnchor.usedEstimatedTimes
+      }
+    }
 
     const hasExactShiftTimes = Boolean(
       mealGuide.anchorShift &&
@@ -169,6 +192,18 @@ export async function GET(req: NextRequest) {
       shiftStart.setHours(9, 0, 0, 0)
       shiftEnd = new Date(base)
       shiftEnd.setHours(17, 0, 0, 0)
+    } else if (
+      (!shiftStart || !shiftEnd || Number.isNaN(shiftStart.getTime())) &&
+      shiftType === 'off' &&
+      (shiftCtx.offDayContext === 'before_first_night' || shiftCtx.offDayContext === 'between_nights')
+    ) {
+      usedEstimatedShiftTimes = true
+      const base = new Date(now)
+      shiftStart = new Date(base)
+      shiftStart.setHours(22, 0, 0, 0)
+      shiftEnd = new Date(base)
+      shiftEnd.setDate(shiftEnd.getDate() + 1)
+      shiftEnd.setHours(7, 0, 0, 0)
     }
 
     const rawWakeEnd = latestSleep?.end_ts ? new Date(latestSleep.end_ts as string) : null
@@ -243,24 +278,53 @@ export async function GET(req: NextRequest) {
         ? pickLoggedWakeAfterMorningShiftEnd(shiftEnd, rawWakeEnd)
         : null
 
+    /** Pre-first-night / transition template must use real sleep end for breakfast/lunch — not the generic 08:30 night placeholder. */
+    const isPreOrTransitionNight =
+      mealGuide.guidanceMode === 'transition_day_to_night' ||
+      mealGuide.guidanceMode === 'pre_night_shift' ||
+      (mealGuide.guidanceMode === 'off_day' && shiftCtx.offDayContext === 'before_first_night')
+
+    const wakeRhythm = inferWakeAnchorRhythm({
+      shiftType,
+      guidanceMode: mealGuide.guidanceMode,
+      transitionState: mealGuide.transitionState,
+      offDayContext: mealGuide.guidanceMode === 'off_day' ? shiftCtx.offDayContext : null,
+    })
+
     let wakeTime: Date
-    if (usesNightBoundsForMeals) {
+    if (usesNightBoundsForMeals && !isPreOrTransitionNight) {
       wakeTime = resolveDefaultWakeNoSleep(now, 'night')
     } else if (rawWakeEnd && !Number.isNaN(rawWakeEnd.getTime())) {
-      wakeTime = resolveDiurnalWakeAnchor(rawWakeEnd, now)
+      wakeTime = resolveWakeAnchorForMeals(rawWakeEnd, now, wakeRhythm)
+    } else if (
+      mealGuide.guidanceMode === 'off_day' &&
+      shiftCtx.offDayContext &&
+      shiftCtx.offDayContext !== 'normal_off'
+    ) {
+      wakeTime = resolveWakeAnchorForMeals(null, now, wakeRhythm)
     } else {
-      wakeTime = resolveDefaultWakeNoSleep(now, shiftType)
+      wakeTime = resolveDefaultWakeNoSleep(now, isPreOrTransitionNight ? 'off' : shiftType)
     }
 
-    const { slots: mealSchedule, templateUsed: scheduleTypeUsed } = getTodayMealSchedule({
-      adjustedCalories: adjusted.adjustedCalories,
+    const { slots: mealSchedule, templateUsed: scheduleTypeUsed, provenance: plannerProvenance } =
+      getTodayMealSchedule({
+        adjustedCalories: adjusted.adjustedCalories,
+        shiftType,
+        shiftStart,
+        shiftEnd,
+        wakeTime,
+        guidanceMode: mealGuide.guidanceMode,
+        expectedSleepHours,
+        loggedWakeAfterShift: loggedWakeForMeals,
+        offDayContext: shiftType === 'off' ? shiftCtx.offDayContext : null,
+      })
+
+    const mealScheduleMeta = buildServerMealScheduleMeta({
+      provenance: plannerProvenance,
       shiftType,
-      shiftStart,
-      shiftEnd,
-      wakeTime,
       guidanceMode: mealGuide.guidanceMode,
-      expectedSleepHours,
-      loggedWakeAfterShift: loggedWakeForMeals,
+      rhythmMode: wakeRhythm,
+      templateUsed: scheduleTypeUsed,
     })
 
     const usedFallbackTemplate = usedEstimatedShiftTimes || scheduleTypeUsed !== shiftType
@@ -395,7 +459,6 @@ export async function GET(req: NextRequest) {
 
     const patternColors = ((activePattern as any)?.color_config ?? {}) as Record<string, string | null>
     const dayColor = patternColors.day ?? patternColors.morning ?? '#3B82F6'
-    const nightColor = patternColors.night ?? '#EF4444'
     const afternoonColor = patternColors.afternoon ?? patternColors.day ?? '#A855F7'
     const eventsForAnchorDate = (eventOnAnchorDate ?? []) as Array<{ type?: string | null; color?: string | null }>
     const preferredEvent =
@@ -407,7 +470,7 @@ export async function GET(req: NextRequest) {
         : preferredEvent?.color
           ? String(preferredEvent.color)
           : shiftType === 'night'
-        ? nightColor
+        ? '#05afc5'
         : shiftType === 'day'
           ? dayColor
           : shiftType === 'late'
@@ -425,29 +488,6 @@ export async function GET(req: NextRequest) {
       timeRange: meal.windowLabel,
       focus: [meal.hint, meal.subtitle].filter(Boolean).join(' · ') || meal.hint,
     }))
-
-    // Build meals array (for visualization)
-    const meals = mealSchedule.map((meal, index) => {
-      const mealTime = meal.time
-      const dayStart = new Date(now)
-      dayStart.setHours(0, 0, 0, 0)
-      const dayEnd = new Date(dayStart)
-      dayEnd.setDate(dayEnd.getDate() + 1)
-      
-      // Position on 24h timeline (0-1)
-      const position = ((mealTime.getTime() - dayStart.getTime()) / (dayEnd.getTime() - dayStart.getTime())) % 1
-      
-      // Check if meal is in its recommended window (simplified - always true for recommended meals)
-      const inWindow = true
-
-      return {
-        id: meal.id,
-        label: meal.label,
-        time: formatTime24(mealTime),
-        position: Math.max(0, Math.min(1, position)),
-        inWindow,
-      }
-    })
 
     // Determine status (minutes until next occurrence, including rolled-forward slots)
     let status: 'onTrack' | 'slightlyLate' | 'veryLate' = 'onTrack'
@@ -473,15 +513,31 @@ export async function GET(req: NextRequest) {
 
       // Calculate macros proportionally based on meal calories
       const mealCalorieRatio = meal.caloriesTarget / totalCalories
+      const display = getMealSlotDisplayCopy(
+        {
+          id: meal.id,
+          label: meal.label,
+          hint: meal.hint,
+          subtitle: meal.subtitle,
+          ...(meal.role ? { role: String(meal.role) } : {}),
+          biologicalNight: meal.biologicalNight,
+          kcalCapped: meal.kcalCapped,
+        },
+        mealScheduleMeta,
+      )
       return {
         id: meal.id,
-        label: meal.label,
+        label: display.title,
+        categoryLabel: meal.label,
         time: formatTime24(meal.time),
         dayTag,
         windowLabel: meal.windowLabel,
         calories: meal.caloriesTarget,
         hint: meal.hint,
-        subtitle: meal.subtitle,
+        subtitle: display.subtitle || meal.subtitle,
+        ...(meal.role ? { role: meal.role } : {}),
+        ...(meal.biologicalNight ? { biologicalNight: true as const } : {}),
+        ...(meal.kcalCapped ? { kcalCapped: true as const } : {}),
         macros: {
           protein: Math.round(totalMacros.protein_g * mealCalorieRatio),
           carbs: Math.round(totalMacros.carbs_g * mealCalorieRatio),
@@ -502,15 +558,68 @@ export async function GET(req: NextRequest) {
         ? mealsWithMacros.find((m) => m.id === nextMealSlot.id) ?? mealsWithMacros[0]
         : mealsWithMacros[0]
 
+    const nextMealDisplay = nextMealWithMacros
+      ? getMealSlotDisplayCopy(
+          {
+            id: nextMealWithMacros.id,
+            label: nextMealWithMacros.label,
+            hint: nextMealWithMacros.hint,
+            subtitle: nextMealWithMacros.subtitle,
+            ...(nextMealWithMacros.role ? { role: String(nextMealWithMacros.role) } : {}),
+            biologicalNight: nextMealWithMacros.biologicalNight,
+            kcalCapped: nextMealWithMacros.kcalCapped,
+          },
+          mealScheduleMeta,
+        )
+      : null
+
+    const macroById = new Map(mealsWithMacros.map((m) => [m.id, m]))
+    const coachMealsDetailed = mealSchedule.map((meal) => {
+      const mealTime = meal.time
+      const dayStart = new Date(now)
+      dayStart.setHours(0, 0, 0, 0)
+      const dayEnd = new Date(dayStart)
+      dayEnd.setDate(dayEnd.getDate() + 1)
+      const position = ((mealTime.getTime() - dayStart.getTime()) / (dayEnd.getTime() - dayStart.getTime())) % 1
+      const row = macroById.get(meal.id)
+      const display = getMealSlotDisplayCopy(
+        {
+          id: meal.id,
+          label: meal.label,
+          hint: row?.hint ?? meal.hint,
+          subtitle: row?.subtitle ?? meal.subtitle,
+          ...(meal.role ? { role: String(meal.role) } : {}),
+          biologicalNight: row?.biologicalNight ?? meal.biologicalNight,
+          kcalCapped: row?.kcalCapped ?? meal.kcalCapped,
+        },
+        mealScheduleMeta,
+      )
+      return {
+        id: meal.id,
+        label: display.title,
+        time: formatTime24(mealTime),
+        position: Math.max(0, Math.min(1, position)),
+        inWindow: true,
+        hint: row?.hint ?? meal.hint,
+        subtitle: display.subtitle || row?.subtitle || meal.subtitle,
+        explanation: display.explanation,
+        ...(display.badge ? { badge: display.badge } : {}),
+        ...(row?.role ? { role: row.role } : meal.role ? { role: meal.role } : {}),
+        ...(row?.biologicalNight ? { biologicalNight: true as const } : {}),
+        ...(row?.kcalCapped ? { kcalCapped: true as const } : {}),
+      }
+    })
+
     const nextMealTimeStr = nextMealAt ? formatTime24(nextMealAt) : '—'
 
     // Build response
     const response = {
-      nextMealLabel: nextMealSlot?.label || 'Next meal',
+      nextMealId: nextMealSlot?.id ?? null,
+      nextMealLabel: nextMealDisplay?.title ?? nextMealSlot?.label ?? 'Next meal',
       nextMealTime: nextMealTimeStr,
       nextMealAt: nextMealAt ? nextMealAt.toISOString() : null,
       nextMealType: nextMealSlot?.hint || 'Balanced meal',
-      nextMealSubtitle: nextMealWithMacros?.subtitle ?? null,
+      nextMealSubtitle: nextMealDisplay?.subtitle ?? nextMealWithMacros?.subtitle ?? null,
       nextMealMacros: nextMealWithMacros?.macros || {
         protein: Math.round(totalMacros.protein_g / mealSchedule.length),
         carbs: Math.round(totalMacros.carbs_g / mealSchedule.length),
@@ -525,6 +634,7 @@ export async function GET(req: NextRequest) {
       usedFallbackTemplate,
       usedEstimatedShiftTimes,
       cardSubtitle,
+      scheduleContextSubtitle: getScheduleContextSubtitle(mealScheduleMeta) ?? null,
       totalCalories: adjusted.adjustedCalories,
       totalMacros,
       meals: mealsWithMacros,
@@ -545,7 +655,7 @@ export async function GET(req: NextRequest) {
       activityContext,
       coach: {
         recommendedWindows,
-        meals,
+        meals: coachMealsDetailed,
         tips: [],
         status,
       },
@@ -554,7 +664,10 @@ export async function GET(req: NextRequest) {
         transitionState: mealGuide.transitionState,
         primaryLabel: shiftCtx.primaryOperationalShift?.label ?? null,
         anchorLabel: anchor?.label ?? null,
+        offDayContext: shiftCtx.offDayContext,
+        offDayNightAnchorLabel: shiftCtx.offDayNightAnchor?.label ?? null,
       },
+      mealScheduleMeta,
     }
 
     return NextResponse.json(response, { status: 200 })

@@ -3,7 +3,13 @@
  * When userShiftState is null/undefined, returns the payload unchanged (no rota / loading).
  */
 import type { UserShiftState } from '@/lib/shift-agent/types'
+import type { GuidanceMode } from '@/lib/shift-context/types'
+import type {
+  MealScheduleMeta,
+  MealScheduleReason,
+} from '@/lib/nutrition/mealScheduleProvenance'
 import { getTodayMealSchedule, type MealSlot } from '@/lib/nutrition/getTodayMealSchedule'
+import { getMealSlotDisplayCopy, getScheduleContextSubtitle } from '@/lib/nutrition/getMealSlotDisplayCopy'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -56,9 +62,11 @@ type ApiPayload = Record<string, unknown> & {
     status?: string
   }
   cardSubtitle?: string | null
+  scheduleContextSubtitle?: string | null
   shiftContext?: {
     guidanceMode?: string | null
   }
+  mealScheduleMeta?: MealScheduleMeta | Record<string, unknown>
 }
 
 function pickNextMealOccurrence(mealSchedule: MealSlot[], now: Date): { slot: MealSlot; at: Date } | null {
@@ -191,18 +199,60 @@ function patchPayloadFromSchedule(
   categoryLabels: (string | undefined)[],
   now: Date,
   subtitleExtra?: string,
+  clientOverlay?: { reason: MealScheduleReason },
 ): ApiPayload {
   const totalCalories = Math.max(1200, Math.round(api.totalCalories || 0))
   const totalMacros = api.totalMacros
+  const prev = api.mealScheduleMeta as MealScheduleMeta | undefined
+  const prevReasons: MealScheduleReason[] = Array.isArray(prev?.scheduleReason)
+    ? [...prev.scheduleReason]
+    : []
+  const mergedMeta: MealScheduleMeta | null =
+    clientOverlay != null
+      ? ({
+          ...(prev && typeof prev === 'object' ? { ...prev } : {}),
+          scheduleSource: 'client_overlay',
+          scheduleReason: [...prevReasons, clientOverlay.reason],
+          originalMealScheduleMeta: prev ? structuredClone(prev) : null,
+        } as MealScheduleMeta)
+      : (prev ?? null)
+
+  const slotDisplay = (slot: MealSlot) =>
+    getMealSlotDisplayCopy(
+      {
+        id: slot.id,
+        label: slot.label,
+        hint: slot.hint,
+        subtitle: slot.subtitle,
+        ...(slot.role ? { role: String(slot.role) } : {}),
+        biologicalNight: slot.biologicalNight,
+        kcalCapped: slot.kcalCapped,
+      },
+      mergedMeta,
+    )
+
   const meals = buildMealsWithMacros(mealSchedule, totalCalories, totalMacros, categoryLabels, now)
+  const mealsDisplayed = meals.map((m, i) => {
+    const slot = mealSchedule[i]
+    if (!slot || slot.id !== m.id) return m
+    const d = slotDisplay(slot)
+    return {
+      ...m,
+      label: d.title,
+      subtitle: d.subtitle || m.subtitle,
+      categoryLabel: slot.label,
+    }
+  })
+
   const nextPick = pickNextMealOccurrence(mealSchedule, now)
   const nextMealSlot = nextPick?.slot ?? null
   const nextMealAt = nextPick?.at ?? null
   const nextMealWithMacros = nextMealSlot
-    ? meals.find((m) => m.id === nextMealSlot.id) ?? meals[0]
-    : meals[0]
+    ? mealsDisplayed.find((m) => m.id === nextMealSlot.id) ?? mealsDisplayed[0]
+    : mealsDisplayed[0]
 
   const nextMealTimeStr = nextMealAt ? formatTime24(nextMealAt) : '—'
+  const nextDisplay = nextMealSlot ? slotDisplay(nextMealSlot) : null
 
   const dayStart = new Date(now)
   dayStart.setHours(0, 0, 0, 0)
@@ -212,12 +262,16 @@ function patchPayloadFromSchedule(
   const coachMeals = mealSchedule.map((meal) => {
     const mealTime = meal.time
     const position = ((mealTime.getTime() - dayStart.getTime()) / (dayEnd.getTime() - dayStart.getTime())) % 1
+    const d = slotDisplay(meal)
     return {
       id: meal.id,
-      label: meal.label,
+      label: d.title,
       time: formatTime24(meal.time),
       position: Math.max(0, Math.min(1, position)),
       inWindow: true,
+      subtitle: d.subtitle,
+      explanation: d.explanation,
+      ...(d.badge ? { badge: d.badge } : {}),
     }
   })
 
@@ -230,20 +284,21 @@ function patchPayloadFromSchedule(
 
   const out: ApiPayload = {
     ...api,
-    meals,
-    nextMealLabel: nextMealSlot?.label || 'Next meal',
+    meals: mealsDisplayed,
+    nextMealLabel: nextDisplay?.title ?? nextMealSlot?.label ?? 'Next meal',
     nextMealTime: nextMealTimeStr,
     nextMealAt: nextMealAt ? nextMealAt.toISOString() : null,
     nextMealType: nextMealSlot?.hint || 'Balanced meal',
-    nextMealSubtitle: nextMealWithMacros?.subtitle ?? null,
+    nextMealSubtitle: nextDisplay?.subtitle ?? nextMealWithMacros?.subtitle ?? null,
     nextMealMacros: nextMealWithMacros?.macros || {
-      protein: Math.round(totalMacros.protein_g / meals.length),
-      carbs: Math.round(totalMacros.carbs_g / meals.length),
-      fats: Math.round(totalMacros.fat_g / meals.length),
+      protein: Math.round(totalMacros.protein_g / mealsDisplayed.length),
+      carbs: Math.round(totalMacros.carbs_g / mealsDisplayed.length),
+      fats: Math.round(totalMacros.fat_g / mealsDisplayed.length),
     },
     cardSubtitle: subtitleExtra
       ? [api.cardSubtitle, subtitleExtra].filter(Boolean).join(' ')
       : api.cardSubtitle,
+    scheduleContextSubtitle: getScheduleContextSubtitle(mergedMeta) ?? null,
     coach: {
       ...api.coach,
       recommendedWindows,
@@ -252,6 +307,11 @@ function patchPayloadFromSchedule(
       tips: api.coach?.tips,
     },
   }
+
+  if (clientOverlay) {
+    out.mealScheduleMeta = mergedMeta as MealScheduleMeta
+  }
+
   return out
 }
 
@@ -292,7 +352,9 @@ export function applyUserShiftStateToMealTimingJson(
       mode === 'TRANSITIONING'
         ? 'Times follow your shift transition plan (shift coach).'
         : 'Times follow your recovery window after a rough transition (shift coach).'
-    return patchPayloadFromSchedule(api, slots, categoryLabels, now, extra)
+    const overlayReason: MealScheduleReason =
+      mode === 'TRANSITIONING' ? 'client_transition_overlay' : 'client_recovery_overlay'
+    return patchPayloadFromSchedule(api, slots, categoryLabels, now, extra, { reason: overlayReason })
   }
 
   if (mode === 'DAY_NORMAL' || mode === 'NIGHT_NORMAL') {
@@ -315,6 +377,7 @@ export function applyUserShiftStateToMealTimingJson(
       loggedWakeParsed = Number.isNaN(d.getTime()) ? null : d
     }
 
+    const scheduleMeta = api.mealScheduleMeta as MealScheduleMeta | undefined
     const { slots } = getTodayMealSchedule({
       adjustedCalories: totalCalories,
       shiftType,
@@ -323,11 +386,16 @@ export function applyUserShiftStateToMealTimingJson(
       wakeTime: wake,
       expectedSleepHours: inputs?.expectedSleepHours,
       loggedWakeAfterShift: loggedWakeParsed,
+      guidanceMode: (api.shiftContext?.guidanceMode as GuidanceMode | undefined) ?? undefined,
+      offDayContext: shiftType === 'off' ? scheduleMeta?.offDayContext ?? null : null,
     })
 
     const sortedBase = [...baseMeals].sort((a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time))
     const sortedSlots = [...slots].sort((a, b) => a.time.getTime() - b.time.getTime())
     const categoryLabels = sortedSlots.map((_, i) => sortedBase[i]?.label)
+
+    const overlayReason: MealScheduleReason =
+      shiftType === 'night' ? 'client_night_normal_overlay' : 'client_day_normal_overlay'
 
     return patchPayloadFromSchedule(
       api,
@@ -335,6 +403,7 @@ export function applyUserShiftStateToMealTimingJson(
       categoryLabels,
       now,
       'Wake anchor from your main sleep window (shift coach).',
+      { reason: overlayReason },
     )
   }
 

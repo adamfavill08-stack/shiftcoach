@@ -20,6 +20,15 @@ export type GuidanceMode =
   | 'recovery_after_night'
   | 'off_day'
 
+/** Refines calendar `off` days for meal planning (see `inferOffDayContext`). */
+export type OffDayContext =
+  | 'normal_off'
+  | 'before_first_night'
+  | 'between_nights'
+  | 'after_final_night'
+  /** Reserved — only set when roster/profile clearly indicate permanent nights. */
+  | 'permanent_night_off'
+
 export type ShiftContextSnapshot = {
   rotaDate: string
   label: string | null
@@ -58,4 +67,11 @@ export type ShiftContextResult = {
   mealPlanningShift: ShiftContextSnapshot | null
   transitionState: TransitionState
   guidanceMode: GuidanceMode
+  /**
+   * When `guidanceMode === 'off_day'`, how this off day sits in a rotating pattern.
+   * Otherwise `normal_off` (ignored for non–off-day guidance).
+   */
+  offDayContext: OffDayContext
+  /** Upcoming night shift used to anchor pre-night meals on `before_first_night` / `between_nights`. */
+  offDayNightAnchor: ShiftContextSnapshot | null
 }

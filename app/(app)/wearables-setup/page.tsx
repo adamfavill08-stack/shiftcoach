@@ -137,10 +137,47 @@ export default function WearablesSetupPage() {
                 aria-hidden
               />
             </summary>
-            <div className="space-y-2 border-t border-[var(--border-subtle)] pb-4 pt-3">
-              <p className="text-sm leading-relaxed text-[var(--text-soft)]">{t("detail.wearablesSetup.intro1")}</p>
-              <p className="text-xs leading-relaxed text-[var(--text-muted)]">{t("detail.wearablesSetup.intro2")}</p>
+            <div className="space-y-3 border-t border-[var(--border-subtle)] pb-4 pt-3">
+              <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--text-soft)]">
+                {t("detail.wearablesSetup.pathsExplanation")}
+              </p>
             </div>
+          </details>
+
+          <div className="h-px bg-[var(--border-subtle)]" aria-hidden />
+
+          <details className="group px-4 py-2">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-2 text-sm font-medium text-[var(--text-main)] [&::-webkit-details-marker]:hidden">
+              <span>{t("detail.wearablesSetup.troubleshootGoogleFitTitle")}</span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-[var(--text-muted)] transition group-open:rotate-180" aria-hidden />
+            </summary>
+            <p className="whitespace-pre-line pb-3 text-sm leading-relaxed text-[var(--text-soft)]">
+              {t("detail.wearablesSetup.troubleshootGoogleFitBody")}
+            </p>
+          </details>
+
+          <div className="h-px bg-[var(--border-subtle)]" aria-hidden />
+
+          <details className="group px-4 py-2">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-2 text-sm font-medium text-[var(--text-main)] [&::-webkit-details-marker]:hidden">
+              <span>{t("detail.wearablesSetup.samsungHealthStuckTitle")}</span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-[var(--text-muted)] transition group-open:rotate-180" aria-hidden />
+            </summary>
+            <p className="whitespace-pre-line pb-3 text-sm leading-relaxed text-[var(--text-soft)]">
+              {t("detail.wearablesSetup.samsungHealthStuckBody")}
+            </p>
+          </details>
+
+          <div className="h-px bg-[var(--border-subtle)]" aria-hidden />
+
+          <details className="group px-4 py-2">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-2 text-sm font-medium text-[var(--text-main)] [&::-webkit-details-marker]:hidden">
+              <span>{t("detail.wearablesSetup.hcDataCheckTitle")}</span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-[var(--text-muted)] transition group-open:rotate-180" aria-hidden />
+            </summary>
+            <p className="whitespace-pre-line pb-3 text-sm leading-relaxed text-[var(--text-soft)]">
+              {t("detail.wearablesSetup.hcDataCheckBody")}
+            </p>
           </details>
 
           <div className="h-px bg-[var(--border-subtle)]" aria-hidden />

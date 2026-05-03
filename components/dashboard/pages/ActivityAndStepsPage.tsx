@@ -2,13 +2,14 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, Sparkles, Timer } from 'lucide-react'
+import { ChevronLeft, PenLine, Sparkles, Timer } from 'lucide-react'
 import { useActivityToday } from '@/lib/hooks/useActivityToday'
 import { useAuth } from '@/components/AuthProvider'
 import { useTranslation } from '@/components/providers/language-provider'
 import { useProfile } from '@/hooks/useProfile'
 import type { ShiftStepsDuringShiftDay } from '@/lib/activity/computeShiftStepsDuringShifts'
 import { isoLocalDate } from '@/lib/shifts'
+import { ManualActivityHistorySection } from '@/components/activity/ManualActivityHistorySection'
 
 function parseYmdLocal(ymd: string): Date {
   return new Date(ymd + 'T12:00:00')
@@ -106,10 +107,10 @@ function DailyStepsChart({
                 />
               )
 
-              /** Today: larger black pill, white numeral (sits on white column). */
+              /** Today: date chip — high contrast on light column; teal on dark column. */
               const labelRow = isToday ? (
                 <span
-                  className="inline-flex min-h-9 items-center justify-center rounded-full bg-neutral-900 px-3 py-1.5 text-sm font-semibold tabular-nums leading-none text-white"
+                  className="inline-flex min-h-9 items-center justify-center rounded-full bg-neutral-900 px-3 py-1.5 text-sm font-semibold tabular-nums leading-none text-white dark:bg-[#05afc5] dark:text-neutral-950"
                   title={day.date}
                 >
                   {dayOfMonth}
@@ -145,14 +146,10 @@ function DailyStepsChart({
                 >
                   {isToday ? (
                     <div
-                      className="flex h-full w-full min-w-0 flex-col items-center overflow-hidden rounded-2xl"
-                      style={{
-                        backgroundColor: '#ffffff',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                      }}
+                      className="flex h-full w-full min-w-0 flex-col items-center overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5 dark:bg-zinc-900/75 dark:shadow-none dark:ring-1 dark:ring-[#05afc5]/35"
                     >
                       <div
-                        className="w-full shrink-0 bg-white"
+                        className="w-full shrink-0 bg-white dark:bg-zinc-900/75"
                         style={{ height: pillExtendAboveGoalPx }}
                         aria-hidden
                       />
@@ -240,21 +237,21 @@ function StepsByTimeOfDayCard({
 
   if (loading) {
     return (
-      <div className="w-full rounded-xl bg-white px-5 py-4 shadow-sm">
-        <div className="mb-4 h-4 w-40 animate-pulse rounded bg-neutral-200" />
+      <div className="w-full rounded-xl border border-transparent bg-white px-5 py-4 shadow-sm dark:border-[var(--border-subtle)]">
+        <div className="mb-4 h-4 w-40 animate-pulse rounded bg-slate-200 dark:bg-slate-600" />
         <div className="flex h-[120px] items-end gap-0.5">
           {Array.from({ length: 24 }, (_, i) => (
             <div
               key={i}
-              className="min-w-0 flex-1 animate-pulse rounded-t-sm bg-neutral-100"
+              className="min-w-0 flex-1 animate-pulse rounded-t-sm bg-slate-100 dark:bg-slate-700"
               style={{ height: `${18 + (i % 7) * 10}%` }}
             />
           ))}
         </div>
-        <div className="mt-2 h-px w-full bg-neutral-200" />
+        <div className="mt-2 h-px w-full bg-slate-200 dark:bg-slate-600" />
         <div className="mt-1.5 flex justify-between">
           {Array.from({ length: 5 }, (_, i) => (
-            <div key={i} className="h-2 w-4 animate-pulse rounded bg-neutral-100" />
+            <div key={i} className="h-2 w-4 animate-pulse rounded bg-slate-100 dark:bg-slate-700" />
           ))}
         </div>
       </div>
@@ -262,8 +259,8 @@ function StepsByTimeOfDayCard({
   }
 
   return (
-    <div className="w-full rounded-xl bg-white px-5 py-4 shadow-sm">
-      <h3 className="mb-3 text-left text-sm font-medium text-neutral-900">{title}</h3>
+    <div className="w-full rounded-xl border border-transparent bg-white px-5 py-4 shadow-sm dark:border-[var(--border-subtle)]">
+      <h3 className="mb-3 text-left text-sm font-medium text-slate-900">{title}</h3>
       <div
         className="flex h-[120px] items-end gap-0.5 sm:gap-1"
         role="img"
@@ -281,8 +278,8 @@ function StepsByTimeOfDayCard({
           </div>
         ))}
       </div>
-      <div className="mt-1 border-t border-neutral-200 pt-1.5">
-        <div className="flex justify-between text-[10px] font-medium tabular-nums text-neutral-400">
+      <div className="mt-1 border-t border-slate-200 pt-1.5 dark:border-[var(--border-subtle)]">
+        <div className="flex justify-between text-[10px] font-medium tabular-nums text-slate-400">
           {axisTickLabels.map((label, i) => (
             <span key={i}>{label}</span>
           ))}
@@ -309,20 +306,20 @@ function ShiftStepsDuringShiftsCard({
 
   if (loading) {
     return (
-      <div className="w-full rounded-xl bg-white px-5 py-4 shadow-sm">
-        <div className="mb-4 h-4 w-52 animate-pulse rounded bg-neutral-200" />
+      <div className="w-full rounded-xl border border-transparent bg-white px-5 py-4 shadow-sm dark:border-[var(--border-subtle)]">
+        <div className="mb-4 h-4 w-52 animate-pulse rounded bg-slate-200 dark:bg-slate-600" />
         <div className="flex h-[88px] items-end justify-center gap-1 sm:gap-1.5">
           {Array.from({ length: 7 }, (_, i) => (
             <div
               key={i}
-              className="mx-auto w-full max-w-[22px] flex-1 animate-pulse rounded-full bg-neutral-100"
+              className="mx-auto w-full max-w-[22px] flex-1 animate-pulse rounded-full bg-slate-100 dark:bg-slate-700"
               style={{ height: `${24 + (i % 5) * 10}%` }}
             />
           ))}
         </div>
         <div className="mt-2 flex justify-between px-0.5">
           {Array.from({ length: 7 }, (_, i) => (
-            <div key={i} className="h-2 w-3 animate-pulse rounded bg-neutral-100" />
+            <div key={i} className="h-2 w-3 animate-pulse rounded bg-slate-100 dark:bg-slate-700" />
           ))}
         </div>
       </div>
@@ -330,8 +327,8 @@ function ShiftStepsDuringShiftsCard({
   }
 
   return (
-    <div className="w-full rounded-xl bg-white px-5 py-4 shadow-sm">
-      <h3 className="mb-3 text-left text-sm font-medium text-neutral-900">{title}</h3>
+    <div className="w-full rounded-xl border border-transparent bg-white px-5 py-4 shadow-sm dark:border-[var(--border-subtle)]">
+      <h3 className="mb-3 text-left text-sm font-medium text-slate-900">{title}</h3>
       <div className="flex items-end justify-center gap-1 sm:gap-1.5" role="img" aria-label={title}>
         {days.map((d) => {
           const isToday = d.date === todayYmd
@@ -346,17 +343,17 @@ function ShiftStepsDuringShiftsCard({
                   style={{
                     height: barH,
                     backgroundColor: isOff
-                      ? 'rgb(229 229 229)'
+                      ? 'var(--ring-bg)'
                       : d.hasData
                         ? '#22c55e'
-                        : 'rgb(229 229 229)',
+                        : 'var(--ring-bg)',
                     opacity: isOff ? 0.5 : d.hasData ? 1 : 0.45,
                   }}
                 />
               </div>
               <span
                 className={`text-[11px] font-medium tabular-nums ${
-                  isToday ? 'font-semibold text-neutral-900' : 'text-neutral-400'
+                  isToday ? 'font-semibold text-slate-900' : 'text-slate-400'
                 }`}
               >
                 {d.dayLabel}
@@ -504,41 +501,41 @@ export default function ActivityAndStepsPage() {
         {/* SECTION 1 — Hero: steps bar + Active time row (kcal & est. mi) in one white card */}
         <section className="flex flex-col items-center text-center gap-5 pt-2">
           {loading ? (
-            <div className="flex w-full flex-col items-center gap-5 rounded-xl bg-white px-5 py-6 shadow-sm">
+            <div className="flex w-full flex-col items-center gap-5 rounded-xl border border-[#05afc5]/45 bg-white px-5 py-6 shadow-sm dark:border-[#05afc5]/45">
               <div className="flex w-full flex-col items-center gap-3">
                 <div
                   className="h-[3.25rem] w-36 animate-pulse rounded-xl"
                   style={{ backgroundColor: 'var(--ring-bg)' }}
                 />
-                <div className="h-2 w-full animate-pulse rounded-full bg-neutral-200" />
+                <div className="h-2 w-full animate-pulse rounded-full bg-slate-200 dark:bg-slate-600" />
               </div>
               <div className="w-full space-y-3 text-left">
                 <div className="flex items-center gap-2">
-                  <div className="h-[18px] w-[18px] shrink-0 animate-pulse rounded-full bg-neutral-200" />
-                  <div className="h-3 w-20 animate-pulse rounded bg-neutral-200" />
+                  <div className="h-[18px] w-[18px] shrink-0 animate-pulse rounded-full bg-slate-200 dark:bg-slate-600" />
+                  <div className="h-3 w-20 animate-pulse rounded bg-slate-200 dark:bg-slate-600" />
                 </div>
                 <div className="flex items-end justify-between gap-4">
-                  <div className="h-9 w-28 animate-pulse rounded-lg bg-neutral-200" />
+                  <div className="h-9 w-28 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-600" />
                   <div className="flex items-center gap-3">
-                    <div className="h-6 w-16 animate-pulse rounded bg-neutral-200" />
-                    <div className="h-6 w-14 animate-pulse rounded bg-neutral-200" />
+                    <div className="h-6 w-16 animate-pulse rounded bg-slate-200 dark:bg-slate-600" />
+                    <div className="h-6 w-14 animate-pulse rounded bg-slate-200 dark:bg-slate-600" />
                   </div>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="flex w-full flex-col items-center gap-5 rounded-xl bg-white px-5 pt-6 pb-5 shadow-sm">
+            <div className="flex w-full flex-col items-center gap-5 rounded-xl border border-[#05afc5]/45 bg-white px-5 pt-6 pb-5 shadow-sm dark:border-[#05afc5]/45">
               <div className="flex w-full flex-col items-center gap-3">
                 <div className="text-center">
-                  <p className="text-[3rem] sm:text-[3.25rem] font-semibold tabular-nums leading-none tracking-tight text-neutral-900">
+                  <p className="text-[3rem] sm:text-[3.25rem] font-semibold tabular-nums leading-none tracking-tight text-slate-900">
                     {activityDaySteps.toLocaleString()}
                   </p>
-                  <p className="mt-1.5 text-xs font-medium uppercase tracking-wider text-neutral-500">
+                  <p className="mt-1.5 text-xs font-medium uppercase tracking-wider text-slate-500">
                     Steps
                   </p>
                 </div>
                 <div
-                  className="h-2 w-full max-w-full overflow-hidden rounded-full bg-neutral-100"
+                  className="h-2 w-full max-w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700/80"
                   role="progressbar"
                   aria-valuemin={0}
                   aria-valuemax={100}
@@ -546,7 +543,7 @@ export default function ActivityAndStepsPage() {
                   aria-label={`${Math.round(stepsGoalBarPct)}% of ${dailyGoal.toLocaleString()} step goal`}
                 >
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-sky-500 via-blue-500 to-violet-500 transition-[width] duration-500 ease-out"
+                    className="h-full rounded-full bg-gradient-to-r from-[#05afc5] via-sky-500 to-emerald-500 transition-[width] duration-500 ease-out"
                     style={{ width: `${stepsGoalBarPct}%` }}
                   />
                 </div>
@@ -560,36 +557,53 @@ export default function ActivityAndStepsPage() {
                   >
                     <Timer className="h-2.5 w-2.5 text-white" strokeWidth={2.5} />
                   </span>
-                  <span className="text-xs font-medium text-neutral-500">Active time</span>
+                  <span className="text-xs font-medium text-slate-500">Active time</span>
                 </div>
                 <div className="mt-2 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
                   <div className="flex min-w-0 items-baseline gap-1.5">
-                    <span className="text-3xl font-semibold tabular-nums leading-none text-neutral-900">
+                    <span className="text-3xl font-semibold tabular-nums leading-none text-slate-900">
                       {activeMinutesDisplay}
                     </span>
-                    <span className="text-sm font-medium tabular-nums text-neutral-400">
+                    <span className="text-sm font-medium tabular-nums text-slate-400">
                       /{activeTargetMins} mins
                     </span>
                   </div>
                   <div className="ml-auto flex shrink-0 items-baseline gap-3">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-lg font-semibold tabular-nums text-neutral-900">
+                      <span className="text-lg font-semibold tabular-nums text-slate-900">
                         {caloriesBurnedDisplay.toLocaleString()}
                       </span>
-                      <span className="text-xs text-neutral-500">kcal</span>
+                      <span className="text-xs text-slate-500">kcal</span>
                     </div>
-                    <div className="h-7 w-px shrink-0 self-center bg-neutral-200" aria-hidden />
+                    <div
+                      className="h-7 w-px shrink-0 self-center bg-slate-200 dark:bg-slate-600"
+                      aria-hidden
+                    />
                     <div className="flex items-baseline gap-1">
-                      <span className="text-lg font-semibold tabular-nums text-neutral-900">
+                      <span className="text-lg font-semibold tabular-nums text-slate-900">
                         {distanceMilesDisplay}
                       </span>
-                      <span className="text-xs text-neutral-500">mi</span>
+                      <span className="text-xs text-slate-500">mi</span>
                     </div>
                   </div>
                 </div>
               </div>
+
+              <div className="w-full space-y-2">
+                <Link
+                  href="/activity/log#activity-log-steps"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition-[filter,transform] hover:brightness-110 active:scale-[0.99] active:brightness-95"
+                  style={{ backgroundColor: '#05afc5' }}
+                >
+                  <PenLine className="h-4 w-4 shrink-0 opacity-95" strokeWidth={2.25} aria-hidden />
+                  {t('browse.activity.manualLogSteps')}
+                </Link>
+                <p className="px-0.5 text-center text-[11px] leading-snug text-slate-500">{t('browse.activity.manualLogStepsHint')}</p>
+              </div>
             </div>
           )}
+
+          <ManualActivityHistorySection activityDate={data.date} />
 
           <StepsByTimeOfDayCard
             loading={loading}
@@ -607,10 +621,7 @@ export default function ActivityAndStepsPage() {
             title={t('browse.activity.stepsDuringShifts')}
           />
 
-          <div
-            className="w-full rounded-xl border border-neutral-100 bg-white px-5 py-4 shadow-sm"
-            style={{ borderColor: 'var(--border-subtle)' }}
-          >
+          <div className="w-full rounded-xl border border-transparent bg-white px-5 py-4 shadow-sm dark:border-[var(--border-subtle)]">
             <div className="flex gap-3">
               <span
                 className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
@@ -622,11 +633,11 @@ export default function ActivityAndStepsPage() {
               <div className="min-w-0 flex-1">
                 {!motivationReady ? (
                   <div className="space-y-2" aria-hidden>
-                    <div className="h-3.5 w-full max-w-[280px] animate-pulse rounded bg-neutral-200" />
-                    <div className="h-3.5 w-full max-w-[220px] animate-pulse rounded bg-neutral-100" />
+                    <div className="h-3.5 w-full max-w-[280px] animate-pulse rounded bg-slate-200 dark:bg-slate-600" />
+                    <div className="h-3.5 w-full max-w-[220px] animate-pulse rounded bg-slate-100 dark:bg-slate-700" />
                   </div>
                 ) : (
-                  <p className="text-sm leading-relaxed text-neutral-700">{motivationText}</p>
+                  <p className="text-sm leading-relaxed text-slate-700">{motivationText}</p>
                 )}
               </div>
             </div>

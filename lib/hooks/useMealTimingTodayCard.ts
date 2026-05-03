@@ -27,6 +27,8 @@ export type MealTimingTodayCardData = {
   usedFallbackTemplate?: boolean
   usedEstimatedShiftTimes?: boolean
   cardSubtitle?: string | null
+  /** Schedule shaping context (off-day / transition / long shift), from meal planner meta. */
+  scheduleContextSubtitle?: string | null
   totalCalories: number
   totalMacros: { protein_g: number; carbs_g: number; fat_g: number }
   meals: Array<{

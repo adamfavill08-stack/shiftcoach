@@ -13,6 +13,8 @@ const YMD = /^\d{4}-\d{2}-\d{2}$/
  */
 const FAMILY_MATCHERS: readonly { id: string; normalizedLabel: string }[] = [
   { id: 'health_connect', normalizedLabel: 'health connect' },
+  { id: 'health_connect', normalizedLabel: 'health_connect' },
+  { id: 'health_connect', normalizedLabel: 'android_health_connect' },
   { id: 'apple_health', normalizedLabel: 'apple health' },
 ]
 

@@ -14,6 +14,9 @@ export const batch1FrA: Record<string, string> = {
   'browse.activity.desc': 'Enregistrez les pas et l’activité pour vos shifts.',
   'browse.activity.stepsByTimeOfDay': 'Pas par moment de la journée',
   'browse.activity.stepsDuringShifts': 'Pas pendant les shifts',
+  'browse.activity.manualLogSteps': 'Enregistrer les pas manuellement',
+  'browse.activity.manualLogStepsHint':
+    'Objet pas encore synchronisé ? Saisis le nombre de pas affiché sur ta montre ou ton téléphone.',
   'browse.activity.motivationNamed':
     '{name}, chaque effort les jours de shift compte. Continue : tu construis un rythme qui colle à ta vie.',
   'browse.activity.motivationAnonymous':

@@ -4,6 +4,12 @@ import { z } from 'zod'
 import { parseJsonBody } from '@/lib/api/validation'
 import { apiServerError } from '@/lib/api/response'
 import { upsertActivityLogDailySteps } from '@/lib/activity/upsertActivityLogDailySteps'
+import {
+  fetchWearableDailyStepsForSource,
+  supersedeManualLogsAfterWearableDelta,
+} from '@/lib/activity/manualWearableSupersede'
+
+const YMD = /^\d{4}-\d{2}-\d{2}$/
 
 const AppleHealthSyncSchema = z.object({
   steps: z.number(),
@@ -53,6 +59,11 @@ export async function POST(req: NextRequest) {
     const supabase = supabaseServer
 
     const sourceLabel = sourceOverride || 'Apple Health'
+    const activityDateStr =
+      typeof activityDate === 'string' && YMD.test(activityDate.trim()) ? activityDate.trim().slice(0, 10) : null
+    const prevSteps = activityDateStr
+      ? await fetchWearableDailyStepsForSource(supabase, userId, activityDateStr, sourceLabel)
+      : null
 
     const { error: actErr } = await upsertActivityLogDailySteps(supabase, userId, {
       steps,
@@ -62,6 +73,11 @@ export async function POST(req: NextRequest) {
     })
     if (actErr) {
       console.error('[apple-health/sync] activity_logs upsert:', actErr.message ?? actErr)
+    } else if (activityDateStr && prevSteps != null) {
+      const delta = steps - prevSteps
+      if (delta > 0) {
+        await supersedeManualLogsAfterWearableDelta(supabase, userId, activityDateStr, delta, sourceLabel)
+      }
     }
 
     return NextResponse.json(

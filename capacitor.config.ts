@@ -33,6 +33,15 @@ const config: CapacitorConfig = {
   },
   /** Native defaults before JS runs — avoids transparent overlay + black bar from plugin init */
   plugins: {
+    /**
+     * Small icon: white-on-transparent PNGs in `android/app/src/main/res/drawable-*dpi/ic_notification.png`.
+     * Matches Android notification asset rules (do not use launcher icon).
+     */
+    LocalNotifications: {
+      smallIcon: 'ic_notification',
+      /** ShiftCoach teal (same family as `ic_launcher_background` on Android). */
+      iconColor: '#03B4C1',
+    },
     /** Keep App plugin’s OnBackPressedCallback enabled so `App.addListener('backButton')` receives events. */
     App: {
       disableBackButtonHandler: false,

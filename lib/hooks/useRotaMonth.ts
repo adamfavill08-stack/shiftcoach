@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { RotaDay } from '@/lib/data/buildRotaMonth'
 import { createClientComponentClient } from '@/lib/supabase'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 
 export type RotaPatternPayload = {
   shift_length: string
@@ -64,13 +65,16 @@ export function useRotaMonth(month: number, year: number) {
       setError(null)
 
       try {
-        const monthRes = await fetch(`/api/rota/month?month=${m + 1}&year=${y}&uid=${encodeURIComponent(activeUserId)}`, {
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-          }
-        })
+        const monthRes = await authedFetch(
+          `/api/rota/month?month=${m + 1}&year=${y}&uid=${encodeURIComponent(activeUserId)}`,
+          {
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              Pragma: 'no-cache',
+            },
+          },
+        )
 
         if (!monthRes.ok) {
           const text = await monthRes.text().catch(() => null)
@@ -88,9 +92,10 @@ export function useRotaMonth(month: number, year: number) {
         setMonthData(monthJson)
 
         try {
-          const eventsRes = await fetch(`/api/rota/event?month=${m + 1}&year=${y}&uid=${encodeURIComponent(activeUserId)}`, {
-            cache: 'no-store',
-          })
+          const eventsRes = await authedFetch(
+            `/api/rota/event?month=${m + 1}&year=${y}&uid=${encodeURIComponent(activeUserId)}`,
+            { cache: 'no-store' },
+          )
 
           if (!eventsRes.ok) {
             const text = await eventsRes.text().catch(() => null)

@@ -8,8 +8,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
-import { getShiftedDayKey, minutesBetween } from '@/lib/sleep/utils'
+import { getShiftedDayKey, minutesBetween, rowCountsAsPrimarySleep } from '@/lib/sleep/utils'
 import type { SleepType } from '@/lib/sleep/types'
+import { fetchMergedPhoneHealthSleepSessionsOverlapping } from '@/lib/sleep/sleepRecordsSummaryFallback'
 
 export const dynamic = 'force-dynamic'
 
@@ -180,7 +181,35 @@ export async function GET(req: NextRequest) {
       sessionOverlapsWindow(s.start_at, s.end_at, winStart, winEnd),
     )
 
-    const sessionsArray = inWindow.map((s: any) => ({
+    const primaryInWindow = inWindow.filter((s: any) =>
+      rowCountsAsPrimarySleep({ type: s.type, naps: s.naps }),
+    )
+
+    /** Align with /api/sleep/7days: Health Connect writes `sleep_records`, not `sleep_logs`. */
+    let combinedForSessions = inWindow
+    if (primaryInWindow.length === 0) {
+      const merged = await fetchMergedPhoneHealthSleepSessionsOverlapping(
+        supabase,
+        userId,
+        sqlLowerBound.toISOString(),
+        sqlUpperBound.toISOString(),
+      )
+      const hcSynthetic = merged
+        .filter((m) => sessionOverlapsWindow(m.start_at, m.end_at, winStart, winEnd))
+        .map((m, idx) => ({
+          id: `hc_merged_${idx}_${String(m.start_at).slice(0, 19)}`,
+          start_at: m.start_at,
+          end_at: m.end_at,
+          type: 'main_sleep' as SleepType,
+          quality: null,
+          notes: null,
+          source: 'health_connect',
+          created_at: m.end_at,
+        }))
+      combinedForSessions = [...inWindow, ...hcSynthetic]
+    }
+
+    const sessionsArray = combinedForSessions.map((s: any) => ({
       id: s.id,
       start_at: s.start_at,
       end_at: s.end_at,
@@ -193,10 +222,11 @@ export async function GET(req: NextRequest) {
 
     if (process.env.NODE_ENV === 'development') {
       console.log('[api/sleep/24h-grouped]', {
-        userId,
         rawRows: rows?.length ?? 0,
         normalized: normalized.length,
         inWindow: inWindow.length,
+        primaryInWindow: primaryInWindow.length,
+        hcSyntheticAdded: combinedForSessions.length - inWindow.length,
         daysParam: days,
       })
     }

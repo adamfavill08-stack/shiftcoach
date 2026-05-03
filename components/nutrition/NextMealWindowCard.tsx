@@ -130,6 +130,7 @@ export function NextMealWindowCard({
   const shiftBadgeBorderColor = data.shiftBadgeBorderColor?.trim() || '#CBD5E1'
   const heroTime = data.nextMealTime || '—'
   const heroLabel = data.nextMealLabel || t('dashboard.nextMealWindow.nextPrefix')
+  const scheduleContextLine = data.scheduleContextSubtitle?.trim() ?? ''
   const supportLine = data.cardSubtitle?.trim() || t('dashboard.nextMealWindow.subtitleFallback')
 
   if (variant === 'compact') {
@@ -170,8 +171,11 @@ export function NextMealWindowCard({
                 <span className="text-xs font-semibold tracking-[0.16em] uppercase text-slate-700 dark:text-slate-200">
                   {t('dashboard.nextMealWindow.title')}
                 </span>
-                <span className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug">
-                  {data.cardSubtitle?.trim() || t('dashboard.nextMealWindow.subtitleFallback')}
+                <span className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug block space-y-0.5">
+                  {scheduleContextLine ? <span className="block">{scheduleContextLine}</span> : null}
+                  <span className="block">
+                    {data.cardSubtitle?.trim() || t('dashboard.nextMealWindow.subtitleFallback')}
+                  </span>
                 </span>
               </div>
             </div>

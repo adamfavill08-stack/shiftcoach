@@ -102,7 +102,11 @@ export function useTodaySleep(): TodaySleepState {
       void fetchSleep()
     }
     window.addEventListener('sleep-refreshed', onRefresh)
-    return () => window.removeEventListener('sleep-refreshed', onRefresh)
+    window.addEventListener('wearables-synced', onRefresh)
+    return () => {
+      window.removeEventListener('sleep-refreshed', onRefresh)
+      window.removeEventListener('wearables-synced', onRefresh)
+    }
   }, [fetchSleep])
 
   return { totalMinutes, loading, error, refetch: fetchSleep }

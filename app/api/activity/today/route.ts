@@ -8,6 +8,7 @@ import {
   filterActivityLogRowsForWearableDedupe,
   shouldSkipLegacyWearableActivityLogRow,
 } from '@/lib/activity/activityLogWearableDedupe'
+import { effectiveActivityLogSteps, sumStepsFromActivityLogRows } from '@/lib/activity/activityLogStepSum'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import {
   getActivityLevelDetails,
@@ -29,7 +30,7 @@ import {
   type RotaShiftRow,
 } from '@/lib/activity/computeShiftStepsDuringShifts'
 import { toShiftType, toActivityShiftType } from '@/lib/shifts/toShiftType'
-import { isoLocalDate } from '@/lib/shifts'
+import { addCalendarDaysToYmd, formatYmdInTimeZone } from '@/lib/sleep/utils'
 import { fetchHolidayLocalDatesSet } from '@/lib/rota/holidayRotaPriority'
 import { getSleepDeficitForCircadian } from '@/lib/circadian/sleep'
 import { computePersonalizedActivityTargets } from '@/lib/activity/personalizedActivityTargets'
@@ -67,8 +68,13 @@ function deriveSleepMinutes(recentSleepLogs: Array<{ sleep_hours: number | null;
   return { sleepLastNightMinutes, avgSleepLast3NightsMinutes: avg3 != null ? Math.round(avg3) : null }
 }
 
-// Cache for 60 seconds - activity data updates throughout the day
-export const revalidate = 60
+/** User-specific; must not be cached stale after manual save / sync. */
+export const dynamic = 'force-dynamic'
+
+const ACTIVITY_TODAY_CACHE_HEADERS = {
+  'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
+  Pragma: 'no-cache',
+} as const
 
 function resolveActivityIntelTimeZone(req: NextRequest): string {
   const raw = req.nextUrl.searchParams.get('tz') ?? req.nextUrl.searchParams.get('timeZone') ?? ''
@@ -83,13 +89,29 @@ function resolveActivityIntelTimeZone(req: NextRequest): string {
   }
 }
 
+/** Merge two activity_log row lists without double-counting the same row (Health Connect daily upserts use `ts` = sync time, which may fall outside the shift window). */
+function mergeActivityLogRowsDedupe(a: readonly any[], b: readonly any[]): any[] {
+  const map = new Map<string, any>()
+  const rowKey = (r: any) =>
+    r?.id != null
+      ? `id:${String(r.id)}`
+      : `x:${String(r.ts ?? r.created_at ?? '')}|${String(r.steps ?? '')}|${String(r.source ?? '')}|${String(r.activity_date ?? '')}`
+  for (const r of a) map.set(rowKey(r), r)
+  for (const r of b) {
+    const k = rowKey(r)
+    if (!map.has(k)) map.set(k, r)
+  }
+  return [...map.values()]
+}
+
 export async function GET(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
   if (!userId) return buildUnauthorizedResponse()
 
   const now = new Date()
   const activityIntelTimeZone = resolveActivityIntelTimeZone(req)
-  const localToday = isoLocalDate(now)
+  // Client passes `tz` on /api/activity/today; use it for "today" so Vercel UTC ≠ user's calendar day.
+  const localToday = formatYmdInTimeZone(now, activityIntelTimeZone)
   const today = localToday
   const nowIso = now.toISOString()
   const startOfDay = new Date(today + 'T00:00:00Z')
@@ -169,7 +191,7 @@ export async function GET(req: NextRequest) {
     // Strategy 1: Try with all columns using timestamp filter
     let activityQueryTs: any = await supabase
       .from('activity_logs')
-      .select('steps,active_minutes,source,ts,shift_activity_level,activity_date')
+      .select('id,steps,active_minutes,source,merge_status,ts,shift_activity_level,activity_date')
       .eq('user_id', userId)
       .gte('ts', windowStartISO)
       .lt('ts', windowEndISO)
@@ -182,7 +204,7 @@ export async function GET(req: NextRequest) {
     ) {
       activityQueryTs = await supabase
         .from('activity_logs')
-        .select('steps,active_minutes,source,ts,shift_activity_level')
+        .select('id,steps,active_minutes,source,merge_status,ts,shift_activity_level')
         .eq('user_id', userId)
         .gte('ts', windowStartISO)
         .lt('ts', windowEndISO)
@@ -192,9 +214,22 @@ export async function GET(req: NextRequest) {
     if (activityQueryTs.error) {
       activityResponse = activityQueryTs
     } else {
-      const rows = activityQueryTs.data ?? []
+      let rows = activityQueryTs.data ?? []
+      // Health Connect / Apple daily totals: one row with device `activity_date` but `ts` = last sync (often outside shift window).
+      const byDateRes = await supabase
+        .from('activity_logs')
+        .select('id,steps,active_minutes,source,merge_status,ts,shift_activity_level,activity_date')
+        .eq('user_id', userId)
+        .eq('activity_date', today)
+        .order('ts', { ascending: false })
+      if (!byDateRes.error && byDateRes.data?.length) {
+        rows = mergeActivityLogRowsDedupe(rows, byDateRes.data)
+        rows.sort(
+          (a: any, b: any) => new Date(b.ts ?? 0).getTime() - new Date(a.ts ?? 0).getTime(),
+        )
+      }
       const kept = filterActivityLogRowsForWearableDedupe(rows, activityIntelTimeZone)
-      const totalSteps = kept.reduce((sum: number, r: any) => sum + (r.steps ?? 0), 0)
+      const totalSteps = sumStepsFromActivityLogRows(kept)
       const mostRecentRow = rows[0]
       const activeMinutesVals = kept.map((r: any) => r.active_minutes).filter((v: any) => typeof v === 'number')
       const totalActiveMinutes = activeMinutesVals.length
@@ -215,7 +250,7 @@ export async function GET(req: NextRequest) {
     if (activityResponse.error && (activityResponse.error.code === '42703' || activityResponse.error.message?.includes('ts'))) {
       let activityQueryCreatedAt: any = await supabase
         .from('activity_logs')
-        .select('steps,active_minutes,source,created_at,shift_activity_level,activity_date')
+        .select('id,steps,active_minutes,source,merge_status,created_at,shift_activity_level,activity_date')
         .eq('user_id', userId)
         .gte('created_at', windowStartISO)
         .lt('created_at', windowEndISO)
@@ -228,7 +263,7 @@ export async function GET(req: NextRequest) {
       ) {
         activityQueryCreatedAt = await supabase
           .from('activity_logs')
-          .select('steps,active_minutes,source,created_at,shift_activity_level')
+          .select('id,steps,active_minutes,source,merge_status,created_at,shift_activity_level')
           .eq('user_id', userId)
           .gte('created_at', windowStartISO)
           .lt('created_at', windowEndISO)
@@ -238,9 +273,23 @@ export async function GET(req: NextRequest) {
       if (activityQueryCreatedAt.error) {
         activityResponse = activityQueryCreatedAt
       } else {
-        const rows = activityQueryCreatedAt.data ?? []
+        let rows = activityQueryCreatedAt.data ?? []
+        const byDateRes2 = await supabase
+          .from('activity_logs')
+          .select('id,steps,active_minutes,source,merge_status,ts,created_at,shift_activity_level,activity_date')
+          .eq('user_id', userId)
+          .eq('activity_date', today)
+          .order('created_at', { ascending: false })
+        if (!byDateRes2.error && byDateRes2.data?.length) {
+          rows = mergeActivityLogRowsDedupe(rows, byDateRes2.data)
+          rows.sort(
+            (a: any, b: any) =>
+              new Date(b.created_at ?? b.ts ?? 0).getTime() -
+              new Date(a.created_at ?? a.ts ?? 0).getTime(),
+          )
+        }
         const kept = filterActivityLogRowsForWearableDedupe(rows, activityIntelTimeZone)
-        const totalSteps = kept.reduce((sum: number, r: any) => sum + (r.steps ?? 0), 0)
+        const totalSteps = sumStepsFromActivityLogRows(kept)
         const mostRecentRow = rows[0]
         const activeMinutesVals = kept.map((r: any) => r.active_minutes).filter((v: any) => typeof v === 'number')
         const totalActiveMinutes = activeMinutesVals.length
@@ -263,7 +312,7 @@ export async function GET(req: NextRequest) {
       console.warn('[/api/activity/today] active_minutes column missing, falling back without it')
       let activityQueryNoActiveMinutes: any = await supabase
         .from('activity_logs')
-        .select('steps,source,ts,shift_activity_level,activity_date')
+        .select('steps,source,merge_status,ts,shift_activity_level,activity_date')
         .eq('user_id', userId)
         .gte('ts', windowStartISO)
         .lt('ts', windowEndISO)
@@ -276,7 +325,7 @@ export async function GET(req: NextRequest) {
       ) {
         activityQueryNoActiveMinutes = await supabase
           .from('activity_logs')
-          .select('steps,source,ts,shift_activity_level')
+          .select('steps,source,merge_status,ts,shift_activity_level')
           .eq('user_id', userId)
           .gte('ts', windowStartISO)
           .lt('ts', windowEndISO)
@@ -288,7 +337,7 @@ export async function GET(req: NextRequest) {
       } else {
         const rows = activityQueryNoActiveMinutes.data ?? []
         const kept = filterActivityLogRowsForWearableDedupe(rows, activityIntelTimeZone)
-        const totalSteps = kept.reduce((sum: number, r: any) => sum + (r.steps ?? 0), 0)
+        const totalSteps = sumStepsFromActivityLogRows(kept)
         const mostRecentRow = rows[0]
         activityResponse = {
           data: {
@@ -304,7 +353,7 @@ export async function GET(req: NextRequest) {
       if (activityResponse.error && (activityResponse.error.code === '42703' || activityResponse.error.message?.includes('ts'))) {
         let activityQueryNoActiveMinutesNoTs: any = await supabase
           .from('activity_logs')
-          .select('steps,source,created_at,shift_activity_level,activity_date')
+          .select('steps,source,merge_status,created_at,shift_activity_level,activity_date')
           .eq('user_id', userId)
           .gte('created_at', windowStartISO)
           .lt('created_at', windowEndISO)
@@ -317,7 +366,7 @@ export async function GET(req: NextRequest) {
         ) {
           activityQueryNoActiveMinutesNoTs = await supabase
             .from('activity_logs')
-            .select('steps,source,created_at,shift_activity_level')
+            .select('steps,source,merge_status,created_at,shift_activity_level')
             .eq('user_id', userId)
             .gte('created_at', windowStartISO)
             .lt('created_at', windowEndISO)
@@ -329,7 +378,7 @@ export async function GET(req: NextRequest) {
         } else {
           const rows = activityQueryNoActiveMinutesNoTs.data ?? []
           const kept = filterActivityLogRowsForWearableDedupe(rows, activityIntelTimeZone)
-          const totalSteps = kept.reduce((sum: number, r: any) => sum + (r.steps ?? 0), 0)
+          const totalSteps = sumStepsFromActivityLogRows(kept)
           const mostRecentRow = rows[0]
           activityResponse = {
             data: {
@@ -349,7 +398,7 @@ export async function GET(req: NextRequest) {
       console.warn('[/api/activity/today] source column missing, falling back without it')
       let activityQueryNoSource: any = await supabase
         .from('activity_logs')
-        .select('steps,ts,shift_activity_level,activity_date')
+        .select('steps,merge_status,ts,shift_activity_level,activity_date')
         .eq('user_id', userId)
         .gte('ts', windowStartISO)
         .lt('ts', windowEndISO)
@@ -374,7 +423,7 @@ export async function GET(req: NextRequest) {
       } else {
         const rows = activityQueryNoSource.data ?? []
         const kept = filterActivityLogRowsForWearableDedupe(rows, activityIntelTimeZone)
-        const totalSteps = kept.reduce((sum: number, r: any) => sum + (r.steps ?? 0), 0)
+        const totalSteps = sumStepsFromActivityLogRows(kept)
         const mostRecentRow = rows[0]
         activityResponse = {
           data: {
@@ -415,7 +464,7 @@ export async function GET(req: NextRequest) {
         } else {
           const rows = activityQueryNoSourceNoTs.data ?? []
           const kept = filterActivityLogRowsForWearableDedupe(rows, activityIntelTimeZone)
-          const totalSteps = kept.reduce((sum: number, r: any) => sum + (r.steps ?? 0), 0)
+          const totalSteps = sumStepsFromActivityLogRows(kept)
           const mostRecentRow = rows[0]
           activityResponse = {
             data: {
@@ -560,7 +609,7 @@ export async function GET(req: NextRequest) {
     const activityIntelFromIso = activityIntelFetchFrom.toISOString()
     let weeklyActivityQuery: any = await supabase
       .from('activity_logs')
-      .select('steps, active_minutes, source, ts, shift_activity_level, activity_date')
+      .select('steps, active_minutes, source, merge_status, ts, shift_activity_level, activity_date')
       .eq('user_id', userId)
       .gte('ts', activityIntelFromIso)
       .order('ts', { ascending: true })
@@ -572,7 +621,7 @@ export async function GET(req: NextRequest) {
     ) {
       weeklyActivityQuery = await supabase
         .from('activity_logs')
-        .select('steps, active_minutes, source, ts, shift_activity_level')
+        .select('steps, active_minutes, source, merge_status, ts, shift_activity_level')
         .eq('user_id', userId)
         .gte('ts', activityIntelFromIso)
         .order('ts', { ascending: true })
@@ -581,7 +630,7 @@ export async function GET(req: NextRequest) {
     if (weeklyActivityQuery.error && (weeklyActivityQuery.error.code === '42703' || weeklyActivityQuery.error.message?.includes('ts'))) {
       weeklyActivityQuery = await supabase
         .from('activity_logs')
-        .select('steps, active_minutes, source, created_at, shift_activity_level, activity_date')
+        .select('steps, active_minutes, source, merge_status, created_at, shift_activity_level, activity_date')
         .eq('user_id', userId)
         .gte('created_at', activityIntelFromIso)
         .order('created_at', { ascending: true })
@@ -594,7 +643,7 @@ export async function GET(req: NextRequest) {
     ) {
       weeklyActivityQuery = await supabase
         .from('activity_logs')
-        .select('steps, active_minutes, source, created_at, shift_activity_level')
+        .select('steps, active_minutes, source, merge_status, created_at, shift_activity_level')
         .eq('user_id', userId)
         .gte('created_at', activityIntelFromIso)
         .order('created_at', { ascending: true })
@@ -659,7 +708,7 @@ export async function GET(req: NextRequest) {
           const existing = activityByDate.get(logDate)
           if (existing) {
             // Sum steps and take max active minutes for the day
-            existing.steps += log.steps ?? 0
+            existing.steps += effectiveActivityLogSteps(log)
             if (log.active_minutes !== null && (existing.activeMinutes === null || log.active_minutes > existing.activeMinutes)) {
               existing.activeMinutes = log.active_minutes
             }
@@ -669,7 +718,7 @@ export async function GET(req: NextRequest) {
             }
           } else {
             activityByDate.set(logDate, {
-              steps: log.steps ?? 0,
+              steps: effectiveActivityLogSteps(log),
               activeMinutes: log.active_minutes ?? null,
               source: log.source ?? 'Manual entry',
             })
@@ -696,7 +745,7 @@ export async function GET(req: NextRequest) {
           if (t) dayKey = activityDayKeyFromTimestamp(t, activityIntelTimeZone)
         }
         if (!dayKey) continue
-        const s = typeof log.steps === 'number' ? log.steps : 0
+        const s = effectiveActivityLogSteps(log)
         stepsByActivityDay[dayKey] = (stepsByActivityDay[dayKey] ?? 0) + s
       }
     }
@@ -716,9 +765,7 @@ export async function GET(req: NextRequest) {
 
     // Build daily data array for last 7 days
     for (let i = 6; i >= 0; i--) {
-      const date = new Date(today)
-      date.setDate(date.getDate() - i)
-      const dateStr = date.toISOString().slice(0, 10)
+      const dateStr = addCalendarDaysToYmd(today, -i)
       
       const activity = activityByDate.get(dateStr) ?? { steps: 0, activeMinutes: null, source: 'Manual entry' }
       const shiftType = shiftTypeMap.get(dateStr) ?? 'other'
@@ -858,7 +905,7 @@ export async function GET(req: NextRequest) {
     let hourlyForChart: { steps: number; ts?: string | null; created_at?: string | null }[] = []
     let hourlyQuery: any = await supabase
       .from('activity_logs')
-      .select('steps, ts, created_at, activity_date, source')
+      .select('id, steps, merge_status, ts, created_at, activity_date, source')
       .eq('user_id', userId)
       .gte('ts', windowStartISO)
       .lte('ts', windowEndISO)
@@ -870,7 +917,7 @@ export async function GET(req: NextRequest) {
     ) {
       hourlyQuery = await supabase
         .from('activity_logs')
-        .select('steps, ts, created_at, activity_date, source')
+        .select('id, steps, merge_status, ts, created_at, activity_date, source')
         .eq('user_id', userId)
         .gte('created_at', windowStartISO)
         .lte('created_at', windowEndISO)
@@ -878,7 +925,24 @@ export async function GET(req: NextRequest) {
     }
 
     if (!hourlyQuery.error) {
-      hourlyForChart = filterActivityLogRowsForWearableDedupe(hourlyQuery.data ?? [], activityIntelTimeZone)
+      let hourlyRows = hourlyQuery.data ?? []
+      const hourlyByDate = await supabase
+        .from('activity_logs')
+        .select('id, steps, merge_status, ts, created_at, activity_date, source')
+        .eq('user_id', userId)
+        .eq('activity_date', today)
+        .order('ts', { ascending: true })
+      if (!hourlyByDate.error && hourlyByDate.data?.length) {
+        hourlyRows = mergeActivityLogRowsDedupe(hourlyRows, hourlyByDate.data)
+        hourlyRows.sort(
+          (a: any, b: any) =>
+            new Date(a.ts ?? a.created_at ?? 0).getTime() - new Date(b.ts ?? b.created_at ?? 0).getTime(),
+        )
+      }
+      hourlyForChart = filterActivityLogRowsForWearableDedupe(hourlyRows, activityIntelTimeZone).map((r: any) => ({
+        ...r,
+        steps: effectiveActivityLogSteps(r),
+      }))
     }
 
     /** Align hourly chart with the same window as step queries (incl. pre-shift buffer). */
@@ -937,7 +1001,7 @@ export async function GET(req: NextRequest) {
       shiftStepsLast7Days,
     }
 
-    return NextResponse.json({ activity: payload }, { status: 200 })
+    return NextResponse.json({ activity: payload }, { status: 200, headers: ACTIVITY_TODAY_CACHE_HEADERS })
   } catch (err: any) {
     console.error('[/api/activity/today] error:', err)
     return NextResponse.json(
@@ -1014,7 +1078,7 @@ export async function GET(req: NextRequest) {
           shiftStepsLast7Days: stubShiftStepsLast7Days(today),
         },
       },
-      { status: 200 },
+      { status: 200, headers: ACTIVITY_TODAY_CACHE_HEADERS },
     )
   }
 }

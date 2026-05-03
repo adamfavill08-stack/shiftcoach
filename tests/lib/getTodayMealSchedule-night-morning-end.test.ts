@@ -16,7 +16,7 @@ describe('getTodayMealSchedule — night shift ending 05:00–10:00', () => {
       loggedWakeAfterShift: null,
     })
     const wakeMeal = slots.find((s) => s.id === 'postShiftBreakfast')
-    expect(wakeMeal?.label).toBe('Wake-up meal')
+    expect(wakeMeal?.label).toBe('First meal after sleep')
     expect(wakeMeal?.time.getHours()).toBe(14)
     expect(wakeMeal?.time.getMinutes()).toBe(30)
     expect(wakeMeal?.subtitle).toMatch(/Assumes ~7\.5h sleep/)
@@ -58,6 +58,6 @@ describe('getTodayMealSchedule — night shift ending 05:00–10:00', () => {
       wakeTime: wake,
     })
     const post = slots.find((s) => s.id === 'postShiftBreakfast')
-    expect(post?.label).toBe('Post‑shift breakfast')
+    expect(post?.label).toBe('Light post-shift bite before sleep')
   })
 })

@@ -10,6 +10,8 @@ type DebugPayload = {
   activity?: any;
   sleepOverview?: any;
   heartRate?: any;
+  hcClientSnapshot?: unknown;
+  hcApiSnapshot?: unknown;
   errors?: Record<string, string>;
 };
 
@@ -23,9 +25,16 @@ export default function WearablesDebugPage() {
       setLoading(true);
       const errors: Record<string, string> = {};
 
+      const tz =
+        typeof Intl !== "undefined"
+          ? Intl.DateTimeFormat().resolvedOptions().timeZone
+          : "";
+      const tzQs = tz ? `?tz=${encodeURIComponent(tz)}` : "";
+      const tzActivity = tz ? `?tz=${encodeURIComponent(tz)}` : "";
+
       const [rawRes, activityRes, sleepRes, hrRes] = await Promise.all([
-        fetch("/api/wearables/debug").catch(() => null),
-        fetch("/api/activity/today").catch(() => null),
+        fetch(`/api/wearables/debug${tzQs}`).catch(() => null),
+        fetch(`/api/activity/today${tzActivity}`).catch(() => null),
         fetch("/api/sleep/overview").catch(() => null),
         fetch("/api/wearables/heart-rate").catch(() => null),
       ]);
@@ -40,11 +49,28 @@ export default function WearablesDebugPage() {
       if (!sleepRes?.ok) errors.sleepOverview = `sleep/overview ${sleepRes?.status ?? "network_error"}`;
       if (!hrRes?.ok) errors.heartRate = `wearables/heart-rate ${hrRes?.status ?? "network_error"}`;
 
+      let hcClient: unknown = null;
+      let hcApi: unknown = null;
+      if (typeof window !== "undefined") {
+        try {
+          hcClient = JSON.parse(localStorage.getItem("shiftcoach:hcLastNativeSync") || "null");
+        } catch {
+          hcClient = null;
+        }
+        try {
+          hcApi = JSON.parse(localStorage.getItem("shiftcoach:hcLastApiSyncDiag") || "null");
+        } catch {
+          hcApi = null;
+        }
+      }
+
       setData({
         raw,
         activity,
         sleepOverview,
         heartRate,
+        hcClientSnapshot: hcClient,
+        hcApiSnapshot: hcApi,
         errors,
       });
       setLoading(false);
@@ -76,6 +102,20 @@ export default function WearablesDebugPage() {
               <pre className="whitespace-pre-wrap">{JSON.stringify(data.errors, null, 2)}</pre>
             </section>
           )}
+
+          <section className="rounded-lg border p-3">
+            <p className="font-semibold mb-2">Health Connect pipeline (this device, last native sync)</p>
+            <p className="text-xs text-[var(--text-muted)] mb-2">
+              Populated after you tap Sync on Android (dev builds). Compare with Raw DB and Activity
+              Today below.
+            </p>
+            <pre className="text-xs overflow-auto">{JSON.stringify(data?.hcClientSnapshot, null, 2)}</pre>
+          </section>
+
+          <section className="rounded-lg border p-3">
+            <p className="font-semibold mb-2">Last API sync diagnostics (dev server only)</p>
+            <pre className="text-xs overflow-auto">{JSON.stringify(data?.hcApiSnapshot, null, 2)}</pre>
+          </section>
 
           <section className="rounded-lg border p-3">
             <p className="font-semibold mb-2">{t("detail.wearablesDebug.sectionRawDb")}</p>

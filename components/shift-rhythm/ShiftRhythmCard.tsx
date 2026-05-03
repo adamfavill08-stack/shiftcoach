@@ -1041,6 +1041,13 @@ function HeartRecoveryCard() {
   const [restingBpm, setRestingBpm] = useState<number | null>(null);
   const [avgBpm, setAvgBpm] = useState<number | null>(null);
   const [recoveryDelta, setRecoveryDelta] = useState<number | null>(null);
+  const [hrRefreshToken, setHrRefreshToken] = useState(0);
+
+  useEffect(() => {
+    const onWearables = () => setHrRefreshToken((n) => n + 1);
+    window.addEventListener("wearables-synced", onWearables);
+    return () => window.removeEventListener("wearables-synced", onWearables);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -1137,7 +1144,7 @@ function HeartRecoveryCard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [hrRefreshToken]);
 
   /** Same bar as /heart-health: ok + resting + avg + API delta */
   const authoritative =

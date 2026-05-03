@@ -1,8 +1,11 @@
 'use client'
 
+import type { CSSProperties, ReactNode } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/providers/language-provider'
+import { authedFetch } from '@/lib/supabase/authedFetch'
+import { ManualActivityHistorySection } from '@/components/activity/ManualActivityHistorySection'
 
 const GOALS_STORAGE_KEY = 'shiftcoach-activity-goals'
 const WEIGHT_STORAGE_KEY = 'shiftcoach-weight-cache'
@@ -11,6 +14,9 @@ const defaultGoals = {
   stepTarget: 9000,
   activeMinutesTarget: 45,
 }
+
+const DURATION_PRESETS = [10, 20, 30, 45, 60] as const
+const QUICK_ADD_STEPS = [500, 1000, 2000] as const
 
 type ActivityKind = 'walk' | 'run' | 'workout' | 'shift' | 'custom'
 type Intensity = 'easy' | 'moderate' | 'hard'
@@ -21,75 +27,164 @@ type ActivityTodaySummary = {
   calories: number
 }
 
-type GoalsState = typeof defaultGoals
-
 type ProfileLite = {
   height_cm?: number | null
   weight_kg?: number | null
   sex?: 'male' | 'female' | null
 }
 
-function loadGoals(): GoalsState {
-  if (typeof window === 'undefined') return defaultGoals
-  try {
-    const raw = localStorage.getItem(GOALS_STORAGE_KEY)
-    if (!raw) return defaultGoals
-    const parsed = JSON.parse(raw)
-    return {
-      stepTarget: typeof parsed.stepTarget === 'number' ? parsed.stepTarget : defaultGoals.stepTarget,
-      activeMinutesTarget:
-        typeof parsed.activeMinutesTarget === 'number'
-          ? parsed.activeMinutesTarget
-          : defaultGoals.activeMinutesTarget,
+const ACTIVITY_KINDS: ActivityKind[] = ['walk', 'run', 'workout', 'shift', 'custom']
+
+/** Intensity multiplier for rough step estimates from distance (run). */
+function intensityMul(intensity: Intensity): number {
+  if (intensity === 'easy') return 0.92
+  if (intensity === 'hard') return 1.08
+  return 1
+}
+
+/**
+ * Resolves integer steps for POST /api/activity/manual.
+ * Walk requires explicit steps; other kinds can estimate from secondary fields.
+ */
+function resolveStepsForSave(
+  kind: ActivityKind,
+  stepsInput: number | '',
+  durationMinutes: number,
+  distanceKm: number | '',
+  calories: number | '',
+  intensity: Intensity,
+): { ok: true; steps: number } | { ok: false; toastKey: string } {
+  const s = stepsInput === '' ? NaN : Number(stepsInput)
+  const m = intensityMul(intensity)
+
+  if (kind === 'walk') {
+    if (!Number.isFinite(s) || s < 0) return { ok: false, toastKey: 'activityLog.toast.stepsInvalid' }
+    return { ok: true, steps: Math.round(s) }
+  }
+
+  if (Number.isFinite(s) && s >= 0) return { ok: true, steps: Math.round(s) }
+
+  if (kind === 'run') {
+    const d = distanceKm === '' ? NaN : Number(distanceKm)
+    if (Number.isFinite(d) && d > 0) return { ok: true, steps: Math.round(d * 1250 * m) }
+    if (durationMinutes > 0) return { ok: true, steps: Math.round(durationMinutes * 140 * m) }
+    return { ok: false, toastKey: 'activityLog.toast.needRunDetails' }
+  }
+
+  if (kind === 'workout') {
+    const c = calories === '' ? NaN : Number(calories)
+    if (Number.isFinite(c) && c > 0) return { ok: true, steps: Math.round(c / 0.048) }
+    if (durationMinutes > 0) {
+      const perMin = intensity === 'easy' ? 52 : intensity === 'hard' ? 108 : 82
+      return { ok: true, steps: Math.round(durationMinutes * perMin) }
     }
-  } catch {
-    return defaultGoals
+    return { ok: false, toastKey: 'activityLog.toast.needWorkoutDetails' }
   }
+
+  if (kind === 'shift') {
+    if (Number.isFinite(s) && s >= 0) return { ok: true, steps: Math.round(s) }
+    if (durationMinutes > 0) return { ok: true, steps: Math.round(durationMinutes * 55) }
+    return { ok: false, toastKey: 'activityLog.toast.stepsInvalid' }
+  }
+
+  // custom
+  const d = distanceKm === '' ? NaN : Number(distanceKm)
+  if (Number.isFinite(d) && d > 0) return { ok: true, steps: Math.round(d * 1200 * m) }
+  const c = calories === '' ? NaN : Number(calories)
+  if (Number.isFinite(c) && c > 0) return { ok: true, steps: Math.round(c / 0.05) }
+  if (durationMinutes > 0) return { ok: true, steps: Math.round(durationMinutes * 75) }
+  return { ok: false, toastKey: 'activityLog.toast.stepsInvalid' }
 }
 
-function saveGoals(goals: GoalsState) {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(goals))
-  } catch {
-    // ignore storage errors
+function readApiErrorMessage(json: unknown, fallback: string): string {
+  if (!json || typeof json !== 'object') return fallback
+  const o = json as Record<string, unknown>
+  const err = o.error
+  if (typeof err === 'string') return err
+  if (err && typeof err === 'object' && typeof (err as { message?: unknown }).message === 'string') {
+    return (err as { message: string }).message
   }
+  if (typeof o.message === 'string') return o.message
+  return fallback
 }
 
-function saveWeight(weightKg: number) {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(WEIGHT_STORAGE_KEY, JSON.stringify({ weight_kg: weightKg, ts: Date.now() }))
-  } catch {
-    // ignore storage errors
-  }
+function formatSummaryLine(
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  summary: ActivityTodaySummary,
+): string {
+  return t('activityLog.summaryLine', {
+    steps: summary.steps.toLocaleString(),
+    activeMin: summary.activeMinutes,
+    kcal: summary.calories,
+  })
 }
 
 export default function LogActivityPage() {
   const { t } = useTranslation()
   const router = useRouter()
 
-  const [summary] = useState<ActivityTodaySummary>({ steps: 7420, activeMinutes: 36, calories: 520 })
+  const [summary, setSummary] = useState<ActivityTodaySummary>({ steps: 0, activeMinutes: 0, calories: 0 })
+  const [activityCivilDate, setActivityCivilDate] = useState<string | undefined>(undefined)
   const [kind, setKind] = useState<ActivityKind>('walk')
   const [durationMinutes, setDurationMinutes] = useState<number>(30)
+  const [durationCustom, setDurationCustom] = useState(false)
   const [intensity, setIntensity] = useState<Intensity>('moderate')
   const [stepsInput, setStepsInput] = useState<number | ''>('')
   const [distanceKm, setDistanceKm] = useState<number | ''>('')
   const [calories, setCalories] = useState<number | ''>('')
-  const [notes, setNotes] = useState('')
+  const [shiftActiveMinutes, setShiftActiveMinutes] = useState<number | ''>('')
 
-  const [goals, setGoals] = useState<GoalsState>(defaultGoals)
   const [profile, setProfile] = useState<ProfileLite | null>(null)
   const [weightInput, setWeightInput] = useState<string>('')
 
   const [savingActivity, setSavingActivity] = useState(false)
-  const [savingGoals, setSavingGoals] = useState(false)
-  const [savingWeight, setSavingWeight] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
-  useEffect(() => {
-    setGoals(loadGoals())
+  const weightKg = useMemo(() => {
+    const w = profile?.weight_kg ?? (weightInput ? Number(weightInput) : NaN)
+    return Number.isFinite(w) && w > 0 ? w : 75
+  }, [profile?.weight_kg, weightInput])
 
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash === '#activity-log-steps') {
+      queueMicrotask(() => {
+        document.getElementById('activity-log-steps')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const tz = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC'
+        const res = await authedFetch(`/api/activity/today?tz=${encodeURIComponent(tz)}`, { cache: 'no-store' })
+        if (!res.ok || cancelled) return
+        const j = await res.json()
+        const a = j.activity
+        if (!a || cancelled) return
+        setSummary({
+          steps: typeof a.steps === 'number' ? Math.max(0, Math.round(a.steps)) : 0,
+          activeMinutes:
+            typeof a.activeMinutes === 'number' && Number.isFinite(a.activeMinutes)
+              ? Math.max(0, Math.round(a.activeMinutes))
+              : 0,
+          calories:
+            typeof a.estimatedCaloriesBurned === 'number' && Number.isFinite(a.estimatedCaloriesBurned)
+              ? Math.max(0, Math.round(a.estimatedCaloriesBurned))
+              : 0,
+        })
+        setActivityCivilDate(typeof a.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(a.date) ? a.date : undefined)
+      } catch {
+        // non-fatal
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const cached = localStorage.getItem(WEIGHT_STORAGE_KEY)
       if (cached) {
@@ -104,7 +199,7 @@ export default function LogActivityPage() {
 
     ;(async () => {
       try {
-        const res = await fetch('/api/profile', { credentials: 'include' })
+        const res = await authedFetch('/api/profile', { cache: 'no-store' })
         if (!res.ok) return
         const data = await res.json()
         const lite: ProfileLite = {
@@ -120,397 +215,753 @@ export default function LogActivityPage() {
     })()
   }, [weightInput])
 
-  const showToast = (message: string) => {
+  const resolvedStepsPreview = useMemo(() => {
+    const r = resolveStepsForSave(kind, stepsInput, durationMinutes, distanceKm, calories, intensity)
+    return r.ok ? r.steps : null
+  }, [kind, stepsInput, durationMinutes, distanceKm, calories, intensity])
+
+  const estimatedDistanceKm = useMemo(() => {
+    if (resolvedStepsPreview == null || resolvedStepsPreview <= 0) return null
+    const div = kind === 'run' ? 1250 : 1320
+    return Math.round((resolvedStepsPreview / div) * 100) / 100
+  }, [resolvedStepsPreview, kind])
+
+  const estimatedKcal = useMemo(() => {
+    if (resolvedStepsPreview == null || resolvedStepsPreview <= 0) return null
+    const met =
+      kind === 'run'
+        ? intensity === 'easy'
+          ? 6
+          : intensity === 'hard'
+            ? 9.5
+            : 8
+        : intensity === 'easy'
+          ? 2.8
+          : intensity === 'hard'
+            ? 4.3
+            : 3.5
+    const hours = Math.max(durationMinutes, 1) / 60
+    const kcal = met * weightKg * hours * (resolvedStepsPreview / Math.max(resolvedStepsPreview, 800))
+    const blended = 0.045 * resolvedStepsPreview + kcal * 0.35
+    return Math.max(0, Math.round(blended))
+  }, [resolvedStepsPreview, kind, intensity, weightKg, durationMinutes])
+
+  const showToast = (message: string, durationMs = 2600) => {
     setToast(message)
-    setTimeout(() => setToast((prev) => (prev === message ? null : prev)), 2600)
+    setTimeout(() => setToast((prev) => (prev === message ? null : prev)), durationMs)
+  }
+
+  const activeMinutesForApi = (): number | undefined => {
+    if (kind === 'shift') {
+      const a = shiftActiveMinutes === '' ? NaN : Number(shiftActiveMinutes)
+      if (Number.isFinite(a) && a >= 0) return Math.round(a)
+    }
+    return durationMinutes > 0 ? Math.round(durationMinutes) : undefined
   }
 
   const handleSaveActivity = async () => {
     if (savingActivity) return
+    const resolved = resolveStepsForSave(kind, stepsInput, durationMinutes, distanceKm, calories, intensity)
+    if (!resolved.ok) {
+      showToast(t(resolved.toastKey))
+      return
+    }
+
     setSavingActivity(true)
     try {
-      const payload = {
-        kind,
-        durationMinutes,
-        intensity,
-        steps: stepsInput || null,
-        distanceKm: distanceKm || null,
-        calories: calories || null,
-        notes: notes.trim() || null,
-        source: 'manual',
+      const tz = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC'
+      const am = activeMinutesForApi()
+      const end = new Date()
+      const dur = durationMinutes > 0 ? durationMinutes : 60
+      const start = new Date(end.getTime() - dur * 60_000)
+      const dm =
+        distanceKm !== '' && Number.isFinite(Number(distanceKm)) && Number(distanceKm) > 0
+          ? Math.round(Number(distanceKm) * 1000)
+          : undefined
+      const kcal =
+        calories !== '' && Number.isFinite(Number(calories)) && Number(calories) >= 0
+          ? Math.round(Number(calories))
+          : undefined
+
+      const body: Record<string, unknown> = {
+        steps: resolved.steps,
+        activityType: kind,
+        reason: 'wearable_sync_missing',
+        durationMinutes: durationMinutes > 0 ? durationMinutes : undefined,
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      }
+      if (am != null) body.activeMinutes = am
+      if (dm != null) body.distanceMeters = dm
+      if (kcal != null) body.calories = kcal
+
+      const res = await authedFetch(`/api/activity/manual?tz=${encodeURIComponent(tz)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify(body),
+      })
+      const json = await res.json().catch(() => (null))
+      if (!res.ok) {
+        showToast(readApiErrorMessage(json, t('activityLog.toast.saveFailed')))
+        return
       }
 
-      console.log('[LogActivity] payload', payload)
+      window.dispatchEvent(new Event('activity-manual-logged'))
+      window.dispatchEvent(new Event('wearables-synced'))
 
-      try {
-        await fetch('/api/activity/log', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(payload),
-        })
-      } catch (err) {
-        console.warn('[LogActivity] backend call optional failed:', err)
+      const refresh = await authedFetch(`/api/activity/today?tz=${encodeURIComponent(tz)}`, { cache: 'no-store' })
+      if (refresh.ok) {
+        const j = await refresh.json()
+        const a = j.activity
+        if (a) {
+          setSummary({
+            steps: typeof a.steps === 'number' ? Math.max(0, Math.round(a.steps)) : resolved.steps,
+            activeMinutes:
+              typeof a.activeMinutes === 'number' && Number.isFinite(a.activeMinutes)
+                ? Math.max(0, Math.round(a.activeMinutes))
+                : am ?? 0,
+            calories:
+              typeof a.estimatedCaloriesBurned === 'number' && Number.isFinite(a.estimatedCaloriesBurned)
+                ? Math.max(0, Math.round(a.estimatedCaloriesBurned))
+                : 0,
+          })
+          setActivityCivilDate(typeof a.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(a.date) ? a.date : undefined)
+        }
       }
 
-      showToast(t('activityLog.toast.logged'))
+      showToast(t('activityLog.toast.manualSavedTrust'), 5200)
       setTimeout(() => router.back(), 400)
     } finally {
       setSavingActivity(false)
     }
   }
 
-  const handleSaveGoals = async () => {
-    if (savingGoals) return
-    setSavingGoals(true)
-    try {
-      saveGoals(goals)
-      try {
-        await fetch('/api/activity/goals', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(goals),
-        })
-      } catch (err) {
-        console.warn('[LogActivity] goal sync failed (non-fatal)', err)
-      }
-      showToast(t('activityLog.toast.goalsUpdated'))
-    } finally {
-      setSavingGoals(false)
-    }
-  }
-
-  const handleWeightUpdate = async () => {
-    const weight = Number(weightInput)
-    if (!weight || Number.isNaN(weight) || weight <= 0) {
-      showToast(t('activityLog.toast.validWeight'))
-      return
-    }
-
-    setSavingWeight(true)
-    try {
-      saveWeight(weight)
-      try {
-        await fetch('/api/profile/update-weight', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ weight_kg: weight }),
-        })
-      } catch (err) {
-        console.warn('[LogActivity] weight sync failed (non-fatal)', err)
-      }
-      showToast(t('activityLog.toast.weightUpdated'))
-    } finally {
-      setSavingWeight(false)
-    }
-  }
-
-  const handleApplyCoachGoals = () => {
-    const weight = profile?.weight_kg ?? (weightInput ? Number(weightInput) : 80)
-    const height = profile?.height_cm ?? 175
-    const sex = profile?.sex ?? 'male'
-
-    let stepTarget = 9000
-    if (sex === 'female') stepTarget -= 500
-    if (weight > 100) stepTarget -= 1000
-    if (weight < 65) stepTarget += 500
-    if (height > 185) stepTarget += 500
-    stepTarget = Math.round(stepTarget / 500) * 500
-    stepTarget = Math.max(5000, stepTarget)
-
-    let activeMinutesTarget = 40
-    if (weight < 70) activeMinutesTarget += 5
-    if (weight > 100) activeMinutesTarget -= 5
-    activeMinutesTarget = Math.min(75, Math.max(30, activeMinutesTarget))
-
-    const coachGoals: GoalsState = { stepTarget, activeMinutesTarget }
-    setGoals(coachGoals)
-    saveGoals(coachGoals)
-    showToast(t('activityLog.toast.coachApplied'))
-  }
-
   const recommendedRange = useMemo(() => ({ min: 8000, max: 9500 }), [])
 
   const goBack = () => router.back()
 
+  const kindLabel = (k: ActivityKind) => t(`activityLog.kind.${k}`)
+
+  const setPresetDuration = (m: number) => {
+    setDurationCustom(false)
+    setDurationMinutes(m)
+  }
+
+  const showStepsPrimary = kind === 'walk'
+  const showStepsOptional = kind === 'run' || kind === 'workout'
+  const showStepsShift = kind === 'shift'
+  const showStepsCustom = kind === 'custom'
+
+  const sessionBeforePrimary = kind === 'run' || kind === 'workout' || kind === 'shift' || kind === 'custom'
+
+  const chipActive =
+    'border-[color-mix(in_oklab,var(--accent-blue)_55%,transparent)] bg-[color-mix(in_oklab,var(--accent-indigo)_28%,var(--card-subtle))] text-[var(--text-main)] shadow-none'
+  const chipIdle =
+    'border-[var(--border-subtle)] bg-[var(--card-subtle)] text-[var(--text-main)] hover:border-[color-mix(in_oklab,var(--accent-blue)_35%,var(--border-subtle))]'
+
+  const inputClass =
+    'w-full rounded-2xl border px-4 py-3 text-base outline-none transition-[box-shadow,border-color] focus:border-[color-mix(in_oklab,var(--accent-blue)_45%,var(--border-subtle))] focus:ring-2 focus:ring-[color-mix(in_oklab,var(--accent-blue)_25%,transparent)]'
+  const inputStyle: CSSProperties = { background: 'var(--card)', borderColor: 'var(--border-subtle)', color: 'var(--text-main)' }
+
+  const summaryText = formatSummaryLine(t, summary)
+
   return (
-    <main className="min-h-screen bg-slate-100 px-4 pt-6 pb-10">
-      <div className="mx-auto w-full max-w-md space-y-5">
-        <header className="flex items-center justify-between">
-          <button
-            onClick={goBack}
-            className="flex items-center gap-1 rounded-full px-3 py-1.5 text-sm transition-colors hover:bg-black/5"
-            style={{ color: 'var(--text-soft)' }}
-          >
-            <span className="text-lg">←</span>
-            <span>{t('activityLog.back')}</span>
-          </button>
-          <h1 className="text-sm font-semibold tracking-[0.2em] uppercase" style={{ color: 'var(--text-muted)' }}>
-            {t('activityLog.title')}
-          </h1>
-          <button
-            onClick={goBack}
-            className="rounded-full px-3 py-1.5 text-sm transition-colors hover:bg-black/5"
-            style={{ color: 'var(--text-soft)' }}
-          >
-            ×
-          </button>
+    <main className="min-h-screen bg-slate-100 pb-8">
+      <div className="mx-auto w-full max-w-md space-y-5 px-4 py-4">
+        <header className="space-y-2">
+          <div className="flex items-start justify-between gap-3">
+            <button
+              type="button"
+              onClick={goBack}
+              className="shrink-0 rounded-full px-3 py-1.5 text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+              style={{ color: 'var(--text-soft)' }}
+            >
+              <span className="mr-1">←</span>
+              {t('activityLog.back')}
+            </button>
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight" style={{ color: 'var(--text-main)' }}>
+              {t('activityLog.title')}
+            </h1>
+            <p className="mt-1.5 text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+              {t('activityLog.subtitle')}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+              {t('activityLog.helperSync')}
+            </p>
+          </div>
         </header>
 
+        {/* Today summary — single calm card */}
         <section
-          className="rounded-3xl border border-slate-200 bg-white/95 px-5 py-6 shadow-[0_20px_40px_rgba(15,23,42,0.12)] backdrop-blur space-y-6"
+          className="rounded-2xl border px-4 py-3.5"
+          style={{ background: 'var(--card-subtle)', borderColor: 'var(--border-subtle)' }}
         >
-          <div
-            className="flex items-center justify-between rounded-2xl border px-4 py-3"
-            style={{ background: 'var(--card-subtle)', borderColor: 'var(--border-subtle)' }}
-          >
-            <span className="text-xs font-semibold tracking-[0.2em] uppercase text-slate-400">{t('activityLog.todaySoFar')}</span>
-            <div className="flex flex-wrap gap-2">
-              <SummaryChip icon="👣" label={t('activityLog.chipSteps', { count: summary.steps.toLocaleString() })} />
-              <SummaryChip icon="⚡" label={t('activityLog.chipActiveMin', { count: summary.activeMinutes })} />
-              <SummaryChip icon="🔥" label={t('activityLog.chipKcal', { count: summary.calories })} />
-            </div>
-          </div>
+          <p className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+            {t('activityLog.todaySoFar')}
+          </p>
+          <p className="mt-1.5 text-sm font-medium leading-snug" style={{ color: 'var(--text-main)' }}>
+            {summaryText}
+          </p>
+        </section>
 
+        <ManualActivityHistorySection activityDate={activityCivilDate} />
+
+        {/* Activity type */}
+        <section className="space-y-2.5">
+          <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>
+            {t('activityLog.whatLogging')}
+          </p>
           <div className="flex flex-wrap gap-2">
-            {(
-              [
-                ['walk', t('activityLog.kind.walk')],
-                ['run', t('activityLog.kind.run')],
-                ['workout', t('activityLog.kind.workout')],
-                ['shift', t('activityLog.kind.shift')],
-                ['custom', t('activityLog.kind.custom')],
-              ] as [ActivityKind, string][]
-            ).map(([value, label]) => {
+            {ACTIVITY_KINDS.map((value) => {
               const active = kind === value
               return (
                 <button
                   key={value}
+                  type="button"
                   onClick={() => setKind(value)}
-                  className="rounded-full px-3 py-1.5 text-xs font-medium transition-all"
-                  style={{
-                    border: active ? '1px solid rgba(59,130,246,0.4)' : '1px solid var(--border-subtle)',
-                    background: active ? 'linear-gradient(135deg,#3bb2ff,#5f7aff)' : 'var(--card)',
-                    color: active ? '#fff' : 'var(--text-main)',
-                    boxShadow: active ? '0 6px 16px rgba(59,130,246,0.35)' : 'none',
-                  }}
+                  className={`rounded-full px-3.5 py-2 text-xs font-medium transition-colors ${active ? chipActive : chipIdle}`}
                 >
-                  {label}
+                  {kindLabel(value)}
                 </button>
               )
             })}
           </div>
+        </section>
 
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div
-              className="rounded-2xl border px-4 py-3"
-              style={{ background: 'var(--card-subtle)', borderColor: 'var(--border-subtle)' }}
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-semibold tracking-[0.2em] uppercase text-slate-400">{t('activityLog.duration')}</span>
-                <span className="text-xs text-slate-500">{t('activityLog.minAbbr')}</span>
+        {/* Duration / intensity first when not walk (walk keeps these under optional, after steps) */}
+        {sessionBeforePrimary && (
+          <section className="space-y-4">
+            <DurationBlock
+              label={t('activityLog.durationOptional')}
+              customChipLabel={t('activityLog.durationCustom')}
+              minuteSuffix={t('activityLog.minAbbr')}
+              durationMinutes={durationMinutes}
+              durationCustom={durationCustom}
+              setPresetDuration={setPresetDuration}
+              setDurationCustom={setDurationCustom}
+              setDurationMinutes={setDurationMinutes}
+              chipActive={chipActive}
+              chipIdle={chipIdle}
+              inputClass={inputClass}
+              inputStyle={inputStyle}
+            />
+            {kind !== 'shift' && (
+              <IntensityBlock
+                t={t}
+                intensity={intensity}
+                setIntensity={setIntensity}
+                chipActive={chipActive}
+                chipIdle={chipIdle}
+              />
+            )}
+          </section>
+        )}
+
+        {/* Primary blocks by kind */}
+        {showStepsPrimary && (
+          <section id="activity-log-steps" className="scroll-mt-24 space-y-3">
+            <label className="block text-center text-sm font-medium" style={{ color: 'var(--text-main)' }}>
+              {t('activityLog.metric.steps')}
+            </label>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={120000}
+              value={stepsInput}
+              onChange={(e) => setStepsInput(e.target.value === '' ? '' : Number(e.target.value))}
+              placeholder={t('activityLog.ph.steps')}
+              className={`${inputClass} py-4 text-center text-3xl font-semibold tabular-nums`}
+              style={inputStyle}
+            />
+            <div>
+              <p className="mb-2 text-center text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                {t('activityLog.quickAdd')}
+              </p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {QUICK_ADD_STEPS.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() =>
+                      setStepsInput((prev) => {
+                        const base = prev === '' ? 0 : Number(prev)
+                        const next = (Number.isFinite(base) ? base : 0) + n
+                        return Math.min(120_000, next)
+                      })
+                    }
+                    className={`rounded-full px-4 py-2 text-sm font-semibold tabular-nums ${chipIdle}`}
+                  >
+                    +{n.toLocaleString()}
+                  </button>
+                ))}
               </div>
-              <div className="mb-2 flex flex-wrap gap-2">
-                {[10, 20, 30, 45, 60].map((option) => {
-                  const active = durationMinutes === option
-                  return (
-                    <button
-                      key={option}
-                      onClick={() => setDurationMinutes(option)}
-                      className="rounded-full px-2.5 py-1.5 text-[11px] font-medium transition-all"
-                      style={{
-                        border: active ? '1px solid rgba(59,130,246,0.4)' : '1px solid var(--border-subtle)',
-                        background: active ? 'linear-gradient(135deg,#3bb2ff,#5f7aff)' : 'var(--card)',
-                        color: active ? '#fff' : 'var(--text-main)',
-                      }}
-                    >
-                      {option}m
-                    </button>
-                  )
-                })}
-              </div>
+            </div>
+          </section>
+        )}
+
+        {(kind === 'run' || kind === 'workout') && (
+          <section className="space-y-4">
+            {kind === 'run' && (
+              <>
+                <FieldLabel>{t('activityLog.metric.distance')}</FieldLabel>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    value={distanceKm}
+                    onChange={(e) => setDistanceKm(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder={t('activityLog.ph.distance')}
+                    className={`${inputClass} flex-1 tabular-nums`}
+                    style={inputStyle}
+                  />
+                  <span className="pr-1 text-sm tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                    km
+                  </span>
+                </div>
+              </>
+            )}
+            {kind === 'workout' && (
+              <>
+                <FieldLabel>{t('activityLog.metric.calories')}</FieldLabel>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    value={calories}
+                    onChange={(e) => setCalories(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder={t('activityLog.ph.calories')}
+                    className={`${inputClass} flex-1 py-3.5 text-2xl font-semibold tabular-nums`}
+                    style={inputStyle}
+                  />
+                  <span className="pr-1 text-sm" style={{ color: 'var(--text-muted)' }}>
+                    kcal
+                  </span>
+                </div>
+              </>
+            )}
+          </section>
+        )}
+
+        {showStepsShift && (
+          <section className="space-y-4">
+            <div className="space-y-2">
+              <FieldLabel subtle>{t('activityLog.activeMinutes')}</FieldLabel>
               <input
                 type="number"
-                min={5}
-                max={300}
-                value={durationMinutes}
-                onChange={(event) => setDurationMinutes(Number(event.target.value) || 0)}
-                className="w-full rounded-2xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400/50"
-                style={{ background: 'var(--card)', borderColor: 'var(--border-subtle)', color: 'var(--text-main)' }}
+                inputMode="numeric"
+                min={0}
+                value={shiftActiveMinutes}
+                onChange={(e) => setShiftActiveMinutes(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder={t('activityLog.ph.activeMinutes')}
+                className={`${inputClass} max-w-full tabular-nums sm:max-w-[220px]`}
+                style={inputStyle}
               />
             </div>
-
-            <div
-              className="rounded-2xl border px-4 py-3"
-              style={{ background: 'var(--card-subtle)', borderColor: 'var(--border-subtle)' }}
-            >
-              <span className="text-xs font-semibold tracking-[0.2em] uppercase text-slate-400">{t('activityLog.intensity')}</span>
-              <div className="mt-2 flex gap-2">
-                {(
-                  [
-                    ['easy', t('activityLog.intensity.easy')],
-                    ['moderate', t('activityLog.intensity.moderate')],
-                    ['hard', t('activityLog.intensity.hard')],
-                  ] as [Intensity, string][]
-                ).map(([value, label]) => {
-                  const active = intensity === value
-                  return (
-                    <button
-                      key={value}
-                      onClick={() => setIntensity(value)}
-                      className="flex-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition-all border"
-                      style={{
-                        border: active ? '1px solid rgba(59,130,246,0.4)' : '1px solid var(--border-subtle)',
-                        background: active ? 'linear-gradient(135deg,#3bb2ff,#5f7aff)' : 'var(--card)',
-                        color: active ? '#fff' : 'var(--text-main)',
-                      }}
-                    >
-                      {label}
-                    </button>
-                  )
-                })}
-              </div>
+            <div className="space-y-2">
+              <FieldLabel>{t('activityLog.metric.steps')}</FieldLabel>
+              <input
+                id="activity-log-steps"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={stepsInput}
+                onChange={(e) => setStepsInput(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder={t('activityLog.ph.stepsShift')}
+                className={`${inputClass} py-3 text-center text-2xl font-semibold tabular-nums`}
+                style={inputStyle}
+              />
+              <p className="text-center text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                {t('activityLog.shiftStepsHint')}
+              </p>
             </div>
-          </div>
+          </section>
+        )}
 
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <MetricCircle
-              label={t('activityLog.metric.steps')}
+        {showStepsCustom && (
+          <section id="activity-log-steps" className="scroll-mt-24 space-y-3">
+            <FieldLabel>{t('activityLog.metric.steps')}</FieldLabel>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
               value={stepsInput}
-              onChange={setStepsInput}
+              onChange={(e) => setStepsInput(e.target.value === '' ? '' : Number(e.target.value))}
               placeholder={t('activityLog.ph.steps')}
+              className={`${inputClass} py-3 text-center text-2xl font-semibold tabular-nums`}
+              style={inputStyle}
             />
-            <MetricCircle
-              label={t('activityLog.metric.distance')}
-              suffix="km"
-              value={distanceKm}
-              onChange={setDistanceKm}
-              placeholder={t('activityLog.ph.distance')}
-            />
-            <MetricCircle
+          </section>
+        )}
+
+        {/* Optional details */}
+        <section className="space-y-4 rounded-2xl border border-dashed px-4 py-4" style={{ borderColor: 'var(--border-subtle)' }}>
+          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+            {t('activityLog.optionalDetails')}
+          </p>
+
+          {kind === 'walk' && (
+            <>
+              <DurationBlock
+                label={t('activityLog.durationOptional')}
+                customChipLabel={t('activityLog.durationCustom')}
+                minuteSuffix={t('activityLog.minAbbr')}
+                durationMinutes={durationMinutes}
+                durationCustom={durationCustom}
+                setPresetDuration={setPresetDuration}
+                setDurationCustom={setDurationCustom}
+                setDurationMinutes={setDurationMinutes}
+                chipActive={chipActive}
+                chipIdle={chipIdle}
+                inputClass={inputClass}
+                inputStyle={inputStyle}
+              />
+              <IntensityBlock
+                t={t}
+                intensity={intensity}
+                setIntensity={setIntensity}
+                chipActive={chipActive}
+                chipIdle={chipIdle}
+              />
+            </>
+          )}
+
+          {/* Secondary metrics: contextual */}
+          {kind === 'walk' && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <MetricRow
+                label={t('activityLog.metric.distance')}
+                unit="km"
+                value={distanceKm}
+                onChange={setDistanceKm}
+                placeholder={t('activityLog.ph.distance')}
+                inputClass={inputClass}
+                inputStyle={inputStyle}
+                hint={
+                  estimatedDistanceKm != null
+                    ? t('activityLog.estimatedFromEntry', { value: `~${estimatedDistanceKm}` })
+                    : undefined
+                }
+              />
+              <MetricRow
+                label={t('activityLog.metric.calories')}
+                unit="kcal"
+                value={calories}
+                onChange={setCalories}
+                placeholder={t('activityLog.ph.calories')}
+                inputClass={inputClass}
+                inputStyle={inputStyle}
+                hint={estimatedKcal != null ? t('activityLog.estimatedFromEntry', { value: `~${estimatedKcal}` }) : undefined}
+              />
+            </div>
+          )}
+
+          {kind === 'run' && (
+            <MetricRow
               label={t('activityLog.metric.calories')}
-              suffix="kcal"
+              unit="kcal"
               value={calories}
               onChange={setCalories}
               placeholder={t('activityLog.ph.calories')}
+              inputClass={inputClass}
+              inputStyle={inputStyle}
+              hint={estimatedKcal != null ? t('activityLog.estimatedFromEntry', { value: `~${estimatedKcal}` }) : undefined}
             />
-          </div>
+          )}
 
-          <div
-            className="flex items-center gap-3 rounded-2xl border px-4 py-3"
-            style={{ background: 'var(--card-subtle)', borderColor: 'var(--border-subtle)' }}
-          >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-base"
-              style={{ background: 'linear-gradient(135deg,#3bb2ff,#5f7aff)', color: '#fff' }}
-            >
-              ✨
-            </span>
-            <div>
-                <p className="text-sm font-semibold text-slate-900">
-                  {t('activityLog.recommendedGoal', {
-                    min: recommendedRange.min.toLocaleString(),
-                    max: recommendedRange.max.toLocaleString(),
-                  })}
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  {t('activityLog.recommendedGoalHint')}
-                </p>
+          {kind === 'workout' && (
+            <MetricRow
+              label={t('activityLog.metric.distance')}
+              unit="km"
+              value={distanceKm}
+              onChange={setDistanceKm}
+              placeholder={t('activityLog.ph.distance')}
+              inputClass={inputClass}
+              inputStyle={inputStyle}
+              hint={
+                estimatedDistanceKm != null
+                  ? t('activityLog.estimatedFromEntry', { value: `~${estimatedDistanceKm}` })
+                  : undefined
+              }
+            />
+          )}
+
+          {kind === 'shift' && (
+            <MetricRow
+              label={t('activityLog.metric.calories')}
+              unit="kcal"
+              value={calories}
+              onChange={setCalories}
+              placeholder={t('activityLog.ph.calories')}
+              inputClass={inputClass}
+              inputStyle={inputStyle}
+              hint={estimatedKcal != null ? t('activityLog.estimatedFromEntry', { value: `~${estimatedKcal}` }) : undefined}
+            />
+          )}
+
+          {kind === 'custom' && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <MetricRow
+                label={t('activityLog.metric.distance')}
+                unit="km"
+                value={distanceKm}
+                onChange={setDistanceKm}
+                placeholder={t('activityLog.ph.distance')}
+                inputClass={inputClass}
+                inputStyle={inputStyle}
+              />
+              <MetricRow
+                label={t('activityLog.metric.calories')}
+                unit="kcal"
+                value={calories}
+                onChange={setCalories}
+                placeholder={t('activityLog.ph.calories')}
+                inputClass={inputClass}
+                inputStyle={inputStyle}
+              />
             </div>
-          </div>
+          )}
 
-          <div className="space-y-3">
-            <button
-              onClick={handleSaveActivity}
-              disabled={savingActivity}
-              className="w-full rounded-full bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {savingActivity ? t('activityLog.saving') : t('activityLog.saveActivity')}
-            </button>
-            <button
-              onClick={() => router.push('/settings')}
-              className="mx-auto block text-xs font-medium text-slate-500 transition hover:text-slate-900"
-            >
-              {t('activityLog.updateWeightGoals')}
-            </button>
-          </div>
+          {showStepsOptional && (
+            <div className="space-y-2 border-t pt-3" style={{ borderColor: 'var(--border-subtle)' }}>
+              <FieldLabel subtle>{t('activityLog.stepsOptional')}</FieldLabel>
+              <input
+                id="activity-log-steps"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={stepsInput}
+                onChange={(e) => setStepsInput(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder={t('activityLog.ph.steps')}
+                className={`${inputClass} tabular-nums`}
+                style={inputStyle}
+              />
+            </div>
+          )}
         </section>
 
-        {toast && (
-          <div
-            className="fixed left-1/2 bottom-6 -translate-x-1/2 rounded-full px-4 py-2 text-xs font-semibold shadow-lg"
-            style={{ background: 'rgba(15,23,42,0.92)', color: '#f9fafb' }}
-          >
-            {toast}
-          </div>
-        )}
-
-        {/* Disclaimer */}
-        <div className="pt-4">
-          <p className="text-[11px] leading-relaxed text-slate-500 text-center">
-            {t('detail.common.disclaimer')}
+        {/* Goal card */}
+        <section className="rounded-2xl border px-4 py-3.5" style={{ background: 'var(--card-subtle)', borderColor: 'var(--border-subtle)' }}>
+          <p className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+            {t('activityLog.recommendedGoalTitle')}
           </p>
-        </div>
+          <p className="mt-1 text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
+            {t('activityLog.recommendedGoalRange', {
+              min: recommendedRange.min.toLocaleString(),
+              max: recommendedRange.max.toLocaleString(),
+            })}
+          </p>
+          <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+            {t('activityLog.recommendedGoalHint')}
+          </p>
+        </section>
+
+        {/* In-flow actions (scrolls with the page; shell pb-24 clears global bottom nav) */}
+        <section className="space-y-2 pt-1">
+          <button
+            type="button"
+            onClick={handleSaveActivity}
+            disabled={savingActivity}
+            className="w-full rounded-2xl bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-600 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {savingActivity ? t('activityLog.saving') : t('activityLog.saveManualLog')}
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push('/settings')}
+            className="w-full py-2 text-center text-xs font-medium transition hover:opacity-90"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            {t('activityLog.updateWeightGoals')}
+          </button>
+        </section>
+
+        <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+          {t('detail.common.disclaimer')}
+        </p>
       </div>
+
+      {toast && (
+        <div
+          className="fixed left-1/2 z-[110] max-w-[90vw] -translate-x-1/2 rounded-full px-4 py-2 text-xs font-semibold shadow-lg"
+          style={{
+            bottom: 'calc(5.5rem + env(safe-area-inset-bottom, 0px))',
+            background: 'rgba(15,23,42,0.92)',
+            color: '#f9fafb',
+          }}
+        >
+          {toast}
+        </div>
+      )}
     </main>
   )
 }
 
-function SummaryChip({ icon, label }: { icon: string; label: string }) {
+function DurationBlock({
+  label,
+  customChipLabel,
+  minuteSuffix,
+  durationMinutes,
+  durationCustom,
+  setPresetDuration,
+  setDurationCustom,
+  setDurationMinutes,
+  chipActive,
+  chipIdle,
+  inputClass,
+  inputStyle,
+}: {
+  label: string
+  customChipLabel: string
+  minuteSuffix: string
+  durationMinutes: number
+  durationCustom: boolean
+  setPresetDuration: (m: number) => void
+  setDurationCustom: (v: boolean) => void
+  setDurationMinutes: (n: number) => void
+  chipActive: string
+  chipIdle: string
+  inputClass: string
+  inputStyle: CSSProperties
+}) {
+  return (
+    <div className="space-y-2">
+      <FieldLabel subtle>{label}</FieldLabel>
+      <div className="flex flex-wrap gap-2">
+        {DURATION_PRESETS.map((m) => {
+          const active = !durationCustom && durationMinutes === m
+          return (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setPresetDuration(m)}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium ${active ? chipActive : chipIdle}`}
+            >
+              {m}m
+            </button>
+          )
+        })}
+        <button
+          type="button"
+          onClick={() => setDurationCustom(true)}
+          className={`rounded-full px-3 py-1.5 text-xs font-medium ${durationCustom ? chipActive : chipIdle}`}
+        >
+          {customChipLabel}
+        </button>
+      </div>
+      {durationCustom && (
+        <div className="mt-2 flex items-center gap-2">
+          <input
+            type="number"
+            min={5}
+            max={600}
+            value={durationMinutes}
+            onChange={(e) => setDurationMinutes(Number(e.target.value) || 0)}
+            className={`${inputClass} max-w-[120px] tabular-nums`}
+            style={inputStyle}
+          />
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            {minuteSuffix}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function IntensityBlock({
+  t,
+  intensity,
+  setIntensity,
+  chipActive,
+  chipIdle,
+}: {
+  t: (key: string, params?: Record<string, string | number | undefined>) => string
+  intensity: Intensity
+  setIntensity: (v: Intensity) => void
+  chipActive: string
+  chipIdle: string
+}) {
+  return (
+    <div className="space-y-2">
+      <FieldLabel subtle>{t('activityLog.intensityOptional')}</FieldLabel>
+      <div className="flex flex-wrap gap-2">
+        {(['easy', 'moderate', 'hard'] as const).map((value) => {
+          const active = intensity === value
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setIntensity(value)}
+              className={`min-w-[4.5rem] flex-1 rounded-full px-2 py-2 text-xs font-medium sm:flex-none ${active ? chipActive : chipIdle}`}
+            >
+              {t(`activityLog.intensity.${value}`)}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function FieldLabel({ children, subtle }: { children: ReactNode; subtle?: boolean }) {
   return (
     <span
-      className="flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-medium"
-      style={{ background: 'rgba(56,189,248,0.12)', color: 'var(--text-main)', border: '1px solid rgba(56,189,248,0.18)' }}
+      className={`block text-sm ${subtle ? 'font-normal' : 'font-medium'}`}
+      style={{ color: subtle ? 'var(--text-muted)' : 'var(--text-main)' }}
     >
-      <span>{icon}</span>
-      {label}
+      {children}
     </span>
   )
 }
 
-function MetricCircle({
+function MetricRow({
   label,
-  suffix,
+  unit,
   value,
   onChange,
   placeholder,
+  inputClass,
+  inputStyle,
+  hint,
 }: {
   label: string
-  suffix?: string
+  unit: string
   value: number | ''
-  onChange: (next: number | '') => void
-  placeholder?: string
+  onChange: (v: number | '') => void
+  placeholder: string
+  inputClass: string
+  inputStyle: CSSProperties
+  hint?: string
 }) {
   return (
-    <div
-      className="flex flex-col items-center gap-2 rounded-2xl border px-4 py-4"
-      style={{ background: 'var(--card-subtle)', borderColor: 'var(--border-subtle)' }}
-    >
-      <span className="text-xs font-semibold tracking-[0.2em] uppercase text-slate-400">{label}</span>
-      <div className="relative h-20 w-20">
-        <svg viewBox="0 0 100 100" className="h-full w-full">
-          <defs>
-            <linearGradient id={`grad-${label}`} x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#3bb2ff" />
-              <stop offset="100%" stopColor="#5f7aff" />
-            </linearGradient>
-          </defs>
-          <circle cx="50" cy="50" r="44" stroke="rgba(148,163,184,0.3)" strokeWidth="6" fill="none" />
-          <circle cx="50" cy="50" r="44" stroke="url(#grad-${label})" strokeWidth="4" fill="none" strokeLinecap="round" strokeDasharray={`${Math.PI * 2 * 44 * 0.4} ${Math.PI * 2 * 44}`} />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <input
-            type="number"
-            value={value}
-            onChange={(event) => onChange(event.target.value === '' ? '' : Number(event.target.value) || 0)}
-            placeholder={placeholder}
-            className="w-16 border-b text-center text-sm font-semibold focus:outline-none focus:border-sky-400"
-            style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-main)', background: 'transparent' }}
-          />
-          {suffix && <span className="text-[10px] text-slate-400">{suffix}</span>}
-        </div>
+    <div className="space-y-1.5">
+      <FieldLabel subtle>{label}</FieldLabel>
+      <div className="flex items-center gap-2">
+        <input
+          type="number"
+          inputMode="decimal"
+          min={0}
+          value={value}
+          onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
+          placeholder={placeholder}
+          className={`${inputClass} flex-1 tabular-nums`}
+          style={inputStyle}
+        />
+        <span className="w-10 shrink-0 text-sm" style={{ color: 'var(--text-muted)' }}>
+          {unit}
+        </span>
       </div>
+      {hint && (
+        <p className="text-[11px] leading-snug" style={{ color: 'var(--text-muted)' }}>
+          {hint}
+        </p>
+      )}
     </div>
   )
 }

@@ -44,6 +44,10 @@ export function mealGuidanceFromContext(ctx: ShiftContextResult): MealGuidance {
     template = 'night'
   }
 
+  if (ctx.guidanceMode === 'off_day') {
+    template = 'off'
+  }
+
   return {
     anchorShift: anchor,
     template,

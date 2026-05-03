@@ -35,7 +35,10 @@ export function WearableStatusPill() {
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
       const startTimeMillis = startOfDay.getTime();
-      const url = `/api/wearables/status?startTimeMillis=${startTimeMillis}&endTimeMillis=${now}`;
+      const tz =
+        typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "";
+      const tzQs = tz ? `&tz=${encodeURIComponent(tz)}` : "";
+      const url = `/api/wearables/status?startTimeMillis=${startTimeMillis}&endTimeMillis=${now}${tzQs}`;
       const res = await fetch(url);
       const data = await res.json().catch(() => ({}));
       setConnected(!!data.connected);
@@ -93,6 +96,7 @@ export function WearableStatusPill() {
       }
       try {
         window.dispatchEvent(new CustomEvent("wearables-synced", { detail: { ts } }));
+        window.dispatchEvent(new CustomEvent("sleep-refreshed"));
       } catch {
         // ignore
       }

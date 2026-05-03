@@ -297,7 +297,8 @@ export default function OnboardingPage() {
     setVarTimes((p) => ({ ...p, [type]: { ...p[type], [field]: val } }))
 
   const bSize = cycleLen <= 4 ? 68 : cycleLen <= 7 ? 52 : cycleLen <= 9 ? 44 : 38
-  const bRow = cycleLen <= 8 ? cycleLen : cycleLen <= 12 ? 6 : 7
+  /** 16-day cycles (e.g. 4 day / 4 off / 4 night / 4 off) read cleanly as two rows of eight. */
+  const bRow = cycleLen <= 8 ? cycleLen : cycleLen <= 12 ? 6 : cycleLen === 16 ? 8 : 7
 
   const todayType: ShiftType | null = !isVar && typeof todayPos === "number" ? rotation[todayPos] : null
   const todayDesc = (() => {
@@ -407,13 +408,18 @@ export default function OnboardingPage() {
                 <div style={rv(0)}>
                   <div style={{ ...LBL, marginBottom: 10 }}>YOUR ROTATION</div>
                   <div style={{ fontSize: 28, fontWeight: 300, lineHeight: 1.1, marginBottom: 6 }}>Build your pattern</div>
-                  <div style={{ fontSize: 13, color: "var(--text-soft)", fontWeight: 300, marginBottom: 20 }}>Tap each block to set the shift type</div>
+                  <div style={{ fontSize: 13, color: "var(--text-soft)", fontWeight: 300, marginBottom: 8, lineHeight: 1.5 }}>
+                    Enter your full repeating cycle from day 1 through the last day — every working day and every rest day. Do not only add the shifts you work; the loop must include time off.
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 300, marginBottom: 20, lineHeight: 1.5 }}>
+                    Tap a block to cycle type: OFF (grey) is a day off — leave those days as OFF. Then set day or night for shifts.
+                  </div>
                 </div>
 
                 <div style={{ marginBottom: 18, ...rv(0.06) }}>
                   <div style={{ ...LBL, marginBottom: 10 }}>CYCLE LENGTH (DAYS)</div>
                   <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                    {[4, 7, 8, 9, 12, 14].map((l) => (
+                    {[4, 7, 8, 9, 12, 14, 16].map((l) => (
                       <button key={l} type="button" onClick={() => resizeCycle(l)} style={{ flex: 1, padding: "8px 0", borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease", background: cycleLen === l ? "#00BCD4" : "var(--card-subtle)", color: cycleLen === l ? "#000" : "var(--text-soft)", border: "1px solid " + (cycleLen === l ? "#00BCD4" : "var(--border-subtle)") }}>
                         {l}
                       </button>

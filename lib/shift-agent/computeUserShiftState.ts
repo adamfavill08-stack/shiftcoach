@@ -189,7 +189,12 @@ export function computeUserShiftState(params: {
 
   const meal1 = addHours(wakeTime, 1)
   const meal2 = addHours(wakeTime, 4)
-  const anchorMeal = addHours(nextShiftStart, -2)
+  const prevWorkType = prev && !isOff(prev) ? toShiftType(prev.label, prev.start_ts) : null
+  const nextWorkType = next ? toShiftType(next.label, next.start_ts) : null
+  /** Day → first night: anchor the main pre-night meal earlier (~3.5h) so it is not stacked ~1–2h before clock-in. */
+  const anchorHoursBefore =
+    prevWorkType === 'day' && nextWorkType === 'night' ? 3.5 : 2
+  const anchorMeal = addHours(nextShiftStart, -anchorHoursBefore)
   const shiftSnack1 = addHours(nextShiftStart, 3)
   const shiftSnack2: Date | null = null
 

@@ -14,6 +14,9 @@ export const batch1PlA: Record<string, string> = {
   'browse.activity.desc': 'Zapisuj kroki i aktywność przy zmianach.',
   'browse.activity.stepsByTimeOfDay': 'Kroki wg pory dnia',
   'browse.activity.stepsDuringShifts': 'Kroki podczas zmian',
+  'browse.activity.manualLogSteps': 'Zapisz kroki ręcznie',
+  'browse.activity.manualLogStepsHint':
+    'Zegarek jeszcze nie zsynchronizowany? Wpisz liczbę kroków z urządzenia.',
   'browse.activity.motivationNamed':
     '{name}, ruch, który pokazujesz w dni zmian, się sumuje. Tak trzymaj—budujesz rytm dopasowany do życia.',
   'browse.activity.motivationAnonymous':
