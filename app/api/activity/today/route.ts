@@ -688,6 +688,7 @@ export async function GET(req: NextRequest) {
       userId,
       activityDateMergeFrom,
       today,
+      { timeZone: activityIntelTimeZone },
     )
     if (logsByActivityDate.length) {
       weeklyLogs = mergeActivityLogRowsDedupe(weeklyLogs, logsByActivityDate)

@@ -21,6 +21,13 @@ describe('effectiveActivityLogSteps', () => {
   it('treats legacy manual without merge_status as active', () => {
     expect(effectiveActivityLogSteps({ steps: 1200, source: 'manual', merge_status: null })).toBe(1200)
   })
+
+  it('treats legacy Manual entry label as manual for supersede rules', () => {
+    expect(effectiveActivityLogSteps({ steps: 800, source: 'Manual entry', merge_status: 'active' })).toBe(800)
+    expect(
+      effectiveActivityLogSteps({ steps: 900, source: 'Manual entry', merge_status: 'superseded_by_wearable' }),
+    ).toBe(0)
+  })
 })
 
 describe('sumStepsFromActivityLogRows', () => {

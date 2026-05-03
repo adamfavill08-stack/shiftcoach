@@ -9,6 +9,7 @@ import { useTranslation } from '@/components/providers/language-provider'
 import { useProfile } from '@/hooks/useProfile'
 import type { ShiftStepsDuringShiftDay } from '@/lib/activity/computeShiftStepsDuringShifts'
 import { isoLocalDate } from '@/lib/shifts'
+import { formatYmdInTimeZone } from '@/lib/sleep/utils'
 import { ManualActivityHistorySection } from '@/components/activity/ManualActivityHistorySection'
 
 function parseYmdLocal(ymd: string): Date {
@@ -372,6 +373,14 @@ export default function ActivityAndStepsPage() {
   const { profile, loading: profileLoading } = useProfile(user?.id ?? null)
   const { data, loading } = useActivityToday()
 
+  const manualHistoryCivilYmd = useMemo(() => {
+    const tz =
+      typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function'
+        ? Intl.DateTimeFormat().resolvedOptions().timeZone
+        : 'UTC'
+    return formatYmdInTimeZone(new Date(), tz)
+  }, [])
+
   const firstName = profile?.name?.trim().split(/\s+/)[0] ?? ''
   const motivationReady = !authLoading && !profileLoading
   const motivationText = firstName
@@ -603,7 +612,7 @@ export default function ActivityAndStepsPage() {
             </div>
           )}
 
-          <ManualActivityHistorySection activityDate={data.date} />
+          <ManualActivityHistorySection activityDate={manualHistoryCivilYmd} />
 
           <StepsByTimeOfDayCard
             loading={loading}

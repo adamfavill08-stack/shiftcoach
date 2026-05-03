@@ -1,6 +1,9 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
-import { isPostgrestSchemaColumnError } from '@/lib/activity/isPostgrestSchemaColumnError'
-import { withActivityLogSyncInstant } from '@/lib/activity/activityLogSyncInstant'
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
+import {
+  stripActivityLogTimeKeys,
+  withActivityLogSyncInstant,
+  withBothActivityLogSyncInstants,
+} from '@/lib/activity/activityLogSyncInstant'
 
 export type ManualActivityReason = 'wearable_sync_missing' | 'forgot_watch' | 'other'
 
@@ -20,9 +23,29 @@ export type InsertManualActivityLogInput = {
   syncedAtIso: string
 }
 
+function registerPayload(attempts: Record<string, unknown>[], seen: Set<string>, payload: Record<string, unknown>) {
+  const sig = JSON.stringify(payload, Object.keys(payload).sort())
+  if (seen.has(sig)) return
+  seen.add(sig)
+  attempts.push(payload)
+}
+
+function registerTimeVariants(attempts: Record<string, unknown>[], seen: Set<string>, core: Record<string, unknown>, iso: string) {
+  registerPayload(attempts, seen, withActivityLogSyncInstant(core, iso, 'ts'))
+  registerPayload(attempts, seen, withActivityLogSyncInstant(core, iso, 'created_at'))
+  registerPayload(attempts, seen, withBothActivityLogSyncInstants(core, iso))
+}
+
+function omitActivityDate(core: Record<string, unknown>): Record<string, unknown> {
+  const o = { ...core }
+  delete o.activity_date
+  return o
+}
+
 /**
  * Inserts a dedicated manual session row (never upserts into wearable daily totals).
- * Some databases use `ts` for sync time, others only `created_at` — we try both like `upsertActivityLogDailySteps`.
+ * Tries every compatible payload shape (ts / created_at / both / none) so we do not bail
+ * early on errors that are not "missing column" but still recoverable with a slimmer row.
  */
 export async function insertManualActivityLog(
   supabase: SupabaseClient,
@@ -88,29 +111,6 @@ export async function insertManualActivityLog(
     activity_date: activityDate,
   }
 
-  const cores = [rich, withoutAm, withoutMetrics, bare]
-
-  const attempt = async (payload: Record<string, unknown>) => {
-    const { error } = await supabase.from('activity_logs').insert(payload)
-    return error ?? null
-  }
-
-  let lastErr: { message?: string; code?: string } | null = null
-
-  for (const core of cores) {
-    for (const timeCol of ['ts', 'created_at'] as const) {
-      const payload = withActivityLogSyncInstant(core, syncedAtIso, timeCol)
-      const err = await attempt(payload)
-      if (!err) return { error: null }
-      if (!isPostgrestSchemaColumnError(err)) return { error: err }
-      lastErr = err
-    }
-  }
-
-  const errNoTime = await attempt(bare)
-  if (!errNoTime) return { error: null }
-  if (!isPostgrestSchemaColumnError(errNoTime)) return { error: errNoTime }
-
   const bareNoMerge: Record<string, unknown> = {
     user_id: userId,
     source: 'manual',
@@ -121,11 +121,55 @@ export async function insertManualActivityLog(
     end_time: endTimeIso,
     reason,
   }
-  for (const timeCol of ['ts', 'created_at'] as const) {
-    const err = await attempt(withActivityLogSyncInstant(bareNoMerge, syncedAtIso, timeCol))
-    if (!err) return { error: null }
-    if (!isPostgrestSchemaColumnError(err)) return { error: err }
-    lastErr = err
+
+  /** Legacy DBs with no activity_date column */
+  const legacyNoDate: Record<string, unknown> = {
+    user_id: userId,
+    source: 'manual',
+    steps: stepVal,
+    ...metaBlock,
+  }
+
+  const attempts: Record<string, unknown>[] = []
+  const seen = new Set<string>()
+
+  for (const core of [rich, withoutAm, withoutMetrics, bare]) {
+    registerTimeVariants(attempts, seen, core, syncedAtIso)
+  }
+
+  registerPayload(attempts, seen, stripActivityLogTimeKeys(bare))
+  registerTimeVariants(attempts, seen, bareNoMerge, syncedAtIso)
+  registerPayload(attempts, seen, stripActivityLogTimeKeys(bareNoMerge))
+
+  registerTimeVariants(attempts, seen, legacyNoDate, syncedAtIso)
+  registerPayload(attempts, seen, stripActivityLogTimeKeys(legacyNoDate))
+
+  let lastErr: PostgrestError | null = null
+
+  const runInserts = async (list: Record<string, unknown>[]): Promise<{ error: PostgrestError | null }> => {
+    for (const payload of list) {
+      const { error } = await supabase.from('activity_logs').insert(payload)
+      if (!error) return { error: null }
+      lastErr = error
+    }
+    return { error: lastErr }
+  }
+
+  const first = await runInserts(attempts)
+  if (!first.error) return { error: null }
+
+  // Legacy idx_activity_logs_user_activity_date_unique (all sources): wearable row for this
+  // civil day blocks a second row with the same activity_date. Omit activity_date so the row
+  // still lands in the ts/created_at window for /api/activity/today until migrations catch up.
+  if (first.error.code === '23505') {
+    const retry: Record<string, unknown>[] = []
+    const seen2 = new Set<string>()
+    for (const core of [rich, withoutAm, withoutMetrics, bare, bareNoMerge, legacyNoDate].map(omitActivityDate)) {
+      registerTimeVariants(retry, seen2, core, syncedAtIso)
+      registerPayload(retry, seen2, stripActivityLogTimeKeys(core))
+    }
+    const second = await runInserts(retry)
+    if (!second.error) return { error: null }
   }
 
   return { error: lastErr }

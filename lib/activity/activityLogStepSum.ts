@@ -3,7 +3,8 @@
  */
 
 export function isManualActivityRow(source: string | null | undefined): boolean {
-  return String(source ?? '').trim().toLowerCase() === 'manual'
+  const n = String(source ?? '').trim().toLowerCase()
+  return n === 'manual' || n === 'manual entry'
 }
 
 /** Steps that count toward daily totals (wearable + active manual). */

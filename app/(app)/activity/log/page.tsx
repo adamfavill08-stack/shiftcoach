@@ -1,11 +1,12 @@
 'use client'
 
 import type { CSSProperties, ReactNode } from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/providers/language-provider'
 import { authedFetch } from '@/lib/supabase/authedFetch'
 import { ManualActivityHistorySection } from '@/components/activity/ManualActivityHistorySection'
+import { formatYmdInTimeZone } from '@/lib/sleep/utils'
 
 const GOALS_STORAGE_KEY = 'shiftcoach-activity-goals'
 const WEIGHT_STORAGE_KEY = 'shiftcoach-weight-cache'
@@ -139,6 +140,9 @@ export default function LogActivityPage() {
 
   const [savingActivity, setSavingActivity] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  /** Stays on screen until dismissed or a new save — API/schema errors are often long. */
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const weightKg = useMemo(() => {
     const w = profile?.weight_kg ?? (weightInput ? Number(weightInput) : NaN)
@@ -174,7 +178,7 @@ export default function LogActivityPage() {
               ? Math.max(0, Math.round(a.estimatedCaloriesBurned))
               : 0,
         })
-        setActivityCivilDate(typeof a.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(a.date) ? a.date : undefined)
+        setActivityCivilDate(formatYmdInTimeZone(new Date(), tz))
       } catch {
         // non-fatal
       }
@@ -247,9 +251,22 @@ export default function LogActivityPage() {
   }, [resolvedStepsPreview, kind, intensity, weightKg, durationMinutes])
 
   const showToast = (message: string, durationMs = 2600) => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current)
+      toastTimerRef.current = null
+    }
     setToast(message)
-    setTimeout(() => setToast((prev) => (prev === message ? null : prev)), durationMs)
+    toastTimerRef.current = setTimeout(() => {
+      setToast((prev) => (prev === message ? null : prev))
+      toastTimerRef.current = null
+    }, durationMs)
   }
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    }
+  }, [])
 
   const activeMinutesForApi = (): number | undefined => {
     if (kind === 'shift') {
@@ -261,9 +278,12 @@ export default function LogActivityPage() {
 
   const handleSaveActivity = async () => {
     if (savingActivity) return
+    setSaveError(null)
     const resolved = resolveStepsForSave(kind, stepsInput, durationMinutes, distanceKm, calories, intensity)
     if (!resolved.ok) {
-      showToast(t(resolved.toastKey))
+      const msg = t(resolved.toastKey)
+      setSaveError(msg)
+      showToast(msg, 8000)
       return
     }
 
@@ -287,10 +307,12 @@ export default function LogActivityPage() {
         steps: resolved.steps,
         activityType: kind,
         reason: 'wearable_sync_missing',
+        timeZone: tz,
         durationMinutes: durationMinutes > 0 ? durationMinutes : undefined,
         startTime: start.toISOString(),
         endTime: end.toISOString(),
       }
+      body.activityDate = formatYmdInTimeZone(new Date(), tz)
       if (am != null) body.activeMinutes = am
       if (dm != null) body.distanceMeters = dm
       if (kcal != null) body.calories = kcal
@@ -303,7 +325,9 @@ export default function LogActivityPage() {
       })
       const json = await res.json().catch(() => (null))
       if (!res.ok) {
-        showToast(readApiErrorMessage(json, t('activityLog.toast.saveFailed')))
+        const msg = readApiErrorMessage(json, t('activityLog.toast.saveFailed'))
+        setSaveError(msg)
+        showToast(msg, 12000)
         return
       }
 
@@ -326,12 +350,18 @@ export default function LogActivityPage() {
                 ? Math.max(0, Math.round(a.estimatedCaloriesBurned))
                 : 0,
           })
-          setActivityCivilDate(typeof a.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(a.date) ? a.date : undefined)
+          setActivityCivilDate(formatYmdInTimeZone(new Date(), tz))
         }
       }
 
-      showToast(t('activityLog.toast.manualSavedTrust'), 5200)
-      setTimeout(() => router.back(), 400)
+      setSaveError(null)
+      showToast(t('activityLog.toast.manualSavedTrust'), 6500)
+      // Let the trust line stay readable before leaving (was 400ms — felt like a broken flash).
+      setTimeout(() => router.back(), 5600)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : t('activityLog.toast.saveFailed')
+      setSaveError(msg)
+      showToast(msg, 12000)
     } finally {
       setSavingActivity(false)
     }
@@ -407,7 +437,7 @@ export default function LogActivityPage() {
           </p>
         </section>
 
-        <ManualActivityHistorySection activityDate={activityCivilDate} />
+        <ManualActivityHistorySection activityDate={activityCivilDate} layout="dropdown" allowDelete />
 
         {/* Activity type */}
         <section className="space-y-2.5">
@@ -771,6 +801,27 @@ export default function LogActivityPage() {
           >
             {savingActivity ? t('activityLog.saving') : t('activityLog.saveManualLog')}
           </button>
+          {saveError ? (
+            <div
+              role="alert"
+              className="rounded-2xl border px-3.5 py-3 text-sm leading-relaxed"
+              style={{
+                borderColor: 'color-mix(in oklab, #dc2626 45%, var(--border-subtle))',
+                background: 'color-mix(in oklab, #fef2f2 88%, var(--card-subtle))',
+                color: 'var(--text-main)',
+              }}
+            >
+              <p className="font-medium text-red-800 dark:text-red-200">{saveError}</p>
+              <button
+                type="button"
+                className="mt-2 text-xs font-semibold underline-offset-2 hover:underline"
+                style={{ color: 'var(--text-muted)' }}
+                onClick={() => setSaveError(null)}
+              >
+                {t('activityLog.saveErrorDismiss')}
+              </button>
+            </div>
+          ) : null}
           <button
             type="button"
             onClick={() => router.push('/settings')}
@@ -788,10 +839,10 @@ export default function LogActivityPage() {
 
       {toast && (
         <div
-          className="fixed left-1/2 z-[110] max-w-[90vw] -translate-x-1/2 rounded-full px-4 py-2 text-xs font-semibold shadow-lg"
+          className="fixed left-1/2 z-[110] max-w-md min-w-[min(100%,18rem)] -translate-x-1/2 rounded-2xl px-4 py-3 text-sm font-medium leading-snug shadow-lg whitespace-normal text-center"
           style={{
             bottom: 'calc(5.5rem + env(safe-area-inset-bottom, 0px))',
-            background: 'rgba(15,23,42,0.92)',
+            background: 'rgba(15,23,42,0.94)',
             color: '#f9fafb',
           }}
         >

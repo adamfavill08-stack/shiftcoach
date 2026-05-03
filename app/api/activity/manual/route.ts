@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { parseJsonBody } from '@/lib/api/validation'
 import { apiServerError } from '@/lib/api/response'
-import { formatYmdInTimeZone } from '@/lib/sleep/utils'
+import { addCalendarDaysToYmd, formatYmdInTimeZone, startOfLocalDayUtcMs } from '@/lib/sleep/utils'
 import {
   insertManualActivityLog,
   type ManualActivityReason,
@@ -15,7 +15,7 @@ import { isPostgrestSchemaColumnError } from '@/lib/activity/isPostgrestSchemaCo
 export const dynamic = 'force-dynamic'
 
 const ManualBodySchema = z.object({
-  steps: z.number().int().min(0).max(120_000),
+  steps: z.coerce.number().int().min(0).max(120_000),
   activeMinutes: z.number().int().min(0).max(24 * 60).optional().nullable(),
   activityDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   timeZone: z.string().max(120).optional(),
@@ -60,6 +60,16 @@ const MANUAL_HISTORY_SELECT_MINIMAL_TS = 'id, steps, ts, activity_date, source'
 
 const MANUAL_HISTORY_SELECT_MINIMAL_CA = 'id, steps, created_at, activity_date, source'
 
+function dedupeManualRowsById(rows: readonly Record<string, unknown>[]): Record<string, unknown>[] {
+  const m = new Map<string, Record<string, unknown>>()
+  for (const r of rows) {
+    const id = r.id
+    if (id == null) continue
+    m.set(String(id), r)
+  }
+  return [...m.values()]
+}
+
 function mapActivityLogRowToManualHistory(row: Record<string, unknown>): ManualHistoryEntry {
   const stepsRaw = row.steps
   const steps =
@@ -97,12 +107,14 @@ export async function GET(req: NextRequest) {
     const activityDate =
       dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : formatYmdInTimeZone(new Date(), tz)
 
+    const manualSources = ['manual', 'Manual entry'] as const
+
     const runSelect = async (cols: string, orderCol: 'ts' | 'created_at') => {
       return supabase
         .from('activity_logs')
         .select(cols)
         .eq('user_id', userId)
-        .eq('source', 'manual')
+        .in('source', [...manualSources])
         .eq('activity_date', activityDate)
         .order(orderCol, { ascending: false })
     }
@@ -116,12 +128,16 @@ export async function GET(req: NextRequest) {
 
     let rows: unknown[] | null = null
     let error: { message?: string; code?: string } | null = null
+    let winning: { cols: string; order: 'ts' | 'created_at' } | null = null
 
     for (const s of strategies) {
       const r = await runSelect(s.cols, s.order)
       rows = r.data as unknown[] | null
       error = r.error
-      if (!error) break
+      if (!error) {
+        winning = s
+        break
+      }
       if (!isPostgrestSchemaColumnError(error)) break
     }
 
@@ -130,7 +146,57 @@ export async function GET(req: NextRequest) {
       return apiServerError('query_failed', error.message ?? 'Could not load manual activity')
     }
 
-    const list = (rows ?? []) as unknown as Record<string, unknown>[]
+    let list = (rows ?? []) as unknown as Record<string, unknown>[]
+
+    const dayStartMs = startOfLocalDayUtcMs(activityDate, tz)
+    const dayEndMs = startOfLocalDayUtcMs(addCalendarDaysToYmd(activityDate, 1), tz)
+    if (winning && Number.isFinite(dayStartMs) && Number.isFinite(dayEndMs)) {
+      const isoFrom = new Date(dayStartMs).toISOString()
+      const isoTo = new Date(dayEndMs).toISOString()
+      const extra: Record<string, unknown>[] = []
+
+      if (winning.cols.includes('ts')) {
+        const r = await supabase
+          .from('activity_logs')
+          .select(winning.cols)
+          .eq('user_id', userId)
+          .in('source', [...manualSources])
+          .is('activity_date', null)
+          .gte('ts', isoFrom)
+          .lt('ts', isoTo)
+          .order('ts', { ascending: false })
+        if (!r.error && Array.isArray(r.data)) extra.push(...(r.data as unknown as Record<string, unknown>[]))
+      }
+
+      if (winning.cols.includes('created_at')) {
+        const r = await supabase
+          .from('activity_logs')
+          .select(winning.cols)
+          .eq('user_id', userId)
+          .in('source', [...manualSources])
+          .is('activity_date', null)
+          .gte('created_at', isoFrom)
+          .lt('created_at', isoTo)
+          .order('created_at', { ascending: false })
+        if (!r.error && Array.isArray(r.data)) extra.push(...(r.data as unknown as Record<string, unknown>[]))
+      }
+
+      const civilOk = (row: Record<string, unknown>) => {
+        const t = row.ts ?? row.created_at
+        if (typeof t !== 'string' || !t.trim()) return false
+        const d = new Date(t)
+        if (Number.isNaN(d.getTime())) return false
+        return formatYmdInTimeZone(d, tz) === activityDate
+      }
+
+      list = dedupeManualRowsById([...list, ...extra.filter(civilOk)])
+      list.sort((a, b) => {
+        const ta = new Date(String(a.ts ?? a.created_at ?? 0)).getTime()
+        const tb = new Date(String(b.ts ?? b.created_at ?? 0)).getTime()
+        return tb - ta
+      })
+    }
+
     const entries: ManualHistoryEntry[] = list.map(mapActivityLogRowToManualHistory).filter((e) => e.id)
 
     return NextResponse.json(
@@ -140,6 +206,49 @@ export async function GET(req: NextRequest) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     console.error('[/api/activity/manual] GET', err)
+    return apiServerError('unexpected', message)
+  }
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+/**
+ * Deletes one manual session row owned by the user (wearable rows are never deleted here).
+ */
+export async function DELETE(req: NextRequest) {
+  try {
+    const { supabase, userId } = await getServerSupabaseAndUserId()
+    if (!userId) return buildUnauthorizedResponse()
+    if (!supabase) {
+      return apiServerError('no_db', 'Database connection unavailable')
+    }
+
+    const id = req.nextUrl.searchParams.get('id')?.trim() ?? ''
+    if (!id || !UUID_RE.test(id)) {
+      return NextResponse.json({ error: 'invalid_id' }, { status: 400 })
+    }
+
+    const { data, error } = await supabase
+      .from('activity_logs')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId)
+      .eq('source', 'manual')
+      .select('id')
+
+    if (error) {
+      console.error('[/api/activity/manual] DELETE failed', error)
+      return apiServerError('delete_failed', error.message ?? 'Could not delete entry')
+    }
+    if (!data?.length) {
+      return NextResponse.json({ error: 'not_found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true, id }, { status: 200, headers: { 'Cache-Control': 'no-store' } })
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('[/api/activity/manual] DELETE', err)
     return apiServerError('unexpected', message)
   }
 }

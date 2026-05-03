@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { ChevronDown, Trash2 } from 'lucide-react'
 import { useTranslation } from '@/components/providers/language-provider'
 import { authedFetch } from '@/lib/supabase/authedFetch'
 import { parseManualHistoryResponse, type ManualHistoryEntry } from '@/lib/activity/manualHistoryApi'
@@ -15,16 +16,38 @@ function activityTypeLabel(t: (key: string) => string, activityType: string | nu
   return activityType?.trim() ? activityType : t('activityLog.kind.custom')
 }
 
+function readDeleteApiMessage(json: unknown, fallback: string): string {
+  if (!json || typeof json !== 'object') return fallback
+  const o = json as Record<string, unknown>
+  const err = o.error
+  if (typeof err === 'string') return err
+  if (err && typeof err === 'object' && typeof (err as { message?: unknown }).message === 'string') {
+    return (err as { message: string }).message
+  }
+  if (typeof o.message === 'string') return o.message
+  return fallback
+}
+
 export type ManualActivityHistorySectionProps = {
   /** Civil activity date (YYYY-MM-DD). Omit to use server default “today” in the browser time zone. */
   activityDate?: string | null
+  /** Log page: collapsible disclosure. Activity page: open card (default). */
+  layout?: 'card' | 'dropdown'
+  /** Log page: allow removing a mistaken manual row (DELETE /api/activity/manual?id=). */
+  allowDelete?: boolean
 }
 
-export function ManualActivityHistorySection({ activityDate }: ManualActivityHistorySectionProps) {
+export function ManualActivityHistorySection({
+  activityDate,
+  layout = 'card',
+  allowDelete = false,
+}: ManualActivityHistorySectionProps) {
   const { t } = useTranslation()
   const [entries, setEntries] = useState<ManualHistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const tz =
     typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function'
@@ -73,26 +96,63 @@ export function ManualActivityHistorySection({ activityDate }: ManualActivityHis
     }
   }, [load])
 
+  const handleDelete = async (id: string) => {
+    if (!allowDelete || deletingId) return
+    if (!window.confirm(t('activityLog.deleteEntryConfirm'))) return
+    setDeleteError(null)
+    setDeletingId(id)
+    try {
+      const res = await authedFetch(`/api/activity/manual?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        cache: 'no-store',
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) {
+        setDeleteError(readDeleteApiMessage(json, t('activityLog.deleteEntryFailed')))
+        return
+      }
+      await load()
+      window.dispatchEvent(new Event('activity-manual-logged'))
+      window.dispatchEvent(new Event('wearables-synced'))
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   const timeOpts = { timeZone: tz }
 
-  return (
-    <section
-      className="w-full rounded-xl border border-[#05afc5]/25 bg-white px-4 py-4 shadow-sm dark:border-[#05afc5]/30 dark:bg-[var(--card)]"
-      aria-labelledby="manual-activity-history-heading"
-    >
-      <h2
-        id="manual-activity-history-heading"
-        className="text-sm font-semibold tracking-tight text-slate-900 dark:text-[var(--text-main)]"
-      >
-        {t('activityLog.manualHistory.title')}
-      </h2>
-      <p className="mt-1.5 text-xs leading-relaxed text-slate-600 dark:text-[var(--text-soft)]">
-        {t('activityLog.manualHistory.trustWearable')}
-      </p>
+  const shellClass =
+    'w-full rounded-xl border border-[#05afc5]/25 bg-white shadow-sm dark:border-[#05afc5]/30 dark:bg-[var(--card)]'
+
+  const body = (
+    <>
+      {layout === 'card' ? (
+        <>
+          <h2
+            id="manual-activity-history-heading"
+            className="text-sm font-semibold tracking-tight text-slate-900 dark:text-[var(--text-main)]"
+          >
+            {t('activityLog.manualHistory.title')}
+          </h2>
+          <p className="mt-1.5 text-xs leading-relaxed text-slate-600 dark:text-[var(--text-soft)]">
+            {t('activityLog.manualHistory.trustWearable')}
+          </p>
+        </>
+      ) : (
+        <p className="text-xs leading-relaxed text-slate-600 dark:text-[var(--text-soft)]">
+          {t('activityLog.manualHistory.trustWearable')}
+        </p>
+      )}
 
       {error ? (
         <p className="mt-2 text-xs text-red-600 dark:text-red-400" role="alert">
           {t('activityLog.manualHistory.loadError')}
+        </p>
+      ) : null}
+
+      {deleteError ? (
+        <p className="mt-2 text-xs text-red-600 dark:text-red-400" role="alert">
+          {deleteError}
         </p>
       ) : null}
 
@@ -137,9 +197,9 @@ export function ManualActivityHistorySection({ activityDate }: ManualActivityHis
                   data-entry-id={e.id}
                   data-status-kind={kind}
                   data-muted={muted ? 'true' : 'false'}
-                  className={`grid grid-cols-1 gap-2 rounded-lg border border-slate-100 px-3 py-2.5 sm:grid-cols-[1fr_auto] sm:items-center dark:border-[var(--border-subtle)] ${
+                  className={`rounded-lg border border-slate-100 px-3 py-2.5 dark:border-[var(--border-subtle)] ${
                     muted ? 'opacity-60' : ''
-                  }`}
+                  } ${allowDelete ? 'sm:grid sm:grid-cols-[1fr_auto_auto] sm:items-center sm:gap-2' : 'sm:grid sm:grid-cols-[1fr_auto] sm:items-center sm:gap-2'}`}
                   style={{ background: muted ? 'var(--ring-bg, rgb(248 250 252))' : undefined }}
                 >
                   <div className="min-w-0">
@@ -154,7 +214,7 @@ export function ManualActivityHistorySection({ activityDate }: ManualActivityHis
                     </p>
                     <p className="mt-0.5 text-xs text-slate-500 dark:text-[var(--text-muted)]">{windowLabel}</p>
                   </div>
-                  <div className="flex justify-start sm:justify-end">
+                  <div className="mt-2 flex justify-start sm:mt-0 sm:justify-end">
                     <span
                       className={`inline-flex max-w-full shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-semibold leading-snug ${
                         kind === 'counted'
@@ -167,12 +227,49 @@ export function ManualActivityHistorySection({ activityDate }: ManualActivityHis
                       {badgeText}
                     </span>
                   </div>
+                  {allowDelete ? (
+                    <div className="mt-2 flex justify-end sm:mt-0">
+                      <button
+                        type="button"
+                        onClick={() => void handleDelete(e.id)}
+                        disabled={deletingId != null}
+                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-40 dark:text-red-300 dark:hover:bg-red-950/40"
+                        aria-label={t('activityLog.deleteEntry')}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+                        {deletingId === e.id ? t('activityLog.deletingEntry') : t('activityLog.deleteEntry')}
+                      </button>
+                    </div>
+                  ) : null}
                 </li>
               )
             })}
           </ul>
         </div>
       )}
+    </>
+  )
+
+  if (layout === 'dropdown') {
+    return (
+      <details className={`${shellClass} group px-0 py-0`}>
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 marker:hidden [&::-webkit-details-marker]:hidden">
+          <span className="text-sm font-semibold tracking-tight text-slate-900 dark:text-[var(--text-main)]">
+            {t('activityLog.loggedTodayDropdown.summary', { count: entries.length })}
+          </span>
+          <ChevronDown
+            className="h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200 group-open:rotate-180 dark:text-[var(--text-muted)]"
+            aria-hidden
+          />
+        </summary>
+        <div className="border-t border-slate-100 px-4 pb-4 pt-2 dark:border-[var(--border-subtle)]">{body}</div>
+      </details>
+    )
+  }
+
+  return (
+    <section className={`${shellClass} px-4 py-4`} aria-labelledby="manual-activity-history-heading">
+      {body}
     </section>
   )
 }
