@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
-import { SHIFT_CALI_COACH_SYSTEM_PROMPT } from '@/lib/coach/systemPrompt'
+import {
+  coachLocalizedOutputHint,
+  coachSystemPromptFromRequest,
+} from '@/lib/coach/coachPromptForRequest'
 import { getCoachingState } from '@/lib/coach/getCoachingState'
 import { openai } from '@/lib/openaiClient'
 
@@ -406,8 +409,11 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    const coachBase = coachSystemPromptFromRequest(req)
+    const respondLocalized = coachLocalizedOutputHint(req)
+
     const systemMessage = `
-${SHIFT_CALI_COACH_SYSTEM_PROMPT}
+${coachBase}${respondLocalized}
 
 Coaching state summary:
 ${coachingState.summary}

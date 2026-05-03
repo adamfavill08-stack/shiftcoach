@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useLanguage, useTranslation } from '@/components/providers/language-provider'
+import { getClientAppLocaleForApi } from '@/lib/i18n/clientLocaleForApi'
 import { intlLocaleForApp } from '@/lib/i18n/supportedLocales'
 import { ArrowLeft, Loader2, Brain, Lightbulb, AlertTriangle, TrendingUp } from 'lucide-react'
 
@@ -74,9 +75,10 @@ export default function SleepOverviewPage() {
         console.log('[SleepOverviewPage] Fetching overview...')
         setLoading(true)
         setError(null)
-        const res = await fetch('/api/sleep/overview', { 
+        const res = await fetch('/api/sleep/overview', {
           cache: 'no-store',
           credentials: 'include',
+          headers: { 'X-ShiftCoach-Locale': getClientAppLocaleForApi() },
         })
         
         console.log('[SleepOverviewPage] Response status:', res.status, res.statusText)

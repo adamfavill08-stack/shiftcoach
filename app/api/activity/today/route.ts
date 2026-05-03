@@ -619,6 +619,12 @@ export async function GET(req: NextRequest) {
       shiftType
     )
 
+    /** Wearable / Health Connect rows often omit `active_minutes` and `shift_activity_level`; breakdown already estimates minutes from steps. */
+    const displayActiveMinutes = intensityBreakdown.totalActiveMinutes
+    /** Rough steps-only kcal when we have no self-reported activity level (same order of magnitude as common trackers). */
+    const displayEstimatedCaloriesBurned =
+      estimatedCaloriesBurned > 0 ? estimatedCaloriesBurned : steps > 0 ? Math.round(steps * 0.04) : 0
+
     // Generate shift movement plan
     const movementPlan = generateShiftMovementPlan(
       shiftType,
@@ -986,7 +992,7 @@ export async function GET(req: NextRequest) {
       ? calculateActivityScore({
           steps,
           stepTarget: activityPersonalization.effectiveStepGoal,
-          activeMinutes,
+          activeMinutes: displayActiveMinutes,
           activeMinutesTarget: scaledActiveMinutesTarget,
           intensityBreakdown,
           shiftType,
@@ -1079,7 +1085,7 @@ export async function GET(req: NextRequest) {
 
     const payload = {
       steps,
-      activeMinutes,
+      activeMinutes: displayActiveMinutes,
       lastSyncedAt: null, // Column doesn't exist in database
       source: activityResponse.data?.source ?? 'Manual entry',
       goal: profileStepGoal,
@@ -1094,7 +1100,7 @@ export async function GET(req: NextRequest) {
       shiftActivityLevel: shiftActivityLevel ?? null,
       activityLabel: activityDetails?.label ?? null,
       activityDescription: activityDetails?.description ?? null,
-      estimatedCaloriesBurned,
+      estimatedCaloriesBurned: displayEstimatedCaloriesBurned,
       activityImpact,
       activityFactor: activityDetails?.factor ?? 1.0,
       recoverySuggestion,

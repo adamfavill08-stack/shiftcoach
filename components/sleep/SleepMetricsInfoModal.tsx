@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Loader2, Sparkles } from 'lucide-react'
 import { useTranslation } from '@/components/providers/language-provider'
+import { getClientAppLocaleForApi } from '@/lib/i18n/clientLocaleForApi'
 
 interface SleepMetricsInfoModalProps {
   open: boolean
@@ -44,7 +45,10 @@ export function SleepMetricsInfoModal({
     try {
       const res = await fetch('/api/sleep/metrics-suggestions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-ShiftCoach-Locale': getClientAppLocaleForApi(),
+        },
         body: JSON.stringify({
           tonightTarget,
           consistencyScore,

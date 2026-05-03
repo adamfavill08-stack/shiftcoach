@@ -54,7 +54,7 @@ export const batch1FrA: Record<string, string> = {
   'settings.language.fallbackEnglish':
     'Si une traduction est indisponible, l’anglais sera affiché.',
   'settings.language.fallbackHint':
-    'L’espagnol et l’allemand sont entièrement traduits. Le français, le portugais (Brésil) et le polonais sont déployés par étapes ; le texte manquant reste en anglais.',
+    'L’espagnol et le français couvrent l’interface principale au même niveau (y compris Pro, détails et pages compte). L’allemand est très complet. Portugais (Brésil) et polonais sont déployés par étapes ; le texte manquant reste en anglais. Les articles longs du blog et le corps des textes juridiques peuvent rester en anglais.',
   'splash.tagline':
     'La seule app dédiée à la santé et au bien-être des travailleurs postés',
   'splash.audience':

@@ -19,6 +19,7 @@ import { rotaUploadPageDe } from '@/lib/i18n/rotaUploadPage'
 import { sleepUiMessagesDe } from '@/lib/i18n/sleepUiMessages'
 import { rotaFlowPagesDe } from '@/lib/i18n/rotaFlowPages'
 import { accountLegalShellDe } from '@/lib/i18n/accountLegalShellMessages'
+import { deBundleShellParity } from './deBundleShellParity'
 
 const messages: Record<string, string> = {
     ...calendarMessagesDe,
@@ -42,6 +43,7 @@ const messages: Record<string, string> = {
     ...sleepUiMessagesDe,
     ...rotaFlowPagesDe,
     ...accountLegalShellDe,
+    ...deBundleShellParity,
     'nav.home': 'Start',
     'nav.calendar': 'Dienstplan',
     'nav.blog': 'Artikel',

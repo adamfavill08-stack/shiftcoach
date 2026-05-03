@@ -20,6 +20,7 @@ import { rotaUploadPageFr } from '@/lib/i18n/rotaUploadPage'
 import { sleepUiMessagesFr } from '@/lib/i18n/sleepUiMessages'
 import { rotaFlowPagesFr } from '@/lib/i18n/rotaFlowPages'
 import { accountLegalShellFr } from '@/lib/i18n/accountLegalShellMessages'
+import { frBundleShellParity } from './frBundleShellParity'
 
 const messages: Record<string, string> = {
     ...batch1Fr,
@@ -44,6 +45,7 @@ const messages: Record<string, string> = {
     ...sleepUiMessagesFr,
     ...rotaFlowPagesFr,
     ...accountLegalShellFr,
+    ...frBundleShellParity,
     'settings.loading': 'Chargement des réglages…',
     'settings.backAria': 'Retour',
     'settings.contactSupport': 'Contacter le support',

@@ -1,3 +1,4 @@
+import { getClientAppLocaleForApi } from '@/lib/i18n/clientLocaleForApi'
 import { supabase } from '@/lib/supabase'
 
 /**
@@ -10,6 +11,9 @@ export async function authedFetch(input: RequestInfo | URL, init: RequestInit = 
   const headers = new Headers(init.headers)
   if (session?.access_token) {
     headers.set('Authorization', `Bearer ${session.access_token}`)
+  }
+  if (!headers.has('X-ShiftCoach-Locale')) {
+    headers.set('X-ShiftCoach-Locale', getClientAppLocaleForApi())
   }
   return fetch(input, {
     ...init,
