@@ -23,10 +23,17 @@ Manual configuration required outside the repo after code changes.
 
    - `https://www.shiftcoach.app/auth/callback`
    - `http://localhost:3000/auth/callback` (optional, dev)
+   - **`shiftcoach://auth/callback`** — required for **Capacitor native** OAuth and email confirmation when using the app deep link (see `lib/auth/oauthRedirect.ts`).
 
-2. Optional Capacitor: if the WebView origin must always be production, set  
+2. **Capacitor native build env** (`NEXT_PUBLIC_*` is baked in at `npm run build` time):
+
+   ```bash
+   NEXT_PUBLIC_MOBILE_OAUTH_REDIRECT_BASE=shiftcoach://auth
+   ```
+
+   Web / hosted WebView can still use production HTTPS via  
    `NEXT_PUBLIC_OAUTH_REDIRECT_BASE=https://www.shiftcoach.app`  
-   so `signInWithOAuth` uses that base for `/auth/callback`.
+   so email links and OAuth use `https://www.shiftcoach.app/auth/callback` when **not** on a native shell.
 
 ## RevenueCat
 

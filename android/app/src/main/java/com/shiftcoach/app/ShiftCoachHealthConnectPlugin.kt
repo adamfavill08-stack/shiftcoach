@@ -948,7 +948,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                         "HC steps debug: perms=${granted.contains(HealthPermission.getReadPermission(StepsRecord::class))} " +
                             "range=[$stepsDateRangeStart .. $stepsDateRangeEnd] " +
                             "today=$todayLocal todayRecords=$todayStepRecordsCount " +
-                            "first=$todayFirstStepAt last=$todayLastStepAt summedToday=$stepsOut " +
+                            "first=$todayFirstStepAt last=$todayLastStepAt summedToday=$stepsInt " +
                             "dailyRows=${dailyStepsArr.length()}",
                     )
                 }

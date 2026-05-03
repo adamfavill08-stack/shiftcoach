@@ -10,6 +10,7 @@ import { useTranslation } from '@/components/providers/language-provider'
 import { CompactLanguagePicker } from '@/components/i18n/CompactLanguagePicker'
 import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus'
 import { AuthEmailDivider, SocialAuthButtons } from '@/components/auth/SocialAuthButtons'
+import { buildEmailConfirmationRedirectTo } from '@/lib/auth/oauthRedirect'
 
 type PasswordStrength = 'none' | 'weak' | 'medium' | 'strong'
 
@@ -51,13 +52,18 @@ function SignUpContent() {
     e.preventDefault()
     setBusy(true)
     setErr(undefined)
-    const { error } = await supabase.auth.signUp({ 
-      email, 
+    const emailRedirectTo = buildEmailConfirmationRedirectTo()
+    const { error } = await supabase.auth.signUp({
+      email,
       password,
       options: {
-        // After confirming email, verify on server then land on sign-in (see /auth/callback)
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent('/auth/sign-in')}`
-      }
+        // Production: set NEXT_PUBLIC_OAUTH_REDIRECT_BASE or NEXT_PUBLIC_SITE_URL so the link
+        // in email points at your real host (not localhost / WebView origin). Allowlist the same
+        // URL in Supabase → Authentication → Redirect URLs.
+        emailRedirectTo:
+          emailRedirectTo ||
+          `${window.location.origin}/auth/callback?next=${encodeURIComponent('/auth/sign-in')}`,
+      },
     })
     setBusy(false)
     if (error) return setErr(error.message)

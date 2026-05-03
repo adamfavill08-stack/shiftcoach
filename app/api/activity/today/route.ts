@@ -190,6 +190,8 @@ export async function GET(req: NextRequest) {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
     const activityIntelFetchFrom = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000)
+    const sevenDaysAgoISO = sevenDaysAgo.toISOString().slice(0, 10)
+    const fourteenDaysAgoISO = fourteenDaysAgo.toISOString().slice(0, 10)
 
     // For shift workers, do NOT treat "today" as calendar midnight.
     // Instead, compute the "activity window" from the current shift start -> now.
@@ -251,7 +253,25 @@ export async function GET(req: NextRequest) {
 
     const windowStartISO = windowStartDate.toISOString()
     const windowEndISO = windowEndDate.toISOString()
-    
+
+    /** Overlap with activity-log reads — profile is independent of shift window. */
+    const profilePromise = supabase
+      .from('profiles')
+      .select(
+        'daily_steps_goal, weight_kg, height_cm, goal, sleep_goal_h, shift_pattern, sex, date_of_birth, adapted_daily_steps_goal, adapted_daily_steps_goal_at, activity_adaptation_agent_meta, preferences',
+      )
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    /** Overlap with weekly `activity_logs` fetch — rota rows do not depend on logs. */
+    const weeklyShiftsPromise = supabase
+      .from('shifts')
+      .select('date, label, start_ts, end_ts')
+      .eq('user_id', userId)
+      .gte('date', sevenDaysAgoISO)
+      .lte('date', today)
+      .order('date', { ascending: true })
+
     // Try to get today's activity - use timestamp filtering since 'date' column may not exist
     let activityResponse: any = { data: null, error: null }
     let activeMinutes: number | null = null
@@ -581,18 +601,15 @@ export async function GET(req: NextRequest) {
       activeMinutes = activityResponse.data?.active_minutes ?? null
     }
 
-    const profileResponse = await supabase
-      .from('profiles')
-      .select(
-        'daily_steps_goal, weight_kg, height_cm, goal, sleep_goal_h, shift_pattern, sex, date_of_birth, adapted_daily_steps_goal, adapted_daily_steps_goal_at, activity_adaptation_agent_meta, preferences',
-      )
-      .eq('user_id', userId)
-      .maybeSingle()
+    const profileResponse = await profilePromise
 
     const profileSleepGoalH = Math.min(
       12,
       Math.max(5, profileResponse.data?.sleep_goal_h ?? 7.5),
     )
+
+    /** Overlap with weekly activity processing — only needs profile sleep goal. */
+    const sleepDeficitForIntelPromise = getSleepDeficitForCircadian(supabase, userId, profileSleepGoalH)
 
     // Determine shift type using shared utility
     const standardType = toShiftType(currentShift?.label, currentShift?.start_ts)
@@ -620,33 +637,29 @@ export async function GET(req: NextRequest) {
       new Date()
     )
 
-    // Fetch sleep data for recovery score
-    const { data: recentSleepLogs } = await supabase
-      .from('sleep_logs')
-      .select('start_ts, end_ts, sleep_hours, quality, type')
-      .eq('user_id', userId)
-      .gte('end_ts', sevenDaysAgo.toISOString())
-      .order('end_ts', { ascending: false })
-      .limit(7)
-
-    // Get previous shift for recovery calculation
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
     const yesterdayIso = yesterday.toISOString().slice(0, 10)
-    const { data: previousShift } = await supabase
-      .from('shifts')
-      .select('label')
-      .eq('user_id', userId)
-      .eq('date', yesterdayIso)
-      .maybeSingle()
 
-    // Get sleep deficit for recovery calculation
-    const { data: sleepDeficitData } = await supabase
-      .from('shift_rhythm_scores')
-      .select('total_score')
-      .eq('user_id', userId)
-      .order('date', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    const [recentSleepLogsRes, previousShiftRes, sleepDeficitDataRes] = await Promise.all([
+      supabase
+        .from('sleep_logs')
+        .select('start_ts, end_ts, sleep_hours, quality, type')
+        .eq('user_id', userId)
+        .gte('end_ts', sevenDaysAgo.toISOString())
+        .order('end_ts', { ascending: false })
+        .limit(7),
+      supabase.from('shifts').select('label').eq('user_id', userId).eq('date', yesterdayIso).maybeSingle(),
+      supabase
+        .from('shift_rhythm_scores')
+        .select('total_score')
+        .eq('user_id', userId)
+        .order('date', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ])
+    const recentSleepLogs = recentSleepLogsRes.data
+    const previousShift = previousShiftRes.data
+    const sleepDeficitData = sleepDeficitDataRes.data
 
     // Process sleep data
     const mainSleepLogs = (recentSleepLogs || []).filter((log: any) => 
@@ -687,9 +700,6 @@ export async function GET(req: NextRequest) {
         }
 
     // Fetch activity logs for movement consistency (7d) + baseline (14d) in one range
-    const sevenDaysAgoISO = sevenDaysAgo.toISOString().slice(0, 10)
-    const fourteenDaysAgoISO = fourteenDaysAgo.toISOString().slice(0, 10)
-
     const activityIntelFromIso = activityIntelFetchFrom.toISOString()
     let weeklyActivityQuery: any = await supabase
       .from('activity_logs')
@@ -747,14 +757,7 @@ export async function GET(req: NextRequest) {
         .order('created_at', { ascending: true })
     }
 
-    // Get shifts for the last 7 days to determine shift types
-    const { data: weeklyShifts } = await supabase
-      .from('shifts')
-      .select('date, label, start_ts, end_ts')
-      .eq('user_id', userId)
-      .gte('date', sevenDaysAgoISO)
-      .lte('date', today)
-      .order('date', { ascending: true })
+    const { data: weeklyShifts } = await weeklyShiftsPromise
 
     // Build shift type map + rota rows for shift-window step attribution
     const shiftTypeMap = new Map<string, 'day' | 'night' | 'off' | 'other'>()
@@ -853,11 +856,7 @@ export async function GET(req: NextRequest) {
     }
 
     const currentActivityDayKey = activityDayKeyFromTimestamp(now, activityIntelTimeZone)
-    const sleepDeficitForIntel = await getSleepDeficitForCircadian(
-      supabase,
-      userId,
-      profileSleepGoalH,
-    )
+    const sleepDeficitForIntel = await sleepDeficitForIntelPromise
     const activityIntelligence = computeActivityIntelligence({
       currentActivityDayKey,
       stepsByActivityDay,

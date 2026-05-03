@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { usePathname } from 'next/navigation'
 
+import { MobileAuthDeepLinkListener } from '@/components/auth/MobileAuthDeepLinkListener'
 import { supabase } from '@/lib/supabase'
 import { hydrateNativeAuthFromCookiesIfNeeded } from '@/lib/supabase/nativeSessionHydrate'
 
@@ -74,6 +75,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({ user, loading }), [user, loading])
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
+  return (
+    <Ctx.Provider value={value}>
+      <MobileAuthDeepLinkListener />
+      {children}
+    </Ctx.Provider>
+  )
 }
 

@@ -1,20 +1,6 @@
-import type { EmailOtpType } from '@supabase/supabase-js'
+import { parseOtpType } from '@/lib/auth/emailOtpTypes'
 import { getSupabaseServer } from '@/lib/supabase-server-auth'
 import { NextRequest, NextResponse } from 'next/server'
-
-const OTP_TYPES = new Set<string>([
-  'signup',
-  'email',
-  'invite',
-  'recovery',
-  'magiclink',
-  'email_change',
-])
-
-function parseOtpType(type: string | null): EmailOtpType | null {
-  if (!type || !OTP_TYPES.has(type)) return null
-  return type as EmailOtpType
-}
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
