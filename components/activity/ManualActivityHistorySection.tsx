@@ -48,6 +48,7 @@ export function ManualActivityHistorySection({
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [wearableWinsDay, setWearableWinsDay] = useState(false)
 
   const tz =
     typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function'
@@ -68,17 +69,21 @@ export function ManualActivityHistorySection({
       if (!res.ok) {
         setError(typeof (json as { error?: string })?.error === 'string' ? (json as { error: string }).error : null)
         setEntries([])
+        setWearableWinsDay(false)
         return
       }
       const parsed = parseManualHistoryResponse(json)
       if (parsed == null) {
         setEntries([])
+        setWearableWinsDay(false)
         setError('parse_failed')
         return
       }
       setEntries(parsed.entries)
+      setWearableWinsDay(parsed.activityTotalsBreakdown?.sourceOfTruth === 'wearable')
     } catch {
       setEntries([])
+      setWearableWinsDay(false)
       setError('fetch_failed')
     } finally {
       setLoading(false)
@@ -184,16 +189,20 @@ export function ManualActivityHistorySection({
           </div>
           <ul className="space-y-2">
             {entries.map((e) => {
-              const { statusKind: kind, muted } = manualHistoryRowSemantics(e.merge_status)
+              const { statusKind: kind, muted } = manualHistoryRowSemantics(e.merge_status, {
+                wearableWinsDay,
+              })
               const windowLabel = formatManualTimeWindow(e.start_time, e.end_time, timeOpts)
               const typeLabel = activityTypeLabel(t, e.activity_type)
               const stepsLabel = e.steps.toLocaleString()
               const badgeText =
                 kind === 'replaced'
                   ? t('activityLog.manualHistory.statusReplaced')
-                  : kind === 'not_counted'
-                    ? t('activityLog.manualHistory.badgeNotCounted')
-                    : t('activityLog.manualHistory.badgeCounted')
+                  : kind === 'not_counted' && wearableWinsDay
+                    ? t('activityLog.manualHistory.badgeWearableWins')
+                    : kind === 'not_counted'
+                      ? t('activityLog.manualHistory.badgeNotCounted')
+                      : t('activityLog.manualHistory.badgeCounted')
 
               return (
                 <li

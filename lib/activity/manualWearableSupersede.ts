@@ -1,6 +1,38 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { wearableDeltaSupersedesManual } from '@/lib/activity/activityLogStepSum'
 
+const YMD = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * When wearable daily data exists for a civil day, all manual session rows for that
+ * `activity_date` are treated as backup-only and marked superseded (wearable is source of truth).
+ */
+export async function markAllManualSessionsSupersededForWearableDay(
+  supabase: SupabaseClient,
+  userId: string,
+  activityDate: string,
+  wearableSource: string,
+): Promise<void> {
+  if (!activityDate || !YMD.test(activityDate)) return
+  const nowIso = new Date().toISOString()
+  const src = wearableSource.trim().slice(0, 120) || 'wearable'
+  const { error } = await supabase
+    .from('activity_logs')
+    .update({
+      merge_status: 'superseded_by_wearable',
+      superseded_by_source: src,
+      superseded_at: nowIso,
+    })
+    .eq('user_id', userId)
+    .eq('activity_date', activityDate)
+    .in('source', ['manual', 'Manual entry'])
+    .or('merge_status.is.null,merge_status.eq.active')
+
+  if (error) {
+    console.warn('[markAllManualSessionsSupersededForWearableDay]', error.message ?? error)
+  }
+}
+
 /** Previous stored daily total for this wearable source + civil day (excludes manual rows). */
 export async function fetchWearableDailyStepsForSource(
   supabase: SupabaseClient,
@@ -37,7 +69,7 @@ export async function supersedeManualLogsAfterWearableDelta(
     .select('id, steps, merge_status')
     .eq('user_id', userId)
     .eq('activity_date', activityDate)
-    .eq('source', 'manual')
+    .in('source', ['manual', 'Manual entry'])
 
   if (error || !manuals?.length) return
 

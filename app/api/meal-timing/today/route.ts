@@ -25,8 +25,25 @@ import {
   type ShiftGuidanceShiftType,
 } from '@/lib/shift-guidance/generateDailyShiftGuidance'
 import type { GuidanceMode, TransitionState } from '@/lib/shift-context/types'
+import { formatYmdInTimeZone } from '@/lib/sleep/utils'
+import { fetchActivityLogsByActivityDateWindow } from '@/lib/activity/fetchActivityLogsByActivityDateWindow'
+import { filterActivityLogRowsForWearableDedupe } from '@/lib/activity/activityLogWearableDedupe'
+import { sumStepsFromActivityLogRows } from '@/lib/activity/activityLogStepSum'
 
 const DAY_MS = 24 * 60 * 60 * 1000
+
+function resolveMealTimingActivityTz(req: NextRequest): string {
+  const raw = req.nextUrl.searchParams.get('tz') ?? req.nextUrl.searchParams.get('timeZone') ?? ''
+  const decoded = raw ? decodeURIComponent(raw.trim()) : ''
+  const zone = decoded.slice(0, 120)
+  if (!zone) return 'UTC'
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: zone })
+    return zone
+  } catch {
+    return 'UTC'
+  }
+}
 
 function formatTime24(value: Date): string {
   return value.toLocaleTimeString([], {
@@ -356,17 +373,29 @@ export async function GET(req: NextRequest) {
     const sleepHoursLast24h = sleepLogs?.reduce((sum, s) => sum + (s.sleep_hours ?? 0), 0) ?? 0
     const sleepContext = `${Math.round(sleepHoursLast24h * 10) / 10}h sleep in last 24h`
 
-    // Get steps (from activity_logs or daily_metrics)
-    const { data: activityLog } = await supabase
-      .from('activity_logs')
-      .select('steps')
-      .eq('user_id', userId)
-      .gte('ts', new Date(today + 'T00:00:00').toISOString())
-      .order('ts', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    const steps = activityLog?.steps ?? 0
+    // Steps: civil-day total (wearable + manual), aligned with /api/activity/today — not "latest row by ts".
+    const activityTz = resolveMealTimingActivityTz(req)
+    const civilTodayForSteps = formatYmdInTimeZone(now, activityTz)
+    const windowLogs = await fetchActivityLogsByActivityDateWindow(
+      supabase,
+      userId,
+      civilTodayForSteps,
+      civilTodayForSteps,
+      { timeZone: activityTz },
+    )
+    const keptSteps = filterActivityLogRowsForWearableDedupe(windowLogs as any[], activityTz)
+    let steps = sumStepsFromActivityLogRows(keptSteps)
+    if (steps === 0 && windowLogs.length === 0) {
+      const { data: activityLog } = await supabase
+        .from('activity_logs')
+        .select('steps')
+        .eq('user_id', userId)
+        .gte('ts', new Date(today + 'T00:00:00').toISOString())
+        .order('ts', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      steps = activityLog?.steps ?? 0
+    }
     const activityContext = `${steps.toLocaleString()} steps so far today`
 
     // Format shift label for display.

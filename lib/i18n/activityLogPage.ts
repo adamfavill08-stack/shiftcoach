@@ -46,7 +46,8 @@ export const activityLogPageEn: Record<string, string> = {
     'Manual activity saved. If your wearable syncs later, ShiftCoach will try not to count the same steps twice.',
   'activityLog.manualHistory.title': 'Manual entries',
   'activityLog.manualHistory.trustWearable':
-    'Manual entries are only counted until your wearable sends the same activity.',
+    'Manual entries are used only when wearable data is missing for the day. When your watch syncs, that total is the source of truth.',
+  'activityLog.manualHistory.badgeWearableWins': 'Not counted — wearable data available',
   'activityLog.manualHistory.empty': 'No manual entries yet',
   'activityLog.manualHistory.loadError': 'Could not load manual history. Try again later.',
   'activityLog.manualHistory.colEntry': 'Entry',
@@ -124,7 +125,8 @@ export const activityLogPageEs: Record<string, string> = {
     'Actividad manual guardada. Si tu wearable sincroniza después, ShiftCoach intentará no contar los mismos pasos dos veces.',
   'activityLog.manualHistory.title': 'Entradas manuales',
   'activityLog.manualHistory.trustWearable':
-    'Las entradas manuales solo cuentan hasta que tu wearable envíe la misma actividad.',
+    'Las entradas manuales solo se usan si falta el dato del wearable ese día. Cuando el reloj sincroniza, ese total manda.',
+  'activityLog.manualHistory.badgeWearableWins': 'No contada — hay datos del wearable',
   'activityLog.manualHistory.empty': 'Aún no hay entradas manuales',
   'activityLog.manualHistory.loadError': 'No se pudo cargar el historial manual. Inténtalo más tarde.',
   'activityLog.manualHistory.colEntry': 'Entrada',
@@ -201,7 +203,8 @@ export const activityLogPageDe: Record<string, string> = {
     'Manuelle Aktivität gespeichert. Synchronisiert dein Wearable später, versucht ShiftCoach, dieselben Schritte nicht doppelt zu zählen.',
   'activityLog.manualHistory.title': 'Manuelle Einträge',
   'activityLog.manualHistory.trustWearable':
-    'Manuelle Einträge zählen nur, bis dein Wearable dieselbe Aktivität liefert.',
+    'Manuelle Einträge gelten nur, wenn für den Tag keine Wearable-Daten da sind. Nach dem Sync zählt das Wearable.',
+  'activityLog.manualHistory.badgeWearableWins': 'Nicht gezählt — Wearable-Daten vorhanden',
   'activityLog.manualHistory.empty': 'Noch keine manuellen Einträge',
   'activityLog.manualHistory.loadError': 'Verlauf konnte nicht geladen werden. Bitte später erneut versuchen.',
   'activityLog.manualHistory.colEntry': 'Eintrag',
@@ -278,7 +281,8 @@ export const activityLogPageFr: Record<string, string> = {
     'Activité manuelle enregistrée. Si votre appareil se synchronise plus tard, ShiftCoach évitera de compter deux fois les mêmes pas.',
   'activityLog.manualHistory.title': 'Saisies manuelles',
   'activityLog.manualHistory.trustWearable':
-    'Les saisies manuelles ne comptent que jusqu’à ce que votre wearable envoie la même activité.',
+    'Les saisies manuelles servent seulement si les données wearable manquent ce jour-là. Après synchro, le wearable fait foi.',
+  'activityLog.manualHistory.badgeWearableWins': 'Non comptée — données wearable disponibles',
   'activityLog.manualHistory.empty': 'Aucune saisie manuelle pour l’instant',
   'activityLog.manualHistory.loadError': 'Impossible de charger l’historique manuel. Réessayez plus tard.',
   'activityLog.manualHistory.colEntry': 'Entrée',
@@ -353,7 +357,8 @@ export const activityLogPagePtBR: Record<string, string> = {
   'activityLog.toast.logged': 'Atividade registrada',
   'activityLog.manualHistory.title': 'Entradas manuais',
   'activityLog.manualHistory.trustWearable':
-    'As entradas manuais só contam até o wearable enviar a mesma atividade.',
+    'Entradas manuais só quando faltar dado do wearable nesse dia. Depois da sincronização, vale o wearable.',
+  'activityLog.manualHistory.badgeWearableWins': 'Não contada — dados do wearable disponíveis',
   'activityLog.manualHistory.empty': 'Nenhuma entrada manual ainda',
   'activityLog.manualHistory.loadError': 'Não foi possível carregar o histórico manual. Tente mais tarde.',
   'activityLog.manualHistory.colEntry': 'Entrada',
@@ -430,7 +435,8 @@ export const activityLogPagePl: Record<string, string> = {
     'Zapisano aktywność ręczną. Jeśli wearable zsynchronizuje się później, ShiftCoach spróbuje nie liczyć tych samych kroków podwójnie.',
   'activityLog.manualHistory.title': 'Wpisy ręczne',
   'activityLog.manualHistory.trustWearable':
-    'Wpisy ręczne liczą się tylko do momentu, gdy wearable prześle tę samą aktywność.',
+    'Wpisy ręczne tylko gdy brak danych z wearable tego dnia. Po synchronizacji obowiązuje wearable.',
+  'activityLog.manualHistory.badgeWearableWins': 'Nie liczone — dostępne dane wearable',
   'activityLog.manualHistory.empty': 'Brak ręcznych wpisów',
   'activityLog.manualHistory.loadError': 'Nie udało się wczytać historii ręcznej. Spróbuj później.',
   'activityLog.manualHistory.colEntry': 'Wpis',

@@ -60,6 +60,12 @@ const messages: Record<string, string> = {
     'browse.activity.manualLogSteps': 'Registrar pasos manualmente',
     'browse.activity.manualLogStepsHint':
       '¿El wearable aún no sincronizó? Introduce los pasos que ves en el reloj o el móvil.',
+    'browse.activity.stepsSourceWearable': 'Origen: Wearable (sincronizado)',
+    'browse.activity.stepsSourceManual': 'Origen: Entrada manual',
+    'browse.activity.stepsSourceNone': 'Origen: Sin datos de pasos',
+    'browse.activity.syncStepsAria': 'Sincronizar pasos con Health Connect',
+    'browse.activity.syncStepsBusy': 'Sincronizando…',
+    'browse.activity.syncStepsFailed': 'No se pudo sincronizar. Inténtalo de nuevo.',
     'browse.activity.motivationNamed':
       '{name}, el movimiento que sumas en tus días de turno cuenta. Sigue adelante: estás creando un ritmo que encaja con tu vida.',
     'browse.activity.motivationAnonymous':

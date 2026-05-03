@@ -8,7 +8,14 @@ import {
   filterActivityLogRowsForWearableDedupe,
   shouldSkipLegacyWearableActivityLogRow,
 } from '@/lib/activity/activityLogWearableDedupe'
-import { effectiveActivityLogSteps, sumStepsFromActivityLogRows } from '@/lib/activity/activityLogStepSum'
+import {
+  computeActivityTotalsBreakdown,
+  effectiveActivityLogSteps,
+  isManualActivityRow,
+  toPublicActivityTotalsBreakdown,
+  type ActivityTotalsBreakdown,
+  type ActivityTotalsSourceOfTruth,
+} from '@/lib/activity/activityLogStepSum'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import {
   getActivityLevelDetails,
@@ -37,6 +44,10 @@ import { getSleepDeficitForCircadian } from '@/lib/circadian/sleep'
 import { computePersonalizedActivityTargets } from '@/lib/activity/personalizedActivityTargets'
 import { computeAdaptedStepGoalAgent, type AdaptedStepShift } from '@/lib/activity/computeAdaptedStepGoalAgent'
 import { persistAdaptedStepGoalAgent } from '@/lib/activity/persistAdaptedStepGoalAgent'
+import {
+  filterActivityLogRowsToCivilYmd,
+  resolveActivityLogCivilYmd,
+} from '@/lib/activity/activityLogCivilDay'
 
 function toAgentShift(
   shiftType: string | null | undefined,
@@ -90,6 +101,34 @@ function resolveActivityIntelTimeZone(req: NextRequest): string {
   }
 }
 
+/**
+ * Merges rows for the user's civil `localToday` (activity_date + manual orphans with NULL activity_date)
+ * into shift-window / ts queries so "today" totals match the activity log page and DB truth.
+ */
+async function mergeTodayActivityLogsByCivilDate(
+  supabase: any,
+  userId: string,
+  localToday: string,
+  activityIntelTimeZone: string,
+  rows: any[],
+): Promise<any[]> {
+  const byCivilDay = await fetchActivityLogsByActivityDateWindow(
+    supabase,
+    userId,
+    localToday,
+    localToday,
+    { timeZone: activityIntelTimeZone },
+  )
+  if (!byCivilDay.length) return rows
+  const merged = mergeActivityLogRowsDedupe(rows, byCivilDay)
+  merged.sort((a: any, b: any) => new Date(b.ts ?? b.created_at ?? 0).getTime() - new Date(a.ts ?? a.created_at ?? 0).getTime())
+  return filterActivityLogRowsToCivilYmd(
+    merged as Record<string, unknown>[],
+    localToday,
+    activityIntelTimeZone,
+  ) as any[]
+}
+
 /** Merge two activity_log row lists without double-counting the same row (Health Connect daily upserts use `ts` = sync time, which may fall outside the shift window). */
 function mergeActivityLogRowsDedupe(a: readonly any[], b: readonly any[]): any[] {
   const map = new Map<string, any>()
@@ -103,6 +142,34 @@ function mergeActivityLogRowsDedupe(a: readonly any[], b: readonly any[]): any[]
     if (!map.has(k)) map.set(k, r)
   }
   return [...map.values()]
+}
+
+function activeMinutesFromKeptRows(kept: any[], sourceOfTruth: ActivityTotalsSourceOfTruth): number | null {
+  const nums = (arr: any[]) =>
+    arr
+      .map((r) => r.active_minutes)
+      .filter((v: unknown) => typeof v === 'number' && Number.isFinite(v)) as number[]
+  if (sourceOfTruth === 'wearable') {
+    const wear = kept.filter((r: any) => !isManualActivityRow(r.source))
+    const v = nums(wear)
+    return v.length ? Math.max(...v) : null
+  }
+  if (sourceOfTruth === 'manual') {
+    const manuals = kept.filter(
+      (r: any) => isManualActivityRow(r.source) && r.merge_status !== 'superseded_by_wearable',
+    )
+    const v = nums(manuals)
+    return v.length ? v.reduce((a, b) => a + b, 0) : null
+  }
+  return null
+}
+
+function pickMostRecentRowForDisplay(rows: any[], kept: any[], breakdown: ActivityTotalsBreakdown): any {
+  if (breakdown.sourceOfTruth === 'wearable') {
+    const w = kept.find((r: any) => !isManualActivityRow(r.source))
+    if (w) return w
+  }
+  return rows[0]
 }
 
 export async function GET(req: NextRequest) {
@@ -188,6 +255,7 @@ export async function GET(req: NextRequest) {
     // Try to get today's activity - use timestamp filtering since 'date' column may not exist
     let activityResponse: any = { data: null, error: null }
     let activeMinutes: number | null = null
+    let lastTodayTotalsBreakdown: ActivityTotalsBreakdown | null = null
 
     // Strategy 1: Try with all columns using timestamp filter
     let activityQueryTs: any = await supabase
@@ -229,13 +297,15 @@ export async function GET(req: NextRequest) {
           (a: any, b: any) => new Date(b.ts ?? 0).getTime() - new Date(a.ts ?? 0).getTime(),
         )
       }
+      rows = await mergeTodayActivityLogsByCivilDate(supabase, userId, today, activityIntelTimeZone, rows)
       const kept = filterActivityLogRowsForWearableDedupe(rows, activityIntelTimeZone)
-      const totalSteps = sumStepsFromActivityLogRows(kept)
-      const mostRecentRow = rows[0]
-      const activeMinutesVals = kept.map((r: any) => r.active_minutes).filter((v: any) => typeof v === 'number')
-      const totalActiveMinutes = activeMinutesVals.length
-        ? activeMinutesVals.reduce((sum: number, v: number) => sum + v, 0)
-        : null
+      const todayBreakdown = computeActivityTotalsBreakdown(kept, {
+        includeDebugContributingIds: process.env.NODE_ENV === 'development',
+      })
+      lastTodayTotalsBreakdown = todayBreakdown
+      const totalSteps = todayBreakdown.totalSteps
+      const mostRecentRow = pickMostRecentRowForDisplay(rows, kept, todayBreakdown)
+      const totalActiveMinutes = activeMinutesFromKeptRows(kept, todayBreakdown.sourceOfTruth)
       activityResponse = {
         data: {
           steps: totalSteps,
@@ -289,13 +359,15 @@ export async function GET(req: NextRequest) {
               new Date(a.created_at ?? a.ts ?? 0).getTime(),
           )
         }
+        rows = await mergeTodayActivityLogsByCivilDate(supabase, userId, today, activityIntelTimeZone, rows)
         const kept = filterActivityLogRowsForWearableDedupe(rows, activityIntelTimeZone)
-        const totalSteps = sumStepsFromActivityLogRows(kept)
-        const mostRecentRow = rows[0]
-        const activeMinutesVals = kept.map((r: any) => r.active_minutes).filter((v: any) => typeof v === 'number')
-        const totalActiveMinutes = activeMinutesVals.length
-          ? activeMinutesVals.reduce((sum: number, v: number) => sum + v, 0)
-          : null
+        const todayBreakdown = computeActivityTotalsBreakdown(kept, {
+          includeDebugContributingIds: process.env.NODE_ENV === 'development',
+        })
+        lastTodayTotalsBreakdown = todayBreakdown
+        const totalSteps = todayBreakdown.totalSteps
+        const mostRecentRow = pickMostRecentRowForDisplay(rows, kept, todayBreakdown)
+        const totalActiveMinutes = activeMinutesFromKeptRows(kept, todayBreakdown.sourceOfTruth)
         activityResponse = {
           data: {
             steps: totalSteps,
@@ -336,10 +408,15 @@ export async function GET(req: NextRequest) {
       if (activityQueryNoActiveMinutes.error) {
         activityResponse = activityQueryNoActiveMinutes
       } else {
-        const rows = activityQueryNoActiveMinutes.data ?? []
+        let rows = activityQueryNoActiveMinutes.data ?? []
+        rows = await mergeTodayActivityLogsByCivilDate(supabase, userId, today, activityIntelTimeZone, rows)
         const kept = filterActivityLogRowsForWearableDedupe(rows, activityIntelTimeZone)
-        const totalSteps = sumStepsFromActivityLogRows(kept)
-        const mostRecentRow = rows[0]
+        const todayBreakdown = computeActivityTotalsBreakdown(kept, {
+          includeDebugContributingIds: process.env.NODE_ENV === 'development',
+        })
+        lastTodayTotalsBreakdown = todayBreakdown
+        const totalSteps = todayBreakdown.totalSteps
+        const mostRecentRow = pickMostRecentRowForDisplay(rows, kept, todayBreakdown)
         activityResponse = {
           data: {
             steps: totalSteps,
@@ -377,10 +454,15 @@ export async function GET(req: NextRequest) {
         if (activityQueryNoActiveMinutesNoTs.error) {
           activityResponse = activityQueryNoActiveMinutesNoTs
         } else {
-          const rows = activityQueryNoActiveMinutesNoTs.data ?? []
+          let rows = activityQueryNoActiveMinutesNoTs.data ?? []
+          rows = await mergeTodayActivityLogsByCivilDate(supabase, userId, today, activityIntelTimeZone, rows)
           const kept = filterActivityLogRowsForWearableDedupe(rows, activityIntelTimeZone)
-          const totalSteps = sumStepsFromActivityLogRows(kept)
-          const mostRecentRow = rows[0]
+          const todayBreakdown = computeActivityTotalsBreakdown(kept, {
+            includeDebugContributingIds: process.env.NODE_ENV === 'development',
+          })
+          lastTodayTotalsBreakdown = todayBreakdown
+          const totalSteps = todayBreakdown.totalSteps
+          const mostRecentRow = pickMostRecentRowForDisplay(rows, kept, todayBreakdown)
           activityResponse = {
             data: {
               steps: totalSteps,
@@ -422,10 +504,15 @@ export async function GET(req: NextRequest) {
       if (activityQueryNoSource.error) {
         activityResponse = activityQueryNoSource
       } else {
-        const rows = activityQueryNoSource.data ?? []
+        let rows = activityQueryNoSource.data ?? []
+        rows = await mergeTodayActivityLogsByCivilDate(supabase, userId, today, activityIntelTimeZone, rows)
         const kept = filterActivityLogRowsForWearableDedupe(rows, activityIntelTimeZone)
-        const totalSteps = sumStepsFromActivityLogRows(kept)
-        const mostRecentRow = rows[0]
+        const todayBreakdown = computeActivityTotalsBreakdown(kept, {
+          includeDebugContributingIds: process.env.NODE_ENV === 'development',
+        })
+        lastTodayTotalsBreakdown = todayBreakdown
+        const totalSteps = todayBreakdown.totalSteps
+        const mostRecentRow = pickMostRecentRowForDisplay(rows, kept, todayBreakdown)
         activityResponse = {
           data: {
             steps: totalSteps,
@@ -463,10 +550,15 @@ export async function GET(req: NextRequest) {
         if (activityQueryNoSourceNoTs.error) {
           activityResponse = activityQueryNoSourceNoTs
         } else {
-          const rows = activityQueryNoSourceNoTs.data ?? []
+          let rows = activityQueryNoSourceNoTs.data ?? []
+          rows = await mergeTodayActivityLogsByCivilDate(supabase, userId, today, activityIntelTimeZone, rows)
           const kept = filterActivityLogRowsForWearableDedupe(rows, activityIntelTimeZone)
-          const totalSteps = sumStepsFromActivityLogRows(kept)
-          const mostRecentRow = rows[0]
+          const todayBreakdown = computeActivityTotalsBreakdown(kept, {
+            includeDebugContributingIds: process.env.NODE_ENV === 'development',
+          })
+          lastTodayTotalsBreakdown = todayBreakdown
+          const totalSteps = todayBreakdown.totalSteps
+          const mostRecentRow = pickMostRecentRowForDisplay(rows, kept, todayBreakdown)
           activityResponse = {
             data: {
               steps: totalSteps,
@@ -610,10 +702,24 @@ export async function GET(req: NextRequest) {
     const activityIntelFromIso = activityIntelFetchFrom.toISOString()
     let weeklyActivityQuery: any = await supabase
       .from('activity_logs')
-      .select('steps, active_minutes, source, merge_status, ts, shift_activity_level, activity_date')
+      .select(
+        'steps, active_minutes, source, merge_status, ts, logged_at, created_at, id, shift_activity_level, activity_date',
+      )
       .eq('user_id', userId)
       .gte('ts', activityIntelFromIso)
       .order('ts', { ascending: true })
+
+    if (
+      weeklyActivityQuery.error &&
+      String(weeklyActivityQuery.error.message ?? '').includes('logged_at')
+    ) {
+      weeklyActivityQuery = await supabase
+        .from('activity_logs')
+        .select('steps, active_minutes, source, merge_status, ts, created_at, id, shift_activity_level, activity_date')
+        .eq('user_id', userId)
+        .gte('ts', activityIntelFromIso)
+        .order('ts', { ascending: true })
+    }
 
     if (
       weeklyActivityQuery.error &&
@@ -678,7 +784,6 @@ export async function GET(req: NextRequest) {
 
     // Process weekly activity data
     const weeklyActivityData: DailyActivityData[] = []
-    const activityByDate = new Map<string, { steps: number; activeMinutes: number | null; source?: string }>()
 
     let weeklyLogs = (weeklyActivityQuery.data ?? []) as any[]
     // Manual sessions (and some wearables) may have `activity_date` set but NULL `ts`; ts-window queries miss them.
@@ -699,68 +804,61 @@ export async function GET(req: NextRequest) {
       activityIntelTimeZone,
     )
 
-    // Group activity by date
+    const logsByCivilDate = new Map<string, any[]>()
     if (weeklyLogs.length > 0) {
-      weeklyLogs.forEach((log: any) => {
-        if (
-          shouldSkipLegacyWearableActivityLogRow(log, activityIntelTimeZone, explicitWearableShiftedKeysByFamily)
-        ) {
-          return
-        }
-        const rawAd = typeof log.activity_date === 'string' ? log.activity_date.trim().slice(0, 10) : ''
-        const logDate =
-          /^\d{4}-\d{2}-\d{2}$/.test(rawAd)
-            ? rawAd
-            : log.ts
-              ? new Date(log.ts).toISOString().slice(0, 10)
-              : log.created_at
-                ? new Date(log.created_at).toISOString().slice(0, 10)
-                : null
-
-        if (logDate && logDate >= fourteenDaysAgoISO && logDate <= today) {
-          const existing = activityByDate.get(logDate)
-          if (existing) {
-            // Sum steps and take max active minutes for the day
-            existing.steps += effectiveActivityLogSteps(log)
-            if (log.active_minutes !== null && (existing.activeMinutes === null || log.active_minutes > existing.activeMinutes)) {
-              existing.activeMinutes = log.active_minutes
-            }
-            // Prefer wearable source if available
-            if (log.source && log.source !== 'Manual entry' && existing.source === 'Manual entry') {
-              existing.source = log.source
-            }
-          } else {
-            activityByDate.set(logDate, {
-              steps: effectiveActivityLogSteps(log),
-              activeMinutes: log.active_minutes ?? null,
-              source: log.source ?? 'Manual entry',
-            })
-          }
-        }
-      })
-    }
-
-    const stepsByActivityDay: Record<string, number> = {}
-    if (weeklyLogs.length > 0) {
-      const ymdRe = /^\d{4}-\d{2}-\d{2}$/
       for (const log of weeklyLogs) {
         if (
           shouldSkipLegacyWearableActivityLogRow(log, activityIntelTimeZone, explicitWearableShiftedKeysByFamily)
         ) {
           continue
         }
-        const rawAd = typeof log.activity_date === 'string' ? log.activity_date.trim().slice(0, 10) : ''
-        let dayKey: string | null = null
-        if (ymdRe.test(rawAd)) {
-          dayKey = activityDayKeyFromCivilActivityDate(rawAd, activityIntelTimeZone)
-        } else {
-          const t = log.ts ?? log.created_at
-          if (t) dayKey = activityDayKeyFromTimestamp(t, activityIntelTimeZone)
-        }
-        if (!dayKey) continue
-        const s = effectiveActivityLogSteps(log)
-        stepsByActivityDay[dayKey] = (stepsByActivityDay[dayKey] ?? 0) + s
+        const logDate = resolveActivityLogCivilYmd(log as Record<string, unknown>, activityIntelTimeZone)
+        if (!logDate || logDate < fourteenDaysAgoISO || logDate > today) continue
+        const arr = logsByCivilDate.get(logDate) ?? []
+        arr.push(log)
+        logsByCivilDate.set(logDate, arr)
       }
+    }
+
+    const activityByDate = new Map<string, { steps: number; activeMinutes: number | null; source?: string }>()
+    for (const [logDate, logs] of logsByCivilDate.entries()) {
+      const kept = filterActivityLogRowsForWearableDedupe(logs, activityIntelTimeZone)
+      const bd = computeActivityTotalsBreakdown(kept)
+      const am = activeMinutesFromKeptRows(kept, bd.sourceOfTruth)
+      const wearableRow = kept.find((r: any) => !isManualActivityRow(r.source))
+      const source =
+        bd.sourceOfTruth === 'wearable' && wearableRow?.source
+          ? String(wearableRow.source)
+          : 'Manual entry'
+      activityByDate.set(logDate, {
+        steps: bd.totalSteps,
+        activeMinutes: am,
+        source,
+      })
+    }
+
+    const logsByShiftedDayKey = new Map<string, any[]>()
+    if (weeklyLogs.length > 0) {
+      for (const log of weeklyLogs) {
+        if (
+          shouldSkipLegacyWearableActivityLogRow(log, activityIntelTimeZone, explicitWearableShiftedKeysByFamily)
+        ) {
+          continue
+        }
+        const civil = resolveActivityLogCivilYmd(log as Record<string, unknown>, activityIntelTimeZone)
+        if (!civil) continue
+        const dayKey = activityDayKeyFromCivilActivityDate(civil, activityIntelTimeZone)
+        const arr = logsByShiftedDayKey.get(dayKey) ?? []
+        arr.push(log)
+        logsByShiftedDayKey.set(dayKey, arr)
+      }
+    }
+
+    const stepsByActivityDay: Record<string, number> = {}
+    for (const [k, logs] of logsByShiftedDayKey.entries()) {
+      const kept = filterActivityLogRowsForWearableDedupe(logs, activityIntelTimeZone)
+      const bd = computeActivityTotalsBreakdown(kept)
+      stepsByActivityDay[k] = bd.totalSteps
     }
 
     const currentActivityDayKey = activityDayKeyFromTimestamp(now, activityIntelTimeZone)
@@ -952,9 +1050,19 @@ export async function GET(req: NextRequest) {
             new Date(a.ts ?? a.created_at ?? 0).getTime() - new Date(b.ts ?? b.created_at ?? 0).getTime(),
         )
       }
-      hourlyForChart = filterActivityLogRowsForWearableDedupe(hourlyRows, activityIntelTimeZone).map((r: any) => ({
+      hourlyRows = filterActivityLogRowsToCivilYmd(
+        hourlyRows as Record<string, unknown>[],
+        today,
+        activityIntelTimeZone,
+      ) as any[]
+      const hourlyKept = filterActivityLogRowsForWearableDedupe(hourlyRows, activityIntelTimeZone)
+      const hourlyBd = computeActivityTotalsBreakdown(hourlyKept)
+      hourlyForChart = hourlyKept.map((r: any) => ({
         ...r,
-        steps: effectiveActivityLogSteps(r),
+        steps:
+          hourlyBd.sourceOfTruth === 'wearable' && isManualActivityRow(r.source)
+            ? 0
+            : effectiveActivityLogSteps(r),
       }))
     }
 
@@ -1012,6 +1120,10 @@ export async function GET(req: NextRequest) {
       /** ISO start of hour-slot 0 for `stepsByHour` when shift-aware; omit when civil clock buckets. */
       stepsByHourAnchorStart: stepsByHourChartAnchor?.toISOString() ?? null,
       shiftStepsLast7Days,
+      activityTotalsBreakdown: toPublicActivityTotalsBreakdown(
+        lastTodayTotalsBreakdown ?? computeActivityTotalsBreakdown([]),
+        process.env.NODE_ENV === 'development',
+      ),
     }
 
     return NextResponse.json({ activity: payload }, { status: 200, headers: ACTIVITY_TODAY_CACHE_HEADERS })
@@ -1089,6 +1201,7 @@ export async function GET(req: NextRequest) {
           stepsByHour: Array.from({ length: 24 }, () => 0),
           stepsByHourAnchorStart: null,
           shiftStepsLast7Days: stubShiftStepsLast7Days(today),
+          activityTotalsBreakdown: toPublicActivityTotalsBreakdown(computeActivityTotalsBreakdown([]), false),
         },
       },
       { status: 200, headers: ACTIVITY_TODAY_CACHE_HEADERS },

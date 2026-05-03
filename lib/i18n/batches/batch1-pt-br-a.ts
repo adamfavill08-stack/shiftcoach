@@ -17,6 +17,12 @@ export const batch1PtBrA: Record<string, string> = {
   'browse.activity.manualLogSteps': 'Registrar passos manualmente',
   'browse.activity.manualLogStepsHint':
     'O wearable ainda não sincronizou? Informe a contagem de passos que você vê no relógio ou no celular.',
+  'browse.activity.stepsSourceWearable': 'Origem: Wearable (sincronizado)',
+  'browse.activity.stepsSourceManual': 'Origem: Entrada manual',
+  'browse.activity.stepsSourceNone': 'Origem: Sem dados de passos',
+  'browse.activity.syncStepsAria': 'Sincronizar passos com o Health Connect',
+  'browse.activity.syncStepsBusy': 'Sincronizando…',
+  'browse.activity.syncStepsFailed': 'Não foi possível sincronizar. Tente de novo.',
   'browse.activity.motivationNamed':
     '{name}, o movimento que você mostra nos dias de turno soma. Continue—você está criando um ritmo que cabe na vida real.',
   'browse.activity.motivationAnonymous':

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { markAllManualSessionsSupersededForWearableDay } from '@/lib/activity/manualWearableSupersede'
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/
 
@@ -59,6 +60,22 @@ async function upsertByUtcTsWindow(
     r = await attempt('created_at')
   }
   return r
+}
+
+async function maybeSupersedeManualsAfterWearableWrite(
+  supabase: SupabaseClient,
+  userId: string,
+  activityDate: string,
+  source: string,
+  steps: number,
+  writeOk: boolean,
+): Promise<void> {
+  if (!writeOk || steps <= 0) return
+  try {
+    await markAllManualSessionsSupersededForWearableDay(supabase, userId, activityDate, source)
+  } catch (e) {
+    console.warn('[upsertActivityLogDailySteps] supersede manuals failed', e)
+  }
 }
 
 async function upsertByActivityDate(
@@ -135,7 +152,9 @@ async function upsertByActivityDate(
           .update({ steps, source, ts: syncedAt, activity_date: activityDate })
           .eq('id', again.id))
       }
-      return { error: error ?? null }
+      const err = error ?? null
+      await maybeSupersedeManualsAfterWearableWrite(supabase, userId, activityDate, source, steps, !err)
+      return { error: err }
     }
   }
 
@@ -145,10 +164,14 @@ async function upsertByActivityDate(
   ) {
     const payloadNoAm = { steps, source, ts: syncedAt, activity_date: activityDate }
     const { error: ins2 } = await supabase.from('activity_logs').insert({ user_id: userId, ...payloadNoAm })
-    return { error: ins2 ?? null }
+    const err = ins2 ?? null
+    await maybeSupersedeManualsAfterWearableWrite(supabase, userId, activityDate, source, steps, !err)
+    return { error: err }
   }
 
-  return { error: insErr ?? null }
+  const finalErr = insErr ?? null
+  await maybeSupersedeManualsAfterWearableWrite(supabase, userId, activityDate, source, steps, !finalErr)
+  return { error: finalErr }
 }
 
 /**

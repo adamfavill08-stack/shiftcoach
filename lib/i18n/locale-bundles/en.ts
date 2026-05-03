@@ -58,6 +58,12 @@ const messages: Record<string, string> = {
     'browse.activity.manualLogSteps': 'Log steps manually',
     'browse.activity.manualLogStepsHint':
       'Wearable not synced yet? Enter the step count you see on your watch or phone.',
+    'browse.activity.stepsSourceWearable': 'Source: Wearable (synced)',
+    'browse.activity.stepsSourceManual': 'Source: Manual entry',
+    'browse.activity.stepsSourceNone': 'Source: No step data yet',
+    'browse.activity.syncStepsAria': 'Sync steps from Health Connect',
+    'browse.activity.syncStepsBusy': 'Syncing…',
+    'browse.activity.syncStepsFailed': 'Could not sync. Try again.',
     'browse.activity.motivationNamed':
       "{name}, the movement you show on shift days adds up. Keep going—you're building a rhythm that works for real life.",
     'browse.activity.motivationAnonymous':

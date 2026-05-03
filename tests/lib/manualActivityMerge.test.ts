@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  computeActivityTotalsBreakdown,
   effectiveActivityLogSteps,
   sumStepsFromActivityLogRows,
   wearableDeltaSupersedesManual,
@@ -31,13 +32,62 @@ describe('effectiveActivityLogSteps', () => {
 })
 
 describe('sumStepsFromActivityLogRows', () => {
-  it('sums wearable plus active manual and skips superseded manual', () => {
+  it('uses wearable as source of truth when wearable steps > 0 (does not add active manual)', () => {
     const total = sumStepsFromActivityLogRows([
-      { steps: 4000, source: 'health_connect' },
-      { steps: 1000, source: 'manual', merge_status: 'active' },
-      { steps: 5000, source: 'manual', merge_status: 'superseded_by_wearable' },
+      { id: 'w1', steps: 517, source: 'health_connect' },
+      { id: 'm1', steps: 311, source: 'manual', merge_status: 'active' },
+      { id: 'm2', steps: 5000, source: 'manual', merge_status: 'superseded_by_wearable' },
     ])
-    expect(total).toBe(5000)
+    expect(total).toBe(517)
+  })
+})
+
+describe('computeActivityTotalsBreakdown', () => {
+  it('wearable 517 + manual 311 → total 517, manual not counted', () => {
+    const b = computeActivityTotalsBreakdown([
+      { id: 'w', steps: 517, source: 'health_connect' },
+      { id: 'm', steps: 311, source: 'manual', merge_status: 'active' },
+    ])
+    expect(b.totalSteps).toBe(517)
+    expect(b.wearableSteps).toBe(517)
+    expect(b.manualStepsCounted).toBe(0)
+    expect(b.manualStepsNotCounted).toBe(311)
+    expect(b.sourceOfTruth).toBe('wearable')
+  })
+
+  it('wearable 0 + manual 311 → total 311 from manual', () => {
+    const b = computeActivityTotalsBreakdown([
+      { id: 'm', steps: 311, source: 'manual', merge_status: 'active' },
+    ])
+    expect(b.totalSteps).toBe(311)
+    expect(b.wearableSteps).toBe(0)
+    expect(b.manualStepsCounted).toBe(311)
+    expect(b.sourceOfTruth).toBe('manual')
+  })
+
+  it('dedupes duplicate ids before summing', () => {
+    const b = computeActivityTotalsBreakdown([
+      { id: 'x', steps: 4000, source: 'health_connect' },
+      { id: 'x', steps: 4000, source: 'health_connect' },
+      { id: 'm', steps: 100, source: 'manual', merge_status: 'active' },
+    ])
+    expect(b.totalSteps).toBe(4000)
+  })
+
+  it('uses max among duplicate wearable daily rows', () => {
+    const b = computeActivityTotalsBreakdown([
+      { id: 'a', steps: 4000, source: 'health_connect' },
+      { id: 'b', steps: 4632, source: 'health_connect' },
+    ])
+    expect(b.totalSteps).toBe(4632)
+  })
+
+  it('superseded manual steps appear in manualStepsSuperseded only', () => {
+    const b = computeActivityTotalsBreakdown([
+      { id: 'm', steps: 200, source: 'manual', merge_status: 'superseded_by_wearable' },
+    ])
+    expect(b.totalSteps).toBe(0)
+    expect(b.manualStepsSuperseded).toBe(200)
   })
 })
 

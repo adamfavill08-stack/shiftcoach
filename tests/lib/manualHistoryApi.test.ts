@@ -24,4 +24,22 @@ describe('parseManualHistoryResponse', () => {
     expect(out).not.toBeNull()
     expect(out!.date).toBe('2026-05-03')
   })
+
+  it('parses activityTotalsBreakdown when present', () => {
+    const out = parseManualHistoryResponse({
+      date: '2026-05-04',
+      entries: [],
+      activityTotalsBreakdown: {
+        totalSteps: 517,
+        wearableSteps: 517,
+        manualStepsCounted: 0,
+        manualStepsNotCounted: 311,
+        manualStepsSuperseded: 0,
+        sourceOfTruth: 'wearable',
+      },
+    })
+    expect(out!.activityTotalsBreakdown?.totalSteps).toBe(517)
+    expect(out!.activityTotalsBreakdown?.sourceOfTruth).toBe('wearable')
+    expect(out!.activityTotalsBreakdown?.manualStepsNotCounted).toBe(311)
+  })
 })

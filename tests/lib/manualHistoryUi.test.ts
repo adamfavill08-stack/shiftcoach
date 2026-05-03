@@ -14,8 +14,14 @@ describe('manualEntryStatusKind', () => {
     expect(manualEntryStatusKind(undefined)).toBe('counted')
   })
 
+  it('when wearable wins the day, active manual is not_counted', () => {
+    expect(manualEntryStatusKind('active', { wearableWinsDay: true })).toBe('not_counted')
+    expect(manualEntryStatusKind(null, { wearableWinsDay: true })).toBe('not_counted')
+  })
+
   it('maps superseded_by_wearable to replaced', () => {
     expect(manualEntryStatusKind('superseded_by_wearable')).toBe('replaced')
+    expect(manualEntryStatusKind('superseded_by_wearable', { wearableWinsDay: true })).toBe('replaced')
   })
 
   it('maps other merge_status to not_counted', () => {
@@ -29,6 +35,10 @@ describe('manualHistoryRowMuted', () => {
     expect(manualHistoryRowMuted('active')).toBe(false)
     expect(manualHistoryRowMuted(null)).toBe(false)
   })
+
+  it('mutes active manual when wearable wins the day', () => {
+    expect(manualHistoryRowMuted('active', { wearableWinsDay: true })).toBe(true)
+  })
 })
 
 describe('manualHistoryRowSemantics', () => {
@@ -36,6 +46,13 @@ describe('manualHistoryRowSemantics', () => {
     expect(manualHistoryRowSemantics('superseded_by_wearable')).toEqual({ statusKind: 'replaced', muted: true })
     expect(manualHistoryRowSemantics('active')).toEqual({ statusKind: 'counted', muted: false })
     expect(manualHistoryRowSemantics(null)).toEqual({ statusKind: 'counted', muted: false })
+  })
+
+  it('wearable wins: active manual shows not_counted and muted', () => {
+    expect(manualHistoryRowSemantics('active', { wearableWinsDay: true })).toEqual({
+      statusKind: 'not_counted',
+      muted: true,
+    })
   })
 })
 

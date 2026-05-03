@@ -1,12 +1,16 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, PenLine, Sparkles, Timer } from 'lucide-react'
+import { Capacitor } from '@capacitor/core'
+import { ChevronLeft, PenLine, RefreshCw, Sparkles, Timer } from 'lucide-react'
 import { useActivityToday } from '@/lib/hooks/useActivityToday'
 import { useAuth } from '@/components/AuthProvider'
 import { useTranslation } from '@/components/providers/language-provider'
 import { useProfile } from '@/hooks/useProfile'
+import { authedFetch } from '@/lib/supabase/authedFetch'
+import { runHealthConnectNativeSync } from '@/lib/native/runHealthConnectNativeSync'
+import { persistHealthConnectNativeLinked } from '@/lib/native/wearablesHealthConnectPersisted'
 import type { ShiftStepsDuringShiftDay } from '@/lib/activity/computeShiftStepsDuringShifts'
 import { isoLocalDate } from '@/lib/shifts'
 import { formatYmdInTimeZone } from '@/lib/sleep/utils'
@@ -372,6 +376,51 @@ export default function ActivityAndStepsPage() {
   const { user, loading: authLoading } = useAuth()
   const { profile, loading: profileLoading } = useProfile(user?.id ?? null)
   const { data, loading } = useActivityToday()
+  const [syncingSteps, setSyncingSteps] = useState(false)
+  const [syncStepsError, setSyncStepsError] = useState<string | null>(null)
+
+  const handleSyncStepsFromHealth = useCallback(async () => {
+    setSyncingSteps(true)
+    setSyncStepsError(null)
+    try {
+      const isAndroidNative = Capacitor.getPlatform() === 'android' && Capacitor.isNativePlatform()
+      if (isAndroidNative) {
+        const syncResult = await runHealthConnectNativeSync('ActivityAndStepsPage/hero')
+        if (!syncResult?.ok) {
+          throw new Error('sync_not_ok')
+        }
+        const ts = syncResult.lastSyncedAt ? new Date(syncResult.lastSyncedAt).getTime() : Date.now()
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('wearables:lastSyncedAt', String(ts))
+        }
+        persistHealthConnectNativeLinked()
+        window.dispatchEvent(new CustomEvent('wearables-synced', { detail: { ts } }))
+        window.dispatchEvent(new CustomEvent('sleep-refreshed'))
+      } else {
+        const res = await authedFetch('/api/wearables/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        })
+        const body = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          throw new Error(typeof body?.error === 'string' ? body.error : 'sync_failed')
+        }
+        if (body?.error === 'no_wearable_connection') {
+          setSyncStepsError(t('browse.activity.syncStepsFailed'))
+        } else {
+          const ts = Date.now()
+          window.dispatchEvent(new CustomEvent('wearables-synced', { detail: { ts } }))
+          window.dispatchEvent(new CustomEvent('sleep-refreshed'))
+        }
+      }
+    } catch (err) {
+      console.warn('[ActivityAndStepsPage] Health sync', err)
+      setSyncStepsError(t('browse.activity.syncStepsFailed'))
+    } finally {
+      setSyncingSteps(false)
+    }
+  }, [t])
 
   const manualHistoryCivilYmd = useMemo(() => {
     const tz =
@@ -390,6 +439,19 @@ export default function ActivityAndStepsPage() {
   const intel = data.activityIntelligence
   const activityDaySteps = intel?.activityDaySteps ?? (loading ? 0 : data.steps ?? 0)
   const dailyGoal = data.adaptedStepGoal ?? data.goal ?? data.stepTarget ?? 10000
+
+  const stepsSourceLabel = useMemo(() => {
+    if (loading) return ''
+    const sot = data.activityTotalsBreakdown?.sourceOfTruth
+    if (sot === 'wearable') return t('browse.activity.stepsSourceWearable')
+    if (sot === 'manual') return t('browse.activity.stepsSourceManual')
+    const src = String(data.source ?? '').toLowerCase()
+    if (src === 'manual' || src.includes('manual')) return t('browse.activity.stepsSourceManual')
+    if (activityDaySteps > 0 && src && src !== 'unknown' && src !== 'not connected') {
+      return t('browse.activity.stepsSourceWearable')
+    }
+    return t('browse.activity.stepsSourceNone')
+  }, [loading, data.activityTotalsBreakdown?.sourceOfTruth, data.source, activityDaySteps, t])
 
   const intensityBreakdown = data.intensityBreakdown ?? {
     light: { minutes: 0, target: 10 },
@@ -510,7 +572,10 @@ export default function ActivityAndStepsPage() {
         {/* SECTION 1 — Hero: steps bar + Active time row (kcal & est. mi) in one white card */}
         <section className="flex flex-col items-center text-center gap-5 pt-2">
           {loading ? (
-            <div className="flex w-full flex-col items-center gap-5 rounded-xl border border-[#05afc5]/45 bg-white px-5 py-6 shadow-sm dark:border-[#05afc5]/45">
+            <div className="flex w-full flex-col gap-4 rounded-xl border border-[#05afc5]/45 bg-white px-5 py-6 shadow-sm dark:border-[#05afc5]/45">
+              <div className="flex w-full justify-start">
+                <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-slate-200 dark:bg-slate-600" />
+              </div>
               <div className="flex w-full flex-col items-center gap-3">
                 <div
                   className="h-[3.25rem] w-36 animate-pulse rounded-xl"
@@ -533,15 +598,46 @@ export default function ActivityAndStepsPage() {
               </div>
             </div>
           ) : (
-            <div className="flex w-full flex-col items-center gap-5 rounded-xl border border-[#05afc5]/45 bg-white px-5 pt-6 pb-5 shadow-sm dark:border-[#05afc5]/45">
+            <div className="flex w-full flex-col gap-4 rounded-xl border border-[#05afc5]/45 bg-white px-5 pt-4 pb-5 shadow-sm dark:border-[#05afc5]/45 dark:bg-zinc-900/75">
+              <div className="flex w-full flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleSyncStepsFromHealth()}
+                  disabled={syncingSteps}
+                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-zinc-800 dark:text-slate-100 dark:hover:bg-zinc-700"
+                  aria-label={t('browse.activity.syncStepsAria')}
+                  title={t('browse.activity.syncStepsAria')}
+                >
+                  <RefreshCw
+                    className={`h-[18px] w-[18px] shrink-0 ${syncingSteps ? 'animate-spin' : ''}`}
+                    strokeWidth={2.25}
+                    aria-hidden
+                  />
+                </button>
+                {syncingSteps ? (
+                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                    {t('browse.activity.syncStepsBusy')}
+                  </span>
+                ) : null}
+              </div>
+              {syncStepsError ? (
+                <p className="text-center text-[11px] font-medium text-red-600 dark:text-red-400" role="alert">
+                  {syncStepsError}
+                </p>
+              ) : null}
               <div className="flex w-full flex-col items-center gap-3">
                 <div className="text-center">
-                  <p className="text-[3rem] sm:text-[3.25rem] font-semibold tabular-nums leading-none tracking-tight text-slate-900">
+                  <p className="text-[3rem] sm:text-[3.25rem] font-semibold tabular-nums leading-none tracking-tight text-slate-900 dark:text-[var(--text-main)]">
                     {activityDaySteps.toLocaleString()}
                   </p>
-                  <p className="mt-1.5 text-xs font-medium uppercase tracking-wider text-slate-500">
+                  <p className="mt-1.5 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Steps
                   </p>
+                  {stepsSourceLabel ? (
+                    <p className="mt-2 max-w-[280px] text-[11px] font-medium leading-snug text-slate-600 dark:text-slate-400">
+                      {stepsSourceLabel}
+                    </p>
+                  ) : null}
                 </div>
                 <div
                   className="h-2 w-full max-w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700/80"

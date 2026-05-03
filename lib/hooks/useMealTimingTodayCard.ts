@@ -75,7 +75,9 @@ export function useMealTimingTodayCard() {
   const fetchMealTiming = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await authedFetch('/api/meal-timing/today', {
+      const tz =
+        typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC'
+      const res = await authedFetch(`/api/meal-timing/today?tz=${encodeURIComponent(tz)}`, {
         cache: 'no-store',
       })
       if (!res.ok) {

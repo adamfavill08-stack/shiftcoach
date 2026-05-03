@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isPostgrestSchemaColumnError } from '@/lib/activity/isPostgrestSchemaColumnError'
-import { addCalendarDaysToYmd, formatYmdInTimeZone, startOfLocalDayUtcMs } from '@/lib/sleep/utils'
+import { resolveActivityLogCivilYmd } from '@/lib/activity/activityLogCivilDay'
+import { addCalendarDaysToYmd, startOfLocalDayUtcMs } from '@/lib/sleep/utils'
 
 function dedupeActivityLogRowsById(rows: readonly Record<string, unknown>[]): Record<string, unknown>[] {
   const m = new Map<string, Record<string, unknown>>()
@@ -16,9 +17,9 @@ function dedupeActivityLogRowsById(rows: readonly Record<string, unknown>[]): Re
  * Loads activity_logs in a civil activity_date range (manual sessions, wearable daily rows).
  * Used to merge into ts-window queries so rows with NULL `ts` still appear in charts and intelligence.
  *
- * When `opts.timeZone` is set, also merges `source=manual` rows with NULL `activity_date` whose
- * `ts` or `created_at` falls on a civil calendar day within [fromYmd, toYmd] in that zone (legacy
- * unique-index insert path omits activity_date).
+ * When `opts.timeZone` is set, also merges manual rows with NULL `activity_date` whose resolved
+ * civil day (see `resolveActivityLogCivilYmd`) falls within [fromYmd, toYmd]. Orphans are fetched
+ * by `created_at` / `ts` pad only for manual sources — wearable rows never use `created_at` alone.
  */
 export async function fetchActivityLogsByActivityDateWindow(
   supabase: SupabaseClient,
@@ -28,6 +29,9 @@ export async function fetchActivityLogsByActivityDateWindow(
   opts?: { timeZone?: string },
 ): Promise<Record<string, unknown>[]> {
   const selects = [
+    'id, steps, active_minutes, source, merge_status, ts, created_at, logged_at, start_time, shift_activity_level, activity_date',
+    'id, steps, active_minutes, source, merge_status, ts, created_at, logged_at, shift_activity_level, activity_date',
+    'id, steps, active_minutes, source, merge_status, ts, created_at, start_time, shift_activity_level, activity_date',
     'id, steps, active_minutes, source, merge_status, ts, created_at, shift_activity_level, activity_date',
     'id, steps, source, merge_status, ts, created_at, shift_activity_level, activity_date',
     'id, steps, source, merge_status, ts, created_at, activity_date',
@@ -97,12 +101,8 @@ export async function fetchActivityLogsByActivityDateWindow(
   }
 
   const inWindow = (row: Record<string, unknown>): boolean => {
-    const t = row.ts ?? row.created_at
-    if (typeof t !== 'string' || !t.trim()) return false
-    const d = new Date(t)
-    if (Number.isNaN(d.getTime())) return false
-    const ymd = formatYmdInTimeZone(d, tz)
-    return ymd >= fromYmd && ymd <= toYmd
+    const ymd = resolveActivityLogCivilYmd(row, tz)
+    return ymd != null && ymd >= fromYmd && ymd <= toYmd
   }
 
   const filteredOrphans = orphans.filter(inWindow)

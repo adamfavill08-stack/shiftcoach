@@ -17,6 +17,12 @@ export const batch1PlA: Record<string, string> = {
   'browse.activity.manualLogSteps': 'Zapisz kroki ręcznie',
   'browse.activity.manualLogStepsHint':
     'Zegarek jeszcze nie zsynchronizowany? Wpisz liczbę kroków z urządzenia.',
+  'browse.activity.stepsSourceWearable': 'Źródło: Wearable (zsynchronizowane)',
+  'browse.activity.stepsSourceManual': 'Źródło: Wpis ręczny',
+  'browse.activity.stepsSourceNone': 'Źródło: Brak danych o krokach',
+  'browse.activity.syncStepsAria': 'Synchronizuj kroki z Health Connect',
+  'browse.activity.syncStepsBusy': 'Synchronizacja…',
+  'browse.activity.syncStepsFailed': 'Nie udało się zsynchronizować. Spróbuj ponownie.',
   'browse.activity.motivationNamed':
     '{name}, ruch, który pokazujesz w dni zmian, się sumuje. Tak trzymaj—budujesz rytm dopasowany do życia.',
   'browse.activity.motivationAnonymous':

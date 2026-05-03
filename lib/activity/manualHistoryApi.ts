@@ -1,3 +1,5 @@
+import type { ActivityTotalsBreakdown } from '@/lib/activity/activityLogStepSum'
+
 /** Shape returned by GET /api/activity/manual for manual session history. */
 export type ManualHistoryEntry = {
   id: string
@@ -17,6 +19,7 @@ export type ManualHistoryEntry = {
 export type ManualHistoryResponse = {
   date: string
   entries: ManualHistoryEntry[]
+  activityTotalsBreakdown?: ActivityTotalsBreakdown
 }
 
 function coerceSteps(raw: unknown): number {
@@ -63,5 +66,22 @@ export function parseManualHistoryResponse(json: unknown): ManualHistoryResponse
       superseded_at: typeof e.superseded_at === 'string' ? e.superseded_at : null,
     })
   }
-  return { date, entries }
+  const breakdownRaw = o.activityTotalsBreakdown
+  let activityTotalsBreakdown: ActivityTotalsBreakdown | undefined
+  if (breakdownRaw && typeof breakdownRaw === 'object') {
+    const b = breakdownRaw as Record<string, unknown>
+    const src = b.sourceOfTruth
+    const sourceOfTruth =
+      src === 'wearable' || src === 'manual' || src === 'none' ? src : ('none' as const)
+    activityTotalsBreakdown = {
+      totalSteps: coerceSteps(b.totalSteps),
+      wearableSteps: coerceSteps(b.wearableSteps),
+      manualStepsCounted: coerceSteps(b.manualStepsCounted),
+      manualStepsNotCounted: coerceSteps(b.manualStepsNotCounted),
+      manualStepsSuperseded: coerceSteps(b.manualStepsSuperseded),
+      sourceOfTruth,
+    }
+  }
+
+  return { date, entries, ...(activityTotalsBreakdown ? { activityTotalsBreakdown } : {}) }
 }

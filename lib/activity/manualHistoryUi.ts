@@ -1,25 +1,38 @@
 export type ManualHistoryStatusKind = 'counted' | 'replaced' | 'not_counted'
 
 /**
- * Maps DB merge_status to UI status. Legacy rows without merge_status count as active.
+ * Maps DB merge_status to UI status. Legacy rows without merge_status count as active
+ * unless `wearableWinsDay` (wearable is source of truth for that civil day).
  */
-export function manualEntryStatusKind(mergeStatus: string | null | undefined): ManualHistoryStatusKind {
+export function manualEntryStatusKind(
+  mergeStatus: string | null | undefined,
+  ctx?: { wearableWinsDay?: boolean },
+): ManualHistoryStatusKind {
   if (mergeStatus === 'superseded_by_wearable') return 'replaced'
+  if (ctx?.wearableWinsDay) return 'not_counted'
   if (mergeStatus == null || mergeStatus === 'active') return 'counted'
   return 'not_counted'
 }
 
-export function manualHistoryRowMuted(mergeStatus: string | null | undefined): boolean {
-  return manualEntryStatusKind(mergeStatus) === 'replaced'
+export function manualHistoryRowMuted(
+  mergeStatus: string | null | undefined,
+  ctx?: { wearableWinsDay?: boolean },
+): boolean {
+  return manualHistoryRowSemantics(mergeStatus, ctx).muted
 }
 
 /** DOM / test hooks: superseded rows are muted and tagged `replaced`. */
-export function manualHistoryRowSemantics(mergeStatus: string | null | undefined): {
+export function manualHistoryRowSemantics(
+  mergeStatus: string | null | undefined,
+  ctx?: { wearableWinsDay?: boolean },
+): {
   statusKind: ManualHistoryStatusKind
   muted: boolean
 } {
-  const statusKind = manualEntryStatusKind(mergeStatus)
-  return { statusKind, muted: statusKind === 'replaced' }
+  const statusKind = manualEntryStatusKind(mergeStatus, ctx)
+  const muted =
+    statusKind === 'replaced' || (Boolean(ctx?.wearableWinsDay) && statusKind === 'not_counted')
+  return { statusKind, muted }
 }
 
 /** Localized time range for a manual session window (en dash between times). */

@@ -9,6 +9,7 @@ import type { ShiftStepsDuringShiftDay } from '@/lib/activity/computeShiftStepsD
 import type { ActivityIntelligence } from '@/lib/activity/activityIntelligence'
 import type { ActivityPersonalizationPayload } from '@/lib/activity/personalizedActivityTargets'
 import type { ActivityPersonalizationAgentPayload } from '@/lib/activity/computeAdaptedStepGoalAgent'
+import type { ActivityTotalsBreakdown } from '@/lib/activity/activityLogStepSum'
 
 /** API may return legacy personalization (intensity multiplier) or adapted-step agent audit payload. */
 export type ActivityPersonalizationFromApi =
@@ -89,6 +90,9 @@ export type ActivityToday = {
 
   /** Steps attributed to each rota shift window, last 7 civil days (oldest → newest). */
   shiftStepsLast7Days?: ShiftStepsDuringShiftDay[]
+
+  /** Civil-day step total policy (wearable vs manual); from `/api/activity/today`. */
+  activityTotalsBreakdown?: ActivityTotalsBreakdown
 }
 
 const SHIFT_TYPES = new Set(['day', 'night', 'off', 'other'])
@@ -117,6 +121,26 @@ function parseShiftStepsLast7Days(raw: unknown): ShiftStepsDuringShiftDay[] | un
     })
   }
   return out
+}
+
+function parseActivityTotalsBreakdown(raw: unknown): ActivityTotalsBreakdown | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const o = raw as Record<string, unknown>
+  const st = o.sourceOfTruth
+  if (st !== 'wearable' && st !== 'manual' && st !== 'none') return undefined
+  const n = (v: unknown) =>
+    typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.round(v)) : 0
+  return {
+    totalSteps: n(o.totalSteps),
+    wearableSteps: n(o.wearableSteps),
+    manualStepsCounted: n(o.manualStepsCounted),
+    manualStepsNotCounted: n(o.manualStepsNotCounted),
+    manualStepsSuperseded: n(o.manualStepsSuperseded),
+    sourceOfTruth: st,
+    contributingRowIds: Array.isArray(o.contributingRowIds)
+      ? o.contributingRowIds.filter((x): x is string => typeof x === 'string')
+      : undefined,
+  }
 }
 
 function parseFactors(raw: unknown): Record<string, number> {
@@ -245,6 +269,7 @@ export function useActivityToday() {
                 ? (json.activity as { stepsByHourAnchorStart: string | null }).stepsByHourAnchorStart
                 : undefined,
             shiftStepsLast7Days: parseShiftStepsLast7Days(json.activity?.shiftStepsLast7Days),
+            activityTotalsBreakdown: parseActivityTotalsBreakdown(json.activity?.activityTotalsBreakdown),
             adaptedStepGoal:
               typeof json.activity?.adaptedStepGoal === 'number' &&
               Number.isFinite(json.activity.adaptedStepGoal)

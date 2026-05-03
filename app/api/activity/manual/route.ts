@@ -11,6 +11,15 @@ import {
 } from '@/lib/activity/insertManualActivityLog'
 import type { ManualHistoryEntry } from '@/lib/activity/manualHistoryApi'
 import { isPostgrestSchemaColumnError } from '@/lib/activity/isPostgrestSchemaColumnError'
+import { fetchActivityLogsByActivityDateWindow } from '@/lib/activity/fetchActivityLogsByActivityDateWindow'
+import { filterActivityLogRowsForWearableDedupe } from '@/lib/activity/activityLogWearableDedupe'
+import {
+  computeActivityTotalsBreakdown,
+  isManualActivityRow,
+  toPublicActivityTotalsBreakdown,
+} from '@/lib/activity/activityLogStepSum'
+import { markAllManualSessionsSupersededForWearableDay } from '@/lib/activity/manualWearableSupersede'
+import { resolveActivityLogCivilYmd } from '@/lib/activity/activityLogCivilDay'
 
 export const dynamic = 'force-dynamic'
 
@@ -184,13 +193,8 @@ export async function GET(req: NextRequest) {
         if (!r.error && Array.isArray(r.data)) extra.push(...(r.data as unknown as Record<string, unknown>[]))
       }
 
-      const civilOk = (row: Record<string, unknown>) => {
-        const t = row.ts ?? row.created_at
-        if (typeof t !== 'string' || !t.trim()) return false
-        const d = new Date(t)
-        if (Number.isNaN(d.getTime())) return false
-        return formatYmdInTimeZone(d, tz) === activityDate
-      }
+      const civilOk = (row: Record<string, unknown>) =>
+        resolveActivityLogCivilYmd(row, tz) === activityDate
 
       list = dedupeManualRowsById([...list, ...extra.filter(civilOk)])
       list.sort((a, b) => {
@@ -202,8 +206,29 @@ export async function GET(req: NextRequest) {
 
     const entries: ManualHistoryEntry[] = list.map(mapActivityLogRowToManualHistory).filter((e) => e.id)
 
+    let activityTotalsBreakdown = toPublicActivityTotalsBreakdown(
+      computeActivityTotalsBreakdown([]),
+      false,
+    )
+    try {
+      const dayLogs = await fetchActivityLogsByActivityDateWindow(
+        supabase,
+        userId,
+        activityDate,
+        activityDate,
+        { timeZone: tz },
+      )
+      const dayKept = filterActivityLogRowsForWearableDedupe(dayLogs as any[], tz)
+      activityTotalsBreakdown = toPublicActivityTotalsBreakdown(
+        computeActivityTotalsBreakdown(dayKept),
+        false,
+      )
+    } catch (e) {
+      console.warn('[/api/activity/manual] day totals failed', e)
+    }
+
     return NextResponse.json(
-      { date: activityDate, entries },
+      { date: activityDate, entries, activityTotalsBreakdown },
       { status: 200, headers: { 'Cache-Control': 'no-store' } },
     )
   } catch (err: unknown) {
@@ -296,6 +321,28 @@ export async function POST(req: NextRequest) {
     if (result.error) {
       console.error('[/api/activity/manual] insert failed', result.error)
       return apiServerError('insert_failed', result.error.message ?? 'Could not save manual activity')
+    }
+
+    try {
+      const dayLogs = await fetchActivityLogsByActivityDateWindow(
+        supabase,
+        userId,
+        activityDate,
+        activityDate,
+        { timeZone: tz },
+      )
+      const kept = filterActivityLogRowsForWearableDedupe(dayLogs as any[], tz)
+      const totals = computeActivityTotalsBreakdown(kept)
+      if (totals.sourceOfTruth === 'wearable' && totals.wearableSteps > 0) {
+        const wearableRow = kept.find((r: any) => !isManualActivityRow(r.source))
+        const src =
+          typeof wearableRow?.source === 'string' && wearableRow.source.trim()
+            ? wearableRow.source.trim()
+            : 'wearable_sync'
+        await markAllManualSessionsSupersededForWearableDay(supabase, userId, activityDate, src)
+      }
+    } catch (e) {
+      console.warn('[/api/activity/manual] post-insert wearable supersede check failed', e)
     }
 
     return NextResponse.json(

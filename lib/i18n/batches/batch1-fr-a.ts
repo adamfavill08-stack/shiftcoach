@@ -17,6 +17,12 @@ export const batch1FrA: Record<string, string> = {
   'browse.activity.manualLogSteps': 'Enregistrer les pas manuellement',
   'browse.activity.manualLogStepsHint':
     'Objet pas encore synchronisé ? Saisis le nombre de pas affiché sur ta montre ou ton téléphone.',
+  'browse.activity.stepsSourceWearable': 'Source : Wearable (synchronisé)',
+  'browse.activity.stepsSourceManual': 'Source : Saisie manuelle',
+  'browse.activity.stepsSourceNone': 'Source : Pas encore de données de pas',
+  'browse.activity.syncStepsAria': 'Synchroniser les pas avec Health Connect',
+  'browse.activity.syncStepsBusy': 'Synchronisation…',
+  'browse.activity.syncStepsFailed': 'Échec de la synchro. Réessaie.',
   'browse.activity.motivationNamed':
     '{name}, chaque effort les jours de shift compte. Continue : tu construis un rythme qui colle à ta vie.',
   'browse.activity.motivationAnonymous':
