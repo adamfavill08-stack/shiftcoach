@@ -611,20 +611,6 @@ export async function GET(req: NextRequest) {
     const activityImpact = getActivityImpactLabel(shiftActivityLevel)
     const recoverySuggestion = getRecoverySuggestion(shiftActivityLevel)
 
-    // Calculate intensity breakdown
-    const intensityBreakdown = calculateIntensityBreakdown(
-      shiftActivityLevel ?? null,
-      steps,
-      activeMinutes,
-      shiftType
-    )
-
-    /** Wearable / Health Connect rows often omit `active_minutes` and `shift_activity_level`; breakdown already estimates minutes from steps. */
-    const displayActiveMinutes = intensityBreakdown.totalActiveMinutes
-    /** Rough steps-only kcal when we have no self-reported activity level (same order of magnitude as common trackers). */
-    const displayEstimatedCaloriesBurned =
-      estimatedCaloriesBurned > 0 ? estimatedCaloriesBurned : steps > 0 ? Math.round(steps * 0.04) : 0
-
     // Generate shift movement plan
     const movementPlan = generateShiftMovementPlan(
       shiftType,
@@ -682,7 +668,6 @@ export async function GET(req: NextRequest) {
     }
 
     const hasSleepData = mainSleepLogs.length > 0 && recentSleepHours.some((h) => h > 0)
-    const hasMovementData = steps > 0 || (activeMinutes ?? 0) > 0
 
     // Calculate recovery score
     const recoveryScoreResult = hasSleepData
@@ -880,6 +865,26 @@ export async function GET(req: NextRequest) {
       activityTimeZone: activityIntelTimeZone,
     })
 
+    /** Shift-window totals can be 0 while civil/anchored `activityDaySteps` still has wearable totals — keep card/API metrics aligned. */
+    const coherentSteps = Math.max(steps, activityIntelligence.activityDaySteps ?? 0)
+    const hasMovementData = coherentSteps > 0 || (activeMinutes ?? 0) > 0
+
+    const intensityBreakdown = calculateIntensityBreakdown(
+      shiftActivityLevel ?? null,
+      coherentSteps,
+      activeMinutes,
+      shiftType,
+    )
+    /** Wearable / Health Connect rows often omit `active_minutes` and `shift_activity_level`; breakdown already estimates minutes from steps. */
+    const displayActiveMinutes = intensityBreakdown.totalActiveMinutes
+    /** Rough steps-only kcal when we have no self-reported activity level (same order of magnitude as common trackers). */
+    const displayEstimatedCaloriesBurned =
+      estimatedCaloriesBurned > 0
+        ? estimatedCaloriesBurned
+        : coherentSteps > 0
+          ? Math.round(coherentSteps * 0.04)
+          : 0
+
     // Build daily data array for last 7 days
     for (let i = 6; i >= 0; i--) {
       const dateStr = addCalendarDaysToYmd(today, -i)
@@ -929,7 +934,7 @@ export async function GET(req: NextRequest) {
       sex: (profile?.sex as 'male' | 'female' | 'other' | null | undefined) ?? null,
       ageYears,
       recent7DaySteps: weeklyActivityData.map((d) => d.steps),
-      todayStepsSoFar: activityResponse.data?.steps ?? 0,
+      todayStepsSoFar: coherentSteps,
       sleepLastNightMinutes,
       avgSleepLast3NightsMinutes,
       shift: agentShift,
@@ -990,7 +995,7 @@ export async function GET(req: NextRequest) {
 
     const activityScoreResult = hasMovementData
       ? calculateActivityScore({
-          steps,
+          steps: coherentSteps,
           stepTarget: activityPersonalization.effectiveStepGoal,
           activeMinutes: displayActiveMinutes,
           activeMinutesTarget: scaledActiveMinutesTarget,
@@ -1077,14 +1082,14 @@ export async function GET(req: NextRequest) {
     const stepsByHour = stepsByHourFromCumulativeLogs(
       hourlyForChart,
       activityIntelTimeZone,
-      steps,
+      coherentSteps,
       stepsByHourChartAnchor
         ? { shiftStart: stepsByHourChartAnchor, shiftEnd: shiftEnd ?? now, now }
         : { shiftStart: null, shiftEnd: null, now },
     )
 
     const payload = {
-      steps,
+      steps: coherentSteps,
       activeMinutes: displayActiveMinutes,
       lastSyncedAt: null, // Column doesn't exist in database
       source: activityResponse.data?.source ?? 'Manual entry',
