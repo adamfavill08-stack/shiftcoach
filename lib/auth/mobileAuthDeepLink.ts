@@ -1,22 +1,13 @@
 /**
- * Deep link auth return path (no `/auth` web segment). Base env example: `shiftcoach://auth`.
+ * Fixed native return URL prefix (must match Android intent `shiftcoach` / `auth` / `/callback`
+ * and iOS URL scheme). Runtime detection lives in `getAuthAppOrigin()` in `oauthRedirect.ts`.
  */
-export function getMobileOAuthRedirectBaseFromEnv(): string {
-  const raw =
-    typeof process !== 'undefined' && process.env.NEXT_PUBLIC_MOBILE_OAUTH_REDIRECT_BASE
-      ? String(process.env.NEXT_PUBLIC_MOBILE_OAUTH_REDIRECT_BASE).trim()
-      : ''
-  return raw.replace(/\/$/, '')
-}
+const NATIVE_AUTH_CALLBACK_PREFIX = 'shiftcoach://auth/callback'
 
 export function getMobileAuthCallbackUrlPrefix(): string {
-  const base = getMobileOAuthRedirectBaseFromEnv()
-  if (!base) return ''
-  return `${base}/callback`
+  return NATIVE_AUTH_CALLBACK_PREFIX
 }
 
 export function isMobileAuthCallbackUrl(url: string): boolean {
-  const prefix = getMobileAuthCallbackUrlPrefix()
-  if (!prefix || !url) return false
-  return url.startsWith(prefix)
+  return Boolean(url && url.startsWith(NATIVE_AUTH_CALLBACK_PREFIX))
 }

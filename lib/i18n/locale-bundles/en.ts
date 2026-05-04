@@ -185,7 +185,7 @@ const messages: Record<string, string> = {
     'auth.oauth.errorSession': 'Session could not be restored. Please sign in again.',
 
     'auth.signUp.title': 'Create account',
-    'auth.signUp.titleConfirm': 'Account created',
+    'auth.signUp.titleConfirm': 'Thank you for creating your account',
     'auth.signUp.subtitle': 'Start your journey to better shift work health.',
     'auth.signUp.email': 'Email',
     'auth.signUp.password': 'Password',
@@ -198,8 +198,9 @@ const messages: Record<string, string> = {
     'auth.signUp.busy': 'Creating…',
     'auth.signUp.hasAccount': 'Already have an account?',
     'auth.signUp.signIn': 'Sign in',
-    'auth.signUp.confirmTitle': 'Account created',
-    'auth.signUp.confirmBody': 'Please sign in.',
+    'auth.signUp.confirmTitle': 'Thank you for creating your account',
+    'auth.signUp.confirmBody':
+      'Please check your email and confirm your address before signing in. The message may take a minute to arrive.',
     'auth.signUp.noEmail': "Didn't receive the email? Check your spam folder or",
     'auth.signUp.tryAgain': 'try again',
     'auth.signUp.alreadyConfirmed': 'Already confirmed? Sign in',

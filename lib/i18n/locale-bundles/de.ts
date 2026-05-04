@@ -144,7 +144,7 @@ const messages: Record<string, string> = {
     'auth.oauth.errorSession': 'Sitzung konnte nicht wiederhergestellt werden. Bitte erneut anmelden.',
 
     'auth.signUp.title': 'Konto erstellen',
-    'auth.signUp.titleConfirm': 'Konto erstellt',
+    'auth.signUp.titleConfirm': 'Danke, dass du ein Konto erstellt hast',
     'auth.signUp.subtitle': 'Starte deinen Weg zu besserer Schichtarbeitergesundheit.',
     'auth.signUp.email': 'E-Mail',
     'auth.signUp.password': 'Passwort',
@@ -157,8 +157,9 @@ const messages: Record<string, string> = {
     'auth.signUp.busy': 'Wird erstellt…',
     'auth.signUp.hasAccount': 'Bereits ein Konto?',
     'auth.signUp.signIn': 'Anmelden',
-    'auth.signUp.confirmTitle': 'Konto erstellt',
-    'auth.signUp.confirmBody': 'Bitte melde dich an.',
+    'auth.signUp.confirmTitle': 'Danke, dass du ein Konto erstellt hast',
+    'auth.signUp.confirmBody':
+      'Bitte bestätige deine E-Mail-Adresse über den Link in der Nachricht, bevor du dich anmeldest. Es kann eine Minute dauern.',
     'auth.signUp.noEmail': 'E-Mail nicht erhalten? Prüfe den Spam-Ordner oder',
     'auth.signUp.tryAgain': 'nochmal versuchen',
     'auth.signUp.alreadyConfirmed': 'Bereits bestätigt? Anmelden',

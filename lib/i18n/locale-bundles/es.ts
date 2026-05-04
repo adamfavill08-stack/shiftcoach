@@ -188,7 +188,7 @@ const messages: Record<string, string> = {
     'auth.oauth.errorSession': 'No se pudo restaurar la sesión. Inicia sesión de nuevo.',
 
     'auth.signUp.title': 'Crear cuenta',
-    'auth.signUp.titleConfirm': 'Cuenta creada',
+    'auth.signUp.titleConfirm': 'Gracias por crear tu cuenta',
     'auth.signUp.subtitle': 'Empieza tu camino hacia una mejor salud en turnos.',
     'auth.signUp.email': 'Correo electrónico',
     'auth.signUp.password': 'Contraseña',
@@ -201,8 +201,9 @@ const messages: Record<string, string> = {
     'auth.signUp.busy': 'Creando…',
     'auth.signUp.hasAccount': '¿Ya tienes cuenta?',
     'auth.signUp.signIn': 'Iniciar sesión',
-    'auth.signUp.confirmTitle': 'Cuenta creada',
-    'auth.signUp.confirmBody': 'Inicia sesión, por favor.',
+    'auth.signUp.confirmTitle': 'Gracias por crear tu cuenta',
+    'auth.signUp.confirmBody':
+      'Revisa tu correo y confirma tu dirección antes de iniciar sesión. El mensaje puede tardar un minuto.',
     'auth.signUp.noEmail': '¿No recibiste el correo? Revisa la carpeta de spam o',
     'auth.signUp.tryAgain': 'inténtalo de nuevo',
     'auth.signUp.alreadyConfirmed': '¿Ya confirmaste? Iniciar sesión',

@@ -119,13 +119,24 @@ function SignUpContent() {
 
             {/* Confirmation Message */}
             {showConfirm && (
-              <div className="mt-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200">
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />
-                  <p className="text-emerald-900 font-semibold text-sm">
-                    {t('auth.signUp.confirmBody')}
-                  </p>
+              <div className="mt-6 space-y-3">
+                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
+                    <p className="text-sm font-semibold leading-relaxed text-emerald-950">
+                      {t('auth.signUp.confirmBody')}
+                    </p>
+                  </div>
                 </div>
+                <p className="text-xs text-slate-500 text-center leading-relaxed px-1">
+                  {t('auth.signUp.noEmail')}{' '}
+                  <Link
+                    href="/auth/sign-up"
+                    className="font-medium text-slate-700 underline underline-offset-2 hover:text-slate-900"
+                  >
+                    {t('auth.signUp.tryAgain')}
+                  </Link>
+                </p>
               </div>
             )}
 
@@ -272,12 +283,14 @@ function SignUpContent() {
 
             {showConfirm && (
               <div className="mt-6 text-center">
-                <Link
-                  href="/auth/sign-in"
-                  className="inline-flex h-12 w-full items-center justify-center rounded-full text-sm font-semibold text-white bg-slate-900 shadow-[0_10px_26px_-14px_rgba(15,23,42,0.35)] hover:opacity-95 active:scale-[0.99] transition"
-                >
-                  {t('auth.signUp.signIn')}
-                </Link>
+                <p className="text-sm text-slate-600">
+                  <Link
+                    href="/auth/sign-in"
+                    className="font-semibold text-slate-900 underline underline-offset-2 hover:opacity-80"
+                  >
+                    {t('auth.signUp.alreadyConfirmed')}
+                  </Link>
+                </p>
               </div>
             )}
           </div>

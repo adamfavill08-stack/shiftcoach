@@ -25,15 +25,7 @@ Manual configuration required outside the repo after code changes.
    - `http://localhost:3000/auth/callback` (optional, dev)
    - **`shiftcoach://auth/callback`** — required for **Capacitor native** OAuth and email confirmation when using the app deep link (see `lib/auth/oauthRedirect.ts`).
 
-2. **Capacitor native build env** (`NEXT_PUBLIC_*` is baked in at `npm run build` time):
-
-   ```bash
-   NEXT_PUBLIC_MOBILE_OAUTH_REDIRECT_BASE=shiftcoach://auth
-   ```
-
-   Web / hosted WebView can still use production HTTPS via  
-   `NEXT_PUBLIC_OAUTH_REDIRECT_BASE=https://www.shiftcoach.app`  
-   so email links and OAuth use `https://www.shiftcoach.app/auth/callback` when **not** on a native shell.
+2. **Redirect base (no extra mobile env):** `lib/auth/oauthRedirect.ts` uses **`Capacitor.isNativePlatform()`** at runtime: native builds always use **`shiftcoach://auth`** for `emailRedirectTo` / OAuth return URLs; web uses **`NEXT_PUBLIC_OAUTH_REDIRECT_BASE`** or **`NEXT_PUBLIC_SITE_URL`** or `window.location.origin`. No `NEXT_PUBLIC_MOBILE_OAUTH_REDIRECT_BASE` is required.
 
 ## RevenueCat
 

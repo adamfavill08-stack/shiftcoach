@@ -1,71 +1,70 @@
 import { Capacitor } from '@capacitor/core'
 
-import { getMobileOAuthRedirectBaseFromEnv } from '@/lib/auth/mobileAuthDeepLink'
-
-function isCapacitorNative(): boolean {
-  return typeof window !== 'undefined' && Capacitor.isNativePlatform()
-}
-
-function isHttpsAppOrigin(origin: string): boolean {
-  return /^https?:\/\//i.test(origin)
+function trimOrigin(value: string): string {
+  return value.trim().replace(/\/$/, '')
 }
 
 /**
- * Public **app** origin used for OAuth return URL and **email confirmation** (`emailRedirectTo`).
+ * Public **app** origin for OAuth return URL and **email confirmation** (`emailRedirectTo`).
  *
- * - **Web / default:** `NEXT_PUBLIC_OAUTH_REDIRECT_BASE` or `NEXT_PUBLIC_SITE_URL` or `window.location.origin`
- *   (e.g. `https://www.shiftcoach.app`) → callback path `/auth/callback`.
- * - **Capacitor native:** `NEXT_PUBLIC_MOBILE_OAUTH_REDIRECT_BASE` when set (e.g. `shiftcoach://auth`)
- *   → callback path `/callback` on that authority (see `buildOAuthRedirectTo`).
+ * - **Capacitor native (runtime):** always `shiftcoach://auth` → `/callback` paths (see below).
+ * - **Web:** `NEXT_PUBLIC_OAUTH_REDIRECT_BASE` or `NEXT_PUBLIC_SITE_URL` or `window.location.origin`,
+ *   or `http://localhost:3000` during SSR when env is unset.
  *
- * Must match entries in **Supabase → Authentication → Redirect URLs** (both HTTPS and custom scheme
- * URLs as needed).
+ * Add **`shiftcoach://auth/callback`** and your HTTPS **`…/auth/callback`** to **Supabase → Redirect URLs**.
  *
- * **PKCE:** the code verifier lives in the Capacitor WebView `localStorage`. Start OAuth from this
- * same WebView (e.g. `window.location.assign` to the provider) so the return URL is handled here —
- * not a separate browser profile that cannot read that storage.
+ * **PKCE:** keep OAuth in the same Capacitor WebView so `localStorage` holds the verifier.
  */
 export function getAuthAppOrigin(): string {
-  if (typeof window === 'undefined') return ''
+  const isNative = Capacitor.isNativePlatform()
 
-  const mobileBase = getMobileOAuthRedirectBaseFromEnv()
-  if (isCapacitorNative() && mobileBase) return mobileBase
+  if (isNative) {
+    return 'shiftcoach://auth'
+  }
 
-  const oauthBase =
-    typeof process !== 'undefined' && process.env.NEXT_PUBLIC_OAUTH_REDIRECT_BASE
-      ? String(process.env.NEXT_PUBLIC_OAUTH_REDIRECT_BASE).trim().replace(/\/$/, '')
-      : ''
-  const siteUrl =
-    typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SITE_URL
-      ? String(process.env.NEXT_PUBLIC_SITE_URL).trim().replace(/\/$/, '')
-      : ''
-  return oauthBase || siteUrl || window.location.origin
+  if (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_OAUTH_REDIRECT_BASE) {
+    return trimOrigin(String(process.env.NEXT_PUBLIC_OAUTH_REDIRECT_BASE))
+  }
+
+  if (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SITE_URL) {
+    return trimOrigin(String(process.env.NEXT_PUBLIC_SITE_URL))
+  }
+
+  if (typeof window !== 'undefined') {
+    return window.location.origin
+  }
+
+  return 'http://localhost:3000'
+}
+
+function isNativeAuthOrigin(origin: string): boolean {
+  return origin.startsWith('shiftcoach://')
 }
 
 /**
- * URL Supabase redirects the **browser / WebView** to after OAuth completes (session cookies / code exchange).
+ * URL Supabase redirects to after OAuth completes.
  */
 export function buildOAuthRedirectTo(): string {
   const origin = getAuthAppOrigin()
   if (!origin) return ''
-  if (isHttpsAppOrigin(origin)) {
-    return `${origin}/auth/callback`
+  if (isNativeAuthOrigin(origin)) {
+    const next = encodeURIComponent('/auth/oauth-continue')
+    return `${origin}/callback?next=${next}`
   }
-  // Native custom scheme: include `next` in the URL — Path=/auth/callback cookies are not readable here.
-  const next = encodeURIComponent('/auth/oauth-continue')
-  return `${origin}/callback?next=${next}`
+  return `${origin}/auth/callback`
 }
 
 /**
- * After the user clicks **Confirm email**, Supabase redirects here; `/auth/callback` (web) or
- * `completeAuthFromDeepLink` (native) then sends them to sign-in with `email_confirmed=1`.
+ * After **Confirm email**, Supabase redirects here; web uses `/auth/callback`, native uses
+ * `completeAuthFromDeepLink` on `shiftcoach://auth/callback`.
  */
 export function buildEmailConfirmationRedirectTo(): string {
   const origin = getAuthAppOrigin()
-  if (!origin) return ''
   const next = encodeURIComponent('/auth/sign-in')
-  if (isHttpsAppOrigin(origin)) {
-    return `${origin}/auth/callback?next=${next}`
+
+  if (isNativeAuthOrigin(origin)) {
+    return `${origin}/callback?next=${next}`
   }
-  return `${origin}/callback?next=${next}`
+
+  return `${origin}/auth/callback?next=${next}`
 }

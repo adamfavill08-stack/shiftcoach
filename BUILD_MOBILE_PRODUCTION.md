@@ -81,16 +81,6 @@ The output will be in:
 - [x] Payments working (RevenueCat)
 - [x] No console errors
 
-### Environment (before `npm run build`)
-
-Set in the shell or your CI secrets for the **mobile** production bundle so native OAuth and email confirmation return via the app scheme (must match **Supabase → Redirect URLs**, including `shiftcoach://auth/callback`):
-
-```bash
-NEXT_PUBLIC_MOBILE_OAUTH_REDIRECT_BASE=shiftcoach://auth
-```
-
----
-
 ## 🔧 Configuration Files
 
 ### Capacitor Config (`capacitor.config.ts`)
