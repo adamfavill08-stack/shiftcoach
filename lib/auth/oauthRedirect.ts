@@ -4,10 +4,35 @@ function trimOrigin(value: string): string {
   return value.trim().replace(/\/$/, '')
 }
 
+type WindowWithCapacitor = Window & { Capacitor?: unknown }
+
+/**
+ * True when this bundle is running inside the installed Capacitor shell (including hosted
+ * `https://…` in the WebView, where `Capacitor.isNativePlatform()` can be unreliable).
+ */
+export function isNativeApp(): boolean {
+  if (typeof window === 'undefined') return false
+
+  const protocol = window.location.protocol
+  const hostname = window.location.hostname
+  const winCap = (window as WindowWithCapacitor).Capacitor
+
+  const platform = Capacitor.getPlatform()
+
+  return (
+    protocol === 'capacitor:' ||
+    protocol === 'ionic:' ||
+    (hostname === 'localhost' && Boolean(winCap)) ||
+    platform === 'android' ||
+    platform === 'ios' ||
+    Capacitor.isNativePlatform()
+  )
+}
+
 /**
  * Public **app** origin for OAuth return URL and **email confirmation** (`emailRedirectTo`).
  *
- * - **Capacitor native (runtime):** always `shiftcoach://auth` → `/callback` paths (see below).
+ * - **Native shell:** `shiftcoach://auth` (see `isNativeApp()`).
  * - **Web:** `NEXT_PUBLIC_OAUTH_REDIRECT_BASE` or `NEXT_PUBLIC_SITE_URL` or `window.location.origin`,
  *   or `http://localhost:3000` during SSR when env is unset.
  *
@@ -16,9 +41,7 @@ function trimOrigin(value: string): string {
  * **PKCE:** keep OAuth in the same Capacitor WebView so `localStorage` holds the verifier.
  */
 export function getAuthAppOrigin(): string {
-  const isNative = Capacitor.isNativePlatform()
-
-  if (isNative) {
+  if (isNativeApp()) {
     return 'shiftcoach://auth'
   }
 

@@ -9,8 +9,17 @@ import { CheckCircle2, Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { useTranslation } from '@/components/providers/language-provider'
 import { CompactLanguagePicker } from '@/components/i18n/CompactLanguagePicker'
 import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus'
+import { Capacitor } from '@capacitor/core'
 import { AuthEmailDivider, SocialAuthButtons } from '@/components/auth/SocialAuthButtons'
-import { buildEmailConfirmationRedirectTo } from '@/lib/auth/oauthRedirect'
+import {
+  buildEmailConfirmationRedirectTo,
+  isNativeApp,
+} from '@/lib/auth/oauthRedirect'
+
+/** Set `NEXT_PUBLIC_DEBUG_AUTH_REDIRECT=1` in `.env.local` to show this on production builds. */
+const DEBUG_AUTH_REDIRECT =
+  process.env.NODE_ENV === 'development' ||
+  process.env.NEXT_PUBLIC_DEBUG_AUTH_REDIRECT === '1'
 
 type PasswordStrength = 'none' | 'weak' | 'medium' | 'strong'
 
@@ -36,6 +45,7 @@ function SignUpContent() {
   const [busy, setBusy] = useState(false)
   const [oauthBusy, setOauthBusy] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [debugMounted, setDebugMounted] = useState(false)
   const { isOnline } = useNetworkStatus()
   const searchParams = useSearchParams()
   const passwordStrength = useMemo(() => computePasswordStrength(password), [password])
@@ -48,11 +58,18 @@ function SignUpContent() {
     }
   }, [searchParams])
 
+  useEffect(() => {
+    if (DEBUG_AUTH_REDIRECT) setDebugMounted(true)
+  }, [])
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setBusy(true)
     setErr(undefined)
     const emailRedirectTo = buildEmailConfirmationRedirectTo()
+    if (DEBUG_AUTH_REDIRECT) {
+      console.log('SIGNUP REDIRECT TO:', emailRedirectTo)
+    }
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -78,6 +95,20 @@ function SignUpContent() {
         {/* Main sign-up card */}
         <div className="mx-auto max-w-md rounded-xl bg-white border border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.08)] p-7">
           <div>
+            {DEBUG_AUTH_REDIRECT && debugMounted && (
+              <div
+                className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 font-mono text-[11px] leading-snug text-amber-950 break-all"
+                data-testid="auth-redirect-debug"
+              >
+                <div className="mb-1 font-semibold text-amber-900">Auth redirect debug</div>
+                <div>window.location.href: {window.location.href}</div>
+                <div>window.location.protocol: {window.location.protocol}</div>
+                <div>Capacitor.getPlatform(): {Capacitor.getPlatform()}</div>
+                <div>Capacitor.isNativePlatform(): {String(Capacitor.isNativePlatform())}</div>
+                <div>isNativeApp(): {String(isNativeApp())}</div>
+                <div>buildEmailConfirmationRedirectTo(): {buildEmailConfirmationRedirectTo()}</div>
+              </div>
+            )}
             {/* Logo and Tagline */}
             <div className="text-center">
               <div className="flex justify-center">
