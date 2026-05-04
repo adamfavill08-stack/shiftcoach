@@ -20,6 +20,7 @@ function SignInContent() {
   const [busy, setBusy] = useState(false)
   const [oauthBusy, setOauthBusy] = useState(false)
   const [emailConfirmedBanner, setEmailConfirmedBanner] = useState(false)
+  const [accountCreatedBanner, setAccountCreatedBanner] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const { isOnline } = useNetworkStatus()
@@ -39,6 +40,11 @@ function SignInContent() {
     }
     if (searchParams.get('email_confirmed') === '1') {
       setEmailConfirmedBanner(true)
+      router.replace('/auth/sign-in', { scroll: false })
+      return
+    }
+    if (searchParams.get('account_created') === '1') {
+      setAccountCreatedBanner(true)
       router.replace('/auth/sign-in', { scroll: false })
     }
   }, [searchParams, router])
@@ -179,6 +185,17 @@ function SignInContent() {
                   aria-live="polite"
                 >
                   <p className="text-emerald-800 text-sm font-medium">{t('auth.signIn.emailConfirmedNotice')}</p>
+                </div>
+              )}
+              {accountCreatedBanner && (
+                <div
+                  className="mt-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <p className="text-emerald-800 text-sm font-medium">
+                    {t('auth.signIn.accountCreatedNotice')}
+                  </p>
                 </div>
               )}
               {err && (

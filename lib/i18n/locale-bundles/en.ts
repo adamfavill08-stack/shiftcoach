@@ -171,6 +171,8 @@ const messages: Record<string, string> = {
     'auth.signIn.loading': 'Loading…',
     'auth.signIn.configError': 'Configuration error: Supabase URL is missing. Please check your .env.local file.',
     'auth.signIn.emailConfirmedNotice': 'Your email is confirmed. Sign in with your password to continue.',
+    'auth.signIn.accountCreatedNotice':
+      'Account created successfully. Please sign in.',
     'auth.password.show': 'Show password',
     'auth.password.hide': 'Hide password',
     'auth.oauth.continueGoogle': 'Continue with Google',

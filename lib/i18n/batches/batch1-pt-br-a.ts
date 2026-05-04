@@ -82,6 +82,7 @@ export const batch1PtBrA: Record<string, string> = {
   'auth.signIn.loading': 'Carregando…',
   'auth.signIn.configError':
     'Erro de configuração: falta a URL do Supabase. Verifique o .env.local.',
+  'auth.signIn.accountCreatedNotice': 'Conta criada com sucesso. Entre, por favor.',
   'auth.password.show': 'Mostrar senha',
   'auth.password.hide': 'Ocultar senha',
   'auth.oauth.continueGoogle': 'Continuar com Google',

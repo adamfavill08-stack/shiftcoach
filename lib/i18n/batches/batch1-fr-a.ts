@@ -82,6 +82,8 @@ export const batch1FrA: Record<string, string> = {
   'auth.signIn.loading': 'Chargement…',
   'auth.signIn.configError':
     'Erreur de configuration : URL Supabase manquante. Vérifiez .env.local.',
+  'auth.signIn.accountCreatedNotice':
+    'Compte créé avec succès. Veuillez vous connecter.',
   'auth.password.show': 'Afficher le mot de passe',
   'auth.password.hide': 'Masquer le mot de passe',
   'auth.oauth.continueGoogle': 'Continuer avec Google',

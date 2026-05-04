@@ -86,12 +86,16 @@ export function NativeAndroidBackButton() {
             return
           }
 
-          if (path.startsWith('/auth/') && path !== '/auth/sign-in') {
-            router.replace('/auth/sign-in')
+          if (
+            path.startsWith('/auth/') &&
+            path !== '/auth/sign-in' &&
+            path !== '/auth/sign-up'
+          ) {
+            router.replace('/auth/sign-up')
             return
           }
 
-          if (path.startsWith('/auth/sign-in')) {
+          if (path.startsWith('/auth/sign-in') || path.startsWith('/auth/sign-up')) {
             void App.minimizeApp()
             return
           }

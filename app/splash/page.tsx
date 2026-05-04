@@ -43,7 +43,7 @@ export default function SplashPage() {
           router.replace('/dashboard')
         }
       } else {
-        router.replace('/auth/sign-in')
+        router.replace('/auth/sign-up')
       }
     }, 4000) // 4 seconds
 

@@ -130,6 +130,8 @@ const messages: Record<string, string> = {
     'auth.signIn.errorUnexpected': 'Ein unerwarteter Fehler ist aufgetreten. Bitte versuche es erneut.',
     'auth.signIn.loading': 'Laden…',
     'auth.signIn.configError': 'Konfigurationsfehler: Supabase-URL fehlt. Bitte .env.local prüfen.',
+    'auth.signIn.accountCreatedNotice':
+      'Konto erfolgreich erstellt. Bitte melde dich an.',
     'auth.password.show': 'Passwort anzeigen',
     'auth.password.hide': 'Passwort ausblenden',
     'auth.oauth.continueGoogle': 'Mit Google fortfahren',

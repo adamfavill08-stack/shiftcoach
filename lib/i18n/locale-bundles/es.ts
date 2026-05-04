@@ -174,6 +174,8 @@ const messages: Record<string, string> = {
     'auth.signIn.configError': 'Error de configuración: falta la URL de Supabase. Revisa tu archivo .env.local.',
     'auth.signIn.emailConfirmedNotice':
       'Tu correo está confirmado. Inicia sesión con tu contraseña para continuar.',
+    'auth.signIn.accountCreatedNotice':
+      'Cuenta creada correctamente. Inicia sesión, por favor.',
     'auth.password.show': 'Mostrar contraseña',
     'auth.password.hide': 'Ocultar contraseña',
     'auth.oauth.continueGoogle': 'Continuar con Google',

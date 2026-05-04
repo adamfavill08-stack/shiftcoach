@@ -82,6 +82,7 @@ export const batch1PlA: Record<string, string> = {
   'auth.signIn.loading': 'Ładowanie…',
   'auth.signIn.configError':
     'Błąd konfiguracji: brak URL Supabase. Sprawdź plik .env.local.',
+  'auth.signIn.accountCreatedNotice': 'Konto utworzone pomyślnie. Zaloguj się.',
   'auth.password.show': 'Pokaż hasło',
   'auth.password.hide': 'Ukryj hasło',
   'auth.oauth.continueGoogle': 'Kontynuuj z Google',
