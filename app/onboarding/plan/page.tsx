@@ -82,11 +82,16 @@ export default function OnboardingPlanPage() {
     }
     setOfferingsLoading(true)
     setOfferingsWarning(null)
-    const { monthly, annual, warning } = await loadCurrentOfferingPackages(userId)
-    setMonthlyPkg(monthly)
-    setAnnualPkg(annual)
-    setOfferingsWarning(warning)
-    setOfferingsLoading(false)
+    try {
+      const { monthly, annual, warning } = await loadCurrentOfferingPackages(userId)
+      setMonthlyPkg(monthly)
+      setAnnualPkg(annual)
+      setOfferingsWarning(warning)
+    } catch {
+      setOfferingsWarning(null)
+    } finally {
+      setOfferingsLoading(false)
+    }
   }, [userId])
 
   useEffect(() => {
@@ -134,13 +139,51 @@ export default function OnboardingPlanPage() {
     if (selectedPlan === 'free') {
       setSavingFree(true)
       try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
         const res = await fetch('/api/onboarding/plan', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
           body: JSON.stringify({ selection: 'free' }),
         })
-        const json = (await res.json().catch(() => ({}))) as { error?: string }
-        if (!res.ok) throw new Error(json.error || 'Unable to save plan selection')
+        const json = (await res.json().catch(() => ({}))) as { error?: string; success?: boolean }
+        let ok = res.ok && json.success === true
+
+        // Capacitor / WebView: cookies may lag after sign-in; RLS client update matches server fields.
+        if (!ok && session?.user) {
+          const base = {
+            subscription_plan: 'free' as const,
+            subscription_status: null as null,
+            trial_ends_at: null as null,
+            onboarding_completed: true,
+          }
+          let { error: upErr } = await supabase.from('profiles').update(base).eq('user_id', session.user.id)
+          const msg = upErr?.message ?? ''
+          if (upErr && (upErr.code === 'PGRST204' || /onboarding_completed/i.test(msg))) {
+            const { error: e2 } = await supabase
+              .from('profiles')
+              .update({
+                subscription_plan: 'free',
+                subscription_status: null,
+                trial_ends_at: null,
+              })
+              .eq('user_id', session.user.id)
+            upErr = e2
+          }
+          ok = !upErr
+          if (upErr && !ok) {
+            throw new Error(json.error || upErr.message || 'Unable to save plan selection')
+          }
+        } else if (!ok) {
+          throw new Error(json.error || 'Unable to save plan selection')
+        }
+
         window.dispatchEvent(new CustomEvent('subscription-updated'))
         router.push('/dashboard')
       } catch (e: unknown) {
