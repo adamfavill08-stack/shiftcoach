@@ -9,8 +9,15 @@ type WindowWithCapacitor = Window & { Capacitor?: unknown }
 /**
  * True when this bundle is running inside the installed Capacitor shell (including hosted
  * `https://…` in the WebView, where `Capacitor.isNativePlatform()` can be unreliable).
+ *
+ * Also true when **`NEXT_PUBLIC_FORCE_NATIVE_AUTH=1`** is baked into the build (Capacitor store
+ * bundles that must always use `shiftcoach://auth` for Supabase redirects).
  */
 export function isNativeApp(): boolean {
+  if (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_FORCE_NATIVE_AUTH === '1') {
+    return true
+  }
+
   if (typeof window === 'undefined') return false
 
   const protocol = window.location.protocol
@@ -32,7 +39,8 @@ export function isNativeApp(): boolean {
 /**
  * Public **app** origin for OAuth return URL and **email confirmation** (`emailRedirectTo`).
  *
- * - **Native shell:** `shiftcoach://auth` (see `isNativeApp()`).
+ * - **Native shell:** `shiftcoach://auth` when `isNativeApp()` is true, or when
+ *   **`NEXT_PUBLIC_FORCE_NATIVE_AUTH=1`** (hard override for store builds).
  * - **Web:** `NEXT_PUBLIC_OAUTH_REDIRECT_BASE` or `NEXT_PUBLIC_SITE_URL` or `window.location.origin`,
  *   or `http://localhost:3000` during SSR when env is unset.
  *
@@ -41,6 +49,10 @@ export function isNativeApp(): boolean {
  * **PKCE:** keep OAuth in the same Capacitor WebView so `localStorage` holds the verifier.
  */
 export function getAuthAppOrigin(): string {
+  if (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_FORCE_NATIVE_AUTH === '1') {
+    return 'shiftcoach://auth'
+  }
+
   if (isNativeApp()) {
     return 'shiftcoach://auth'
   }

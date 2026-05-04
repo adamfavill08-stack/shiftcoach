@@ -66,22 +66,29 @@ function SignUpContent() {
     e.preventDefault()
     setBusy(true)
     setErr(undefined)
-    const emailRedirectTo = buildEmailConfirmationRedirectTo()
+
+    const emailRedirectTo =
+      process.env.NEXT_PUBLIC_FORCE_NATIVE_AUTH === '1'
+        ? 'shiftcoach://auth/callback?next=%2Fauth%2Fsign-in'
+        : buildEmailConfirmationRedirectTo()
+
     if (DEBUG_AUTH_REDIRECT) {
-      console.log('SIGNUP REDIRECT TO:', emailRedirectTo)
+      console.log('FINAL SIGNUP emailRedirectTo:', emailRedirectTo)
+      console.log('NEXT_PUBLIC_FORCE_NATIVE_AUTH:', process.env.NEXT_PUBLIC_FORCE_NATIVE_AUTH)
+      console.log('buildEmailConfirmationRedirectTo():', buildEmailConfirmationRedirectTo())
+      console.log('isNativeApp():', isNativeApp())
+      console.log('window.location.href:', typeof window !== 'undefined' ? window.location.href : '')
+      console.log('Capacitor.getPlatform():', Capacitor.getPlatform())
     }
-    const { error } = await supabase.auth.signUp({
+
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        // Production: set NEXT_PUBLIC_OAUTH_REDIRECT_BASE or NEXT_PUBLIC_SITE_URL so the link
-        // in email points at your real host (not localhost / WebView origin). Allowlist the same
-        // URL in Supabase → Authentication → Redirect URLs.
-        emailRedirectTo:
-          emailRedirectTo ||
-          `${window.location.origin}/auth/callback?next=${encodeURIComponent('/auth/sign-in')}`,
+        emailRedirectTo,
       },
     })
+    void data
     setBusy(false)
     if (error) return setErr(error.message)
     setShowConfirm(true)
@@ -101,6 +108,14 @@ function SignUpContent() {
                 data-testid="auth-redirect-debug"
               >
                 <div className="mb-1 font-semibold text-amber-900">Auth redirect debug</div>
+                <div>
+                  NEXT_PUBLIC_FORCE_NATIVE_AUTH:{' '}
+                  {process.env.NEXT_PUBLIC_FORCE_NATIVE_AUTH ?? '(unset)'}
+                </div>
+                <div>
+                  NEXT_PUBLIC_DEBUG_AUTH_REDIRECT:{' '}
+                  {process.env.NEXT_PUBLIC_DEBUG_AUTH_REDIRECT ?? '(unset)'}
+                </div>
                 <div>window.location.href: {window.location.href}</div>
                 <div>window.location.protocol: {window.location.protocol}</div>
                 <div>Capacitor.getPlatform(): {Capacitor.getPlatform()}</div>

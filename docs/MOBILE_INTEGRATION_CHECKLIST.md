@@ -25,7 +25,9 @@ Manual configuration required outside the repo after code changes.
    - `http://localhost:3000/auth/callback` (optional, dev)
    - **`shiftcoach://auth/callback`** — required for **Capacitor native** OAuth and email confirmation when using the app deep link (see `lib/auth/oauthRedirect.ts`).
 
-2. **Redirect base (no extra mobile env):** `lib/auth/oauthRedirect.ts` uses **`Capacitor.isNativePlatform()`** at runtime: native builds always use **`shiftcoach://auth`** for `emailRedirectTo` / OAuth return URLs; web uses **`NEXT_PUBLIC_OAUTH_REDIRECT_BASE`** or **`NEXT_PUBLIC_SITE_URL`** or `window.location.origin`. No `NEXT_PUBLIC_MOBILE_OAUTH_REDIRECT_BASE` is required.
+2. **Redirect base:** `lib/auth/oauthRedirect.ts` detects the Capacitor shell at runtime (`isNativeApp()`, including `getPlatform()`). For **Play/App Store** bundles that load the hosted site in a WebView but must always send Supabase **`emailRedirectTo`** to the app scheme, bake in **`NEXT_PUBLIC_FORCE_NATIVE_AUTH=1`** at `npm run build` time. Optional: **`NEXT_PUBLIC_DEBUG_AUTH_REDIRECT=1`** enables the sign-up debug panel and signup redirect `console.log`. Web uses **`NEXT_PUBLIC_OAUTH_REDIRECT_BASE`** or **`NEXT_PUBLIC_SITE_URL`** or `window.location.origin` when not native / not forced.
+
+3. **Authentication → Email Templates → Confirm signup:** the confirmation link must use **`{{ .ConfirmationURL }}`** (Supabase-generated URL that respects `emailRedirectTo`). Do **not** use **`{{ .SiteURL }}`**, a hardcoded `https://www.shiftcoach.app` link, or **`{{ .RedirectTo }}`** alone — those ignore the client `emailRedirectTo` and keep users on the web redirect.
 
 ## RevenueCat
 
