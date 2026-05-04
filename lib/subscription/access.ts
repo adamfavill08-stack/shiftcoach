@@ -66,6 +66,17 @@ export function deriveSubscriptionAccess(input: {
     return { isPro: true, plan: 'tester' }
   }
 
+  // trialing + trial_ends_at (e.g. store-managed trial synced to profile): full Pro until window ends.
+  if (isTrialing) {
+    if (normalizedPlan === 'monthly' || normalizedPlan === 'yearly') {
+      return { isPro: true, plan: normalizedPlan }
+    }
+    if (mappedPlan) {
+      return { isPro: true, plan: mappedPlan }
+    }
+    return { isPro: true, plan: 'free' }
+  }
+
   const statusSuggestsPaid = status === 'active' || isTrialing
   const hasPaidSignal = statusSuggestsPaid || entitlementActive
 

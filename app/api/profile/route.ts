@@ -112,6 +112,9 @@ export async function POST(req: NextRequest) {
       ideal_sleep_end,
       wake_reminder_enabled,
       wake_reminder_trigger,
+      onboarding_hints_enabled,
+      onboarding_hints_completed,
+      onboarding_step,
     } = body
 
     const profileData: any = {
@@ -239,6 +242,18 @@ export async function POST(req: NextRequest) {
       console.log('[api/profile] Setting wake_reminder_trigger to:', profileData.wake_reminder_trigger)
     }
 
+    if (onboarding_hints_enabled !== undefined) {
+      profileData.onboarding_hints_enabled =
+        onboarding_hints_enabled === null ? null : Boolean(onboarding_hints_enabled)
+    }
+    if (onboarding_hints_completed !== undefined) {
+      profileData.onboarding_hints_completed = Boolean(onboarding_hints_completed)
+    }
+    if (onboarding_step !== undefined && onboarding_step !== null) {
+      const s = Number(onboarding_step)
+      if (!Number.isNaN(s) && s >= 0 && s <= 4) profileData.onboarding_step = Math.floor(s)
+    }
+
     console.log('[api/profile] Profile data to upsert:', JSON.stringify(profileData, null, 2))
     console.log('[api/profile] Age in profileData:', profileData.age, 'Type:', typeof profileData.age)
 
@@ -287,6 +302,12 @@ export async function POST(req: NextRequest) {
                  missingColumn === 'wake_reminder_trigger') {
         console.error(`[api/profile] SETTINGS COLUMN '${missingColumn}' DOES NOT EXIST - Setting will be lost!`)
         console.error(`[api/profile] You MUST run the migration: supabase/migrations/20250122_user_settings.sql`)
+        delete profileDataToSave[missingColumn]
+      } else if (
+        missingColumn === 'onboarding_hints_enabled' ||
+        missingColumn === 'onboarding_hints_completed' ||
+        missingColumn === 'onboarding_step'
+      ) {
         delete profileDataToSave[missingColumn]
       }
       

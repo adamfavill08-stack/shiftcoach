@@ -19,6 +19,7 @@ import { rotaUploadPageDe } from '@/lib/i18n/rotaUploadPage'
 import { sleepUiMessagesDe } from '@/lib/i18n/sleepUiMessages'
 import { rotaFlowPagesDe } from '@/lib/i18n/rotaFlowPages'
 import { accountLegalShellDe } from '@/lib/i18n/accountLegalShellMessages'
+import { guidedHintsTourEn } from '@/lib/i18n/guidedHintsTour'
 import { deBundleShellParity } from './deBundleShellParity'
 
 const messages: Record<string, string> = {
@@ -43,6 +44,7 @@ const messages: Record<string, string> = {
     ...sleepUiMessagesDe,
     ...rotaFlowPagesDe,
     ...accountLegalShellDe,
+    ...guidedHintsTourEn,
     ...deBundleShellParity,
     'nav.home': 'Start',
     'nav.calendar': 'Dienstplan',
@@ -114,6 +116,10 @@ const messages: Record<string, string> = {
     'splash.imageAlt': 'Gruppe von Schichtarbeitern',
 
     'auth.tagline': 'Für die Gesundheit von Schichtarbeitern.',
+    'auth.welcome.taglineTop': 'Wellness-Tracking für Schichtarbeit',
+    'auth.welcome.taglineBottom': 'einfach gemacht',
+    'auth.welcome.ctaNew': 'Ich bin neu — jetzt registrieren',
+    'auth.welcome.ctaMember': 'Ich bin bereits Mitglied',
     'auth.signIn.title': 'Willkommen zurück',
     'auth.signIn.subtitle': 'Melde dich an, um deinen Plan fortzusetzen.',
     'auth.signIn.email': 'E-Mail',

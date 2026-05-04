@@ -1,8 +1,10 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useLayoutEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import { getMyProfile } from "@/lib/profile"
+import { OnboardingSignInDetailsPanel } from "@/components/onboarding/OnboardingSignInDetailsPanel"
 
 type WorkerType = "fixed" | "rotating" | "variable" | "oncall"
 type ShiftType = "off" | "day" | "night"
@@ -12,6 +14,25 @@ type WeekendExtension = "yes" | "no" | "varies"
 interface ShiftTime { start: string; end: string }
 interface ShiftTimes { day: ShiftTime; night: ShiftTime }
 interface VariableShiftTimes { morning: ShiftTime; afternoon: ShiftTime; night: ShiftTime }
+
+const ONBOARDING_DRAFT_STORAGE_KEY = "shiftcoach.onboardingDraft.v1"
+
+/** Persisted when the user leaves mid-wizard without a session; restored after sign-in. */
+interface OnboardingDraftStored {
+  /** v1: `screenReady` was the ALL SET index only. v2: gate screen inserted before it; `screenReady` is the ALL SET index. */
+  v: 1 | 2
+  workerType: WorkerType
+  cycleLen: number
+  rotation: ShiftType[]
+  times: ShiftTimes
+  varTimes: VariableShiftTimes
+  postSleep: string
+  varT: { morning: boolean; afternoon: boolean; night: boolean }
+  todayPos: number | string | null
+  wkndExt: WeekendExtension | null
+  customLen: string
+  screenReady: number
+}
 
 const SS: Record<ShiftType, { label: string; short: string; icon: string; bg: string; color: string; border: string }> = {
   off: { label: "OFF", short: "OFF", icon: "—", bg: "var(--card-subtle)", color: "var(--text-muted)", border: "var(--border-subtle)" },
@@ -275,8 +296,81 @@ export default function OnboardingPage() {
 
   const SCREEN_WKND = needsWknd ? 5 : -1
   const SCREEN_SLEEP = hasNights ? (needsWknd ? 6 : 5) : -1
-  const SCREEN_READY = needsWknd ? (hasNights ? 7 : 6) : (hasNights ? 6 : 5)
-  const totalScreens = SCREEN_READY + 1
+  /** Create / sign in before the ALL SET summary (guests); signed-in users skip past this. */
+  const SCREEN_ACCOUNT = needsWknd ? (hasNights ? 7 : 6) : (hasNights ? 6 : 5)
+  const SCREEN_SUMMARY = SCREEN_ACCOUNT + 1
+  const totalScreens = SCREEN_SUMMARY + 1
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return
+    const raw = sessionStorage.getItem(ONBOARDING_DRAFT_STORAGE_KEY)
+    if (!raw) return
+
+    let cancelled = false
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      if (cancelled || !session?.user) return
+      try {
+        const d = JSON.parse(raw) as OnboardingDraftStored
+        if (d.v !== 1 && d.v !== 2) return
+        sessionStorage.removeItem(ONBOARDING_DRAFT_STORAGE_KEY)
+        setWorkerType(d.workerType)
+        setCycleLen(d.cycleLen)
+        setRotation(d.rotation)
+        setTimes(d.times)
+        setVarTimes(d.varTimes)
+        setPostSleep(d.postSleep)
+        setVarT(d.varT)
+        setTodayPos(d.todayPos)
+        setWkndExt(d.wkndExt)
+        setCustomLen(d.customLen ?? "")
+        // v1 drafts stored the old final index (ALL SET only); one gate screen was inserted after.
+        const summaryScreen = d.v === 1 ? d.screenReady + 1 : d.screenReady
+        setScreen(summaryScreen)
+      } catch {
+        sessionStorage.removeItem(ONBOARDING_DRAFT_STORAGE_KEY)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return
+    if (!workerType) return
+    if (screen !== SCREEN_ACCOUNT) return
+    let cancelled = false
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      if (cancelled || !session?.user) return
+      setScreen(SCREEN_SUMMARY)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [screen, workerType, SCREEN_ACCOUNT, SCREEN_SUMMARY])
+
+  const persistOnboardingDraft = (summaryScreenIndex: number) => {
+    if (!workerType) return
+    const draft: OnboardingDraftStored = {
+      v: 2,
+      workerType,
+      cycleLen,
+      rotation,
+      times,
+      varTimes,
+      postSleep,
+      varT,
+      todayPos,
+      wkndExt,
+      customLen,
+      screenReady: summaryScreenIndex,
+    }
+    try {
+      sessionStorage.setItem(ONBOARDING_DRAFT_STORAGE_KEY, JSON.stringify(draft))
+    } catch {
+      /* storage full or disabled */
+    }
+  }
 
   const next = () => setScreen((s) => s + 1)
   const back = () => setScreen((s) => Math.max(0, s - 1))
@@ -327,9 +421,23 @@ export default function OnboardingPage() {
         session = refreshed.session
       }
 
-      if (!session?.user) throw new Error("Session not found — please sign in again.")
+      if (!session?.user) {
+        if (!workerType) {
+          throw new Error("Session not found — please sign in again.")
+        }
+        persistOnboardingDraft(SCREEN_SUMMARY)
+        setSaving(false)
+        router.push("/auth/sign-up?from=onboarding")
+        return
+      }
       const user = session.user
+      // Ensures a profiles row exists so .update() is not a silent no-op for brand-new accounts.
+      await getMyProfile()
+      const metaName = user.user_metadata?.name ?? user.user_metadata?.first_name
+      const nameFromAuth =
+        typeof metaName === "string" && metaName.trim() ? metaName.trim() : undefined
       const { error: err } = await supabase.from("profiles").update({
+        ...(nameFromAuth ? { name: nameFromAuth } : {}),
         worker_type: workerType,
         cycle_length: cycleLen,
         rotation_pattern: rotation,
@@ -342,6 +450,11 @@ export default function OnboardingPage() {
         onboarding_completed: true,
       }).eq("user_id", user.id)
       if (err) throw err
+      try {
+        sessionStorage.removeItem(ONBOARDING_DRAFT_STORAGE_KEY)
+      } catch {
+        /* ignore */
+      }
       sessionStorage.setItem("fromOnboarding", "true")
       router.push("/onboarding/plan")
     } catch (e: any) {
@@ -350,25 +463,46 @@ export default function OnboardingPage() {
     }
   }
 
+  const isSignInDetails = screen === SCREEN_ACCOUNT
+  const shellBg = isSignInDetails ? "#F7F7F7" : "var(--bg)"
+  const shellInnerBg = isSignInDetails ? "#F7F7F7" : "var(--bg)"
+
   return (
-      <div style={{ background: "var(--bg)", width: "100%", minHeight: "100vh", display: "flex", justifyContent: "center" }}>
-        <div style={{ width: "100%", maxWidth: 390, background: "var(--bg)", color: "var(--text-main)", fontFamily: "Inter,sans-serif", display: "flex", flexDirection: "column", overflowY: "auto", overflowX: "hidden", minHeight: "100vh" }}>
+      <div style={{ background: shellBg, width: "100%", minHeight: "100vh", display: "flex", justifyContent: "center" }}>
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 390,
+            background: shellInnerBg,
+            color: "var(--text-main)",
+            fontFamily: "Inter,sans-serif",
+            display: "flex",
+            flexDirection: "column",
+            overflowX: "hidden",
+            overflowY: isSignInDetails ? "hidden" : "auto",
+            minHeight: "100vh",
+          }}
+        >
 
           {/* Header */}
-          <div style={{ padding: "52px 24px 0", position: "relative", display: "flex", justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
-            <div style={{ fontSize: 14, letterSpacing: "0.12em", fontWeight: 700, color: "var(--text-main)" }}>SHIFTCOACH</div>
-            {screen > 0 && screen < SCREEN_READY && (
-              <button type="button" onClick={back} style={{ position: "absolute", left: 24, background: "none", border: "none", color: "var(--text-muted)", fontSize: 11, cursor: "pointer", fontFamily: "Inter,sans-serif" }}>← Back</button>
-            )}
-          </div>
+          {!isSignInDetails && (
+            <div style={{ padding: "52px 24px 0", position: "relative", display: "flex", justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
+              <div style={{ fontSize: 14, letterSpacing: screen === SCREEN_SUMMARY ? "0.06em" : "0.12em", fontWeight: 700, color: "#05afc5" }}>
+                {screen === SCREEN_SUMMARY ? "Account Created" : "SHIFTCOACH"}
+              </div>
+              {screen > 0 && screen < SCREEN_SUMMARY && (
+                <button type="button" onClick={back} style={{ position: "absolute", left: 24, background: "none", border: "none", color: "var(--text-muted)", fontSize: 11, cursor: "pointer", fontFamily: "Inter,sans-serif" }}>← Back</button>
+              )}
+            </div>
+          )}
 
-          {screen > 0 && (
+          {screen > 0 && !isSignInDetails && (
             <div style={{ padding: "16px 24px 0" }}>
               <ProgressDots total={totalScreens} current={screen} />
             </div>
           )}
 
-          <div style={{ flex: 1, padding: "0 20px", display: "flex", flexDirection: "column" }}>
+          <div style={{ flex: 1, padding: isSignInDetails ? 0 : "0 20px", display: "flex", flexDirection: "column", minHeight: 0 }}>
 
             {/* ══ 0: Worker type ══════════════════════════════════ */}
             {screen === 0 && (
@@ -714,7 +848,15 @@ export default function OnboardingPage() {
             )}
 
             {/* ══ Ready ════════════════════════════════════════════ */}
-            {screen === SCREEN_READY && (
+            {screen === SCREEN_ACCOUNT && (
+              <OnboardingSignInDetailsPanel
+                persistDraft={() => persistOnboardingDraft(SCREEN_SUMMARY)}
+                onSuccess={() => setScreen(SCREEN_SUMMARY)}
+                onBack={back}
+              />
+            )}
+
+            {screen === SCREEN_SUMMARY && (
               <div style={{ flex: 1, paddingTop: 28, display: "flex", flexDirection: "column" }}>
                 <div style={rv(0)}>
                   <div style={{ ...LBL, color: "#00BCD4", marginBottom: 10 }}>ALL SET</div>

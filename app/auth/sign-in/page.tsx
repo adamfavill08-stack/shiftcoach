@@ -5,11 +5,10 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, Shield } from 'lucide-react'
 import { useTranslation } from '@/components/providers/language-provider'
 import { CompactLanguagePicker } from '@/components/i18n/CompactLanguagePicker'
 import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus'
-import { AuthEmailDivider, SocialAuthButtons } from '@/components/auth/SocialAuthButtons'
 
 function SignInContent() {
   const { t } = useTranslation()
@@ -18,7 +17,6 @@ function SignInContent() {
   const [showPassword, setShowPassword] = useState(false)
   const [err, setErr] = useState<string | undefined>()
   const [busy, setBusy] = useState(false)
-  const [oauthBusy, setOauthBusy] = useState(false)
   const [emailConfirmedBanner, setEmailConfirmedBanner] = useState(false)
   const [accountCreatedBanner, setAccountCreatedBanner] = useState(false)
   const router = useRouter()
@@ -128,56 +126,43 @@ function SignInContent() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 flex items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md">
+    <main className="flex min-h-screen flex-col items-center bg-slate-100 px-6 pb-12 pt-5 sm:pt-8">
+      <div className="flex w-full max-w-md flex-col items-center">
+        <div className="-mt-1 mb-5 flex flex-col items-center sm:-mt-2 sm:mb-6">
+          <Image
+            src="/sign-in-app-icon.png"
+            alt="ShiftCoach"
+            width={160}
+            height={160}
+            className="h-40 w-40 rounded-[28px] shadow-[0_14px_36px_-12px_rgba(5,175,197,0.55)] sm:h-44 sm:w-44 sm:rounded-[30px]"
+            priority
+          />
+          <div className="mt-4 flex max-w-[min(100%,20rem)] items-center justify-center gap-2 rounded-full border border-slate-200/90 bg-white px-4 py-2.5 text-center shadow-[0_2px_12px_-4px_rgba(15,23,42,0.12)]">
+            <Shield className="h-4 w-4 shrink-0 text-[#05afc5]" strokeWidth={2.25} aria-hidden />
+            <span className="text-[11px] font-semibold uppercase leading-snug tracking-[0.06em] text-slate-700 sm:text-xs sm:tracking-[0.05em]">
+              {t('upgrade.trustedBy')}
+            </span>
+          </div>
+        </div>
         {/* Main sign-in card */}
-        <div className="mx-auto max-w-md rounded-xl bg-white border border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.08)] p-7">
+        <div className="mx-auto w-full max-w-md rounded-xl border border-slate-200 bg-white p-7 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
           <div>
-            {/* Logo and Tagline */}
-            <div className="text-center">
-              <div className="flex justify-center">
-                <Image
-                  src="/logo.svg"
-                  alt="ShiftCoach Logo"
-                  width={220}
-                  height={110}
-                  // Logo SVG is authored in black; invert in dark mode.
-                  className="h-12 w-auto max-w-full object-contain dark:[filter:invert(1)]"
-                  priority
-                  unoptimized
-                />
-              </div>
-              <p className="mt-4 text-sm leading-relaxed text-slate-700 max-w-[36ch] mx-auto">
-                {t('auth.tagline')}
-              </p>
-
-              <div className="mt-5 text-left px-0.5">
-                <CompactLanguagePicker
-                  variant="compact"
-                  id="sign-in-language"
-                  onlyWhenDeviceLanguageUnsupported
-                />
-              </div>
+            <div className="text-left px-0.5">
+              <CompactLanguagePicker
+                variant="compact"
+                id="sign-in-language"
+                onlyWhenDeviceLanguageUnsupported
+              />
             </div>
 
             {/* Welcome Text */}
-            <div className="mt-7">
+            <div className="mt-5">
               <p className="text-[18px] font-semibold tracking-tight text-slate-900">
                 {t('auth.signIn.title')}
-              </p>
-              <p className="mt-1 text-sm text-slate-500">
-                {t('auth.signIn.subtitle')}
               </p>
             </div>
 
             <div className="mt-6">
-              <SocialAuthButtons
-                disabled={busy || oauthBusy}
-                isOnline={isOnline}
-                onError={setErr}
-                onPendingChange={setOauthBusy}
-                googleOnly
-              />
               {emailConfirmedBanner && (
                 <div
                   className="mt-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200"
@@ -203,8 +188,7 @@ function SignInContent() {
                   <p className="text-red-600 text-sm font-medium">{err}</p>
                 </div>
               )}
-              <AuthEmailDivider />
-              <form onSubmit={submit} className="space-y-4" aria-busy={busy || oauthBusy}>
+              <form onSubmit={submit} className="space-y-4" aria-busy={busy}>
               <p id={signInStatusId} className="sr-only" aria-live="polite" role="status">
                 {busy ? t('auth.signIn.busy') : ''}
               </p>
@@ -221,7 +205,7 @@ function SignInContent() {
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    disabled={busy || oauthBusy}
+                    disabled={busy}
                     required
                   />
                 </div>
@@ -240,13 +224,13 @@ function SignInContent() {
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     autoComplete="current-password"
-                    disabled={busy || oauthBusy}
+                    disabled={busy}
                     required
                   />
                   <button
                     type="button"
                     className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
-                    disabled={busy || oauthBusy}
+                    disabled={busy}
                     onClick={() => setShowPassword(v => !v)}
                     aria-label={showPassword ? t('auth.password.hide') : t('auth.password.show')}
                     aria-pressed={showPassword}
@@ -260,9 +244,9 @@ function SignInContent() {
                 </div>
               </div>
               <button
-                disabled={busy || oauthBusy}
+                disabled={busy}
                 aria-describedby={err ? signInErrorId : undefined}
-                className="w-full h-12 rounded-full text-sm font-semibold text-white bg-slate-900 shadow-[0_10px_26px_-14px_rgba(15,23,42,0.35)] hover:opacity-95 active:scale-[0.99] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-12 rounded-full text-sm font-semibold text-white bg-[#05afc5] shadow-[0_10px_26px_-14px_rgba(5,175,197,0.45)] transition hover:bg-[#0499b0] active:bg-[#0489a0] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {busy ? t('auth.signIn.busy') : t('auth.signIn.submit')}
               </button>
@@ -277,7 +261,7 @@ function SignInContent() {
                   {t('auth.signIn.noAccount')}{' '}
                   <Link
                     className="text-sm font-semibold text-slate-900 hover:opacity-80 transition-opacity"
-                    href="/auth/sign-up"
+                    href="/auth/welcome"
                   >
                     {t('auth.signIn.createOne')}
                   </Link>

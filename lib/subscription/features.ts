@@ -22,6 +22,8 @@ const FREE_FEATURES: FeatureKey[] = [
   'shift_logging',
   'event_logging',
   'shift_event_history',
+  /** Body metrics & goals — free users can complete profile; Pro still gates adjusted targets / meal window UI. */
+  'calorie_profile_settings',
 ]
 
 export function canUseFeature(

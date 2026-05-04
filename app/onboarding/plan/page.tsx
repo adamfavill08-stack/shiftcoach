@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { ShieldCheck, RefreshCw } from 'lucide-react'
 import { useNativePurchases } from '@/lib/hooks/useNativePurchases'
@@ -79,25 +80,25 @@ export default function OnboardingPlanPage() {
   return (
     <main className="min-h-screen px-4 pt-2 pb-20 bg-[#f3f1ed] dark:bg-[var(--bg)]">
       <div className="mx-auto w-full max-w-md">
-        <div className="-mx-3 mb-4 overflow-hidden rounded-3xl bg-[var(--card)] shadow-[0_18px_45px_-24px_rgba(15,23,42,0.28)]">
-          <img
-            src="/onboarding-plan-hero-light.png"
-            alt="ShiftCoach Pro benefits"
-            className="w-full object-cover dark:hidden"
+        <div className="mb-16 flex flex-col items-center px-2 pt-6 text-center">
+          <Image
+            src="/onboarding-plan-app-icon.png"
+            alt=""
+            width={160}
+            height={160}
+            className="h-40 w-40 rounded-3xl object-cover shadow-[0_14px_44px_-10px_rgba(5,175,197,0.42)]"
+            priority
+            unoptimized
           />
-          <img
-            src="/onboarding-plan-hero-dark.png"
-            alt="ShiftCoach Pro benefits"
-            className="hidden w-full object-cover dark:block"
-          />
+          <h1 className="mt-6 text-xl font-semibold tracking-tight text-slate-900 dark:text-[var(--text-main)]">
+            Select your plan
+          </h1>
+          <p className="mt-2 max-w-sm text-sm leading-snug text-slate-600 dark:text-[var(--text-soft)]">
+            Choose one option to continue
+          </p>
         </div>
-
-        <div className="relative z-10 -mx-3 -mt-8 overflow-hidden rounded-2xl bg-[var(--card)] shadow-[0_18px_45px_-24px_rgba(15,23,42,0.35)]">
+        <div className="relative z-10 -mx-3 overflow-hidden rounded-2xl bg-[var(--card)] shadow-[0_18px_45px_-24px_rgba(15,23,42,0.35)]">
           <div className="space-y-3 px-5 py-5">
-            <div className="pb-1">
-              <p className="text-sm font-semibold text-[var(--text-main)]">Select your plan</p>
-              <p className="mt-0.5 text-xs text-[var(--text-soft)]">Choose one option to continue</p>
-            </div>
             <button
               type="button"
               onClick={() => setSelectedPlan('free')}
@@ -119,8 +120,10 @@ export default function OnboardingPlanPage() {
                     {selectedPlan === 'free' ? <span className="h-2.5 w-2.5 rounded-full bg-[#2b7fff]" /> : null}
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate text-[15px] font-semibold text-[var(--text-main)]">Free trial</p>
-                    <p className="mt-0.5 truncate text-xs text-[var(--text-soft)]">7 days full-feature access</p>
+                    <p className="truncate text-[15px] font-semibold text-[var(--text-main)]">Free</p>
+                    <p className="mt-0.5 truncate text-xs text-[var(--text-soft)]">
+                      Limited features, Upgrade to Pro for full access
+                    </p>
                   </div>
                 </div>
                 <p className="shrink-0 text-base font-semibold leading-none text-black dark:text-[var(--text-main)]">Free</p>
@@ -232,7 +235,7 @@ export default function OnboardingPlanPage() {
           {isBusy ? (
             <p className="px-5 pb-5 text-xs text-[var(--text-soft)]">
               {saving === 'free'
-                ? 'Activating your free access...'
+                ? 'Saving your plan...'
                 : isPurchasing
                   ? 'Complete your purchase in the store…'
                   : 'Preparing checkout…'}

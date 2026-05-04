@@ -12,6 +12,7 @@ import { ErrorSuppressor } from '@/components/ErrorSuppressor'
 import { ThemeProvider } from '@/components/providers/theme-provider'
 import { LanguageProvider } from '@/components/providers/language-provider'
 import { BottomNavWrapper } from '@/components/layout/BottomNavWrapper'
+import { GuidedHintsHost } from '@/components/layout/GuidedHintsHost'
 import { AutoHealthSync } from '@/components/wearables/AutoHealthSync'
 import AndroidBackButtonHandler from '@/components/AndroidBackButtonHandler'
 import { NativeAndroidStatusBar } from '@/components/native/NativeAndroidStatusBar'
@@ -198,6 +199,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       <QuickAddSheet />
                       <ToastContainer />
                       <BottomNavWrapper />
+                      <GuidedHintsHost />
                     </QuickAddProvider>
                     </CircadianStateProvider>
                   </ShiftStateProvider>

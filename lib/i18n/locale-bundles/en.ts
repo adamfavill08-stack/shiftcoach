@@ -18,6 +18,7 @@ import { rotaUploadPageEn } from '@/lib/i18n/rotaUploadPage'
 import { sleepUiMessagesEn } from '@/lib/i18n/sleepUiMessages'
 import { rotaFlowPagesEn } from '@/lib/i18n/rotaFlowPages'
 import { accountLegalShellEn } from '@/lib/i18n/accountLegalShellMessages'
+import { guidedHintsTourEn } from '@/lib/i18n/guidedHintsTour'
 
 const messages: Record<string, string> = {
     ...calendarMessagesEn,
@@ -40,6 +41,7 @@ const messages: Record<string, string> = {
     ...sleepUiMessagesEn,
     ...rotaFlowPagesEn,
     ...accountLegalShellEn,
+    ...guidedHintsTourEn,
     'nav.home': 'Home',
     'nav.calendar': 'Calendar',
     'nav.blog': 'Articles',
@@ -154,6 +156,10 @@ const messages: Record<string, string> = {
     'splash.imageAlt': 'Group of shift workers',
 
     'auth.tagline': 'Dedicated to shift worker health and wellbeing.',
+    'auth.welcome.taglineTop': 'shift worker wellness tracking',
+    'auth.welcome.taglineBottom': 'made easy',
+    'auth.welcome.ctaNew': "I'm new, sign me up",
+    'auth.welcome.ctaMember': "I'm already a member",
     'auth.signIn.title': 'Welcome',
     'auth.signIn.subtitle': 'Sign in to continue your plan.',
     'auth.signIn.email': 'Email',

@@ -24,28 +24,29 @@ export default function SplashPage() {
   useEffect(() => {
     if (loading) return
 
-    // Trigger entrance animation
     setShowContent(true)
 
+    if (!user) {
+      const timer = setTimeout(() => {
+        router.replace('/auth/welcome')
+      }, 900)
+      return () => clearTimeout(timer)
+    }
+
     const timer = setTimeout(async () => {
-      // After splash, route based on auth + subscription status
-      if (user) {
-        try {
-          const { checkSubscriptionStatus } = await import('@/lib/subscription/checkSubscription')
-          const result = await checkSubscriptionStatus()
-          if (!result.hasAccess) {
-            router.replace('/select-plan')
-          } else {
-            router.replace('/dashboard')
-          }
-        } catch (err) {
-          console.error('[splash] Subscription check failed, sending to dashboard as fallback', err)
+      try {
+        const { checkSubscriptionStatus } = await import('@/lib/subscription/checkSubscription')
+        const result = await checkSubscriptionStatus()
+        if (!result.hasAccess) {
+          router.replace('/select-plan')
+        } else {
           router.replace('/dashboard')
         }
-      } else {
-        router.replace('/auth/sign-up')
+      } catch (err) {
+        console.error('[splash] Subscription check failed, sending to dashboard as fallback', err)
+        router.replace('/dashboard')
       }
-    }, 4000) // 4 seconds
+    }, 4000)
 
     return () => clearTimeout(timer)
   }, [user, loading, router])

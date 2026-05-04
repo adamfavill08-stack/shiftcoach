@@ -815,6 +815,7 @@ function HomeLogSleepCard() {
   return (
     <Link
       href="/sleep"
+      data-guided-tour="sleep-card"
       className="block rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] px-5 py-4 transition-colors hover:bg-[var(--card-subtle)] shadow-[0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.24)]"
     >
       <div className="relative">

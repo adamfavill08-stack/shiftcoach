@@ -43,8 +43,9 @@ export default function UpdatePassword() {
         />
         <p className="text-xs text-slate-500 dark:text-slate-400">{t('auth.updatePassword.hint')}</p>
         <button
+          type="submit"
           disabled={busy}
-          className="w-full rounded-xl py-2 font-semibold text-white bg-gradient-to-r from-orange-500 to-purple-600 disabled:opacity-50"
+          className="w-full rounded-full bg-[#05afc5] py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0499b0] active:bg-[#0489a0] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {busy ? t('auth.updatePassword.updating') : t('auth.updatePassword.submit')}
         </button>

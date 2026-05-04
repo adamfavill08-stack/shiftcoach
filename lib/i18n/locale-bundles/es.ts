@@ -19,6 +19,7 @@ import { rotaUploadPageEs } from '@/lib/i18n/rotaUploadPage'
 import { sleepUiMessagesEs } from '@/lib/i18n/sleepUiMessages'
 import { rotaFlowPagesEs } from '@/lib/i18n/rotaFlowPages'
 import { accountLegalShellEs } from '@/lib/i18n/accountLegalShellMessages'
+import { guidedHintsTourEn } from '@/lib/i18n/guidedHintsTour'
 
 const messages: Record<string, string> = {
     ...calendarMessagesEs,
@@ -42,6 +43,7 @@ const messages: Record<string, string> = {
     ...sleepUiMessagesEs,
     ...rotaFlowPagesEs,
     ...accountLegalShellEs,
+    ...guidedHintsTourEn,
     'nav.home': 'Inicio',
     'nav.calendar': 'Calendario',
     'nav.blog': 'Artículos',
@@ -156,6 +158,10 @@ const messages: Record<string, string> = {
     'splash.imageAlt': 'Grupo de trabajadores por turnos',
 
     'auth.tagline': 'Dedicada a la salud del trabajador por turnos.',
+    'auth.welcome.taglineTop': 'seguimiento del bienestar en turnos',
+    'auth.welcome.taglineBottom': 'fácil y claro',
+    'auth.welcome.ctaNew': 'Soy nuevo, quiero registrarme',
+    'auth.welcome.ctaMember': 'Ya soy miembro',
     'auth.signIn.title': 'Bienvenido de nuevo',
     'auth.signIn.subtitle': 'Inicia sesión para continuar con tu plan.',
     'auth.signIn.email': 'Correo electrónico',

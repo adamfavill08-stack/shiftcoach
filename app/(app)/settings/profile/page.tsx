@@ -2,17 +2,19 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { clearHealthConnectNativeAuth } from '@/lib/native/clearHealthConnectNativeAuth'
 import { getMyProfile, updateProfile, type Profile } from '@/lib/profile'
-import { ChevronLeft, ChevronRight, User, Target, Scale, Ruler, Calendar } from 'lucide-react'
+import { ChevronLeft, ChevronRight, User, Target, Scale, Ruler, Calendar, Mail, Key } from 'lucide-react'
 import { showToast } from '@/components/ui/Toast'
-import { cmToFeetInches } from '@/lib/units'
+import { cmToFeetInches, feetInchesToCm } from '@/lib/units'
 import { useTranslation } from '@/components/providers/language-provider'
 import { useSubscriptionAccess } from '@/lib/hooks/useSubscriptionAccess'
 import { canUseFeature } from '@/lib/subscription/features'
 import { UpgradeCard } from '@/components/subscription/UpgradeCard'
+import { SubscriptionPlanSection } from '../components/SubscriptionPlanSection'
 
 /** Parse YYYY-MM-DD in the user's local calendar (avoids UTC midnight shifts from `new Date('YYYY-MM-DD')`). */
 function parseYmdLocal(ymd: string): Date | null {
@@ -72,6 +74,11 @@ function ProfilePageContent() {
   const [stoneInput, setStoneInput] = useState('')
   const [poundsInput, setPoundsInput] = useState('')
   const [heightInput, setHeightInput] = useState('')
+  const [heightEntryMode, setHeightEntryMode] = useState<'cm' | 'ft_in'>('cm')
+  const [heightFtInput, setHeightFtInput] = useState('')
+  const [heightInInput, setHeightInInput] = useState('')
+  const [profilePageTab, setProfilePageTab] = useState<'about' | 'billing'>('about')
+  const [accountEmail, setAccountEmail] = useState<string | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
@@ -377,6 +384,12 @@ function ProfilePageContent() {
     setHasCompletedFirstSetup(stored === '1')
   }, [profileSetupDoneKey])
 
+  useEffect(() => {
+    void supabase.auth.getUser().then(({ data }) => {
+      setAccountEmail(data.user?.email ?? null)
+    })
+  }, [])
+
   const refreshProfile = async () => {
     console.log('[ProfilePage] Refreshing profile...')
     const profileData = await getMyProfile()
@@ -579,6 +592,8 @@ function ProfilePageContent() {
         })()
       : '—'
 
+  const displayNameForCard = profile?.name?.trim() || userName?.trim() || null
+
   const isProfileFullyComplete = Boolean(
     profile?.name?.trim() &&
       profile?.sex &&
@@ -699,17 +714,61 @@ function ProfilePageContent() {
     setPoundsInput('')
   }
 
+  const switchHeightEntryMode = (mode: 'cm' | 'ft_in') => {
+    if (mode === heightEntryMode) return
+    if (mode === 'ft_in' && heightEntryMode === 'cm') {
+      const cm = parseFloat(heightInput)
+      if (!Number.isNaN(cm) && cm >= 100 && cm <= 250) {
+        const { ft, inches } = cmToFeetInches(cm)
+        setHeightFtInput(String(ft))
+        setHeightInInput(String(inches))
+      }
+    }
+    if (mode === 'cm' && heightEntryMode === 'ft_in') {
+      const ft = parseInt(heightFtInput.trim(), 10)
+      const inchRaw =
+        heightInInput.trim() === '' ? 0 : parseFloat(heightInInput.trim().replace(',', '.'))
+      if (!Number.isNaN(ft) && !Number.isNaN(inchRaw) && inchRaw >= 0 && inchRaw < 12) {
+        const cm = feetInchesToCm(ft, inchRaw)
+        if (cm >= 100 && cm <= 250) setHeightInput(String(cm))
+      }
+    }
+    setHeightEntryMode(mode)
+  }
+
   const handleSaveHeight = async () => {
     if (!profile) return
     setSaving('height')
-    const numValue = parseFloat(heightInput)
-    
-    if (isNaN(numValue) || numValue < 100 || numValue > 250) {
-      alert(t('settings.profile.alert.heightRange'))
-      setSaving(null)
-      return
+    let numValue: number
+
+    if (heightEntryMode === 'cm') {
+      numValue = parseFloat(heightInput)
+      if (Number.isNaN(numValue) || numValue < 100 || numValue > 250) {
+        alert(t('settings.profile.alert.heightRange'))
+        setSaving(null)
+        return
+      }
+    } else {
+      const ft = parseInt(heightFtInput.trim(), 10)
+      const inchRaw = heightInInput.trim() === '' ? 0 : parseFloat(heightInInput.trim().replace(',', '.'))
+      if (
+        Number.isNaN(ft) ||
+        Number.isNaN(inchRaw) ||
+        inchRaw < 0 ||
+        inchRaw >= 12
+      ) {
+        alert(t('settings.profile.alert.heightFtIn'))
+        setSaving(null)
+        return
+      }
+      numValue = feetInchesToCm(ft, inchRaw)
+      if (numValue < 100 || numValue > 250) {
+        alert(t('settings.profile.alert.heightFtIn'))
+        setSaving(null)
+        return
+      }
     }
-    
+
     const success = await updateProfile({ height_cm: numValue })
     if (success) {
       await refreshProfile()
@@ -843,7 +902,8 @@ function ProfilePageContent() {
         <>
           <main className="min-h-screen bg-slate-100 pb-8">
             <div className="mx-auto max-w-md px-4 py-6">
-              <div className="rounded-3xl bg-white pb-6">
+              <div className="overflow-hidden rounded-3xl bg-white pb-6 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.12)]">
+                <div className="h-1.5 w-full shrink-0 bg-[#05afc5]" aria-hidden />
                 <div className="flex items-center justify-between px-5 pt-5 pb-3">
                   <button
                     onClick={() => router.back()}
@@ -874,6 +934,39 @@ function ProfilePageContent() {
                   {t('settings.profile.title')}
                 </h1>
 
+                <div className="mt-4 px-5" role="tablist" aria-label="Profile">
+                  <div className="flex gap-1 rounded-[14px] bg-slate-100 p-1.5">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={profilePageTab === 'about'}
+                      onClick={() => setProfilePageTab('about')}
+                      className={`flex-1 rounded-[10px] py-3 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors sm:text-[11px] ${
+                        profilePageTab === 'about'
+                          ? 'bg-[#05afc5] text-white shadow-sm'
+                          : 'bg-transparent text-[#05afc5] hover:bg-white/80'
+                      }`}
+                    >
+                      {t('settings.profile.tabAbout')}
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={profilePageTab === 'billing'}
+                      onClick={() => setProfilePageTab('billing')}
+                      className={`flex-1 rounded-[10px] py-3 text-[10px] font-bold uppercase tracking-[0.1em] transition-colors sm:text-[11px] ${
+                        profilePageTab === 'billing'
+                          ? 'bg-[#05afc5] text-white shadow-sm'
+                          : 'bg-transparent text-[#05afc5] hover:bg-white/80'
+                      }`}
+                    >
+                      {t('settings.profile.tabAccountBilling')}
+                    </button>
+                  </div>
+                </div>
+
+                {profilePageTab === 'about' ? (
+                  <>
                 {/* Identity Block — tap to set display name */}
                 <button
                   type="button"
@@ -885,11 +978,11 @@ function ProfilePageContent() {
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-400 grid place-items-center text-white font-semibold flex-shrink-0">
-                      {getInitials(userName || t('settings.profile.fallbackUser'))}
+                      {getInitials(displayNameForCard || t('settings.profile.fallbackUser'))}
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-slate-900 truncate">
-                        {getFirstName(userName) || t('settings.profile.fallbackUser')}
+                        {getFirstName(displayNameForCard) || t('settings.profile.fallbackUser')}
                       </p>
                       <p className="text-xs text-slate-500">{t('settings.profile.subtitle')}</p>
                     </div>
@@ -915,8 +1008,12 @@ function ProfilePageContent() {
                   </div>
                 </div>
 
+                <p className="mt-5 px-5 text-[11px] font-bold uppercase tracking-[0.14em] text-[#05afc5]">
+                  {t('settings.profile.sectionPersonalGoals')}
+                </p>
+
                 {/* Cards */}
-                <div className="mt-4 space-y-2 px-5">
+                <div className="mt-2 space-y-2 px-5">
                   {/* Gender */}
                   <button
                     onClick={() => setShowGenderModal(true)}
@@ -986,7 +1083,17 @@ function ProfilePageContent() {
                   {/* Height */}
                   <button
                     onClick={() => {
-                      setHeightInput(profile?.height_cm ? Math.round(profile.height_cm).toString() : '')
+                      if (profile?.height_cm) {
+                        setHeightInput(Math.round(profile.height_cm).toString())
+                        const { ft, inches } = cmToFeetInches(profile.height_cm)
+                        setHeightFtInput(String(ft))
+                        setHeightInInput(String(inches))
+                      } else {
+                        setHeightInput('')
+                        setHeightFtInput('')
+                        setHeightInInput('')
+                      }
+                      setHeightEntryMode(profile?.units === 'imperial' ? 'ft_in' : 'cm')
                       setShowHeightModal(true)
                     }}
                     className="group flex items-center justify-between gap-3 rounded-xl px-4 py-3 bg-white border border-slate-100 shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:border-sky-100 hover:shadow-[0_4px_12px_rgba(15,23,42,0.12)] transition-colors w-full"
@@ -1072,15 +1179,75 @@ function ProfilePageContent() {
                       {t('settings.profile.completeAllFieldsFirst')}
                     </p>
                   )}
+                </div>
+                  </>
+                ) : (
+                  <div className="mt-6 space-y-1 pb-1">
+                    {accountEmail ? (
+                      <>
+                        <p className="px-5 text-[11px] font-bold uppercase tracking-[0.14em] text-[#05afc5]">
+                          {t('settings.profile.sectionBillingAccount')}
+                        </p>
+                        <div className="mt-2 space-y-2 px-5">
+                          <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+                            <span className="flex shrink-0 items-center">
+                              <span className="sr-only">{t('settings.profile.signedInAs')}</span>
+                              <Mail
+                                className="h-5 w-5 text-[#05afc5]"
+                                strokeWidth={2.25}
+                                aria-hidden
+                              />
+                            </span>
+                            <span className="max-w-[58%] truncate text-right text-sm font-semibold text-slate-900">
+                              {accountEmail}
+                            </span>
+                          </div>
+                          <Link
+                            href="/auth/update-password"
+                            className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-colors hover:border-slate-200 active:bg-slate-50/80"
+                          >
+                            <span className="flex min-w-0 items-center gap-3">
+                              <Key
+                                className="h-5 w-5 shrink-0 text-[#05afc5]"
+                                strokeWidth={2.25}
+                                aria-hidden
+                              />
+                              <span className="text-sm font-medium text-slate-900">
+                                {t('settings.profile.changePassword')}
+                              </span>
+                            </span>
+                            <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" strokeWidth={2} aria-hidden />
+                          </Link>
+                        </div>
+                      </>
+                    ) : null}
 
-                  <div className="mt-6 pt-4 border-t border-slate-100 text-center">
-                    <p className="text-[10px] font-semibold tracking-[0.22em] text-slate-400 mb-1">
-                      SHIFTCOACH
+                    <p
+                      className={`px-5 text-[11px] font-bold uppercase tracking-[0.14em] text-[#05afc5] ${accountEmail ? 'mt-6' : 'mt-5'}`}
+                    >
+                      {t('settings.profile.sectionBillingSubscription')}
                     </p>
-                    <p className="text-[11px] leading-relaxed text-slate-500">
-                      {t('detail.common.disclaimer')}
-                    </p>
+                    <div className="mt-2 px-5">
+                      <SubscriptionPlanSection embedInline />
+                    </div>
+                    <div className="mt-3 flex justify-center px-5">
+                      <Link
+                        href={`/upgrade?returnTo=${encodeURIComponent('/settings/profile')}`}
+                        className="inline-flex items-center justify-center rounded-full bg-[#05afc5] px-7 py-3 text-center text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0499b0] active:bg-[#0489a0]"
+                      >
+                        {t('settings.profile.manageSubscription')}
+                      </Link>
+                    </div>
                   </div>
+                )}
+
+                <div className="mt-6 border-t border-slate-100 px-5 pt-4 text-center">
+                  <Link
+                    href="/account/delete"
+                    className="text-[11px] text-slate-500 underline underline-offset-2 decoration-slate-400 hover:text-slate-700 hover:decoration-slate-600"
+                  >
+                    {t('account.delete.title')}
+                  </Link>
                 </div>
               </div>
             </div>
@@ -1317,6 +1484,31 @@ function ProfilePageContent() {
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
             <div className="rounded-2xl bg-white border border-slate-200 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] p-6 w-full max-w-sm">
               <h4 className="text-lg font-semibold text-slate-900 mb-4">{t('settings.profile.modalHeight')}</h4>
+              <div className="flex rounded-xl border border-slate-200 p-0.5 mb-4 bg-slate-50">
+                <button
+                  type="button"
+                  onClick={() => switchHeightEntryMode('cm')}
+                  className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${
+                    heightEntryMode === 'cm'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {t('settings.profile.heightEntryCm')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchHeightEntryMode('ft_in')}
+                  className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${
+                    heightEntryMode === 'ft_in'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {t('settings.profile.heightEntryFtIn')}
+                </button>
+              </div>
+              {heightEntryMode === 'cm' ? (
                 <div className="flex items-center gap-2 mb-4">
                   <input
                     type="number"
@@ -1325,27 +1517,72 @@ function ProfilePageContent() {
                     placeholder={t('settings.profile.heightPlaceholder')}
                     className="flex-1 px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all bg-white text-slate-900 placeholder:text-slate-400"
                     autoFocus
+                    min={100}
+                    max={250}
                   />
-                  <span className="text-sm font-semibold text-slate-600">{t('settings.profile.cm')}</span>
+                  <span className="text-sm font-semibold text-slate-600 shrink-0">{t('settings.profile.cm')}</span>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setShowHeightModal(false)
-                      setHeightInput('')
-                    }}
-                    className="flex-1 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
-                  >
-                    {t('settings.profile.cancel')}
-                  </button>
-                  <button
-                    onClick={handleSaveHeight}
-                    disabled={saving === 'height' || !heightInput}
-                    className="flex-1 py-2.5 text-sm font-semibold text-white bg-slate-900 rounded-xl hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] transition-all"
-                  >
-                    {saving === 'height' ? t('settings.profile.saving') : t('settings.profile.save')}
-                  </button>
+              ) : (
+                <div className="mb-4 space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 mb-1.5 block">
+                      {t('settings.profile.heightFeetLabel')}
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={heightFtInput}
+                      onChange={(e) => setHeightFtInput(e.target.value)}
+                      placeholder={t('settings.profile.heightFeetPlaceholder')}
+                      className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all bg-white text-slate-900 placeholder:text-slate-400"
+                      min={0}
+                      max={9}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 mb-1.5 block">
+                      {t('settings.profile.heightInchesLabel')}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.1"
+                        value={heightInInput}
+                        onChange={(e) => setHeightInInput(e.target.value)}
+                        placeholder={t('settings.profile.heightInchesPlaceholder')}
+                        className="flex-1 px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all bg-white text-slate-900 placeholder:text-slate-400"
+                        min={0}
+                        max={11.9}
+                      />
+                      <span className="text-sm font-semibold text-slate-600 shrink-0">{t('settings.profile.unit.in')}</span>
+                    </div>
+                  </div>
                 </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setShowHeightModal(false)
+                    setHeightInput('')
+                    setHeightFtInput('')
+                    setHeightInInput('')
+                  }}
+                  className="flex-1 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
+                >
+                  {t('settings.profile.cancel')}
+                </button>
+                <button
+                  onClick={handleSaveHeight}
+                  disabled={
+                    saving === 'height' ||
+                    (heightEntryMode === 'cm' ? !heightInput : !heightFtInput.trim())
+                  }
+                  className="flex-1 py-2.5 text-sm font-semibold text-white bg-slate-900 rounded-xl hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] transition-all"
+                >
+                  {saving === 'height' ? t('settings.profile.saving') : t('settings.profile.save')}
+                </button>
+              </div>
             </div>
           </div>
         )}

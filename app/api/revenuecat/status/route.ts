@@ -22,10 +22,18 @@ export async function GET(req: NextRequest) {
       .from('profiles')
       .select('revenuecat_user_id, subscription_platform, subscription_status, subscription_plan, trial_ends_at, revenuecat_entitlements, revenuecat_subscription_id')
       .eq('user_id', userId)
-      .single()
+      .maybeSingle()
+
+    if (!profile) {
+      return NextResponse.json({
+        isActive: false,
+        plan: 'free',
+        platform: null,
+      })
+    }
 
     // If user doesn't have RevenueCat subscription, return current status from profile
-    if (!profile?.revenuecat_user_id || !profile?.subscription_platform?.startsWith('revenuecat_')) {
+    if (!profile.revenuecat_user_id || !profile.subscription_platform?.startsWith('revenuecat_')) {
       const access = deriveSubscriptionAccess({
         subscriptionStatus: profile?.subscription_status,
         subscriptionPlan: profile?.subscription_plan,
@@ -93,10 +101,10 @@ export async function GET(req: NextRequest) {
     const activeEntitlement = Object.values(activeEntitlements)[0] as any
     const productId = activeEntitlement?.product_identifier ?? profile.revenuecat_subscription_id ?? null
     const nextPlan = getPlanFromProductId(productId)
-    const isActive = Object.keys(activeEntitlements).length > 0
-    
+    const rcEntitlementActive = Object.keys(activeEntitlements).length > 0
+
     // Update profile if status changed
-    if (isActive && (profile.subscription_status !== 'active' || (nextPlan && profile.subscription_plan !== nextPlan))) {
+    if (rcEntitlementActive && (profile.subscription_status !== 'active' || (nextPlan && profile.subscription_plan !== nextPlan))) {
       await supabase
         .from('profiles')
         .update({
@@ -108,9 +116,18 @@ export async function GET(req: NextRequest) {
         .eq('user_id', userId)
     }
 
+    // Merge RevenueCat entitlements with profile (e.g. trialing + trial_ends_at on profile when stores sync it).
+    const access = deriveSubscriptionAccess({
+      subscriptionStatus: profile.subscription_status,
+      subscriptionPlan: profile.subscription_plan,
+      trialEndsAt: profile.trial_ends_at,
+      revenuecatEntitlements: subscriber?.entitlements ?? profile.revenuecat_entitlements,
+      revenuecatSubscriptionId: productId ?? profile.revenuecat_subscription_id,
+    })
+
     return NextResponse.json({
-      isActive,
-      plan: nextPlan ?? (profile.subscription_status === 'active' ? profile.subscription_plan : 'free'),
+      isActive: access.isPro,
+      plan: access.plan,
       platform: profile.subscription_platform,
       productId,
       expiresAt: activeEntitlement?.expires_date,

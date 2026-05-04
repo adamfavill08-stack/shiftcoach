@@ -7,6 +7,7 @@ export const settingsSubscriptionEn: Record<string, string> = {
   'settings.subscription.plan.tester': 'Tester account',
   'settings.subscription.plan.monthly': 'Monthly subscription',
   'settings.subscription.plan.yearly': 'Yearly subscription',
+  'settings.subscription.plan.free': 'Free Plan',
   'settings.subscription.status.active': 'Active',
   'settings.subscription.status.canceled': 'Canceled',
   'settings.subscription.trial.testerNoBilling': 'Tester account – no billing.',
@@ -17,8 +18,6 @@ export const settingsSubscriptionEn: Record<string, string> = {
   'settings.subscription.billedVia': 'Billed via {platform}',
   'settings.subscription.platform.appStore': 'App Store',
   'settings.subscription.platform.playStore': 'Play Store',
-  'settings.subscription.accessViaStore':
-    'Your access is managed through your App Store or Play Store purchase.',
   'settings.subscription.changePlanHint':
     'To change your plan, cancel your current subscription and select a new plan. Your access continues until the end of your billing period.',
   'settings.subscription.testerFullAccess':
@@ -43,6 +42,7 @@ export const settingsSubscriptionEs: Record<string, string> = {
   'settings.subscription.plan.tester': 'Cuenta de prueba',
   'settings.subscription.plan.monthly': 'Suscripción mensual',
   'settings.subscription.plan.yearly': 'Suscripción anual',
+  'settings.subscription.plan.free': 'Plan gratuito',
   'settings.subscription.status.active': 'Activa',
   'settings.subscription.status.canceled': 'Cancelada',
   'settings.subscription.trial.testerNoBilling': 'Cuenta de prueba – sin facturación.',
@@ -53,8 +53,6 @@ export const settingsSubscriptionEs: Record<string, string> = {
   'settings.subscription.billedVia': 'Facturación vía {platform}',
   'settings.subscription.platform.appStore': 'App Store',
   'settings.subscription.platform.playStore': 'Play Store',
-  'settings.subscription.accessViaStore':
-    'Tu acceso se gestiona con la compra en App Store o Play Store.',
   'settings.subscription.changePlanHint':
     'Para cambiar de plan, cancela la suscripción actual y elige un plan nuevo. El acceso sigue hasta el fin del periodo de facturación.',
   'settings.subscription.testerFullAccess':
@@ -79,6 +77,7 @@ export const settingsSubscriptionDe: Record<string, string> = {
   'settings.subscription.plan.tester': 'Tester-Konto',
   'settings.subscription.plan.monthly': 'Monatsabo',
   'settings.subscription.plan.yearly': 'Jahresabo',
+  'settings.subscription.plan.free': 'Kostenloser Plan',
   'settings.subscription.status.active': 'Aktiv',
   'settings.subscription.status.canceled': 'Gekündigt',
   'settings.subscription.trial.testerNoBilling': 'Tester-Konto – keine Abrechnung.',
@@ -89,8 +88,6 @@ export const settingsSubscriptionDe: Record<string, string> = {
   'settings.subscription.billedVia': 'Abgerechnet über {platform}',
   'settings.subscription.platform.appStore': 'App Store',
   'settings.subscription.platform.playStore': 'Play Store',
-  'settings.subscription.accessViaStore':
-    'Dein Zugang wird über den Kauf im App Store oder Play Store verwaltet.',
   'settings.subscription.changePlanHint':
     'Um den Plan zu wechseln, kündige das aktuelle Abo und wähle einen neuen Plan. Der Zugang bleibt bis zum Ende der Abrechnungsperiode.',
   'settings.subscription.testerFullAccess':
@@ -115,6 +112,7 @@ export const settingsSubscriptionFr: Record<string, string> = {
   'settings.subscription.plan.tester': 'Compte testeur',
   'settings.subscription.plan.monthly': 'Abonnement mensuel',
   'settings.subscription.plan.yearly': 'Abonnement annuel',
+  'settings.subscription.plan.free': 'Forfait gratuit',
   'settings.subscription.status.active': 'Actif',
   'settings.subscription.status.canceled': 'Annulé',
   'settings.subscription.trial.testerNoBilling': 'Compte testeur – pas de facturation.',
@@ -125,8 +123,6 @@ export const settingsSubscriptionFr: Record<string, string> = {
   'settings.subscription.billedVia': 'Facturé via {platform}',
   'settings.subscription.platform.appStore': 'App Store',
   'settings.subscription.platform.playStore': 'Play Store',
-  'settings.subscription.accessViaStore':
-    "Votre accès est géré via l'achat sur l'App Store ou le Play Store.",
   'settings.subscription.changePlanHint':
     "Pour changer de forfait, annulez l'abonnement actuel puis choisissez un nouveau forfait. L'accès reste jusqu'à la fin de la période de facturation.",
   'settings.subscription.testerFullAccess':
@@ -151,6 +147,7 @@ export const settingsSubscriptionPtBR: Record<string, string> = {
   'settings.subscription.plan.tester': 'Conta de teste',
   'settings.subscription.plan.monthly': 'Assinatura mensal',
   'settings.subscription.plan.yearly': 'Assinatura anual',
+  'settings.subscription.plan.free': 'Plano gratuito',
   'settings.subscription.status.active': 'Ativa',
   'settings.subscription.status.canceled': 'Cancelada',
   'settings.subscription.trial.testerNoBilling': 'Conta de teste – sem cobrança.',
@@ -161,8 +158,6 @@ export const settingsSubscriptionPtBR: Record<string, string> = {
   'settings.subscription.billedVia': 'Cobrança via {platform}',
   'settings.subscription.platform.appStore': 'App Store',
   'settings.subscription.platform.playStore': 'Play Store',
-  'settings.subscription.accessViaStore':
-    'Seu acesso é gerenciado pela compra na App Store ou Play Store.',
   'settings.subscription.changePlanHint':
     'Para mudar de plano, cancele a assinatura atual e escolha um novo. O acesso continua até o fim do período de cobrança.',
   'settings.subscription.testerFullAccess':
@@ -187,6 +182,7 @@ export const settingsSubscriptionPl: Record<string, string> = {
   'settings.subscription.plan.tester': 'Konto testowe',
   'settings.subscription.plan.monthly': 'Subskrypcja miesięczna',
   'settings.subscription.plan.yearly': 'Subskrypcja roczna',
+  'settings.subscription.plan.free': 'Plan bezpłatny',
   'settings.subscription.status.active': 'Aktywna',
   'settings.subscription.status.canceled': 'Anulowana',
   'settings.subscription.trial.testerNoBilling': 'Konto testowe – bez rozliczeń.',
@@ -197,8 +193,6 @@ export const settingsSubscriptionPl: Record<string, string> = {
   'settings.subscription.billedVia': 'Rozliczenia przez {platform}',
   'settings.subscription.platform.appStore': 'App Store',
   'settings.subscription.platform.playStore': 'Sklep Play',
-  'settings.subscription.accessViaStore':
-    'Dostęp jest powiązany z zakupem w App Store lub Sklepie Play.',
   'settings.subscription.changePlanHint':
     'Aby zmienić plan, anuluj obecną subskrypcję i wybierz nową. Dostęp trwa do końca okresu rozliczeniowego.',
   'settings.subscription.testerFullAccess':

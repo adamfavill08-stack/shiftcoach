@@ -51,6 +51,13 @@ export default function BottomNav() {
               <Link
                 key={item.href}
                 href={item.href}
+                data-guided-tour={
+                  item.href === '/settings'
+                    ? 'nav-settings'
+                    : item.href === '/rota'
+                      ? 'nav-calendar'
+                      : undefined
+                }
                 aria-current={active ? 'page' : undefined}
                 className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-0.5 ${
                   active

@@ -50,6 +50,10 @@ export type Profile = {
   revenuecat_entitlements?: any | null // JSONB
   subscription_platform?: 'revenuecat_ios' | 'revenuecat_android' | null
   subscription_status?: 'active' | 'canceled' | 'past_due' | 'trialing' | 'incomplete' | null
+  /** Dashboard guided hints: null = not chosen; true = opted in; false = declined / dismissed. */
+  onboarding_hints_enabled?: boolean | null
+  onboarding_hints_completed?: boolean | null
+  onboarding_step?: number | null
 }
 
 function inferRegionAndCurrencyFromEnv() {
@@ -76,6 +80,17 @@ function inferRegionAndCurrencyFromEnv() {
   }
   // Default: UK
   return { region: 'uk' as const, currency: 'GBP' as const }
+}
+
+/** First non-empty display name from Supabase Auth user_metadata (sign-up / OAuth). */
+export function displayNameFromUserMetadata(user: { user_metadata?: Record<string, unknown> } | null): string | null {
+  if (!user?.user_metadata) return null
+  const meta = user.user_metadata
+  for (const key of ['name', 'first_name', 'full_name']) {
+    const v = meta[key]
+    if (typeof v === 'string' && v.trim()) return v.trim()
+  }
+  return null
 }
 
 export async function getMyProfile(): Promise<Profile | null> {
@@ -116,8 +131,9 @@ export async function getMyProfile(): Promise<Profile | null> {
     }
 
     if (isDev) console.log('[getMyProfile] Fetching profile for user:', user.id)
-    let { data, error } = await supabase.from('profiles').select('*').eq('user_id', user.id).single()
-    
+    // maybeSingle: no row yet is normal for new users; .single() errors (PGRST116) and skips create below.
+    let { data, error } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle()
+
     if (error) {
       if (isDev) {
         console.error('[getMyProfile] ========== DATABASE ERROR ==========')
@@ -187,6 +203,21 @@ export async function getMyProfile(): Promise<Profile | null> {
 
       if (!updateError && updated) {
         data = updated as any
+      }
+    }
+
+    const authDisplayName = displayNameFromUserMetadata(user)
+    if (data && authDisplayName && !String(data.name ?? '').trim()) {
+      const { data: patched, error: syncErr } = await supabase
+        .from('profiles')
+        .update({ name: authDisplayName })
+        .eq('user_id', user.id)
+        .select()
+        .maybeSingle()
+      if (!syncErr && patched) {
+        data = patched as Profile
+      } else {
+        data = { ...data, name: authDisplayName } as Profile
       }
     }
 

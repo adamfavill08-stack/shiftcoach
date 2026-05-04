@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 
-const FREE_TRIAL_DAYS = 7
-
 export async function POST(req: NextRequest) {
   try {
     const { supabase, userId } = await getServerSupabaseAndUserId()
@@ -15,13 +13,12 @@ export async function POST(req: NextRequest) {
     }
 
     if (selection === 'free') {
-      const trialEndsAt = new Date(Date.now() + FREE_TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString()
       const { error } = await supabase
         .from('profiles')
         .update({
           subscription_plan: 'free',
-          subscription_status: 'trialing',
-          trial_ends_at: trialEndsAt,
+          subscription_status: null,
+          trial_ends_at: null,
         })
         .eq('user_id', userId)
 
@@ -29,7 +26,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 })
       }
 
-      return NextResponse.json({ success: true, selection, trialEndsAt })
+      return NextResponse.json({ success: true, selection })
     }
 
     // Paid options: persist chosen intent so onboarding flow can resume after purchase.

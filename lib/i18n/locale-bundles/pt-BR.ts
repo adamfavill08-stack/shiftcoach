@@ -20,6 +20,7 @@ import { rotaUploadPagePtBR } from '@/lib/i18n/rotaUploadPage'
 import { sleepUiMessagesPtBR } from '@/lib/i18n/sleepUiMessages'
 import { rotaFlowPagesPtBR } from '@/lib/i18n/rotaFlowPages'
 import { accountLegalShellPtBR } from '@/lib/i18n/accountLegalShellMessages'
+import { guidedHintsTourEn } from '@/lib/i18n/guidedHintsTour'
 
 const messages: Record<string, string> = {
     ...batch1PtBR,
@@ -44,6 +45,7 @@ const messages: Record<string, string> = {
     ...sleepUiMessagesPtBR,
     ...rotaFlowPagesPtBR,
     ...accountLegalShellPtBR,
+    ...guidedHintsTourEn,
     'settings.loading': 'Carregando configurações…',
     'settings.backAria': 'Voltar',
     'settings.contactSupport': 'Falar com o suporte',

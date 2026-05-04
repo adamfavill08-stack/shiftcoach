@@ -25,7 +25,10 @@ export function useSubscriptionAccess(): SubscriptionAccessState {
 
   const load = useCallback(async () => {
     const loadFromServerAccess = async (): Promise<boolean> => {
-      const accessRes = await fetch('/api/subscription/access', { cache: 'no-store' })
+      const accessRes = await fetch('/api/subscription/access', {
+        cache: 'no-store',
+        credentials: 'include',
+      })
       if (!accessRes.ok) return false
       const accessJson = await accessRes.json()
       setState({
@@ -74,21 +77,19 @@ export function useSubscriptionAccess(): SubscriptionAccessState {
       // Primary source: server-derived access from authenticated profile row.
       if (await loadFromServerAccess()) return
 
-      const res = await fetch('/api/revenuecat/status', { cache: 'no-store' })
+      const res = await fetch('/api/revenuecat/status', { cache: 'no-store', credentials: 'include' })
       if (!res.ok) {
         await loadFromProfile()
         return
       }
       const json = await res.json()
-      const access = deriveSubscriptionAccess({
-        subscriptionStatus: json?.isActive ? 'active' : 'canceled',
-        subscriptionPlan: typeof json?.plan === 'string' ? json.plan : null,
-      })
+      // Route merges app-managed trial + RevenueCat; do not re-derive without trial_ends_at.
+      const isPro = Boolean(json?.isActive)
       setState({
         isLoading: false,
-        isPro: access.isPro,
-        plan: access.plan,
-        isActive: Boolean(json?.isActive),
+        isPro,
+        plan: (typeof json?.plan === 'string' ? json.plan : 'free') as SubscriptionPlan,
+        isActive: isPro,
       })
     } catch {
       await loadFromProfile()

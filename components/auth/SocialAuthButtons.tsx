@@ -83,6 +83,8 @@ type SocialAuthButtonsProps = {
   onPendingChange?: (pending: boolean) => void
   /** When true, hide the "more sign-in options" dropdown and only show Google. */
   googleOnly?: boolean
+  /** Called immediately before opening the OAuth URL (e.g. persist onboarding draft). */
+  onBeforeOAuth?: () => void
 }
 
 export function SocialAuthButtons({
@@ -91,6 +93,7 @@ export function SocialAuthButtons({
   onError,
   onPendingChange,
   googleOnly = false,
+  onBeforeOAuth,
 }: SocialAuthButtonsProps) {
   const { t } = useTranslation()
   const [pending, setPending] = useState<SocialProvider | null>(null)
@@ -103,6 +106,7 @@ export function SocialAuthButtons({
         onError(t('auth.oauth.errorOffline'))
         return
       }
+      onBeforeOAuth?.()
       const redirectTo = buildOAuthRedirectTo()
       if (!redirectTo) {
         onError(t('auth.oauth.errorStart'))
@@ -158,7 +162,7 @@ export function SocialAuthButtons({
       onPendingChange?.(false)
       onError(t('auth.oauth.errorStart'))
     },
-    [disabled, pending, isOnline, onError, onPendingChange, t]
+    [disabled, pending, isOnline, onError, onPendingChange, onBeforeOAuth, t]
   )
 
   const busy = Boolean(pending) || Boolean(disabled)

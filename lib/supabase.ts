@@ -69,18 +69,60 @@ function createSupabaseSingleton(): SupabaseClient {
 // Create singleton browser / native client.
 const supabaseClient = createSupabaseSingleton()
 
-// Wrap auth.getUser to catch AuthSessionMissingError silently
+/** JWT still in storage but user row was removed (or wrong project) — clear local session to stop repeat failures. */
+function isStaleJwtUserMissingError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false
+  const msg = String((err as { message?: string }).message ?? '')
+  return /User from sub claim in JWT does not exist/i.test(msg) || /JWT.*does not exist/i.test(msg)
+}
+
+async function clearStaleAuthSession(): Promise<void> {
+  try {
+    await supabaseClient.auth.signOut({ scope: 'local' })
+  } catch {
+    /* ignore */
+  }
+}
+
+// Wrap auth.getUser to catch AuthSessionMissingError silently and recover from orphaned JWTs
 const originalGetUser = supabaseClient.auth.getUser.bind(supabaseClient.auth)
 supabaseClient.auth.getUser = async function (...args: any[]) {
   try {
-    return await originalGetUser(...args)
+    const result = await originalGetUser(...args)
+    if (result.error && isStaleJwtUserMissingError(result.error)) {
+      await clearStaleAuthSession()
+      return { data: { user: null }, error: null }
+    }
+    return result
   } catch (err: any) {
+    if (isStaleJwtUserMissingError(err)) {
+      await clearStaleAuthSession()
+      return { data: { user: null }, error: null }
+    }
     if (
       err?.name === 'AuthSessionMissingError' ||
       err?.message?.includes('Auth session missing') ||
       err?.__isAuthError
     ) {
       return { data: { user: null }, error: err }
+    }
+    throw err
+  }
+}
+
+const originalRefreshSession = supabaseClient.auth.refreshSession.bind(supabaseClient.auth)
+supabaseClient.auth.refreshSession = async function (...args: any[]) {
+  try {
+    const out = await originalRefreshSession(...args)
+    if (out.error && isStaleJwtUserMissingError(out.error)) {
+      await clearStaleAuthSession()
+      return { data: { session: null, user: null }, error: null }
+    }
+    return out
+  } catch (err: any) {
+    if (isStaleJwtUserMissingError(err)) {
+      await clearStaleAuthSession()
+      return { data: { session: null, user: null }, error: null }
     }
     throw err
   }

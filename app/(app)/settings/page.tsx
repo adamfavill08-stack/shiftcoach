@@ -8,14 +8,13 @@ import { ProfilePlanSection } from './components/ProfilePlanSection'
 import { NotificationsSection } from './components/NotificationsSection'
 import { NutritionSection } from './components/NutritionSection'
 import { LanguageSection } from './components/LanguageSection'
+import { GuidedHintsSettingsRow } from './components/GuidedHintsSettingsRow'
 import { AppearanceSection } from './components/AppearanceSection'
 import { DataPrivacySection } from './components/DataPrivacySection'
 import { TesterFeedbackSection } from './components/TesterFeedbackSection'
 import { WearablesSection } from './components/WearablesSection'
 import { RateAppSection } from './components/RateAppSection'
 import { useTranslation } from '@/components/providers/language-provider'
-import { TrialDaysBanner } from '@/components/subscription/TrialDaysBanner'
-
 export default function SettingsPage() {
   const router = useRouter()
   const { loading } = useSettings()
@@ -44,8 +43,6 @@ export default function SettingsPage() {
               </h1>
               <div className="w-8" />
             </div>
-            <TrialDaysBanner />
-
             {/* Settings Sections */}
             <div className="divide-y divide-slate-100">
               {/* Account Section */}
@@ -78,6 +75,7 @@ export default function SettingsPage() {
                   <NotificationsSection />
                   <NutritionSection />
                   <LanguageSection />
+                  <GuidedHintsSettingsRow />
                 </div>
               </section>
 
