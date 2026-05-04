@@ -12,12 +12,20 @@ import {
   Purchases,
   PURCHASES_ERROR_CODE,
   type CustomerInfo,
-  type PurchasesOfferings,
   type PurchasesOffering,
   type PurchasesPackage,
 } from '@revenuecat/purchases-capacitor'
 import { ensureRevenueCatConfigured } from '@/lib/purchases/revenuecat-client'
+import {
+  formatPurchasesError,
+  logRevenueCatOfferings,
+  purchasesErrorCodeMatches,
+  userFacingPurchasesError,
+} from '@/lib/purchases/revenuecat-errors'
+import { hasProEntitlement, resolveMonthlyAnnualPackages } from '@/lib/revenuecat'
 import { storeProductIdMatchesLogicalId } from '@/lib/revenuecat/parse-offering-prices'
+
+export { userFacingPurchasesError, logRevenueCatOfferings } from '@/lib/purchases/revenuecat-errors'
 
 export type PurchasePlatform = 'ios' | 'android' | 'web'
 
@@ -45,93 +53,11 @@ const PRODUCT_IDS = {
   yearly: 'pro_annual',
 } as const
 
-const PRO_ENTITLEMENT_ID = 'pro'
-
 function findPackageByLogicalProductId(
   packages: PurchasesPackage[],
   logicalId: string,
 ): PurchasesPackage | undefined {
   return packages.find((pkg) => storeProductIdMatchesLogicalId(pkg.product.identifier, logicalId))
-}
-
-/** RevenueCat errors use `code` as number or string; PURCHASES_ERROR_CODE is a string enum in typings. */
-function purchasesErrorCodeMatches(err: unknown, expected: PURCHASES_ERROR_CODE): boolean {
-  const raw = (err as { code?: unknown })?.code
-  return raw === expected || String(raw) === String(expected)
-}
-
-function formatPurchasesError(error: any, fallback: string): string {
-  const code = String(error?.code ?? '')
-  const readableCode = String(error?.userInfo?.readableErrorCode ?? '')
-  const message = String(error?.message ?? '').trim()
-  const underlying = String(error?.underlyingErrorMessage ?? '').trim()
-
-  const primary = message || fallback
-  const parts = [primary]
-  if (code) parts.push(`code=${code}`)
-  if (readableCode) parts.push(`type=${readableCode}`)
-  if (underlying && underlying !== message) parts.push(`underlying=${underlying}`)
-  return parts.join(' | ')
-}
-
-/** Safe copy for alerts; technical detail stays in console. */
-export function userFacingPurchasesError(error: unknown, fallback = 'Billing is temporarily unavailable.'): string {
-  const e = error as Record<string, unknown> | null
-  const rawCode = (e as { code?: unknown })?.code
-  const codeNum =
-    typeof rawCode === 'number' && Number.isFinite(rawCode)
-      ? rawCode
-      : typeof rawCode === 'string' && rawCode !== '' && Number.isFinite(Number(rawCode))
-        ? Number(rawCode)
-        : NaN
-  const readable = String(e?.userInfo && typeof e.userInfo === 'object' && 'readableErrorCode' in e.userInfo
-    ? (e.userInfo as { readableErrorCode?: string }).readableErrorCode ?? ''
-    : '')
-  const msg = String(e?.message ?? '').toLowerCase()
-
-  if (
-    codeNum === 23 ||
-    /\bconfiguration\b/i.test(readable) ||
-    /\bconfiguration\b/i.test(String(e?.message ?? ''))
-  ) {
-    return 'Store setup is incomplete. Confirm RevenueCat offerings, Google Play product IDs, and that you are signed into a tester account.'
-  }
-  if (purchasesErrorCodeMatches(error, PURCHASES_ERROR_CODE.PURCHASE_NOT_ALLOWED_ERROR) || /not.?allowed/i.test(msg)) {
-    return 'Purchases are not allowed on this device or account.'
-  }
-  if (purchasesErrorCodeMatches(error, PURCHASES_ERROR_CODE.STORE_PROBLEM_ERROR) || /store problem/i.test(readable)) {
-    return 'Google Play Store is not available right now. Try again later.'
-  }
-  if (purchasesErrorCodeMatches(error, PURCHASES_ERROR_CODE.NETWORK_ERROR)) {
-    return 'Network error. Check your connection and try again.'
-  }
-  if (/billing|bff|play store|unable/i.test(msg) && /\b(unavailable|disconnect|billing)\b/i.test(msg)) {
-    return 'Google Play Billing is unavailable. Update Play Store or try again later.'
-  }
-  return fallback
-}
-
-export function logRevenueCatOfferings(offerings: PurchasesOfferings, label: string): void {
-  try {
-    const current = offerings.current
-    console.log(`[native-purchases] ${label} — current offering:`, current?.identifier ?? '(none)')
-    console.log(`[native-purchases] ${label} — offerings.all keys:`, Object.keys(offerings.all ?? {}))
-    const pkgs = current?.availablePackages ?? []
-    console.log(`[native-purchases] ${label} — availablePackages count:`, pkgs.length)
-    for (const p of pkgs) {
-      const id = p.product?.identifier ?? '?'
-      console.log(
-        `[native-purchases] ${label} — package ${p.identifier} → product ${id} (${p.product?.priceString ?? 'no price'})`,
-      )
-    }
-    if (!current) {
-      console.warn(`[native-purchases] ${label} — no current offering. Set an Offering as "current" in RevenueCat.`)
-    } else if (pkgs.length === 0) {
-      console.warn(`[native-purchases] ${label} — current offering has no packages. Attach products in RevenueCat.`)
-    }
-  } catch (err) {
-    console.warn(`[native-purchases] logRevenueCatOfferings failed (${label})`, err)
-  }
 }
 
 export type AvailableProductsLoad = {
@@ -141,11 +67,6 @@ export type AvailableProductsLoad = {
 }
 
 const EXPECTED_PRODUCT_IDS = [PRODUCT_IDS.monthly, PRODUCT_IDS.yearly] as const
-
-function hasProEntitlement(customerInfo: CustomerInfo | null | undefined): boolean {
-  if (!customerInfo) return false
-  return Boolean(customerInfo.entitlements?.active?.[PRO_ENTITLEMENT_ID])
-}
 
 function getAllOfferingPackages(offering: PurchasesOffering | null): PurchasesPackage[] {
   if (!offering) return []
@@ -191,12 +112,14 @@ export async function getAvailableProducts(appUserId?: string | null): Promise<A
     const current = offerings.current ?? null
     const packages = getAllOfferingPackages(current)
 
-    const monthlyPkg = findPackageByLogicalProductId(packages, PRODUCT_IDS.monthly)
-    const yearlyPkg = findPackageByLogicalProductId(packages, PRODUCT_IDS.yearly)
+    const { monthly: monthlyPkg, annual: yearlyPkg } = resolveMonthlyAnnualPackages(packages)
     const monthlyProduct = monthlyPkg?.product ?? null
     const yearlyProduct = yearlyPkg?.product ?? null
 
-    const missingIds = EXPECTED_PRODUCT_IDS.filter((id) => !findPackageByLogicalProductId(packages, id))
+    const missingIds = [
+      ...(!monthlyPkg ? [PRODUCT_IDS.monthly] : []),
+      ...(!yearlyPkg ? [PRODUCT_IDS.yearly] : []),
+    ]
     if (missingIds.length > 0) {
       console.warn(
         '[native-purchases] Expected product identifiers not found in current offering:',
@@ -327,13 +250,13 @@ export async function restorePurchases(appUserId?: string | null): Promise<Purch
   try {
     await ensureRevenueCatConfigured(appUserId)
     const result = await Purchases.restorePurchases()
-    const proEntitlement = result.customerInfo.entitlements?.active?.[PRO_ENTITLEMENT_ID]
-    if (!proEntitlement) return []
+    if (!hasProEntitlement(result.customerInfo)) return []
+    const proEntitlement = result.customerInfo.entitlements?.active?.pro
 
     return [
       {
         success: true,
-        productId: proEntitlement.productIdentifier,
+        productId: proEntitlement?.productIdentifier ?? 'pro',
         customerInfo: result.customerInfo,
       },
     ]

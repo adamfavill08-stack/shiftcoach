@@ -51,6 +51,7 @@ export function SubscriptionPlanSection({ embedInline = false }: SubscriptionPla
     if (plan === 'free') return t('settings.subscription.plan.free')
     if (plan === 'monthly') return t('settings.subscription.plan.monthly')
     if (plan === 'yearly') return t('settings.subscription.plan.yearly')
+    if (plan === 'pro') return t('settings.subscription.plan.pro')
     return plan
   }
 

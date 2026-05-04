@@ -1,5 +1,5 @@
 export type PaidPlan = 'monthly' | 'yearly'
-export type EffectivePlan = 'free' | PaidPlan | 'tester'
+export type EffectivePlan = 'free' | PaidPlan | 'tester' | 'pro'
 export type SubscriptionPlan = EffectivePlan
 
 export const PRODUCT_PLAN_MAP: Record<string, PaidPlan> = {
@@ -44,6 +44,7 @@ export function normalizePlan(
   if (normalized === 'yearly' || normalized === 'annual') return 'yearly'
   if (normalized === 'tester') return 'tester'
   if (normalized === 'free') return 'free'
+  if (normalized === 'pro') return 'pro'
   return null
 }
 
@@ -64,6 +65,13 @@ export function deriveSubscriptionAccess(input: {
 
   if (normalizedPlan === 'tester') {
     return { isPro: true, plan: 'tester' }
+  }
+
+  if (normalizedPlan === 'pro') {
+    if (status === 'active' || status === 'trialing' || entitlementActive) {
+      return { isPro: true, plan: 'pro' }
+    }
+    return { isPro: false, plan: 'free' }
   }
 
   // trialing + trial_ends_at (e.g. store-managed trial synced to profile): full Pro until window ends.

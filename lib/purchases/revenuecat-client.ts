@@ -6,6 +6,13 @@ import { Purchases } from '@revenuecat/purchases-capacitor'
 let isConfigured = false
 let configuredAppUserId: string | null = null
 
+/** Align with RevenueCat webhooks / REST (`shiftcoach_{supabaseUserId}`). */
+export function toRevenueCatAppUserId(supabaseUserId: string | null | undefined): string | null {
+  if (!supabaseUserId) return null
+  if (supabaseUserId.startsWith('shiftcoach_')) return supabaseUserId
+  return `shiftcoach_${supabaseUserId}`
+}
+
 function getRevenueCatApiKey(platform: 'ios' | 'android'): string | null {
   if (platform === 'ios') {
     return process.env.NEXT_PUBLIC_REVENUECAT_IOS_API_KEY ?? null
@@ -54,19 +61,21 @@ export async function ensureRevenueCatConfigured(appUserId?: string | null): Pro
 
   warnIfPublicSdkKeyLooksWrong(platform, apiKey)
 
+  const rcAppUserId = toRevenueCatAppUserId(appUserId ?? null)
+
   if (!isConfigured) {
     await Purchases.configure({
       apiKey,
-      appUserID: appUserId ?? null,
+      appUserID: rcAppUserId,
     })
     isConfigured = true
-    configuredAppUserId = appUserId ?? null
+    configuredAppUserId = rcAppUserId
     return true
   }
 
-  if (appUserId && configuredAppUserId !== appUserId) {
-    await Purchases.logIn({ appUserID: appUserId })
-    configuredAppUserId = appUserId
+  if (rcAppUserId && configuredAppUserId !== rcAppUserId) {
+    await Purchases.logIn({ appUserID: rcAppUserId })
+    configuredAppUserId = rcAppUserId
   }
 
   return true

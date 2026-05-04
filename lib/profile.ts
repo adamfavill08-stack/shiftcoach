@@ -82,6 +82,69 @@ function inferRegionAndCurrencyFromEnv() {
   return { region: 'uk' as const, currency: 'GBP' as const }
 }
 
+/** PostgREST errors often stringify as `{}` in the console; use this for logs. */
+function summarizeSupabaseError(err: unknown): string {
+  if (err == null) return 'null'
+  if (typeof err !== 'object') return String(err)
+  const o = err as Record<string, unknown>
+  const bits = ['code', 'message', 'details', 'hint']
+    .map((k) => (o[k] != null && o[k] !== '' ? `${k}=${o[k]}` : null))
+    .filter(Boolean)
+  if (bits.length) return bits.join(' ')
+  try {
+    return JSON.stringify(err)
+  } catch {
+    return String(err)
+  }
+}
+
+/**
+ * Create missing profile row via POST /api/profile (upsert + column retry logic).
+ * Prefer this in the browser so schema drift (e.g. missing region/currency) matches updateProfile.
+ */
+async function bootstrapProfileViaApi(): Promise<Profile | null> {
+  if (typeof window === 'undefined') return null
+  try {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession()
+    if (sessionError || !session?.access_token) return null
+
+    const res = await fetch('/api/profile', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ units: 'metric' }),
+    })
+    const json = (await res.json().catch(() => ({}))) as {
+      profile?: Profile
+      success?: boolean
+      error?: string
+      code?: string
+    }
+    if (!res.ok || !json.success || !json.profile) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error(
+          '[getMyProfile] bootstrapProfileViaApi failed:',
+          res.status,
+          json?.error ?? json?.code ?? summarizeSupabaseError(json),
+        )
+      }
+      return null
+    }
+    return json.profile
+  } catch (e) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[getMyProfile] bootstrapProfileViaApi exception:', summarizeSupabaseError(e), e)
+    }
+    return null
+  }
+}
+
 /** First non-empty display name from Supabase Auth user_metadata (sign-up / OAuth). */
 export function displayNameFromUserMetadata(user: { user_metadata?: Record<string, unknown> } | null): string | null {
   if (!user?.user_metadata) return null
@@ -148,36 +211,52 @@ export async function getMyProfile(): Promise<Profile | null> {
       return null
     }
 
-    // If profile row is missing, create one with inferred region/currency.
+    // If profile row is missing, create one. Browser: server upsert (handles missing columns).
+    // Direct insert omits region/currency so older DBs without those columns still accept the row.
     if (!data) {
-      const inferred = inferRegionAndCurrencyFromEnv()
-      const emptyProfile: Partial<Profile> = {
-        user_id: user.id,
-        name: null,
-        sex: null,
-        height_cm: null,
-        weight_kg: null,
-        date_of_birth: null,
-        age: null,
-        goal: null,
-        units: 'metric',
-        sleep_goal_h: null,
-        water_goal_ml: null,
-        step_goal: null,
-        tz: null,
-        region: inferred.region,
-        currency: inferred.currency,
+      let inserted: Profile | null = null
+
+      if (typeof window !== 'undefined') {
+        inserted = await bootstrapProfileViaApi()
       }
 
-      const { data: inserted, error: insertError } = await supabase
-        .from('profiles')
-        .insert(emptyProfile)
-        .select()
-        .single()
+      if (!inserted) {
+        const emptyProfile: Partial<Profile> = {
+          user_id: user.id,
+          name: null,
+          sex: null,
+          height_cm: null,
+          weight_kg: null,
+          date_of_birth: null,
+          age: null,
+          goal: null,
+          units: 'metric',
+          sleep_goal_h: null,
+          water_goal_ml: null,
+          step_goal: null,
+          tz: null,
+        }
 
-      if (insertError) {
-        if (isDev) console.error('[getMyProfile] Failed to create default profile:', insertError)
-        return null
+        const { data: ins, error: insertError } = await supabase
+          .from('profiles')
+          .insert(emptyProfile)
+          .select()
+          .maybeSingle()
+
+        if (insertError) {
+          if (isDev) {
+            console.error(
+              '[getMyProfile] Failed to create default profile:',
+              summarizeSupabaseError(insertError),
+            )
+          }
+          return null
+        }
+        if (!ins) {
+          if (isDev) console.error('[getMyProfile] Insert returned no row (RLS or schema).')
+          return null
+        }
+        inserted = ins as Profile
       }
 
       data = inserted as any

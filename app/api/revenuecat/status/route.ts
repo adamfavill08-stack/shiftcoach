@@ -103,13 +103,21 @@ export async function GET(req: NextRequest) {
     const nextPlan = getPlanFromProductId(productId)
     const rcEntitlementActive = Object.keys(activeEntitlements).length > 0
 
-    // Update profile if status changed
-    if (rcEntitlementActive && (profile.subscription_status !== 'active' || (nextPlan && profile.subscription_plan !== nextPlan))) {
+    const planForUpdate =
+      profile.subscription_plan === 'pro' ? 'pro' : (nextPlan ?? profile.subscription_plan)
+
+    const shouldSyncProfile =
+      rcEntitlementActive &&
+      (profile.subscription_status !== 'active' ||
+        planForUpdate !== profile.subscription_plan ||
+        (productId && productId !== profile.revenuecat_subscription_id))
+
+    if (shouldSyncProfile) {
       await supabase
         .from('profiles')
         .update({
           subscription_status: 'active',
-          subscription_plan: nextPlan ?? profile.subscription_plan,
+          subscription_plan: planForUpdate,
           revenuecat_subscription_id: productId ?? profile.revenuecat_subscription_id,
           revenuecat_entitlements: subscriber.entitlements,
         })

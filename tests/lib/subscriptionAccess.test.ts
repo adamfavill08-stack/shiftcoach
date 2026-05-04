@@ -39,6 +39,22 @@ describe('deriveSubscriptionAccess — trialing + trial_ends_at (e.g. store-sync
     })
     expect(access).toEqual({ isPro: true, plan: 'yearly' })
   })
+
+  it('treats subscription_plan pro + active as Pro', () => {
+    const access = deriveSubscriptionAccess({
+      subscriptionStatus: 'active',
+      subscriptionPlan: 'pro',
+    })
+    expect(access).toEqual({ isPro: true, plan: 'pro' })
+  })
+
+  it('treats subscription_plan pro without active status as free unless entitlement payload is active', () => {
+    const access = deriveSubscriptionAccess({
+      subscriptionStatus: 'canceled',
+      subscriptionPlan: 'pro',
+    })
+    expect(access).toEqual({ isPro: false, plan: 'free' })
+  })
 })
 
 describe('canUseFeature / limits by tier', () => {

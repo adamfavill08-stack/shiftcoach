@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { deriveSubscriptionAccess } from '@/lib/subscription/access'
+import { deriveSubscriptionAccess, type EffectivePlan } from '@/lib/subscription/access'
 import { supabaseServer } from '@/lib/supabase-server'
 
 const DEV_OVERRIDE_USER_IDS = new Set(['333dd216-62fb-49a0-916e-304b84673310'])
@@ -7,7 +7,7 @@ const DEV_OVERRIDE_USER_IDS = new Set(['333dd216-62fb-49a0-916e-304b84673310'])
 export async function getServerSubscriptionAccess(
   supabase: SupabaseClient,
   userId: string,
-): Promise<{ isPro: boolean; plan: 'free' | 'monthly' | 'yearly' | 'tester' }> {
+): Promise<{ isPro: boolean; plan: EffectivePlan }> {
   if (DEV_OVERRIDE_USER_IDS.has(userId)) {
     return { isPro: true, plan: 'tester' }
   }

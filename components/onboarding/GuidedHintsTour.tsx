@@ -42,27 +42,37 @@ async function persistHints(
 
 function useTargetRect(selector: string | null, tick: number) {
   const [rect, setRect] = useState<Rect | null>(null)
+  /** Keeps spotlight stable when the target briefly unmounts (nav repaint, layout). */
+  const lastRectRef = useRef<Rect | null>(null)
 
   const measure = useCallback(() => {
     if (!selector || typeof document === 'undefined') {
+      lastRectRef.current = null
       setRect(null)
       return
     }
     const el = document.querySelector(selector)
     if (!el || !(el instanceof HTMLElement)) {
-      setRect(null)
+      if (lastRectRef.current) {
+        setRect(lastRectRef.current)
+      } else {
+        setRect(null)
+      }
       return
     }
     const r = el.getBoundingClientRect()
-    setRect({
+    const next: Rect = {
       top: r.top,
       left: r.left,
       width: r.width,
       height: r.height,
-    })
+    }
+    lastRectRef.current = next
+    setRect(next)
   }, [selector])
 
   useLayoutEffect(() => {
+    lastRectRef.current = null
     measure()
     const el = selector ? document.querySelector(selector) : null
     const ro =
@@ -135,6 +145,13 @@ export function GuidedHintsTour({ userId }: { userId: string | null }) {
     setHintsEnabled(typeof enabled === 'boolean' ? enabled : null)
     setHintsCompleted(Boolean(completed))
     setStep((st >= 1 && st <= 4 ? st : 0) as TourStep | 0)
+  }, [userId])
+
+  /** While the tour is running, only refresh profile row — do not re-apply hint flags from the server every tick (causes UI flash). */
+  const refreshProfileRowOnly = useCallback(async () => {
+    if (!userId) return
+    const p = await getMyProfile()
+    if (p) setProfile(p)
   }, [userId])
 
   useEffect(() => {
@@ -230,13 +247,13 @@ export function GuidedHintsTour({ userId }: { userId: string | null }) {
       void fetchRota()
       void fetchWearable()
       void fetchSleep()
-      void refreshProfileHints()
+      void refreshProfileRowOnly()
       setLayoutTick((n) => n + 1)
     }
     tick()
     const id = window.setInterval(tick, 3500)
     return () => window.clearInterval(id)
-  }, [tourActive, fetchRota, fetchWearable, fetchSleep, refreshProfileHints])
+  }, [tourActive, fetchRota, fetchWearable, fetchSleep, refreshProfileRowOnly])
 
   const profileDone = useMemo(() => isGuidedTourProfileComplete(profile), [profile])
 

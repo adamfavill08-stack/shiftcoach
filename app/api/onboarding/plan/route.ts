@@ -13,19 +13,28 @@ export async function POST(req: NextRequest) {
     }
 
     if (selection === 'free') {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          subscription_plan: 'free',
-          subscription_status: null,
-          trial_ends_at: null,
-        })
-        .eq('user_id', userId)
-
+      const withCompleted = {
+        subscription_plan: 'free' as const,
+        subscription_status: null as null,
+        trial_ends_at: null as null,
+        onboarding_completed: true,
+      }
+      let { error } = await supabase.from('profiles').update(withCompleted).eq('user_id', userId)
+      const errMsg = error?.message ?? ''
+      if (error && (error.code === 'PGRST204' || /onboarding_completed/i.test(errMsg))) {
+        const { error: e2 } = await supabase
+          .from('profiles')
+          .update({
+            subscription_plan: 'free',
+            subscription_status: null,
+            trial_ends_at: null,
+          })
+          .eq('user_id', userId)
+        error = e2
+      }
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 })
       }
-
       return NextResponse.json({ success: true, selection })
     }
 

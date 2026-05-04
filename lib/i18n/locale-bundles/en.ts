@@ -285,6 +285,32 @@ const messages: Record<string, string> = {
     'onboarding.saveFailed': 'Failed to save profile',
     'onboarding.networkError': 'Network error. Please check your connection.',
 
+    'onboarding.plan.title': 'Select your plan',
+    'onboarding.plan.subtitle': 'Choose one option to continue',
+    'onboarding.plan.freeTitle': 'Free',
+    'onboarding.plan.freeSubtitle': 'Limited features — upgrade to Pro for full access',
+    'onboarding.plan.freePrice': 'Free',
+    'onboarding.plan.proFullAccess': 'Full Pro access',
+    'onboarding.plan.perMonth': 'Per month',
+    'onboarding.plan.perYear': 'Per year',
+    'onboarding.plan.saveBadge': 'Save 35%',
+    'onboarding.plan.bestValue': 'Best value',
+    'onboarding.plan.secureCheckout': 'Secure checkout',
+    'onboarding.plan.cancelAnytime': 'Cancel anytime',
+    'onboarding.plan.continue': 'Continue',
+    'onboarding.plan.savingFree': 'Saving…',
+    'onboarding.plan.openingCheckout': 'Opening checkout…',
+    'onboarding.plan.loadingPlans': 'Loading plans…',
+    'onboarding.plan.purchaseInApp':
+      'Subscriptions are purchased in the ShiftCoach mobile app. Google Play or the App Store handles payment — no card entry here.',
+    'onboarding.plan.packagesUnavailable':
+      'This plan is not available from the store yet. Check your connection or try again later.',
+    'onboarding.plan.syncAfterPurchaseFailed':
+      'Purchase went through, but we could not confirm your subscription yet. Try Restore purchases in a moment.',
+    'onboarding.plan.syncAfterRestoreFailed':
+      'We found your purchase but could not update your profile. Please try again.',
+    'onboarding.plan.restoreNone': 'No active purchase found.',
+
     'welcome.title': 'Your plan is ready',
     'welcome.subtitle': 'Based on your profile, goals and shift work pattern.',
     'welcome.personalisedTarget': 'Personalised daily target',
