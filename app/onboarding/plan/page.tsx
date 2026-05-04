@@ -243,7 +243,7 @@ export default function OnboardingPlanPage() {
   }
 
   return (
-    <main className="min-h-screen px-4 pt-2 pb-20 bg-[#f3f1ed] dark:bg-[var(--bg)]">
+    <main className="min-h-screen bg-[var(--bg)] px-4 pt-2 pb-20 text-[var(--text-main)]">
       <div className="mx-auto w-full max-w-md">
         <div className="mb-16 flex flex-col items-center px-2 pt-6 text-center">
           <Image
@@ -251,18 +251,18 @@ export default function OnboardingPlanPage() {
             alt=""
             width={160}
             height={160}
-            className="h-40 w-40 rounded-3xl object-cover shadow-[0_14px_44px_-10px_rgba(5,175,197,0.42)]"
+            className="h-40 w-40 rounded-3xl object-cover shadow-[0_14px_44px_-10px_rgba(5,175,197,0.42)] dark:shadow-[0_14px_40px_-12px_rgba(5,175,197,0.25)]"
             priority
             unoptimized
           />
-          <h1 className="mt-6 text-xl font-semibold tracking-tight text-slate-900 dark:text-[var(--text-main)]">
+          <h1 className="mt-6 text-xl font-semibold tracking-tight text-[var(--text-main)]">
             {t('onboarding.plan.title')}
           </h1>
-          <p className="mt-2 max-w-sm text-sm leading-snug text-slate-600 dark:text-[var(--text-soft)]">
+          <p className="mt-2 max-w-sm text-sm leading-snug text-[var(--text-soft)]">
             {t('onboarding.plan.subtitle')}
           </p>
         </div>
-        <div className="relative z-10 -mx-3 overflow-hidden rounded-2xl bg-[var(--card)] shadow-[0_18px_45px_-24px_rgba(15,23,42,0.35)]">
+        <div className="relative z-10 -mx-3 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--card)] shadow-[0_18px_45px_-24px_rgba(15,23,42,0.35)] dark:shadow-[0_20px_50px_-20px_rgba(0,0,0,0.65)]">
           <div className="space-y-3 px-5 py-5">
             <button
               type="button"
@@ -270,7 +270,7 @@ export default function OnboardingPlanPage() {
               disabled={blockInteraction}
               className={`group relative w-full overflow-hidden rounded-xl border px-3.5 py-2.5 text-left transition-all disabled:opacity-60 ${
                 selectedPlan === 'free'
-                  ? 'border-[#05afc5]/60 bg-[#e9f7fa] dark:bg-[#05afc5]/12'
+                  ? 'border-[#05afc5]/60 bg-[#e9f7fa] dark:border-[#05afc5]/50 dark:bg-[#05afc5]/14'
                   : 'border-[var(--border-subtle)] bg-[var(--card-subtle)] enabled:hover:border-[#05afc5]/45 enabled:hover:bg-[var(--card)]'
               }`}
             >
@@ -279,7 +279,7 @@ export default function OnboardingPlanPage() {
                   <span
                     className={`grid h-5 w-5 place-items-center rounded-full border-2 ${
                       selectedPlan === 'free'
-                        ? 'border-[#2b7fff] bg-white/90'
+                        ? 'border-[#2b7fff] bg-white/90 dark:border-[#63b6ff] dark:bg-[var(--card)]'
                         : 'border-[var(--border-subtle)] bg-transparent'
                     }`}
                     aria-hidden
@@ -295,7 +295,7 @@ export default function OnboardingPlanPage() {
                     </p>
                   </div>
                 </div>
-                <p className="shrink-0 text-base font-semibold leading-none text-black dark:text-[var(--text-main)]">
+                <p className="shrink-0 text-base font-semibold leading-none text-[var(--text-main)]">
                   {t('onboarding.plan.freePrice')}
                 </p>
               </div>
@@ -307,7 +307,7 @@ export default function OnboardingPlanPage() {
               disabled={blockInteraction}
               className={`group relative w-full overflow-hidden rounded-xl border px-3.5 py-2.5 text-left transition-all disabled:opacity-60 ${
                 selectedPlan === 'monthly'
-                  ? 'border-[#05afc5]/60 bg-[#e9f7fa] dark:bg-[#05afc5]/12'
+                  ? 'border-[#05afc5]/60 bg-[#e9f7fa] dark:border-[#05afc5]/50 dark:bg-[#05afc5]/14'
                   : 'border-[var(--border-subtle)] bg-[var(--card-subtle)] enabled:hover:border-[#05afc5]/45 enabled:hover:bg-[var(--card)]'
               }`}
             >
@@ -316,7 +316,7 @@ export default function OnboardingPlanPage() {
                   <span
                     className={`grid h-5 w-5 place-items-center rounded-full border-2 ${
                       selectedPlan === 'monthly'
-                        ? 'border-[#2b7fff] bg-white/90'
+                        ? 'border-[#2b7fff] bg-white/90 dark:border-[#63b6ff] dark:bg-[var(--card)]'
                         : 'border-[var(--border-subtle)] bg-transparent'
                     }`}
                     aria-hidden
@@ -333,10 +333,10 @@ export default function OnboardingPlanPage() {
                   </div>
                 </div>
                 <div className="shrink-0 text-right leading-tight">
-                  <p className="text-base font-semibold text-black dark:text-[var(--text-main)]">
+                  <p className="text-base font-semibold text-[var(--text-main)]">
                     {formatPlanPrice(monthlyPriceLabel)}
                   </p>
-                  <p className="text-xs text-slate-500 dark:text-[var(--text-soft)]">
+                  <p className="text-xs text-[var(--text-soft)]">
                     {t('onboarding.plan.perMonth')}
                   </p>
                 </div>
@@ -349,7 +349,7 @@ export default function OnboardingPlanPage() {
               disabled={blockInteraction}
               className={`group relative w-full overflow-hidden rounded-xl border px-3.5 py-2.5 text-left transition-all disabled:opacity-60 ${
                 selectedPlan === 'annual'
-                  ? 'border-[#05afc5]/60 bg-[#e9f7fa] shadow-[0_3px_12px_-8px_rgba(5,175,197,0.65)] dark:bg-[#05afc5]/12 dark:border-[#05afc5]/70'
+                  ? 'border-[#05afc5]/60 bg-[#e9f7fa] shadow-[0_3px_12px_-8px_rgba(5,175,197,0.65)] dark:border-[#05afc5]/55 dark:bg-[#05afc5]/14 dark:shadow-[0_3px_20px_-6px_rgba(5,175,197,0.2)]'
                   : 'border-[var(--border-subtle)] bg-[var(--card-subtle)] enabled:hover:border-[#05afc5]/45 enabled:hover:bg-[var(--card)]'
               }`}
             >
@@ -358,7 +358,7 @@ export default function OnboardingPlanPage() {
                   <span
                     className={`grid h-6 w-6 place-items-center rounded-full border-2 ${
                       selectedPlan === 'annual'
-                        ? 'border-[#2b7fff] bg-white/90'
+                        ? 'border-[#2b7fff] bg-white/90 dark:border-[#63b6ff] dark:bg-[var(--card)]'
                         : 'border-[var(--border-subtle)] bg-transparent'
                     }`}
                     aria-hidden
@@ -367,23 +367,23 @@ export default function OnboardingPlanPage() {
                   </span>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="truncate text-[15px] font-semibold text-slate-800 dark:text-[var(--text-main)]">
+                      <p className="truncate text-[15px] font-semibold text-[var(--text-main)]">
                         {t('upgrade.buttons.annual')}
                       </p>
                       <span className="ml-8 mt-1 rounded-full border border-[#8cc8ff] bg-[#ebf6ff] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#2b7fff] dark:border-[#63b6ff]/65 dark:bg-[#2b7fff]/20 dark:text-[#8fd0ff]">
                         {t('onboarding.plan.saveBadge')}
                       </span>
                     </div>
-                    <p className="mt-0.5 truncate text-xs text-slate-600 dark:text-[var(--text-soft)]">
+                    <p className="mt-0.5 truncate text-xs text-[var(--text-soft)]">
                       {t('onboarding.plan.bestValue')}
                     </p>
                   </div>
                 </div>
                 <div className="text-right leading-tight">
-                  <p className="text-base font-semibold text-slate-800 dark:text-[var(--text-main)]">
+                  <p className="text-base font-semibold text-[var(--text-main)]">
                     {formatPlanPrice(yearlyPriceLabel)}
                   </p>
-                  <p className="text-xs text-slate-500 dark:text-[var(--text-soft)]">
+                  <p className="text-xs text-[var(--text-soft)]">
                     {t('onboarding.plan.perYear')}
                   </p>
                 </div>

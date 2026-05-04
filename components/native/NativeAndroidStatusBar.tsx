@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { App } from '@capacitor/app'
 import { THEME_STORAGE_EVENT, THEME_PREFERENCE_KEY, THEME_LEGACY_STORAGE_KEY } from '@/lib/theme/preference'
+import { subscribePrefersColorSchemeDarkChange } from '@/lib/theme/prefersColorSchemeSubscription'
 import { applyAndroidSystemBarsFromDocument } from '@/lib/native/androidSystemBars'
 import { applyAndroidNavigationBarFromDocument } from '@/lib/native/androidNavigationBar'
 
@@ -24,14 +25,13 @@ export function NativeAndroidStatusBar() {
 
     sync()
 
-    const media = window.matchMedia('(prefers-color-scheme: dark)')
     const onSystemScheme = () => sync()
     const onStorage = (e: StorageEvent) => {
       if (e.key === THEME_PREFERENCE_KEY || e.key === THEME_LEGACY_STORAGE_KEY) sync()
     }
     const onCustomTheme = () => sync()
 
-    media.addEventListener('change', onSystemScheme)
+    const unsubscribeMql = subscribePrefersColorSchemeDarkChange(onSystemScheme)
     window.addEventListener('storage', onStorage)
     window.addEventListener(THEME_STORAGE_EVENT, onCustomTheme)
 
@@ -51,7 +51,7 @@ export function NativeAndroidStatusBar() {
     })
 
     return () => {
-      media.removeEventListener('change', onSystemScheme)
+      unsubscribeMql()
       window.removeEventListener('storage', onStorage)
       window.removeEventListener(THEME_STORAGE_EVENT, onCustomTheme)
       observer.disconnect()

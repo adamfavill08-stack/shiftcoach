@@ -11,6 +11,7 @@ import {
   setStoredThemePreference,
   applyThemePreference,
 } from '@/lib/theme/preference'
+import { subscribePrefersColorSchemeDarkChange } from '@/lib/theme/prefersColorSchemeSubscription'
 
 export type { ThemePreference, ResolvedTheme } from '@/lib/theme/preference'
 export {
@@ -42,10 +43,10 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       }
     }
 
-    const handleSystemThemeChange = () => {
+    const handleSystemThemeChange = (prefersDark: boolean) => {
       const preference = getStoredThemePreference(window.localStorage)
       if (preference === 'system') {
-        applyThemePreference(preference, media.matches)
+        applyThemePreference(preference, prefersDark)
         if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
           void import('@/lib/native/androidSystemBars').then((m) => m.applyAndroidSystemBarsFromDocument())
         }
@@ -57,14 +58,24 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     }
 
     apply()
-    media.addEventListener('change', handleSystemThemeChange)
+    const unsubscribeMql = subscribePrefersColorSchemeDarkChange(handleSystemThemeChange)
     window.addEventListener('storage', handleStorage)
     window.addEventListener(THEME_STORAGE_EVENT, apply)
 
+    let removeResume: (() => Promise<void>) | undefined
+    if (Capacitor.isNativePlatform()) {
+      void import('@capacitor/app').then(({ App }) => {
+        void App.addListener('resume', apply).then((handle) => {
+          removeResume = () => handle.remove()
+        })
+      })
+    }
+
     return () => {
-      media.removeEventListener('change', handleSystemThemeChange)
+      unsubscribeMql()
       window.removeEventListener('storage', handleStorage)
       window.removeEventListener(THEME_STORAGE_EVENT, apply)
+      void removeResume?.()
     }
   }, [])
 

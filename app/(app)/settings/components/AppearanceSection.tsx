@@ -12,6 +12,7 @@ import {
   resolveThemePreference,
   setStoredThemePreference,
 } from '@/components/providers/theme-provider'
+import { subscribePrefersColorSchemeDarkChange } from '@/lib/theme/prefersColorSchemeSubscription'
 
 export function AppearanceSection() {
   const { t } = useTranslation()
@@ -31,19 +32,19 @@ export function AppearanceSection() {
       setResolvedTheme(resolveThemePreference(preference, media.matches))
     }
 
-    const handleSystemChange = () => {
+    const handleSystemChange = (prefersDark: boolean) => {
       const preference = getStoredThemePreference(window.localStorage)
       if (preference === 'system') {
-        setResolvedTheme(resolveThemePreference(preference, media.matches))
+        setResolvedTheme(resolveThemePreference(preference, prefersDark))
       }
     }
 
     syncTheme()
     window.addEventListener(THEME_STORAGE_EVENT, syncTheme)
-    media.addEventListener('change', handleSystemChange)
+    const unsubscribeMql = subscribePrefersColorSchemeDarkChange(handleSystemChange)
     return () => {
       window.removeEventListener(THEME_STORAGE_EVENT, syncTheme)
-      media.removeEventListener('change', handleSystemChange)
+      unsubscribeMql()
     }
   }, [])
 
