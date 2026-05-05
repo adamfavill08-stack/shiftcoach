@@ -79,6 +79,11 @@ export interface ShiftCoachHealthConnectPlugin {
   pullAuthFromWebSession(): Promise<{ tokenPresent: boolean }>;
   /** Android: clear in-memory bearer used for Health Connect sync (call on sign-out). */
   clearNativeHealthConnectAuth(): Promise<void>;
+  /**
+   * Android: set bearer from JS when {@link pullAuthFromWebSession} could not read WebView storage.
+   * Prefer pull — this path may appear in Capacitor `methodData` logs if bridge logging is enabled.
+   */
+  setAuthToken(options: { access_token?: string; accessToken?: string }): Promise<void>;
   syncNow(): Promise<{
     ok: boolean;
     lastSyncedAt?: string;
@@ -172,6 +177,10 @@ class ShiftCoachHealthConnectWeb extends WebPlugin implements ShiftCoachHealthCo
   }
 
   async clearNativeHealthConnectAuth() {
+    return;
+  }
+
+  async setAuthToken() {
     return;
   }
 

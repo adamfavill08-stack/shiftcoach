@@ -2,18 +2,14 @@
 
 import { useEffect, useRef } from 'react'
 import { App } from '@capacitor/app'
-import { Capacitor } from '@capacitor/core'
 import { readHealthConnectNativeLinkedPersisted, persistHealthConnectNativeLinked } from '@/lib/native/wearablesHealthConnectPersisted'
+import { isAndroidNativeHealthConnectShell } from '@/lib/native/healthConnectDeviceSyncEligibility'
 import { runHealthConnectNativeSync } from '@/lib/native/runHealthConnectNativeSync'
 
 /** Minimum time between timer-driven native Health Connect syncs while the app stays open. */
 const HEALTH_CONNECT_AUTO_SYNC_INTERVAL_MS = 15 * 60 * 1000
 
 const LAST_NATIVE_SYNC_TS_KEY = 'health:autoSyncNative:lastTs'
-
-function isAndroidNative(): boolean {
-  return Capacitor.getPlatform() === 'android' && Capacitor.isNativePlatform()
-}
 
 /**
  * Periodically pulls Health Connect on Android when the user has already linked HC,
@@ -30,7 +26,7 @@ export function AutoHealthSync() {
   const inFlight = useRef(false)
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !isAndroidNative()) return
+    if (typeof window === 'undefined' || !isAndroidNativeHealthConnectShell()) return
 
     const maybeSync = async (reason: string, opts?: { bypassThrottle?: boolean }) => {
       if (!readHealthConnectNativeLinkedPersisted()) return

@@ -19,6 +19,7 @@ import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.request.AggregateRequest
+import androidx.health.connect.client.request.AggregateGroupByDurationRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.getcapacitor.JSObject
@@ -35,6 +36,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.time.Duration
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.runBlocking
@@ -55,6 +57,10 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
     companion object {
         /** Production hosted app; matches `capacitor.config.ts` default. Emulator dev uses live WebView URL when set. */
         private const val DEFAULT_SYNC_API_ORIGIN = "https://www.shiftcoach.app"
+        private const val PREFS = "shiftcoach_hc_native"
+        private const val KEY_ACCESS_TOKEN = "access_token"
+        private const val KEY_LAST_SYNC_AT = "last_successful_sync_at"
+        private const val KEY_SYNC_ORIGIN = "sync_origin"
 
         @Volatile
         private var instance: ShiftCoachHealthConnectPlugin? = null
@@ -102,6 +108,8 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
      */
     @Volatile
     private var bearerAccessToken: String? = null
+
+    private fun nativePrefs() = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     /** Permission-flow diagnostics for debug logcat / optional getStatus.hcDiagnostics (no health sample values). */
     @Volatile
@@ -306,6 +314,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 } else {
                     "$scheme://$host"
                 }
+            nativePrefs().edit().putString(KEY_SYNC_ORIGIN, cachedWebOrigin).apply()
             hci("refreshCachedWebOriginFromWebView: cached=$cachedWebOrigin")
         } catch (e: Exception) {
             hcw("refreshCachedWebOriginFromWebView failed", e)
@@ -316,7 +325,8 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
      * Resolves sync POST origin without touching WebView (may run on [bridge.execute] / CapacitorPlugins thread).
      */
     private fun syncApiOrigin(): String {
-        val trimmed = cachedWebOrigin.trim().trimEnd('/')
+        val persisted = nativePrefs().getString(KEY_SYNC_ORIGIN, null)?.trim()?.trimEnd('/').orEmpty()
+        val trimmed = if (persisted.isNotEmpty()) persisted else cachedWebOrigin.trim().trimEnd('/')
         val resolved =
             if (trimmed.isNotEmpty()) {
                 trimmed
@@ -674,6 +684,11 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
         bridge.execute {
             val trimmed = readAccessTokenFromCall(call)
             bearerAccessToken = if (trimmed.isNullOrEmpty()) null else trimmed
+            if (bearerAccessToken != null) {
+                nativePrefs().edit().putString(KEY_ACCESS_TOKEN, bearerAccessToken).apply()
+            } else {
+                nativePrefs().edit().remove(KEY_ACCESS_TOKEN).apply()
+            }
             if (BuildConfig.HC_VERBOSE_LOG) {
                 hci("setAuthToken (compat) authTokenPresent=${bearerAccessToken != null}")
             }
@@ -714,8 +729,14 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                     bridge.execute {
                         try {
                             bearerAccessToken = decodeJsStringReturn(encoded)?.takeIf { it.isNotBlank() }
+                            if (bearerAccessToken != null) {
+                                nativePrefs().edit().putString(KEY_ACCESS_TOKEN, bearerAccessToken).apply()
+                            } else {
+                                nativePrefs().edit().remove(KEY_ACCESS_TOKEN).apply()
+                            }
                         } catch (_: Throwable) {
                             bearerAccessToken = null
+                            nativePrefs().edit().remove(KEY_ACCESS_TOKEN).apply()
                         }
                         val r = JSObject()
                         r.put("tokenPresent", bearerAccessToken != null)
@@ -733,6 +754,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
     fun clearNativeHealthConnectAuth(call: PluginCall) {
         bridge.execute {
             bearerAccessToken = null
+            nativePrefs().edit().remove(KEY_ACCESS_TOKEN).remove(KEY_LAST_SYNC_AT).apply()
             if (BuildConfig.HC_VERBOSE_LOG) {
                 hci("clearNativeHealthConnectAuth done")
             }
@@ -767,7 +789,15 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                     return@execute
                 }
 
-                val bearer = bearerAccessToken?.trim()?.takeIf { it.isNotEmpty() }
+                var bearer = bearerAccessToken?.trim()?.takeIf { it.isNotEmpty() }
+                if (bearer == null) {
+                    val fromPrefs =
+                        nativePrefs().getString(KEY_ACCESS_TOKEN, null)?.trim()?.takeIf { it.isNotEmpty() }
+                    if (fromPrefs != null) {
+                        bearerAccessToken = fromPrefs
+                        bearer = fromPrefs
+                    }
+                }
                 if (bearer == null) {
                     if (BuildConfig.HC_VERBOSE_LOG) {
                         hci("syncNow aborted authTokenPresent=false path=/api/health-connect/sync")
@@ -782,18 +812,45 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 val zone = ZoneId.systemDefault()
                 val now = Instant.now()
                 val todayLocal = ZonedDateTime.now(zone).toLocalDate()
+                val fineRangeStart = todayLocal.minusDays(2).atStartOfDay(zone).toInstant()
                 // Last 7 local civil days (inclusive): today .. today-6
                 val stepsRangeStart = todayLocal.minusDays(6).atStartOfDay(zone).toInstant()
                 val stepsDateRangeStart = stepsRangeStart.toString()
                 val stepsDateRangeEnd = now.toString()
 
                 val dailyStepsArr = JSONArray()
+                val stepSamplesArr = JSONArray()
                 var stepsTotalSevenDays = 0L
                 var stepsTodayForCompat = 0L
                 /** Today's interval record count from readRecords (0 if aggregate-only fallback). */
                 var todayStepRecordsCount = 0
                 var todayFirstStepAt: String? = null
                 var todayLastStepAt: String? = null
+
+                runBlocking {
+                    try {
+                        val grouped =
+                            client.aggregateGroupByDuration(
+                                AggregateGroupByDurationRequest(
+                                    metrics = setOf(StepsRecord.COUNT_TOTAL),
+                                    timeRangeFilter = TimeRangeFilter.between(fineRangeStart, now),
+                                    timeRangeSlicer = Duration.ofMinutes(15),
+                                ),
+                            )
+                        for (bucket in grouped) {
+                            val stepsInBucket = bucket.result[StepsRecord.COUNT_TOTAL] ?: 0L
+                            val o = JSONObject()
+                            o.put("timestamp", bucket.startTime.toString())
+                            o.put("endTimestamp", bucket.endTime.toString())
+                            o.put("steps", stepsInBucket.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt())
+                            stepSamplesArr.put(o)
+                        }
+                    } catch (e: Exception) {
+                        if (BuildConfig.HC_VERBOSE_LOG) {
+                            hci("aggregateGroupByDuration(15m) failed: ${e.message}")
+                        }
+                    }
+                }
 
                 runBlocking {
                     for (offset in 6 downTo 0) {
@@ -931,6 +988,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 body.put("steps", stepsInt)
                 body.put("activityDate", todayLocal.toString())
                 body.put("dailySteps", dailyStepsArr)
+                body.put("stepSamples", stepSamplesArr)
                 body.put("sleep", sleepArr)
                 body.put("heartRate", hrArr)
                 body.put("syncedAt", syncedAt)
@@ -947,6 +1005,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                     hci(
                         "HC steps debug: perms=${granted.contains(HealthPermission.getReadPermission(StepsRecord::class))} " +
                             "range=[$stepsDateRangeStart .. $stepsDateRangeEnd] " +
+                            "stepSamples15m=${stepSamplesArr.length()} " +
                             "today=$todayLocal todayRecords=$todayStepRecordsCount " +
                             "first=$todayFirstStepAt last=$todayLastStepAt summedToday=$stepsInt " +
                             "dailyRows=${dailyStepsArr.length()}",
@@ -993,6 +1052,7 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 val ret = JSObject()
                 ret.put("ok", true)
                 ret.put("lastSyncedAt", syncedAt)
+                nativePrefs().edit().putString(KEY_LAST_SYNC_AT, syncedAt).apply()
                 val stepsOut = stepsTotal.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
                 val dailyStepsTotalInt =
                     stepsTotalSevenDays.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()

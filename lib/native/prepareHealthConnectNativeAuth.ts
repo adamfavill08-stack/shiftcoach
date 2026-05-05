@@ -1,15 +1,11 @@
-import { Capacitor } from '@capacitor/core'
 import { supabase } from '@/lib/supabase'
 import { hydrateNativeAuthFromCookiesIfNeeded } from '@/lib/supabase/nativeSessionHydrate'
+import { isAndroidNativeHealthConnectShell } from '@/lib/native/healthConnectDeviceSyncEligibility'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 const isDev = process.env.NODE_ENV !== 'production'
-
-function isAndroidNative(): boolean {
-  return Capacitor.getPlatform() === 'android' && Capacitor.isNativePlatform()
-}
 
 /**
  * Ensures the native Health Connect plugin has the current Supabase access token (in-memory only).
@@ -17,7 +13,7 @@ function isAndroidNative(): boolean {
  * Capacitor bridge as `methodData` (which can appear in logcat when bridge logging is enabled).
  */
 export async function prepareHealthConnectNativeAuth(): Promise<boolean> {
-  if (!isAndroidNative()) return false
+  if (!isAndroidNativeHealthConnectShell()) return false
 
   await hydrateNativeAuthFromCookiesIfNeeded(supabase, supabaseUrl, supabaseAnonKey)
 
@@ -47,16 +43,34 @@ export async function prepareHealthConnectNativeAuth(): Promise<boolean> {
   const { ShiftCoachHealthConnect } = await import('@/lib/native/shiftCoachHealthConnect')
   const pull = await ShiftCoachHealthConnect.pullAuthFromWebSession()
 
-  if (!pull.tokenPresent) {
-    await ShiftCoachHealthConnect.clearNativeHealthConnectAuth()
+  if (pull.tokenPresent) {
     if (isDev) {
-      console.info('[HealthConnect] prepare native auth', { tokenPresent: false })
+      console.info('[HealthConnect] prepare native auth', { tokenPresent: true })
     }
-    return false
+    return true
   }
 
-  if (isDev) {
-    console.info('[HealthConnect] prepare native auth', { tokenPresent: true })
+  // WebView read can race or miss keys; JS session is authoritative for manual refresh / backup sync.
+  if (accessToken) {
+    try {
+      await ShiftCoachHealthConnect.setAuthToken({ access_token: accessToken })
+      if (isDev) {
+        console.info('[HealthConnect] prepare native auth', {
+          tokenPresent: false,
+          usedJsSetAuthTokenFallback: true,
+        })
+      }
+      return true
+    } catch (e) {
+      if (isDev) {
+        console.warn('[HealthConnect] setAuthToken fallback failed', e)
+      }
+    }
   }
-  return true
+
+  await ShiftCoachHealthConnect.clearNativeHealthConnectAuth()
+  if (isDev) {
+    console.info('[HealthConnect] prepare native auth', { tokenPresent: false })
+  }
+  return false
 }

@@ -68,6 +68,11 @@ const messages: Record<string, string> = {
     'browse.activity.syncStepsAria': 'Sincronizar pasos con Health Connect',
     'browse.activity.syncStepsBusy': 'Sincronizando…',
     'browse.activity.syncStepsFailed': 'No se pudo sincronizar. Inténtalo de nuevo.',
+    'browse.activity.syncStepsNeedHcPermissions':
+      'Se necesitan permisos de Health Connect. Abre Ajustes y permite leer pasos a ShiftCoach.',
+    'browse.activity.syncStepsSignInAgain': 'Vuelve a iniciar sesión e intenta sincronizar de nuevo.',
+    'browse.activity.syncStepsRequiresApp':
+      'Abre la app ShiftCoach en este teléfono para sincronizar los pasos desde Health Connect.',
     'browse.activity.motivationNamed':
       '{name}, el movimiento que sumas en tus días de turno cuenta. Sigue adelante: estás creando un ritmo que encaja con tu vida.',
     'browse.activity.motivationAnonymous':

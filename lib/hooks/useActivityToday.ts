@@ -29,6 +29,7 @@ export function isAgentActivityPersonalization(
 }
 
 export type ActivityToday = {
+  stepSamples?: Array<{ timestamp: string; steps: number }>
   source?: 'apple' | 'fitbit' | 'google' | 'manual' | 'unknown'
   steps?: number
   stepTarget?: number
@@ -272,6 +273,18 @@ export function useActivityToday() {
                 ? json.activity.stepsByHour.map((n: unknown) =>
                     typeof n === 'number' && Number.isFinite(n) ? Math.max(0, n) : 0,
                   )
+                : undefined,
+            stepSamples:
+              Array.isArray(json.activity?.stepSamples)
+                ? json.activity.stepSamples
+                    .map((s: unknown) => {
+                      if (!s || typeof s !== 'object') return null
+                      const o = s as Record<string, unknown>
+                      if (typeof o.timestamp !== 'string') return null
+                      const steps = typeof o.steps === 'number' && Number.isFinite(o.steps) ? Math.max(0, o.steps) : 0
+                      return { timestamp: o.timestamp, steps }
+                    })
+                    .filter((s: { timestamp: string; steps: number } | null): s is { timestamp: string; steps: number } => s != null)
                 : undefined,
             stepsByHourAnchorStart:
               json.activity && 'stepsByHourAnchorStart' in json.activity

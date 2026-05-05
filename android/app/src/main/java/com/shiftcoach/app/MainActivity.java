@@ -102,6 +102,8 @@ public class MainActivity extends BridgeActivity {
         android.util.Log.i("ShiftCoachHC", "MainActivity onCreate completed");
         // Keep content below status bar until Capacitor StatusBar runs (avoids transparent overlay defaults).
         WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+        HealthConnectBackgroundSyncScheduler.ensurePeriodicSync(this);
+        HealthConnectBackgroundSyncScheduler.enqueueOpenOrResumeSync(this);
     }
 
     /**
@@ -158,6 +160,8 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
+        HealthConnectBackgroundSyncScheduler.ensurePeriodicSync(this);
+        HealthConnectBackgroundSyncScheduler.enqueueOpenOrResumeSync(this);
         emitWatchConnectionStatus();
         sendPingToWatch();
         new Thread(

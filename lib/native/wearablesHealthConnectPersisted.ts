@@ -1,14 +1,10 @@
-import { Capacitor } from '@capacitor/core'
+import { isAndroidNativeHealthConnectShell } from '@/lib/native/healthConnectDeviceSyncEligibility'
 
 /** Survives app restarts; cleared on sign-out or when native HC permissions are no longer granted. */
 export const HEALTH_CONNECT_NATIVE_LINKED_KEY = 'wearables:healthConnectNativeLinked' as const
 
-function isAndroidNative(): boolean {
-  return typeof window !== 'undefined' && Capacitor.getPlatform() === 'android' && Capacitor.isNativePlatform()
-}
-
 export function readHealthConnectNativeLinkedPersisted(): boolean {
-  if (!isAndroidNative()) return false
+  if (!isAndroidNativeHealthConnectShell()) return false
   try {
     return window.localStorage.getItem(HEALTH_CONNECT_NATIVE_LINKED_KEY) === '1'
   } catch {
@@ -17,7 +13,7 @@ export function readHealthConnectNativeLinkedPersisted(): boolean {
 }
 
 export function persistHealthConnectNativeLinked(): void {
-  if (!isAndroidNative()) return
+  if (!isAndroidNativeHealthConnectShell()) return
   try {
     window.localStorage.setItem(HEALTH_CONNECT_NATIVE_LINKED_KEY, '1')
   } catch {
@@ -36,7 +32,7 @@ export function clearHealthConnectNativeLinkedPersisted(): void {
 
 /** If the user revoked HC reads in system settings, drop the persisted “linked” flag so UI matches. */
 export async function refreshPersistedHealthConnectIfNativeRevoked(): Promise<void> {
-  if (!isAndroidNative()) return
+  if (!isAndroidNativeHealthConnectShell()) return
   try {
     const { ShiftCoachHealthConnect } = await import('@/lib/native/shiftCoachHealthConnect')
     const s = await ShiftCoachHealthConnect.getStatus()

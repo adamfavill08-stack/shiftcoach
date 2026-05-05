@@ -20,6 +20,12 @@ const DailyStepItemSchema = z.object({
   steps: z.number(),
 })
 
+const StepSampleItemSchema = z.object({
+  timestamp: z.string(),
+  steps: z.number(),
+  endTimestamp: z.string().optional(),
+})
+
 const SleepItemSchema = z.object({
   sampleId: z.string().trim().min(1).optional(),
   start: z.string(),
@@ -41,6 +47,8 @@ const HealthConnectSyncSchema = z.object({
   activityDate: z.string().optional(),
   /** Last N local days from Health Connect (typically 7), one row per activity_date. */
   dailySteps: z.array(DailyStepItemSchema).optional().default([]),
+  /** Fine-grained wearable buckets (expected 15-minute windows). */
+  stepSamples: z.array(StepSampleItemSchema).optional().default([]),
   /** Native: count of Steps interval records read for `activityDate` (same-day sum). */
   stepRecordsReadToday: z.number().int().optional(),
   firstStepRecordAt: z.string().optional(),
@@ -51,6 +59,20 @@ const HealthConnectSyncSchema = z.object({
   heartRate: z.array(HeartRateItemSchema).optional().default([]),
   syncedAt: z.string().optional(),
 })
+
+function formatYmdFromIso(iso: string): string {
+  return new Date(iso).toISOString().slice(0, 10)
+}
+
+function dedupeStepSamplesByStart<T extends { bucket_start_utc: string; steps: number }>(rows: T[]): T[] {
+  const map = new Map<string, T>()
+  for (const row of rows) {
+    const key = row.bucket_start_utc
+    const prev = map.get(key)
+    if (!prev || row.steps >= prev.steps) map.set(key, row)
+  }
+  return [...map.values()].sort((a, b) => a.bucket_start_utc.localeCompare(b.bucket_start_utc))
+}
 
 const isDevServer = process.env.NODE_ENV === 'development'
 
@@ -75,6 +97,7 @@ export async function POST(req: NextRequest) {
       steps: rawSteps,
       activityDate,
       dailySteps: rawDailySteps,
+      stepSamples: rawStepSamples,
       stepRecordsReadToday,
       firstStepRecordAt,
       lastStepRecordAt,
@@ -97,6 +120,7 @@ export async function POST(req: NextRequest) {
       )
 
     let activityLogUpsertOk = false
+    let stepSamplesPersisted = 0
     let persistedDailyStepsCount = 0
     let dailyStepsTotalReceived = 0
     const datesPersisted: string[] = []
@@ -185,6 +209,45 @@ export async function POST(req: NextRequest) {
             await supersedeManualLogsAfterWearableDelta(supabase, userId, ad, delta, 'health_connect')
           }
         }
+      }
+    }
+
+    const normalizedSamples = (rawStepSamples ?? [])
+      .map((sample) => {
+        const startMs = Date.parse(String(sample.timestamp ?? ''))
+        const endMs = sample.endTimestamp ? Date.parse(String(sample.endTimestamp)) : NaN
+        const stepsInBucket = Number.isFinite(sample.steps) ? Math.max(0, Math.round(sample.steps)) : 0
+        if (!Number.isFinite(startMs)) return null
+        const startIso = new Date(startMs).toISOString()
+        const endIso = Number.isFinite(endMs) ? new Date(endMs).toISOString() : null
+        return {
+          user_id: userId,
+          source: 'health_connect',
+          activity_date: formatYmdFromIso(startIso),
+          bucket_start_utc: startIso,
+          bucket_end_utc: endIso,
+          steps: stepsInBucket,
+        }
+      })
+      .filter((row): row is {
+        user_id: string
+        source: string
+        activity_date: string
+        bucket_start_utc: string
+        bucket_end_utc: string | null
+        steps: number
+      } => row != null)
+
+    if (normalizedSamples.length > 0) {
+      // 4 days of 15-minute samples = 384 rows. Keep headroom for retries.
+      const deduped = dedupeStepSamplesByStart(normalizedSamples).slice(0, 576)
+      const { error: stepSamplesErr } = await supabase
+        .from('wearable_step_samples')
+        .upsert(deduped, { onConflict: 'user_id,source,bucket_start_utc' })
+      if (stepSamplesErr) {
+        console.error('[health-connect/sync] wearable_step_samples upsert:', stepSamplesErr.message ?? stepSamplesErr)
+      } else {
+        stepSamplesPersisted = deduped.length
       }
     }
 
@@ -292,6 +355,7 @@ export async function POST(req: NextRequest) {
       persistedDailyStepsCount,
       dailyStepsCount: dailyLimited.length,
       dailyStepsTotal: dailyStepsTotalReceived,
+      stepSamplesPersisted,
       datesPersisted: [...new Set(datesPersisted)].sort(),
       sleepSessionsPersisted,
       heartRateSamplesPersisted: heartRateUpsertOk ? heartRateSamplesPersisted : 0,
@@ -320,6 +384,7 @@ export async function POST(req: NextRequest) {
       accepted: {
         steps: steps != null,
         dailyStepsCount: dailyLimited.length,
+        stepSamplesCount: normalizedSamples.length,
         sleepCount: sleep.length,
         heartRateCount: heartRate.length,
       },

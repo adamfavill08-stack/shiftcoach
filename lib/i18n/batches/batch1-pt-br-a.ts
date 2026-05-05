@@ -23,6 +23,11 @@ export const batch1PtBrA: Record<string, string> = {
   'browse.activity.syncStepsAria': 'Sincronizar passos com o Health Connect',
   'browse.activity.syncStepsBusy': 'Sincronizando…',
   'browse.activity.syncStepsFailed': 'Não foi possível sincronizar. Tente de novo.',
+  'browse.activity.syncStepsNeedHcPermissions':
+    'Permissões do Health Connect são necessárias. Abra Ajustes e permita que o ShiftCoach leia passos.',
+  'browse.activity.syncStepsSignInAgain': 'Entre de novo e tente sincronizar os passos.',
+  'browse.activity.syncStepsRequiresApp':
+    'Abra o app ShiftCoach neste celular para sincronizar os passos pelo Health Connect.',
   'browse.activity.motivationNamed':
     '{name}, o movimento que você mostra nos dias de turno soma. Continue—você está criando um ritmo que cabe na vida real.',
   'browse.activity.motivationAnonymous':

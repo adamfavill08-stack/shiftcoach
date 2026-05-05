@@ -37,7 +37,7 @@ import {
   type RotaShiftRow,
 } from '@/lib/activity/computeShiftStepsDuringShifts'
 import { toShiftType, toActivityShiftType } from '@/lib/shifts/toShiftType'
-import { addCalendarDaysToYmd, formatYmdInTimeZone } from '@/lib/sleep/utils'
+import { addCalendarDaysToYmd, endOfLocalDayUtcMs, formatYmdInTimeZone, startOfLocalDayUtcMs } from '@/lib/sleep/utils'
 import { fetchActivityLogsByActivityDateWindow } from '@/lib/activity/fetchActivityLogsByActivityDateWindow'
 import { fetchHolidayLocalDatesSet } from '@/lib/rota/holidayRotaPriority'
 import { getSleepDeficitForCircadian } from '@/lib/circadian/sleep'
@@ -183,7 +183,6 @@ export async function GET(req: NextRequest) {
   const today = localToday
   const nowIso = now.toISOString()
   const startOfDay = new Date(today + 'T00:00:00Z')
-  const endOfDay = new Date(today + 'T23:59:59Z')
 
   try {
     // Calculate date ranges once for reuse
@@ -618,6 +617,15 @@ export async function GET(req: NextRequest) {
     // Parse shift times
     const shiftStart = currentShift?.start_ts ? new Date(currentShift.start_ts) : null
     const shiftEnd = currentShift?.end_ts ? new Date(currentShift.end_ts) : null
+
+    const selectedDayStartMs = startOfLocalDayUtcMs(today, activityIntelTimeZone)
+    const selectedDayEndMs = endOfLocalDayUtcMs(today, activityIntelTimeZone)
+    const shiftStartMs = shiftStart?.getTime() ?? NaN
+    const shiftEndMs = shiftEnd?.getTime() ?? NaN
+    const stepSamplesRangeStartMs =
+      Number.isFinite(shiftStartMs) ? Math.min(selectedDayStartMs, shiftStartMs) : selectedDayStartMs
+    const stepSamplesRangeEndMs =
+      Number.isFinite(shiftEndMs) ? Math.max(selectedDayEndMs, shiftEndMs) : selectedDayEndMs
 
     // Get activity level and calculate impacts
     const shiftActivityLevel = activityResponse.data?.shift_activity_level as ShiftActivityLevel | null | undefined
@@ -1087,6 +1095,29 @@ export async function GET(req: NextRequest) {
         : { shiftStart: null, shiftEnd: null, now },
     )
 
+    let stepSamples: Array<{ timestamp: string; steps: number }> = []
+    if (Number.isFinite(stepSamplesRangeStartMs) && Number.isFinite(stepSamplesRangeEndMs)) {
+      const stepSamplesStartIso = new Date(stepSamplesRangeStartMs).toISOString()
+      const stepSamplesEndIso = new Date(stepSamplesRangeEndMs).toISOString()
+      const stepSamplesQuery = await supabase
+        .from('wearable_step_samples')
+        .select('bucket_start_utc, steps')
+        .eq('user_id', userId)
+        .eq('source', 'health_connect')
+        .gte('bucket_start_utc', stepSamplesStartIso)
+        .lte('bucket_start_utc', stepSamplesEndIso)
+        .order('bucket_start_utc', { ascending: true })
+      if (!stepSamplesQuery.error) {
+        stepSamples = (stepSamplesQuery.data ?? [])
+          .map((row: { bucket_start_utc: string | null; steps: number | null }) => {
+            if (!row?.bucket_start_utc) return null
+            const steps = typeof row.steps === 'number' && Number.isFinite(row.steps) ? Math.max(0, Math.round(row.steps)) : 0
+            return { timestamp: row.bucket_start_utc, steps }
+          })
+          .filter((row): row is { timestamp: string; steps: number } => row != null)
+      }
+    }
+
     const payload = {
       steps: coherentSteps,
       activeMinutes: displayActiveMinutes,
@@ -1127,6 +1158,7 @@ export async function GET(req: NextRequest) {
       movementConsistencyData: movementConsistency,
       activityIntelligence,
       stepsByHour,
+      stepSamples,
       /** ISO start of hour-slot 0 for `stepsByHour` when shift-aware; omit when civil clock buckets. */
       stepsByHourAnchorStart: stepsByHourChartAnchor?.toISOString() ?? null,
       shiftStepsLast7Days,
@@ -1209,6 +1241,7 @@ export async function GET(req: NextRequest) {
             readinessInsight: null,
           },
           stepsByHour: Array.from({ length: 24 }, () => 0),
+          stepSamples: [],
           stepsByHourAnchorStart: null,
           shiftStepsLast7Days: stubShiftStepsLast7Days(today),
           activityTotalsBreakdown: toPublicActivityTotalsBreakdown(computeActivityTotalsBreakdown([]), false),

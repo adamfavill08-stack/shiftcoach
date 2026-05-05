@@ -66,6 +66,11 @@ const messages: Record<string, string> = {
     'browse.activity.syncStepsAria': 'Sync steps from Health Connect',
     'browse.activity.syncStepsBusy': 'Syncing…',
     'browse.activity.syncStepsFailed': 'Could not sync. Try again.',
+    'browse.activity.syncStepsNeedHcPermissions':
+      'Health Connect permissions are required. Open Settings and allow ShiftCoach to read steps.',
+    'browse.activity.syncStepsSignInAgain': 'Please sign in again, then try syncing steps.',
+    'browse.activity.syncStepsRequiresApp':
+      'Open the ShiftCoach app on this phone to sync steps from Health Connect.',
     'browse.activity.motivationNamed':
       "{name}, the movement you show on shift days adds up. Keep going—you're building a rhythm that works for real life.",
     'browse.activity.motivationAnonymous':

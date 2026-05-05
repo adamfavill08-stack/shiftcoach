@@ -7,6 +7,10 @@ import { useTranslation } from '@/components/providers/language-provider'
 import type { ShiftCoachHealthConnectPlugin } from '@/lib/native/shiftCoachHealthConnect'
 import { runHealthConnectNativeSync } from '@/lib/native/runHealthConnectNativeSync'
 import {
+  isAndroidNativeHealthConnectShell,
+  isAndroidWithoutNativeHealthConnect,
+} from '@/lib/native/healthConnectDeviceSyncEligibility'
+import {
   persistHealthConnectNativeLinked,
   readHealthConnectNativeLinkedPersisted,
 } from '@/lib/native/wearablesHealthConnectPersisted'
@@ -107,7 +111,7 @@ async function getAndroidPermissionConnected(): Promise<{
   hasPermissions: boolean
   debug?: Awaited<ReturnType<ShiftCoachHealthConnectPlugin['getStatus']>>
 }> {
-  const isAndroidNative = Capacitor.getPlatform() === 'android' && Capacitor.isNativePlatform()
+  const isAndroidNative = isAndroidNativeHealthConnectShell()
   if (!isAndroidNative) {
     return { isAndroidNative: false, available: false, hasPermissions: false }
   }
@@ -443,6 +447,11 @@ export default function SyncWearableButton() {
         }
 
         setFeedback('Sync failed. Please try again.')
+        return
+      }
+
+      if (isAndroidWithoutNativeHealthConnect()) {
+        setFeedback(t('browse.activity.syncStepsRequiresApp'))
         return
       }
 

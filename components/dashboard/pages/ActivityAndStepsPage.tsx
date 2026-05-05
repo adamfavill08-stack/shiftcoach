@@ -9,12 +9,24 @@ import { useAuth } from '@/components/AuthProvider'
 import { useTranslation } from '@/components/providers/language-provider'
 import { useProfile } from '@/hooks/useProfile'
 import { authedFetch } from '@/lib/supabase/authedFetch'
+import {
+  isAndroidNativeHealthConnectShell,
+  isAndroidWithoutNativeHealthConnect,
+} from '@/lib/native/healthConnectDeviceSyncEligibility'
 import { runHealthConnectNativeSync } from '@/lib/native/runHealthConnectNativeSync'
 import { persistHealthConnectNativeLinked } from '@/lib/native/wearablesHealthConnectPersisted'
 import type { ShiftStepsDuringShiftDay } from '@/lib/activity/computeShiftStepsDuringShifts'
 import { isoLocalDate } from '@/lib/shifts'
 import { formatYmdInTimeZone } from '@/lib/sleep/utils'
 import { ManualActivityHistorySection } from '@/components/activity/ManualActivityHistorySection'
+import {
+  AdaptiveMovementCard,
+  buildAdaptiveMovementData,
+  buildEmptyShiftMovementData,
+  type Shift,
+  type StepSample,
+} from '@/components/activity/AdaptiveMovementCard'
+import { ActivityHistory30Days } from '@/components/activity/ActivityHistory30Days'
 
 function parseYmdLocal(ymd: string): Date {
   return new Date(ymd + 'T12:00:00')
@@ -185,7 +197,55 @@ function formatClockHourLabel(isoOrMs: number | string, timeZone: string): strin
   }).format(d)
 }
 
+function hourInTimeZone(iso: string, timeZone: string): number {
+  const d = new Date(iso)
+  const hourPart = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour: 'numeric',
+    hour12: false,
+  })
+    .formatToParts(d)
+    .find((p) => p.type === 'hour')?.value
+  const h = hourPart != null ? parseInt(hourPart, 10) : NaN
+  return Number.isFinite(h) ? Math.min(23, Math.max(0, h)) : 0
+}
+
+function bucketsFromStepSamples(
+  samples: Array<{ timestamp: string; steps: number }> | undefined,
+  shiftStartIso: string | null | undefined,
+  timeZone: string,
+): number[] | null {
+  if (!samples || samples.length === 0) return null
+
+  const out = Array.from({ length: 24 }, () => 0)
+  const shiftAnchorMs = shiftStartIso ? Date.parse(shiftStartIso) : NaN
+  const useShiftAxis = Number.isFinite(shiftAnchorMs)
+  let used = 0
+
+  for (const sample of samples) {
+    if (!sample || typeof sample.timestamp !== 'string') continue
+    const t = Date.parse(sample.timestamp)
+    if (!Number.isFinite(t)) continue
+    const steps = typeof sample.steps === 'number' && Number.isFinite(sample.steps) ? Math.max(0, sample.steps) : 0
+
+    if (useShiftAxis) {
+      const idx = Math.floor((t - shiftAnchorMs) / (60 * 60 * 1000))
+      if (idx >= 0 && idx < 24) {
+        out[idx] += steps
+        used++
+      }
+    } else {
+      const h = hourInTimeZone(sample.timestamp, timeZone)
+      out[h] += steps
+      used++
+    }
+  }
+
+  return used > 0 ? out : null
+}
+
 function StepsByTimeOfDayCard({
+  stepSamples,
   stepsByHour,
   displayTotalSteps,
   loading,
@@ -193,6 +253,7 @@ function StepsByTimeOfDayCard({
   shiftStartIso,
   timeZone,
 }: {
+  stepSamples?: Array<{ timestamp: string; steps: number }>
   stepsByHour: number[] | undefined
   displayTotalSteps: number
   loading: boolean
@@ -202,9 +263,14 @@ function StepsByTimeOfDayCard({
   /** IANA zone (same as activity API `tz`); falls back to device zone. */
   timeZone?: string | null
 }) {
+  const tz =
+    typeof timeZone === 'string' && timeZone.trim().length > 0
+      ? timeZone.trim()
+      : Intl.DateTimeFormat().resolvedOptions().timeZone
+
   const buckets = useMemo(() => {
-    const base =
-      stepsByHour && stepsByHour.length === 24 ? [...stepsByHour] : Array.from({ length: 24 }, () => 0)
+    const fromSamples = bucketsFromStepSamples(stepSamples, shiftStartIso, tz)
+    const base = fromSamples ?? (stepsByHour && stepsByHour.length === 24 ? [...stepsByHour] : Array.from({ length: 24 }, () => 0))
     const s = base.reduce((a, x) => a + x, 0)
     if (
       s > 0 &&
@@ -219,14 +285,9 @@ function StepsByTimeOfDayCard({
       base[mi] = Math.max(0, base[mi] + drift)
     }
     return base
-  }, [stepsByHour, displayTotalSteps])
+  }, [stepSamples, shiftStartIso, tz, stepsByHour, displayTotalSteps])
 
   const maxVal = useMemo(() => Math.max(1, ...buckets), [buckets])
-
-  const tz =
-    typeof timeZone === 'string' && timeZone.trim().length > 0
-      ? timeZone.trim()
-      : Intl.DateTimeFormat().resolvedOptions().timeZone
 
   const shiftAnchorMs = shiftStartIso ? Date.parse(shiftStartIso) : NaN
   const useShiftAxis = Number.isFinite(shiftAnchorMs)
@@ -383,10 +444,17 @@ export default function ActivityAndStepsPage() {
     setSyncingSteps(true)
     setSyncStepsError(null)
     try {
-      const isAndroidNative = Capacitor.getPlatform() === 'android' && Capacitor.isNativePlatform()
-      if (isAndroidNative) {
+      if (isAndroidWithoutNativeHealthConnect()) {
+        setSyncStepsError(t('browse.activity.syncStepsRequiresApp'))
+        return
+      }
+
+      if (isAndroidNativeHealthConnectShell()) {
         const syncResult = await runHealthConnectNativeSync('ActivityAndStepsPage/hero')
-        if (!syncResult?.ok) {
+        const nativeSyncSucceeded =
+          syncResult?.ok === true ||
+          (typeof syncResult?.lastSyncedAt === 'string' && syncResult.lastSyncedAt.length > 0)
+        if (!nativeSyncSucceeded) {
           throw new Error('sync_not_ok')
         }
         const ts = syncResult.lastSyncedAt ? new Date(syncResult.lastSyncedAt).getTime() : Date.now()
@@ -414,9 +482,17 @@ export default function ActivityAndStepsPage() {
           window.dispatchEvent(new CustomEvent('sleep-refreshed'))
         }
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.warn('[ActivityAndStepsPage] Health sync', err)
-      setSyncStepsError(t('browse.activity.syncStepsFailed'))
+      const code =
+        err && typeof err === 'object' && 'code' in err ? String((err as { code?: unknown }).code) : ''
+      if (code === 'health_connect_permissions') {
+        setSyncStepsError(t('browse.activity.syncStepsNeedHcPermissions'))
+      } else if (code === 'health_connect_auth_missing') {
+        setSyncStepsError(t('browse.activity.syncStepsSignInAgain'))
+      } else {
+        setSyncStepsError(t('browse.activity.syncStepsFailed'))
+      }
     } finally {
       setSyncingSteps(false)
     }
@@ -536,6 +612,65 @@ export default function ActivityAndStepsPage() {
     })
   }, [data.shiftStepsLast7Days, data.movementConsistencyData])
 
+  const adaptiveMovementData = useMemo(() => {
+    if (loading) return null
+
+    const samples: StepSample[] = Array.isArray(data.stepSamples)
+      ? data.stepSamples.map((sample) => ({
+          timestamp: sample.timestamp,
+          steps: Math.max(0, Math.round(sample.steps || 0)),
+        }))
+      : []
+
+    const shiftTypeValue = data.shiftType
+    const isShiftDay = shiftTypeValue === 'day' || shiftTypeValue === 'night' || shiftTypeValue === 'late'
+    const isRecoveryDay = !isShiftDay && (data.recoverySignal === 'RED' || data.recoverySignal === 'AMBER')
+    const dayType = isShiftDay ? 'shift' : isRecoveryDay ? 'recovery' : 'day_off'
+
+    const parsedShiftStart = data.shiftStart ? Date.parse(data.shiftStart) : NaN
+    const parsedShiftEnd = data.shiftEnd ? Date.parse(data.shiftEnd) : NaN
+    const shift: Shift | null =
+      dayType === 'shift' && Number.isFinite(parsedShiftStart) && Number.isFinite(parsedShiftEnd)
+        ? {
+            start: data.shiftStart as string,
+            end: data.shiftEnd as string,
+            type:
+              shiftTypeValue === 'day'
+                ? 'day'
+                : shiftTypeValue === 'night'
+                  ? 'night'
+                  : shiftTypeValue === 'late'
+                    ? 'evening'
+                    : 'unknown',
+          }
+        : null
+
+    if (dayType === 'shift' && shift == null) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[ActivityAndStepsPage] Shift day detected but shiftStart/shiftEnd invalid; rendering empty shift movement card')
+      }
+      return buildEmptyShiftMovementData()
+    }
+
+    try {
+      return buildAdaptiveMovementData({
+        samples,
+        dayType,
+        shift,
+      })
+    } catch (error) {
+      console.warn('[ActivityAndStepsPage] AdaptiveMovementCard failed to build data', error)
+      return dayType === 'shift' ? buildEmptyShiftMovementData() : buildAdaptiveMovementData({ samples, dayType })
+    }
+  }, [
+    loading,
+    data.stepSamples,
+    data.shiftType,
+    data.recoverySignal,
+    data.shiftStart,
+    data.shiftEnd,
+  ])
+
   return (
     <main
       className="min-h-screen"
@@ -561,13 +696,6 @@ export default function ActivityAndStepsPage() {
             {t('browse.activity.title')}
           </h1>
         </header>
-
-        <DailyStepsChart
-          days={chartDays}
-          goalSteps={dailyGoal}
-          todayYmd={todayYmd}
-          loading={loading}
-        />
 
         {/* SECTION 1 — Hero: steps bar + Active time row (kcal & est. mi) in one white card */}
         <section className="flex flex-col items-center text-center gap-5 pt-2">
@@ -710,20 +838,18 @@ export default function ActivityAndStepsPage() {
 
           <ManualActivityHistorySection activityDate={manualHistoryCivilYmd} />
 
+          {adaptiveMovementData ? <AdaptiveMovementCard data={adaptiveMovementData} /> : null}
+
+          <ActivityHistory30Days />
+
           <StepsByTimeOfDayCard
             loading={loading}
+            stepSamples={data.stepSamples}
             stepsByHour={data.stepsByHour}
             displayTotalSteps={activityDaySteps}
             title={t('browse.activity.stepsByTimeOfDay')}
             shiftStartIso={data.stepsByHourAnchorStart ?? null}
             timeZone={intel?.activityTimeZone ?? null}
-          />
-
-          <ShiftStepsDuringShiftsCard
-            days={shiftStepsDuringWeek}
-            todayYmd={todayYmd}
-            loading={loading}
-            title={t('browse.activity.stepsDuringShifts')}
           />
 
           <div className="w-full rounded-xl border border-transparent bg-white px-5 py-4 shadow-sm dark:border-[var(--border-subtle)]">
