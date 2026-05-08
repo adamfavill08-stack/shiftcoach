@@ -21,8 +21,8 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Bump these for every Play Store upload. versionCode must be unique and increasing.
         // Closed testing was already at 12 (1.0.10); next upload must exceed that versionCode.
-        versionCode 22
-        versionName "1.0.20"
+        versionCode 23
+        versionName "1.0.21"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

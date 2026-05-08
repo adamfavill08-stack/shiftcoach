@@ -292,8 +292,8 @@ const messages: Record<string, string> = {
 
     'onboarding.plan.title': 'Select your plan',
     'onboarding.plan.subtitle': 'Choose one option to continue',
-    'onboarding.plan.freeTitle': 'Free Trial',
-    'onboarding.plan.freeSubtitle': '7 day free trial',
+    'onboarding.plan.freeTitle': 'Free',
+    'onboarding.plan.freeSubtitle': 'Limited features — upgrade to Pro for full access',
     'onboarding.plan.freePrice': 'Free',
     'onboarding.plan.proFullAccess': 'Full Pro access',
     'onboarding.plan.perMonth': 'Per month',
