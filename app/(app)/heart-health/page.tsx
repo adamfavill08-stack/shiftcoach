@@ -7,7 +7,9 @@ import { HeartRecoveryRings } from "@/components/heart/HeartRecoveryRings";
 import { useActivityToday } from "@/lib/hooks/useActivityToday";
 import { useTranslation } from "@/components/providers/language-provider";
 import { cn } from "@/lib/utils";
+import { authedFetch } from "@/lib/supabase/authedFetch";
 import type {
+  HeartBaselineStatus,
   HeartRateApiStatus,
   HeartWeeklyDay,
 } from "@/lib/wearables/heartRateApi";
@@ -51,6 +53,10 @@ export default function HeartHealthPage() {
   const [usedFallbackWindow, setUsedFallbackWindow] = useState(false);
   const [weeklyTrend, setWeeklyTrend] = useState<HeartWeeklyDay[] | null>(null);
   const [hrSampleCount, setHrSampleCount] = useState<number | null>(null);
+  const [sleepHoursInGap, setSleepHoursInGap] = useState<number | null>(null);
+  const [recoveryBand, setRecoveryBand] = useState<"low" | "medium" | "good" | null>(null);
+  const [restingVsBaseline, setRestingVsBaseline] = useState<number | null>(null);
+  const [baselineStatus, setBaselineStatus] = useState<HeartBaselineStatus | null>(null);
   const { data: activity } = useActivityToday();
 
   useEffect(() => {
@@ -59,7 +65,7 @@ export default function HeartHealthPage() {
     async function load() {
       try {
         setHrLoading(true);
-        const hrRes = await fetch("/api/wearables/heart-rate");
+        const hrRes = await authedFetch("/api/wearables/heart-rate");
 
         if (!cancelled) {
           const hr = await hrRes.json().catch(() => ({}));
@@ -80,6 +86,10 @@ export default function HeartHealthPage() {
             setUsedFallbackWindow(false);
             setWeeklyTrend(null);
             setHrSampleCount(null);
+            setSleepHoursInGap(null);
+            setRecoveryBand(null);
+            setRestingVsBaseline(null);
+            setBaselineStatus(null);
           } else {
             setHrStatus(status);
             setHrReason(typeof hr?.reason === "string" ? hr.reason : null);
@@ -89,27 +99,50 @@ export default function HeartHealthPage() {
             setUsedFallbackWindow(hr?.usedFallbackWindow === true);
             setWeeklyTrend(Array.isArray(hr?.weeklyTrend) ? hr.weeklyTrend : null);
 
+            const readHeartExtras = (h: Record<string, unknown> | undefined) => {
+              if (!h) {
+                setSleepHoursInGap(null);
+                setRecoveryBand(null);
+                setRestingVsBaseline(null);
+                setBaselineStatus(null);
+                return;
+              }
+              const bs = h.baseline_status;
+              setBaselineStatus(bs === "ready" || bs === "building" ? bs : null);
+              const sh = h.sleep_hours_in_window;
+              setSleepHoursInGap(typeof sh === "number" && Number.isFinite(sh) ? sh : null);
+              const rb = h.recovery_band;
+              setRecoveryBand(
+                rb === "low" || rb === "medium" || rb === "good" ? rb : null,
+              );
+              const rv = h.resting_vs_baseline_bpm;
+              setRestingVsBaseline(typeof rv === "number" && Number.isFinite(rv) ? rv : null);
+            };
+
             if (status === "ok" && hr?.heart) {
-              const h = hr.heart;
+              const h = hr.heart as Record<string, unknown>;
               setRestingBpm(typeof h.resting_bpm === "number" ? h.resting_bpm : null);
               setAvgBpm(typeof h.avg_bpm === "number" ? h.avg_bpm : null);
               setRecoveryDelta(
                 typeof h.recovery_delta_bpm === "number" ? h.recovery_delta_bpm : null
               );
               setHrSampleCount(typeof h.sample_count === "number" ? h.sample_count : 0);
+              readHeartExtras(h);
             } else if (hr?.heart) {
-              const h = hr.heart;
+              const h = hr.heart as Record<string, unknown>;
               setRestingBpm(typeof h.resting_bpm === "number" ? h.resting_bpm : null);
               setAvgBpm(typeof h.avg_bpm === "number" ? h.avg_bpm : null);
               setRecoveryDelta(
                 typeof h.recovery_delta_bpm === "number" ? h.recovery_delta_bpm : null
               );
               setHrSampleCount(typeof h.sample_count === "number" ? h.sample_count : 0);
+              readHeartExtras(h);
             } else {
               setRestingBpm(null);
               setAvgBpm(null);
               setRecoveryDelta(null);
               setHrSampleCount(null);
+              readHeartExtras(undefined);
             }
           }
         }
@@ -122,6 +155,10 @@ export default function HeartHealthPage() {
           setRecoveryDelta(null);
           setWeeklyTrend(null);
           setHrSampleCount(null);
+          setSleepHoursInGap(null);
+          setRecoveryBand(null);
+          setRestingVsBaseline(null);
+          setBaselineStatus(null);
         }
       } finally {
         if (!cancelled) setHrLoading(false);
@@ -134,18 +171,33 @@ export default function HeartHealthPage() {
     };
   }, [t]);
 
-  const authoritative =
+  const authoritativeHr =
     hrStatus === "ok" &&
     recoveryDelta != null &&
     restingBpm != null &&
     avgBpm != null;
 
+  const authoritative =
+    hrStatus === "ok" &&
+    (recoveryBand != null ||
+      (recoveryDelta != null && restingBpm != null && avgBpm != null));
+
+  const showBuildingBaseline =
+    baselineStatus === "building" &&
+    recoveryBand == null &&
+    !(authoritativeHr && hrStatus === "ok");
+
   let tone: "good" | "stressed" | "overworked" | "nodata" = "nodata";
   if (authoritative) {
-    const diff = recoveryDelta!;
-    tone = "good";
-    if (diff > 25) tone = "overworked";
-    else if (diff > 15) tone = "stressed";
+    if (recoveryBand === "good") tone = "good";
+    else if (recoveryBand === "medium") tone = "stressed";
+    else if (recoveryBand === "low") tone = "overworked";
+    else if (recoveryDelta != null) {
+      const diff = recoveryDelta;
+      tone = "good";
+      if (diff > 25) tone = "overworked";
+      else if (diff > 15) tone = "stressed";
+    }
   }
 
   const windowHint =
@@ -168,37 +220,43 @@ export default function HeartHealthPage() {
   const statusHeadline =
     hrLoading || hrStatus === null
       ? t("heartHealth.loadingShort")
-      : authoritative
-        ? tone === "good"
-          ? t("heartHealth.headline.good")
-          : tone === "stressed"
-            ? t("heartHealth.headline.stressed")
-            : t("heartHealth.headline.over")
-        : hrStatus === "no_device"
-          ? t("heartHealth.headline.noDevice")
-          : hrStatus === "no_recent_data"
-            ? t("heartHealth.headline.noRecent")
-            : hrStatus === "insufficient_data"
-              ? t("heartHealth.headline.insufficient")
-              : hrStatus === "error"
-                ? t("heartHealth.headline.error")
-                : t("heartHealth.headline.nodata");
+      : showBuildingBaseline
+        ? t("heartHealth.headline.buildingBaseline")
+        : authoritative
+          ? tone === "good"
+            ? t("heartHealth.headline.good")
+            : tone === "stressed"
+              ? t("heartHealth.headline.stressed")
+              : t("heartHealth.headline.over")
+          : hrStatus === "no_device"
+            ? t("heartHealth.headline.noDevice")
+            : hrStatus === "no_recent_data"
+              ? t("heartHealth.headline.noRecent")
+              : hrStatus === "insufficient_data"
+                ? t("heartHealth.headline.insufficient")
+                : hrStatus === "error"
+                  ? t("heartHealth.headline.error")
+                  : t("heartHealth.headline.nodata");
 
-  const statusSubline = authoritative
-    ? tone === "good"
-      ? t("heartHealth.sub.good")
-      : tone === "stressed"
-        ? t("heartHealth.sub.stressed")
-        : t("heartHealth.sub.over")
-    : emptyStateShort;
+  const statusSubline = showBuildingBaseline
+    ? t("heartHealth.sub.buildingBaseline")
+    : authoritative
+      ? tone === "good"
+        ? t("heartHealth.sub.good")
+        : tone === "stressed"
+          ? t("heartHealth.sub.stressed")
+          : t("heartHealth.sub.over")
+      : emptyStateShort;
 
-  const statusPillClass = authoritative
-    ? tone === "good"
-      ? "bg-emerald-50 text-emerald-800 ring-emerald-100"
-      : tone === "stressed"
-        ? "bg-amber-50 text-amber-900 ring-amber-100"
-        : "bg-rose-50 text-rose-900 ring-rose-100"
-    : "bg-slate-100 text-slate-700 ring-slate-200";
+  const statusPillClass = showBuildingBaseline
+    ? "bg-amber-50 text-amber-900 ring-amber-100"
+    : authoritative
+      ? tone === "good"
+        ? "bg-emerald-50 text-emerald-800 ring-emerald-100"
+        : tone === "stressed"
+          ? "bg-amber-50 text-amber-900 ring-amber-100"
+          : "bg-rose-50 text-rose-900 ring-rose-100"
+      : "bg-slate-100 text-slate-700 ring-slate-200";
 
   const heroBpm =
     typeof avgBpm === "number"
@@ -230,9 +288,15 @@ export default function HeartHealthPage() {
     hrSampleCount != null ? Math.min(1, hrSampleCount / 40) : 0;
   const RING_DELTA_MAX = 38;
   const ringInnerProgress =
-    authoritative && recoveryDelta != null
-      ? Math.max(0, Math.min(1, (RING_DELTA_MAX - recoveryDelta) / RING_DELTA_MAX))
-      : 0;
+    recoveryBand === "good"
+      ? 0.9
+      : recoveryBand === "medium"
+        ? 0.55
+        : recoveryBand === "low"
+          ? 0.22
+          : authoritativeHr && recoveryDelta != null
+            ? Math.max(0, Math.min(1, (RING_DELTA_MAX - recoveryDelta) / RING_DELTA_MAX))
+            : 0;
 
   const stepsHint =
     stepsPct >= 90
@@ -260,7 +324,12 @@ export default function HeartHealthPage() {
         : avgBpm != null
           ? t("heartHealth.avgOnly", { avg: String(avgBpm) })
           : "—";
-  const restAvgHint = t("heartHealth.restAvg.hint");
+  const restAvgHint =
+    restingVsBaseline != null
+      ? `${t("heartHealth.restAvg.hint")} · ${t("heartHealth.vsBaseline", {
+          bpm: restingVsBaseline > 0 ? `+${restingVsBaseline}` : String(restingVsBaseline),
+        })}`
+      : t("heartHealth.restAvg.hint");
 
   const recoveryDeltaStr =
     recoveryDelta != null
@@ -269,17 +338,21 @@ export default function HeartHealthPage() {
         }`
       : "";
   const recoveryValue =
-    authoritative && recoveryDelta != null
-      ? t("heartHealth.recovery.vsRest", { delta: recoveryDeltaStr })
-      : "—";
+    recoveryBand != null
+      ? t(`heartHealth.recovery.band.${recoveryBand}`)
+      : authoritativeHr && recoveryDelta != null
+        ? t("heartHealth.recovery.vsRest", { delta: recoveryDeltaStr })
+        : "—";
   const recoveryHint = authoritative
-    ? t("heartHealth.recovery.hint.ok")
+    ? recoveryBand != null
+      ? t("heartHealth.recovery.compositeHint")
+      : t("heartHealth.recovery.hint.ok")
     : hrLoading
       ? undefined
       : t("heartHealth.recovery.hint.wait");
 
   const showSafety =
-    authoritative && (tone === "overworked" || (restingBpm != null && restingBpm >= 90));
+    authoritativeHr && (tone === "overworked" || (restingBpm != null && restingBpm >= 90));
 
   return (
     <main className="min-h-screen bg-slate-100">
@@ -339,6 +412,16 @@ export default function HeartHealthPage() {
               value={`${steps.toLocaleString()} / ${stepTarget.toLocaleString()}`}
               hint={stepsHint}
               dotClass="bg-[rgb(16,245,156)] shadow-[0_0_6px_rgba(16,245,156,0.45)]"
+            />
+            <MetricRow
+              label={t("heartHealth.metric.sleepInGap")}
+              value={
+                sleepHoursInGap != null && sleepHoursInGap > 0
+                  ? t("heartHealth.sleepInGap.hours", { hours: sleepHoursInGap.toFixed(1) })
+                  : "—"
+              }
+              hint={t("heartHealth.sleepInGap.hint")}
+              dotClass="bg-violet-500 shadow-[0_0_6px_rgba(139,92,246,0.45)]"
             />
             <MetricRow
               label={t("heartHealth.metric.hrSamples")}

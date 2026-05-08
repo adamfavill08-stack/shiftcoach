@@ -19,7 +19,8 @@ export function getStoredThemePreference(storage: Storage): ThemePreference {
   const legacy = storage.getItem(THEME_LEGACY_STORAGE_KEY)
   if (legacy === 'dark' || legacy === 'light') return legacy
 
-  return 'system'
+  // Default to light for first-time users until they explicitly choose a mode.
+  return 'light'
 }
 
 export function resolveThemePreference(preference: ThemePreference, prefersDark: boolean): ResolvedTheme {

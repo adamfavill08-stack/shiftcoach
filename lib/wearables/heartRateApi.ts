@@ -10,6 +10,9 @@ export type HeartRateApiStatus =
   | 'insufficient_data'
   | 'error'
 
+/** Outside-gap resting baseline (10th percentile) — `building` until enough spread + samples */
+export type HeartBaselineStatus = 'ready' | 'building'
+
 export type HeartMetrics = {
   resting_bpm: number | null
   avg_bpm: number | null
@@ -17,6 +20,17 @@ export type HeartMetrics = {
   sample_count: number
   window_start: string | null
   window_end: string | null
+  /** Wearable sleep (e.g. Health Connect) overlapping the between-shift window, hours */
+  sleep_hours_in_window?: number | null
+  sleep_sessions_in_window?: number
+  /** Resting estimate from ~14d outside the current gap (when enough samples) */
+  baseline_resting_bpm?: number | null
+  /** Window resting minus baseline; positive = higher than your usual */
+  resting_vs_baseline_bpm?: number | null
+  /** Combined sleep + HR vs baseline + spread */
+  recovery_band?: 'low' | 'medium' | 'good' | null
+  recovery_score?: number | null
+  baseline_status?: HeartBaselineStatus
 }
 
 export type HeartWeeklyDay = {

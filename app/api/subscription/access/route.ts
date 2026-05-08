@@ -21,18 +21,25 @@ export async function GET() {
       })
     }
 
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('subscription_status, subscription_plan, trial_ends_at, revenuecat_entitlements, revenuecat_subscription_id')
+      .select('subscription_status, subscription_plan, trial_ends_at, created_at')
       .eq('user_id', userId)
       .maybeSingle()
+    if (profileError) {
+      return NextResponse.json(
+        { error: profileError.message || 'Failed to read profile for subscription access' },
+        { status: 500 },
+      )
+    }
 
     const access = deriveSubscriptionAccess({
       subscriptionStatus: profile?.subscription_status ?? null,
       subscriptionPlan: profile?.subscription_plan ?? null,
       trialEndsAt: profile?.trial_ends_at ?? null,
-      revenuecatEntitlements: profile?.revenuecat_entitlements ?? null,
-      revenuecatSubscriptionId: profile?.revenuecat_subscription_id ?? null,
+      profileCreatedAt: profile?.created_at ?? null,
+      revenuecatEntitlements: null,
+      revenuecatSubscriptionId: null,
     })
 
     return NextResponse.json({

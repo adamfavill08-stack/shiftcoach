@@ -36,7 +36,7 @@ function bucketIndexShiftAnchored(isoTime: string, shiftStart: Date): number | n
 }
 
 /** Civil-day buckets (0–23 local hour) — daytime-shaped estimate when no shift anchor. */
-function estimateStepsByHourCivil(totalSteps: number, timeZone: string, now: Date): number[] {
+export function estimateStepsByHourCivil(totalSteps: number, timeZone: string, now: Date): number[] {
   if (totalSteps <= 0) return Array.from({ length: 24 }, () => 0)
   const currentHour = getLocalHourFromIso(now.toISOString(), timeZone)
   const weights = Array.from({ length: 24 }, (_, h) => {

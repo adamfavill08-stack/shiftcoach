@@ -31,6 +31,26 @@ describe('deriveSubscriptionAccess — trialing + trial_ends_at (e.g. store-sync
     expect(access).toEqual({ isPro: false, plan: 'free' })
   })
 
+  it('keeps Pro access for new free profiles in first 7 days when trial fields are missing', () => {
+    const access = deriveSubscriptionAccess({
+      subscriptionStatus: null,
+      subscriptionPlan: 'free',
+      trialEndsAt: null,
+      profileCreatedAt: '2026-04-27T12:00:00.000Z',
+    })
+    expect(access).toEqual({ isPro: true, plan: 'free' })
+  })
+
+  it('does not grant fallback trial after first 7 days when trial fields are missing', () => {
+    const access = deriveSubscriptionAccess({
+      subscriptionStatus: null,
+      subscriptionPlan: 'free',
+      trialEndsAt: null,
+      profileCreatedAt: '2026-04-20T12:00:00.000Z',
+    })
+    expect(access).toEqual({ isPro: false, plan: 'free' })
+  })
+
   it('maps paid plan when trialing on monthly/yearly', () => {
     const access = deriveSubscriptionAccess({
       subscriptionStatus: 'trialing',
@@ -54,6 +74,15 @@ describe('deriveSubscriptionAccess — trialing + trial_ends_at (e.g. store-sync
       subscriptionPlan: 'pro',
     })
     expect(access).toEqual({ isPro: false, plan: 'free' })
+  })
+
+  it('does not drop Pro access when status is active even if profile plan says free', () => {
+    const access = deriveSubscriptionAccess({
+      subscriptionStatus: 'active',
+      subscriptionPlan: 'free',
+      trialEndsAt: null,
+    })
+    expect(access.isPro).toBe(true)
   })
 })
 

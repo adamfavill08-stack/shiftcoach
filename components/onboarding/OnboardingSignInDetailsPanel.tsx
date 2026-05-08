@@ -8,8 +8,11 @@ import { buildEmailConfirmationRedirectTo } from "@/lib/auth/oauthRedirect"
 const TEAL = "#149191"
 /** Bottom Back / Next bar — brand cyan from welcome CTA */
 const PILL_BG = "#05afc5"
-const PAGE_BG = "#F7F7F7"
-const CARD_BORDER = "#E8E8E8"
+const PAGE_BG = "var(--bg)"
+const CARD_BG = "var(--card)"
+const CARD_BORDER = "var(--border-subtle)"
+const TEXT_MAIN = "var(--text-main)"
+const TEXT_SOFT = "var(--text-soft)"
 type OnboardingSignInDetailsPanelProps = {
   persistDraft: () => void
   onSuccess: () => void
@@ -153,7 +156,7 @@ export function OnboardingSignInDetailsPanel({
               textAlign: "center",
               fontSize: 17,
               fontWeight: 600,
-              color: "#2D2D2D",
+              color: TEXT_MAIN,
               margin: "12px 40px 0",
               letterSpacing: "-0.02em",
             }}
@@ -166,10 +169,11 @@ export function OnboardingSignInDetailsPanel({
           <form id={formId} onSubmit={submit}>
           <div
             style={{
-              background: "#fff",
+              background: CARD_BG,
               borderRadius: 16,
               overflow: "hidden",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+              border: `1px solid ${CARD_BORDER}`,
+              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
             }}
           >
             <RowInput icon={User}>
@@ -189,7 +193,7 @@ export function OnboardingSignInDetailsPanel({
                   fontSize: 16,
                   padding: "14px 16px 14px 0",
                   fontFamily: "Inter, sans-serif",
-                  color: "#1a1a1a",
+                  color: TEXT_MAIN,
                   background: "transparent",
                 }}
               />
@@ -211,7 +215,7 @@ export function OnboardingSignInDetailsPanel({
                   fontSize: 16,
                   padding: "14px 16px 14px 0",
                   fontFamily: "Inter, sans-serif",
-                  color: "#1a1a1a",
+                  color: TEXT_MAIN,
                   background: "transparent",
                 }}
               />
@@ -236,7 +240,7 @@ export function OnboardingSignInDetailsPanel({
                     fontSize: 16,
                     padding: "14px 8px 14px 0",
                     fontFamily: "Inter, sans-serif",
-                    color: "#1a1a1a",
+                    color: TEXT_MAIN,
                     background: "transparent",
                   }}
                 />
@@ -271,7 +275,7 @@ export function OnboardingSignInDetailsPanel({
                 maxWidth: "100%",
                 background: "rgba(5, 175, 197, 0.14)",
                 border: "1px solid rgba(5, 175, 197, 0.38)",
-                color: "#0d5a63",
+                color: TEXT_SOFT,
                 fontSize: 12,
                 fontWeight: 600,
                 lineHeight: 1.35,
@@ -297,7 +301,7 @@ export function OnboardingSignInDetailsPanel({
           padding: "12px 20px calc(12px + env(safe-area-inset-bottom, 0px))",
           background: PAGE_BG,
           flexShrink: 0,
-          boxShadow: "0 -4px 20px rgba(0,0,0,0.04)",
+          boxShadow: "0 -4px 20px rgba(0,0,0,0.14)",
         }}
       >
         <div

@@ -13,29 +13,55 @@ export async function POST(req: NextRequest) {
     }
 
     if (selection === 'free') {
-      const withCompleted = {
-        subscription_plan: 'free' as const,
-        subscription_status: null as null,
-        trial_ends_at: null as null,
-        onboarding_completed: true,
-      }
-      let { error } = await supabase.from('profiles').update(withCompleted).eq('user_id', userId)
-      const errMsg = error?.message ?? ''
-      if (error && (error.code === 'PGRST204' || /onboarding_completed/i.test(errMsg))) {
-        const { error: e2 } = await supabase
-          .from('profiles')
-          .update({
-            subscription_plan: 'free',
-            subscription_status: null,
-            trial_ends_at: null,
-          })
-          .eq('user_id', userId)
-        error = e2
-      }
+      const grantTrial = async () =>
+        supabase.rpc('grant_free_trial_once', {
+          p_user_id: userId,
+          p_days: 7,
+          p_source: 'onboarding_free',
+        })
+
+      let { data, error } = await grantTrial()
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 })
       }
-      return NextResponse.json({ success: true, selection })
+
+      let row = Array.isArray(data) ? data[0] : data
+      let result = (row ?? {}) as {
+        granted?: boolean
+        reason?: 'granted' | 'already_claimed' | 'already_paid' | 'invalid_days' | 'profile_not_found'
+        trial_ends_at?: string | null
+      }
+
+      // In some onboarding races, profile row may not exist yet; create it and retry once.
+      if (result.reason === 'profile_not_found') {
+        const { error: upsertError } = await supabase
+          .from('profiles')
+          .upsert({ user_id: userId, onboarding_completed: true }, { onConflict: 'user_id' })
+        if (upsertError) {
+          return NextResponse.json({ error: upsertError.message }, { status: 500 })
+        }
+
+        const retry = await grantTrial()
+        if (retry.error) {
+          return NextResponse.json({ error: retry.error.message }, { status: 500 })
+        }
+        row = Array.isArray(retry.data) ? retry.data[0] : retry.data
+        result = (row ?? {}) as {
+          granted?: boolean
+          reason?: 'granted' | 'already_claimed' | 'already_paid' | 'invalid_days' | 'profile_not_found'
+          trial_ends_at?: string | null
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        selection,
+        trial: {
+          granted: Boolean(result.granted),
+          reason: result.reason ?? null,
+          trialEndsAt: result.trial_ends_at ?? null,
+        },
+      })
     }
 
     // Paid options: persist chosen intent so onboarding flow can resume after purchase.

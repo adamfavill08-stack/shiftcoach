@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ShiftCoach Wearable Dashboard</title>
+    <style>
+      :root {
+        --bg: #000000;
+        --card: #000000;
+        --card-subtle: #000000;
+        --text: #e8eefc;
+        --muted: #94a3b8;
+        --border-subtle: rgba(148, 163, 184, 0.22);
+        --accent: #3b82f6;
+        --accent-2: #22d3ee;
+        --ok: #34d399;
+        --warn: #fbbf24;
+        --bad: #f87171;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+        background: #000000;
+        color: var(--text);
+      }
+      .wrap {
+        max-width: 360px;
+        margin: 0 auto;
+        min-height: 100vh;
+        padding: 12px 10px 20px;
+        display: grid;
+        gap: 8px;
+      }
+      .card {
+        background: var(--card);
+        border-radius: 14px;
+        padding: 10px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+      .title {
+        margin: 3px 0 0;
+        font-size: 18px;
+        font-weight: 700;
+      }
+      .sub {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .kicker {
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: #c4b5fd;
+        font-weight: 700;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      .metric {
+        border: 1px solid var(--border-subtle);
+        border-radius: 9px;
+        background: var(--card-subtle);
+        padding: 7px 8px;
+      }
+      .metric .label {
+        font-size: 10px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .metric .value {
+        font-size: 16px;
+        font-weight: 700;
+        margin-top: 2px;
+      }
+      .dial-wrap {
+        margin-top: 6px;
+        display: flex;
+        justify-content: center;
+      }
+      .dial {
+        position: relative;
+        width: 210px;
+        height: 210px;
+        /* Tuned for 210px dial using the same geometry ratios as the app ring (R_OUT/R_IN on a 340 viewBox). */
+        --ring-r-out: 100.5px;
+        --ring-r-in: 74.2px;
+        --ring-r-mid: calc((var(--ring-r-out) + var(--ring-r-in)) / 2);
+        --ring-handle-len: 30px;
+      }
+      .dial-wrap img {
+        width: 210px;
+        height: 210px;
+        display: block;
+        position: relative;
+        z-index: 0;
+      }
+      .ring-marker {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 0;
+        height: 0;
+        transform-origin: center;
+        z-index: 2;
+        pointer-events: none;
+      }
+      .ring-handle {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 1.5px;
+        height: var(--ring-handle-len);
+        border-radius: 999px;
+        transform: translate(-50%, calc(-1 * var(--ring-r-mid) + 1px));
+        opacity: 0.95;
+        filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.16));
+        z-index: 1;
+      }
+      .ring-dot {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        transform: translate(-50%, calc(-1 * var(--ring-r-mid)));
+        border: 1.5px solid rgba(255, 255, 255, 0.95);
+        box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.35);
+        z-index: 2;
+      }
+      .ring-dot-now {
+        background: radial-gradient(circle at 50% 50%, #f8fafc 0 26%, #7dd3fc 28% 100%);
+        box-shadow:
+          0 0 0 1px rgba(15, 23, 42, 0.35),
+          0 0 10px rgba(125, 211, 252, 0.55);
+      }
+      .ring-handle-now {
+        background: #7dd3fc;
+      }
+      .ring-dot-body {
+        width: 8px;
+        height: 8px;
+        background: radial-gradient(circle at 50% 50%, #60a5fa 0 22%, #fb923c 24% 100%);
+        border-color: rgba(251, 191, 36, 0.95);
+        box-shadow:
+          0 0 0 1px rgba(15, 23, 42, 0.45),
+          0 0 10px rgba(251, 146, 60, 0.45);
+      }
+      .ring-handle-body {
+        background: #fb923c;
+        height: calc(var(--ring-handle-len) - 4px);
+        transform: translate(-50%, calc(-1 * var(--ring-r-mid) + 5px));
+      }
+      .ring-dot-risk {
+        background: radial-gradient(circle at 50% 50%, #f8fafc 0 26%, #ef4444 28% 100%);
+        box-shadow:
+          0 0 0 1px rgba(15, 23, 42, 0.35),
+          0 0 10px rgba(239, 68, 68, 0.55);
+      }
+      .ring-handle-risk {
+        background: #ef4444;
+      }
+      .dial-copy {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        pointer-events: none;
+        width: 120px;
+        z-index: 3;
+      }
+      .dial-copy .top {
+        font-size: 9px;
+        letter-spacing: 0.14em;
+        color: var(--muted);
+        font-weight: 700;
+      }
+      .dial-copy .state {
+        margin-top: 3px;
+        font-size: 22px;
+        line-height: 1;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        color: #fde047;
+        text-transform: uppercase;
+      }
+      .dial-copy .sub {
+        margin-top: 2px;
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .chips {
+        margin-top: 6px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 5px;
+      }
+      .chip {
+        border: 1px solid var(--border-subtle);
+        border-radius: 999px;
+        background: var(--card-subtle);
+        text-align: center;
+        padding: 3px 5px;
+      }
+      .chip .c-label {
+        font-size: 9px;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+      .chip .c-value {
+        font-size: 10px;
+        font-weight: 700;
+      }
+      .btn {
+        width: 100%;
+        margin-top: 8px;
+        border: 0;
+        border-radius: 12px;
+        padding: 12px 12px;
+        color: white;
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        font-weight: 700;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .tag {
+        border-radius: 999px;
+        border: 1px solid var(--border-subtle);
+        padding: 2px 8px;
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .ok {
+        color: var(--ok);
+      }
+      .warn {
+        color: var(--warn);
+      }
+      .bad {
+        color: var(--bad);
+      }
+      .list {
+        margin: 8px 0 0;
+        padding-left: 18px;
+      }
+      .list li {
+        margin: 5px 0;
+        color: #cbd5e1;
+        font-size: 12px;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+      .ring {
+        width: 58px;
+        height: 58px;
+        border-radius: 999px;
+        background: conic-gradient(var(--accent) var(--p), #334155 0);
+        display: grid;
+        place-items: center;
+      }
+      .ring > div {
+        width: 45px;
+        height: 45px;
+        border-radius: 999px;
+        background: var(--card);
+        display: grid;
+        place-items: center;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .watch-nav {
+        position: sticky;
+        bottom: 0;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 4px;
+        padding: 6px 4px;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        background: rgba(10, 14, 24, 0.95);
+      }
+      .watch-nav button {
+        border: 1px solid #334155;
+        background: #0b1220;
+        color: #cbd5e1;
+        border-radius: 9px;
+        padding: 8px 4px;
+        font-size: 9px;
+        line-height: 1.1;
+        font-weight: 700;
+      }
+      .watch-nav button.active {
+        border-color: #22d3ee;
+        color: #ecfeff;
+      }
+      .watch-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+      .watch-pill {
+        border-radius: 999px;
+        border: 1px solid var(--border-subtle);
+        padding: 2px 7px;
+        font-size: 10px;
+        color: #cbd5e1;
+        background: var(--card-subtle);
+      }
+      .misalign-caption {
+        margin-top: 10px;
+        text-align: center;
+        font-size: 15px;
+        line-height: 1.25;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        color: #f59e0b;
+      }
+      .preview-controls {
+        max-width: 360px;
+        margin: 8px auto 0;
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+      }
+      .preview-btn {
+        border: 1px solid var(--border-subtle);
+        background: #050505;
+        color: var(--muted);
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .preview-btn.active {
+        color: #e2e8f0;
+        border-color: #38bdf8;
+      }
+      .watch-frame {
+        width: min(360px, 100%);
+        margin: 0 auto;
+      }
+      .watch-frame.round {
+        width: 340px;
+        height: 340px;
+        border-radius: 50%;
+        overflow: hidden;
+      }
+      .watch-frame.round .wrap {
+        min-height: 340px;
+        max-height: 340px;
+        overflow-y: auto;
+        padding: 12px 12px 16px;
+      }
+      .watch-frame.round .watch-nav {
+        position: static;
+      }
+      .fatigue-pill-wrap {
+        max-width: 360px;
+        margin: 10px auto 0;
+        display: flex;
+        justify-content: center;
+        padding: 0 10px 16px;
+      }
+      .fatigue-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        padding: 8px 14px;
+        font-size: 12px;
+        line-height: 1.25;
+        font-weight: 600;
+        color: #fecaca;
+        background: rgba(127, 29, 29, 0.35);
+        border: 1px solid rgba(248, 113, 113, 0.45);
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+      }
+      .fatigue-pill .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #ef4444;
+        box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
+        flex-shrink: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="preview-controls" role="group" aria-label="Preview shape">
+      <button id="roundBtn" class="preview-btn active" type="button">Round</button>
+      <button id="rectBtn" class="preview-btn" type="button">Rect</button>
+    </div>
+    <div id="watchFrame" class="watch-frame round">
+      <main class="wrap">
+      <section class="card">
+        <div style="text-align:center; margin-bottom:6px;">
+          <span class="kicker" style="letter-spacing:0.2em;">ShiftCoach</span>
+        </div>
+        <div class="dial-wrap">
+          <div class="dial">
+            <img src="/circadian-ring.svg" alt="Body clock ring" />
+            <div class="ring-marker" id="nowMarker" aria-hidden="true">
+              <div class="ring-handle ring-handle-now"></div>
+              <div class="ring-dot ring-dot-now"></div>
+            </div>
+            <div class="ring-marker" id="bodyMarker" aria-hidden="true">
+              <div class="ring-handle ring-handle-body"></div>
+              <div class="ring-dot ring-dot-body"></div>
+            </div>
+            <div class="ring-marker" id="riskMarker" aria-hidden="true">
+              <div class="ring-handle ring-handle-risk"></div>
+              <div class="ring-dot ring-dot-risk"></div>
+            </div>
+            <div class="dial-copy">
+              <div class="top">ALERTNESS</div>
+              <div class="state">PEAK</div>
+              <div class="sub">right now</div>
+            </div>
+          </div>
+        </div>
+        <p class="misalign-caption">0h 54m behind</p>
+      </section>
+
+      <section class="card">
+        <div class="watch-row">
+          <div class="kicker">Meal Times</div>
+          <span class="watch-pill warn">2 missed</span>
+        </div>
+        <div class="grid" style="margin-top:8px;">
+          <div class="metric">
+            <div class="label">Next meal</div>
+            <div class="value">18:40</div>
+          </div>
+          <div class="metric">
+            <div class="label">Window</div>
+            <div class="value">+/- 45m</div>
+          </div>
+        </div>
+        <ul class="list">
+          <li>Breakfast logged late by 52 minutes.</li>
+          <li>Anchor dinner target remains on track.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <div class="watch-row">
+          <div class="kicker">Activity</div>
+          <div id="ring" class="ring" style="--p:65%">
+            <div id="percent">65%</div>
+          </div>
+        </div>
+        <div class="grid" style="margin-top:8px;">
+          <div class="metric">
+            <div class="label">Steps</div>
+            <div class="value" id="stepsValue">6,532</div>
+          </div>
+          <div class="metric">
+            <div class="label">Active min</div>
+            <div class="value">42</div>
+          </div>
+        </div>
+        <button id="syncBtn" class="btn">Sync wearable now</button>
+      </section>
+
+      <section class="card">
+        <div class="watch-row">
+          <div class="kicker">Sleep</div>
+          <span class="watch-pill">last night</span>
+        </div>
+        <div class="grid" style="margin-top:8px;">
+          <div class="metric">
+            <div class="label">Duration</div>
+            <div class="value">6h 24m</div>
+          </div>
+          <div class="metric">
+            <div class="label">Quality</div>
+            <div class="value warn">Fair</div>
+          </div>
+        </div>
+        <ul class="list">
+          <li>Sleep midpoint shifted 38 minutes later.</li>
+          <li>Wind-down reminder suggested at 22:05.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <div class="watch-row">
+          <div class="kicker">Heart Health</div>
+          <span class="watch-pill ok">stable</span>
+        </div>
+        <div class="grid" style="margin-top:8px;">
+          <div class="metric">
+            <div class="label">Resting HR</div>
+            <div class="value">58 bpm</div>
+          </div>
+          <div class="metric">
+            <div class="label">HRV</div>
+            <div class="value">54 ms</div>
+          </div>
+        </div>
+        <p class="sub" style="margin-top:8px;">No anomalies detected in the last 24 hours.</p>
+      </section>
+
+      <section class="card" style="padding-bottom:8px;">
+        <div class="watch-row">
+          <div class="kicker">Sync feed</div>
+          <span class="tag">Live</span>
+        </div>
+        <ul id="events">
+          <li>12:41 - Wearable heartbeat accepted.</li>
+          <li>12:45 - Activity packet merged.</li>
+          <li>12:47 - Sleep summary refreshed.</li>
+        </ul>
+      </section>
+
+      <section class="watch-nav">
+        <button class="active">Body</button>
+        <button>Meals</button>
+        <button>Move</button>
+        <button>Sleep</button>
+        <button>Heart</button>
+      </section>
+
+      <div class="fatigue-pill-wrap">
+        <div class="fatigue-pill" role="status">
+          <span class="dot" aria-hidden="true"></span>
+          <span>High fatigue risk around <strong>02:11-03:11</strong></span>
+        </div>
+      </div>
+      </main>
+    </div>
+    <script>
+      const goal = 10000;
+      let steps = 6532;
+      const stepsEl = document.getElementById("stepsValue");
+      const percentEl = document.getElementById("percent");
+      const ringEl = document.getElementById("ring");
+      const syncBtn = document.getElementById("syncBtn");
+      const eventsEl = document.getElementById("events");
+      const nowMarker = document.getElementById("nowMarker");
+      const bodyMarker = document.getElementById("bodyMarker");
+      const riskMarker = document.getElementById("riskMarker");
+      const watchFrame = document.getElementById("watchFrame");
+      const roundBtn = document.getElementById("roundBtn");
+      const rectBtn = document.getElementById("rectBtn");
+
+      function setMarkerAngle(el, angle) {
+        // 0h is top. rotate() uses rightward as 0deg, so offset by -90.
+        // Rotate the whole marker stack (short handle + dot) around dial center.
+        el.style.transform = `translate(-50%, -50%) rotate(${angle - 90}deg)`;
+      }
+
+      function render() {
+        const pct = Math.min(100, Math.round((steps / goal) * 100));
+        stepsEl.textContent = steps.toLocaleString();
+        percentEl.textContent = pct + "%";
+        ringEl.style.setProperty("--p", pct + "%");
+        // Visual composition tuned to match the reference dial (watch-scale),
+        // independent of the chip times below.
+        setMarkerAngle(nowMarker, 225); // ~7:30
+        setMarkerAngle(bodyMarker, 195); // ~6:30
+        setMarkerAngle(riskMarker, 315); // ~10:30
+      }
+
+      function addEvent(text) {
+        const li = document.createElement("li");
+        li.textContent = text;
+        eventsEl.prepend(li);
+      }
+
+      roundBtn.addEventListener("click", () => {
+        watchFrame.classList.add("round");
+        roundBtn.classList.add("active");
+        rectBtn.classList.remove("active");
+      });
+
+      rectBtn.addEventListener("click", () => {
+        watchFrame.classList.remove("round");
+        rectBtn.classList.add("active");
+        roundBtn.classList.remove("active");
+      });
+
+      syncBtn.addEventListener("click", () => {
+        syncBtn.disabled = true;
+        syncBtn.textContent = "Syncing...";
+        setTimeout(() => {
+          const delta = Math.floor(Math.random() * 420 + 80);
+          steps += delta;
+          render();
+          addEvent(
+            new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
+              " - Activity sync +" +
+              delta +
+              " steps."
+          );
+          syncBtn.disabled = false;
+          syncBtn.textContent = "Sync wearable now";
+        }, 1100);
+      });
+
+      render();
+    </script>
+  </body>
+</html>
+
+
+
+
+
+
+
+
+
+
+

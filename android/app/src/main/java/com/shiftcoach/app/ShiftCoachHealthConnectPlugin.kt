@@ -954,14 +954,15 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 }
                 val sleepSessionCount = sleepArr.length()
 
-                val hrFrom = now.minus(2, ChronoUnit.DAYS)
+                // Match server baseline (≈14d) for between-shift recovery + resting vs baseline — 2d was too short.
+                val hrFrom = now.minus(14, ChronoUnit.DAYS)
                 val heartRateDateRangeStart = hrFrom.toString()
                 val heartRateDateRangeEnd = now.toString()
 
                 val hrArr = JSONArray()
                 var heartRateSampleCount = 0
                 var heartRateRecordCount = 0
-                val maxHr = 2500
+                val maxHr = 10000
                 runBlocking {
                     val req =
                         ReadRecordsRequest(

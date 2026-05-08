@@ -542,3 +542,39 @@ export function buildActivityHistory30Days(params: {
     hasAnyStepSamples,
   }
 }
+
+/**
+ * Recompute header summary stats for a subset of days (e.g. last 7 shown in the list).
+ * Uses the same low-movement thresholds as the full-window builder.
+ */
+export function summarizeActivityHistoryWindow(items: readonly ActivityHistoryItem[]): ActivityHistorySummary {
+  const shiftRows = items.filter((i) => i.duringShiftSteps != null)
+  const shiftsTracked = shiftRows.length
+  const averageDuringShiftSteps =
+    shiftsTracked > 0
+      ? Math.round(shiftRows.reduce((sum, row) => sum + (row.duringShiftSteps ?? 0), 0) / shiftsTracked)
+      : 0
+  const lowMovementShifts = shiftRows.filter((s) =>
+    isLowMovementShiftForSummary(s.type, s.duringShiftSteps ?? 0),
+  ).length
+  const bestRow =
+    shiftRows.length > 0
+      ? shiftRows.reduce(
+          (best, cur) =>
+            (cur.duringShiftSteps ?? 0) > (best.duringShiftSteps ?? 0) ? cur : best
+        )
+      : null
+  return {
+    shiftsTracked,
+    averageDuringShiftSteps,
+    lowMovementShifts,
+    bestShift: bestRow
+      ? {
+          label: bestRow.rosterTimeRange
+            ? `${bestRow.dateLabel} · ${bestRow.rosterTimeRange}`
+            : bestRow.dateLabel,
+          steps: bestRow.duringShiftSteps ?? 0,
+        }
+      : null,
+  }
+}

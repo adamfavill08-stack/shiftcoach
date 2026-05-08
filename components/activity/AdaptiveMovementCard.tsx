@@ -1,6 +1,7 @@
 "use client";
 
-import { Footprints, Info, Moon, Sunrise, Sun, Lightbulb } from "lucide-react";
+import { Footprints, Moon, Sunrise, Sun, Lightbulb } from "lucide-react";
+import { estimateStepsByHourCivil, getLocalHourFromIso } from "@/lib/activity/buildStepsByHour";
 
 type DayType = "shift" | "recovery" | "day_off";
 type ShiftType = "day" | "evening" | "night" | "unknown";
@@ -135,27 +136,70 @@ function getDayOffInsight(verdict: Verdict) {
   return "Active day. Remember to recover before your next shift.";
 }
 
-function getDayPart(timestamp: string): "morning" | "midday" | "evening" | null {
-  const date = new Date(timestamp);
-  const time = date.getTime();
-
+function getDayPart(timestamp: string, activityTimeZone?: string | null): "morning" | "midday" | "evening" | null {
+  const time = toTime(timestamp);
   if (!isValidTime(time)) return null;
 
-  const hour = date.getHours();
+  let hour = 12;
+  if (typeof activityTimeZone === "string" && activityTimeZone.trim()) {
+    try {
+      hour = getLocalHourFromIso(timestamp, activityTimeZone.trim());
+    } catch {
+      hour = new Date(timestamp).getHours();
+    }
+  } else {
+    hour = new Date(timestamp).getHours();
+  }
 
+  /** Civil clock day-parts aligned with UX copy (recovery / day off). */
   if (hour >= 5 && hour < 12) return "morning";
   if (hour >= 12 && hour < 18) return "midday";
   return "evening";
+}
+
+/** Bucket `stepsByHour[h]` is civil hour `h` in `activityIntelTimeZone` (anchor null). */
+function morningMidEveningFrom24CivilBuckets(buckets: readonly number[]): {
+  morning: number;
+  midday: number;
+  evening: number;
+} {
+  let morning = 0;
+  let midday = 0;
+  let evening = 0;
+  if (buckets.length !== 24) return { morning, midday, evening };
+  for (let h = 0; h < 24; h += 1) {
+    const steps = Math.max(0, Math.round(buckets[h] ?? 0));
+    if (steps <= 0) continue;
+    if (h >= 5 && h < 12) morning += steps;
+    else if (h >= 12 && h < 18) midday += steps;
+    else evening += steps;
+  }
+  return { morning, midday, evening };
+}
+
+function stepsTotalFromBuckets(b: { morning: number; midday: number; evening: number }) {
+  return b.morning + b.midday + b.evening;
 }
 
 export function buildAdaptiveMovementData({
   samples,
   dayType,
   shift,
+  activityTimeZone,
+  hourlyCivilBuckets,
+  coherentStepsFallback,
+  nowForDistribution,
 }: {
   samples: StepSample[];
   dayType: DayType;
   shift?: Shift | null;
+  /** Align 15‑min samples to morning/mid/evening in this IANA zone (not device locale). */
+  activityTimeZone?: string | null;
+  /** Fallback when `samples` yield 0: today’s civil `stepsByHour` from `/api/activity/today` (same zone as snapshots). */
+  hourlyCivilBuckets?: readonly number[] | null;
+  /** Last resort when both samples and hourly are empty but activity total is known from logs. */
+  coherentStepsFallback?: number | null;
+  nowForDistribution?: Date;
 }): AdaptiveMovementData {
   if (dayType === "shift") {
     if (!shift) {
@@ -218,8 +262,10 @@ export function buildAdaptiveMovementData({
   let midday = 0;
   let evening = 0;
 
+  const now = nowForDistribution ?? new Date();
+
   for (const sample of samples) {
-    const part = getDayPart(sample.timestamp);
+    const part = getDayPart(sample.timestamp, activityTimeZone);
     if (!part) continue;
 
     const steps = safeSteps(sample.steps);
@@ -229,7 +275,30 @@ export function buildAdaptiveMovementData({
     if (part === "evening") evening += steps;
   }
 
-  const totalSteps = morning + midday + evening;
+  let totalSteps = morning + midday + evening;
+
+  if (totalSteps <= 0 && hourlyCivilBuckets && hourlyCivilBuckets.length === 24) {
+    const fromHourly = morningMidEveningFrom24CivilBuckets(hourlyCivilBuckets);
+    if (stepsTotalFromBuckets(fromHourly) > 0) {
+      morning = fromHourly.morning;
+      midday = fromHourly.midday;
+      evening = fromHourly.evening;
+      totalSteps = stepsTotalFromBuckets(fromHourly);
+    }
+  }
+
+  const tzTrim =
+    typeof activityTimeZone === "string" && activityTimeZone.trim() ? activityTimeZone.trim() : null;
+  if (totalSteps <= 0 && tzTrim != null && typeof coherentStepsFallback === "number" && coherentStepsFallback > 0) {
+    const est = estimateStepsByHourCivil(Math.round(coherentStepsFallback), tzTrim, now);
+    const fb = morningMidEveningFrom24CivilBuckets(est);
+    if (stepsTotalFromBuckets(fb) > 0) {
+      morning = fb.morning;
+      midday = fb.midday;
+      evening = fb.evening;
+      totalSteps = stepsTotalFromBuckets(fb);
+    }
+  }
 
   if (dayType === "recovery") {
     const verdict = getRecoveryVerdict(totalSteps);
@@ -326,16 +395,11 @@ export function AdaptiveMovementCard({
   return (
     <section className="w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_8px_22px_rgba(15,23,42,0.08)] dark:border-[var(--border-subtle)] dark:bg-[var(--card)] dark:shadow-[0_12px_34px_rgba(0,0,0,0.35)]">
       <div className="p-4 sm:p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300">
-              <HeaderIcon className="h-5 w-5" />
-            </span>
-            <p className="text-lg font-semibold tracking-tight text-slate-900 dark:text-[var(--text-main)]">{data.title}</p>
-          </div>
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-500 dark:border-[var(--border-subtle)] dark:text-[var(--text-muted)]">
-            <Info className="h-4 w-4" />
+        <div className="mb-4 flex items-center gap-3">
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300">
+            <HeaderIcon className="h-5 w-5" />
           </span>
+          <p className="text-lg font-semibold tracking-tight text-slate-900 dark:text-[var(--text-main)]">{data.title}</p>
         </div>
 
         <div className="grid grid-cols-1 gap-4">

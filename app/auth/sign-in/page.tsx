@@ -10,6 +10,10 @@ import { useTranslation } from '@/components/providers/language-provider'
 import { CompactLanguagePicker } from '@/components/i18n/CompactLanguagePicker'
 import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus'
 
+export function resolvePostSignInRoute(profile: { onboarding_completed?: boolean | null } | null): '/dashboard' | '/onboarding' {
+  return profile?.onboarding_completed === true ? '/dashboard' : '/onboarding'
+}
+
 function SignInContent() {
   const { t } = useTranslation()
   const [email, setEmail] = useState('')
@@ -89,13 +93,11 @@ function SignInContent() {
       if (u.user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('name, height_cm, weight_kg')
+          .select('onboarding_completed')
           .eq('user_id', u.user.id)
           .single()
 
-        // If basic profile fields are missing, guide user through onboarding first
-        const isComplete = profile && profile.name && profile.height_cm && profile.weight_kg
-        router.replace(isComplete ? '/dashboard' : '/onboarding')
+        router.replace(resolvePostSignInRoute(profile))
       } else {
         router.replace('/dashboard')
       }

@@ -52,6 +52,7 @@ export function deriveSubscriptionAccess(input: {
   subscriptionStatus?: string | null
   subscriptionPlan?: string | null
   trialEndsAt?: string | null
+  profileCreatedAt?: string | null
   revenuecatEntitlements?: unknown
   revenuecatSubscriptionId?: string | null
 }): { isPro: boolean; plan: EffectivePlan } {
@@ -59,6 +60,9 @@ export function deriveSubscriptionAccess(input: {
   const status = (input.subscriptionStatus ?? '').toLowerCase()
   const trialEndsAtMs = input.trialEndsAt ? new Date(input.trialEndsAt).getTime() : NaN
   const hasValidTrialWindow = Number.isFinite(trialEndsAtMs) && trialEndsAtMs > Date.now()
+  const profileCreatedAtMs = input.profileCreatedAt ? new Date(input.profileCreatedAt).getTime() : NaN
+  const hasValidFirstWeekWindow =
+    Number.isFinite(profileCreatedAtMs) && profileCreatedAtMs + 7 * 24 * 60 * 60 * 1000 > Date.now()
   const isTrialing = status === 'trialing' && hasValidTrialWindow
   const entitlementActive = isEntitlementActive(input.revenuecatEntitlements)
   const mappedPlan = getPlanFromProductId(input.revenuecatSubscriptionId)
@@ -82,6 +86,12 @@ export function deriveSubscriptionAccess(input: {
     if (mappedPlan) {
       return { isPro: true, plan: mappedPlan }
     }
+    return { isPro: true, plan: 'free' }
+  }
+
+  // Safety fallback: if profile trial fields were not persisted yet for a new free user,
+  // keep Pro access for first 7 days after profile creation.
+  if (normalizedPlan === 'free' && hasValidFirstWeekWindow) {
     return { isPro: true, plan: 'free' }
   }
 

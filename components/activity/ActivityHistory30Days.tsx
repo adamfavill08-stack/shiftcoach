@@ -4,10 +4,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { authedFetch } from '@/lib/supabase/authedFetch'
 import {
   buildActivityHistory30Days,
+  summarizeActivityHistoryWindow,
   type ActivityHistoryItem,
   type ActivityHistory30DaysResult,
   type ActivityHistoryDayType,
 } from '@/lib/activity/activityHistory30Days'
+
+const HISTORY_RANGE_OPTIONS = [7, 14, 30] as const
+type HistoryRangeDays = (typeof HISTORY_RANGE_OPTIONS)[number]
 
 type HistoryApiPayload = {
   shifts?: Array<{
@@ -47,6 +51,7 @@ export function ActivityHistory30Days() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<ActivityHistory30DaysResult | null>(null)
+  const [rangeDays, setRangeDays] = useState<HistoryRangeDays>(7)
 
   useEffect(() => {
     let cancelled = false
@@ -81,15 +86,44 @@ export function ActivityHistory30Days() {
     }
   }, [])
 
-  const topItems = useMemo(() => result?.items.slice(0, 30) ?? [], [result])
+  const topItems = useMemo(
+    () => (result ? result.items.slice(0, rangeDays) : []),
+    [result, rangeDays],
+  )
+
+  const displaySummary = useMemo(
+    () => (result ? summarizeActivityHistoryWindow(topItems) : null),
+    [result, topItems],
+  )
 
   return (
     <section className="w-full rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-[var(--border-subtle)] dark:bg-zinc-900/75">
-      <div className="mb-3">
-        <h2 className="text-base font-semibold text-slate-900 dark:text-[var(--text-main)]">Last 30 days</h2>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          Shift-aware movement history with overnight shifts kept together.
-        </p>
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-[var(--text-main)]">
+            Last {rangeDays} days
+          </h2>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Shift-aware movement history with overnight shifts kept together.
+          </p>
+        </div>
+        <label className="flex shrink-0 flex-col gap-0.5 sm:items-end">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Show
+          </span>
+          <select
+            className="min-w-[8.5rem] cursor-pointer rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-900 shadow-sm outline-none ring-slate-400/40 focus:ring-2 dark:border-zinc-600 dark:bg-zinc-800 dark:text-[var(--text-main)] dark:ring-zinc-500/50"
+            value={rangeDays}
+            onChange={(e) => setRangeDays(Number(e.target.value) as HistoryRangeDays)}
+            aria-label="Number of days to show in movement history"
+          >
+            {HISTORY_RANGE_OPTIONS.map((n) => (
+              <option key={n} value={n}>
+                Last {n} days
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {loading ? (
@@ -102,7 +136,7 @@ export function ActivityHistory30Days() {
         <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700 dark:bg-red-900/20 dark:text-red-300">
           {error}
         </p>
-      ) : result ? (
+      ) : result && displaySummary ? (
         <>
           {!result.hasAnyStepSamples ? (
             <p className="mb-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:bg-zinc-800/80 dark:text-slate-300">
@@ -112,23 +146,23 @@ export function ActivityHistory30Days() {
           <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-2 dark:bg-zinc-800/70">
             <div className="rounded-md bg-white px-2 py-2 dark:bg-zinc-900">
               <p className="text-[11px] text-slate-500">Shifts tracked</p>
-              <p className="text-sm font-semibold text-slate-900 dark:text-[var(--text-main)]">{result.summary.shiftsTracked}</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-[var(--text-main)]">{displaySummary.shiftsTracked}</p>
             </div>
             <div className="rounded-md bg-white px-2 py-2 dark:bg-zinc-900">
               <p className="text-[11px] text-slate-500">Avg during-shift</p>
               <p className="text-sm font-semibold text-slate-900 dark:text-[var(--text-main)]">
-                {result.summary.averageDuringShiftSteps.toLocaleString()}
+                {displaySummary.averageDuringShiftSteps.toLocaleString()}
               </p>
             </div>
             <div className="rounded-md bg-white px-2 py-2 dark:bg-zinc-900">
               <p className="text-[11px] text-slate-500">Low movement shifts</p>
-              <p className="text-sm font-semibold text-slate-900 dark:text-[var(--text-main)]">{result.summary.lowMovementShifts}</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-[var(--text-main)]">{displaySummary.lowMovementShifts}</p>
             </div>
             <div className="rounded-md bg-white px-2 py-2 dark:bg-zinc-900">
               <p className="text-[11px] text-slate-500">Best shift</p>
               <p className="truncate text-sm font-semibold text-slate-900 dark:text-[var(--text-main)]">
-                {result.summary.bestShift
-                  ? `${result.summary.bestShift.label} (${result.summary.bestShift.steps.toLocaleString()})`
+                {displaySummary.bestShift
+                  ? `${displaySummary.bestShift.label} (${displaySummary.bestShift.steps.toLocaleString()})`
                   : 'No shift data'}
               </p>
             </div>

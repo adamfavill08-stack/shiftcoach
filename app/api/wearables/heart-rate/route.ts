@@ -6,11 +6,17 @@ import {
   summarizeSamples,
   buildWeeklyTrendUtc,
 } from '@/lib/wearables/aggregateHrSamples'
+import {
+  baselineRestingOutsideGap,
+  computeRecoveryComposite,
+  overlapAsleepHoursInWindow,
+} from '@/lib/wearables/shiftGapRecoverySignals'
 import { heartRateOk, heartRateUnavailable, type HeartMetrics } from '@/lib/wearables/heartRateApi'
 
-const HR_QUERY_LIMIT = 4000
+const HR_QUERY_LIMIT = 12000
 const SHIFT_LOOKBACK_MS = 45 * 24 * 60 * 60 * 1000
 const FALLBACK_WINDOW_MS = 24 * 60 * 60 * 1000
+const BASELINE_LOOKBACK_MS = 16 * 24 * 60 * 60 * 1000
 const PRIMARY_MIN_SAMPLES = 10
 const PRIMARY_MIN_SPAN_MS = 15 * 60 * 1000
 const WEEKLY_DAY_MIN_SAMPLES = 8
@@ -21,6 +27,15 @@ const WEEKLY_DAY_MIN_SPAN_MS = 10 * 60 * 1000
  *
  * Shift-aware between-shift recovery window, percentile resting estimate, real 7-day UTC trend.
  * Always HTTP 200 for contract outcomes; check `status`.
+ *
+ * **Pre-release live checks (Android + rota):**
+ * 1. Native sync sends ~14d HR (`ShiftCoachHealthConnectPlugin` hr range).
+ * 2. This route returns `heart.sample_count` > 0 when HR exists in the gap (status `ok` or partial).
+ * 3. `heart.sleep_hours_in_window` when `sleep_records` overlap the gap.
+ * 4. `heart.baseline_resting_bpm` + `heart.baseline_status: "ready"` after enough HR outside the gap.
+ * 5. `heart.recovery_band` Low / Medium / Good when sleep and/or HR allow scoring.
+ * 6. HR missing, sleep present → band can still populate; HR row absent → `no_device` only when DB has no HR at all.
+ * 7. Sleep missing, HR present → HR-only path; `baseline_status: "building"` until baseline is ready.
  */
 export async function GET() {
   try {
@@ -90,8 +105,8 @@ export async function GET() {
       windowStart = new Date(nowMs - FALLBACK_WINDOW_MS)
     }
 
-    const sevenDaysAgo = new Date(nowMs - 7 * 24 * 60 * 60 * 1000)
-    const fetchFrom = new Date(Math.min(sevenDaysAgo.getTime(), windowStart.getTime()))
+    const baselineLookbackStart = nowMs - BASELINE_LOOKBACK_MS
+    const fetchFrom = new Date(Math.min(baselineLookbackStart, windowStart.getTime() - 24 * 60 * 60 * 1000))
 
     const hrRows = await supabase
       .from('wearable_heart_rate_samples')
@@ -117,6 +132,25 @@ export async function GET() {
       }))
       .filter((s) => Number.isFinite(s.bpm) && s.bpm > 0 && s.recorded_at.length > 0)
 
+    const { data: sleepRows, error: sleepErr } = await supabase
+      .from('sleep_records')
+      .select('start_at, end_at, stage')
+      .eq('user_id', userId)
+      .gt('end_at', windowStart.toISOString())
+      .lt('start_at', windowEnd.toISOString())
+
+    if (sleepErr) {
+      console.warn('[wearables/heart-rate] sleep_records query:', sleepErr.message)
+    }
+
+    const { hours: sleepHoursInWindow, sessionCount: sleepSessionsInWindow } = overlapAsleepHoursInWindow(
+      sleepRows ?? [],
+      windowStart,
+      windowEnd,
+    )
+
+    const baseline = baselineRestingOutsideGap(samples, windowStart, windowEnd, baselineLookbackStart, nowMs)
+
     const primary = summarizeSamples(samples, windowStart, windowEnd, {
       minSamples: PRIMARY_MIN_SAMPLES,
       minSpanMs: PRIMARY_MIN_SPAN_MS,
@@ -128,6 +162,27 @@ export async function GET() {
       typeof rawRows[rawRows.length - 1]?.source === 'string'
         ? rawRows[rawRows.length - 1].source
         : 'wearable'
+
+    function augmentHeart(base: HeartMetrics, primarySufficient: boolean): HeartMetrics {
+      const composite = computeRecoveryComposite({
+        sleepHoursInWindow: sleepHoursInWindow,
+        restingInWindow: base.resting_bpm,
+        baselineResting: baseline.resting_bpm,
+        baselineSufficient: baseline.sufficient,
+        recoveryDeltaBpm: base.recovery_delta_bpm,
+        primarySufficient,
+      })
+      return {
+        ...base,
+        sleep_hours_in_window: Math.round(sleepHoursInWindow * 10) / 10,
+        sleep_sessions_in_window: sleepSessionsInWindow,
+        baseline_resting_bpm: baseline.sufficient ? baseline.resting_bpm : null,
+        baseline_status: baseline.sufficient ? 'ready' : 'building',
+        resting_vs_baseline_bpm: composite.resting_vs_baseline_bpm,
+        recovery_band: composite.recovery_band,
+        recovery_score: composite.recovery_score,
+      }
+    }
 
     const heartNull: HeartMetrics = {
       resting_bpm: null,
@@ -146,7 +201,7 @@ export async function GET() {
             ? 'No heart-rate samples in the last 24 hours yet.'
             : 'No heart-rate samples in your between-shift window yet.',
           {
-            heart: heartNull,
+            heart: augmentHeart(heartNull, false),
             weeklyTrend,
             usedFallbackWindow,
             sourceWindowLabel,
@@ -161,13 +216,16 @@ export async function GET() {
           'insufficient_data',
           'We need more heart-rate samples across this window to estimate recovery (spread over at least ~15 minutes).',
           {
-            heart: {
-              ...heartNull,
-              resting_bpm: primary.resting_bpm,
-              avg_bpm: primary.avg_bpm,
-              recovery_delta_bpm: primary.recovery_delta_bpm,
-              sample_count: primary.sample_count,
-            },
+            heart: augmentHeart(
+              {
+                ...heartNull,
+                resting_bpm: primary.resting_bpm,
+                avg_bpm: primary.avg_bpm,
+                recovery_delta_bpm: primary.recovery_delta_bpm,
+                sample_count: primary.sample_count,
+              },
+              false,
+            ),
             weeklyTrend,
             usedFallbackWindow,
             sourceWindowLabel,
@@ -186,7 +244,7 @@ export async function GET() {
     }
 
     return NextResponse.json(
-      heartRateOk(heart, weeklyTrend, {
+      heartRateOk(augmentHeart(heart, true), weeklyTrend, {
         sourceWindowLabel,
         usedFallbackWindow,
         wearableSource,

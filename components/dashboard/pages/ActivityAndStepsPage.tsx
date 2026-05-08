@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Capacitor } from '@capacitor/core'
 import { ChevronLeft, PenLine, RefreshCw, Sparkles, Timer } from 'lucide-react'
-import { useActivityToday } from '@/lib/hooks/useActivityToday'
+import { getActivityDayStepsFromTodayApi, useActivityToday } from '@/lib/hooks/useActivityToday'
 import { useAuth } from '@/components/AuthProvider'
 import { useTranslation } from '@/components/providers/language-provider'
 import { useProfile } from '@/hooks/useProfile'
@@ -17,8 +17,6 @@ import { runHealthConnectNativeSync } from '@/lib/native/runHealthConnectNativeS
 import { persistHealthConnectNativeLinked } from '@/lib/native/wearablesHealthConnectPersisted'
 import type { ShiftStepsDuringShiftDay } from '@/lib/activity/computeShiftStepsDuringShifts'
 import { isoLocalDate } from '@/lib/shifts'
-import { formatYmdInTimeZone } from '@/lib/sleep/utils'
-import { ManualActivityHistorySection } from '@/components/activity/ManualActivityHistorySection'
 import {
   AdaptiveMovementCard,
   buildAdaptiveMovementData,
@@ -498,14 +496,6 @@ export default function ActivityAndStepsPage() {
     }
   }, [t])
 
-  const manualHistoryCivilYmd = useMemo(() => {
-    const tz =
-      typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function'
-        ? Intl.DateTimeFormat().resolvedOptions().timeZone
-        : 'UTC'
-    return formatYmdInTimeZone(new Date(), tz)
-  }, [])
-
   const firstName = profile?.name?.trim().split(/\s+/)[0] ?? ''
   const motivationReady = !authLoading && !profileLoading
   const motivationText = firstName
@@ -652,15 +642,38 @@ export default function ActivityAndStepsPage() {
       return buildEmptyShiftMovementData()
     }
 
+    const activityTimeZone =
+      typeof intel?.activityTimeZone === 'string' && intel.activityTimeZone.trim()
+        ? intel.activityTimeZone.trim()
+        : Intl.DateTimeFormat().resolvedOptions().timeZone
+
+    const hourlyCivilBuckets =
+      data.stepsByHourAnchorStart == null &&
+      Array.isArray(data.stepsByHour) &&
+      data.stepsByHour.length === 24
+        ? data.stepsByHour
+        : null
+
+    const coherentStepsFallback = getActivityDayStepsFromTodayApi(data)
+    const nowForDistribution = new Date()
+
+    const adaptiveOpts = {
+      samples,
+      dayType,
+      shift: shift ?? undefined,
+      activityTimeZone,
+      hourlyCivilBuckets,
+      coherentStepsFallback,
+      nowForDistribution,
+    } as const
+
     try {
-      return buildAdaptiveMovementData({
-        samples,
-        dayType,
-        shift,
-      })
+      return buildAdaptiveMovementData(adaptiveOpts)
     } catch (error) {
       console.warn('[ActivityAndStepsPage] AdaptiveMovementCard failed to build data', error)
-      return dayType === 'shift' ? buildEmptyShiftMovementData() : buildAdaptiveMovementData({ samples, dayType })
+      return dayType === 'shift'
+        ? buildEmptyShiftMovementData()
+        : buildAdaptiveMovementData({ ...adaptiveOpts, shift: undefined })
     }
   }, [
     loading,
@@ -669,6 +682,11 @@ export default function ActivityAndStepsPage() {
     data.recoverySignal,
     data.shiftStart,
     data.shiftEnd,
+    data.stepsByHour,
+    data.stepsByHourAnchorStart,
+    data.steps,
+    intel?.activityTimeZone,
+    intel?.activityDaySteps,
   ])
 
   return (
@@ -836,11 +854,7 @@ export default function ActivityAndStepsPage() {
             </div>
           )}
 
-          <ManualActivityHistorySection activityDate={manualHistoryCivilYmd} />
-
           {adaptiveMovementData ? <AdaptiveMovementCard data={adaptiveMovementData} /> : null}
-
-          <ActivityHistory30Days />
 
           <StepsByTimeOfDayCard
             loading={loading}
@@ -851,6 +865,8 @@ export default function ActivityAndStepsPage() {
             shiftStartIso={data.stepsByHourAnchorStart ?? null}
             timeZone={intel?.activityTimeZone ?? null}
           />
+
+          <ActivityHistory30Days />
 
           <div className="w-full rounded-xl border border-transparent bg-white px-5 py-4 shadow-sm dark:border-[var(--border-subtle)]">
             <div className="flex gap-3">

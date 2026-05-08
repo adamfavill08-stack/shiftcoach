@@ -28,19 +28,24 @@ export type LegalDocumentVariant = keyof typeof chromeKeys
 export function LegalDocumentChrome({
   variant,
   children,
+  /** When set (e.g. legal review date), avoids showing today’s calendar date on static policies */
+  lastUpdatedLabel,
 }: {
   variant: LegalDocumentVariant
   children: ReactNode
+  lastUpdatedLabel?: string
 }) {
   const { t } = useTranslation()
   const { language } = useLanguage()
   const intlLocale = useMemo(() => intlLocaleForApp(language), [language])
   const k = chromeKeys[variant]
-  const lastUpdated = new Date().toLocaleDateString(intlLocale, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
+  const lastUpdated =
+    lastUpdatedLabel?.trim() ||
+    new Date().toLocaleDateString(intlLocale, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-10 dark:bg-slate-950">

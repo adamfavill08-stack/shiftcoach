@@ -152,36 +152,21 @@ export default function OnboardingPlanPage() {
           },
           body: JSON.stringify({ selection: 'free' }),
         })
-        const json = (await res.json().catch(() => ({}))) as { error?: string; success?: boolean }
-        let ok = res.ok && json.success === true
-
-        // Capacitor / WebView: cookies may lag after sign-in; RLS client update matches server fields.
-        if (!ok && session?.user) {
-          const base = {
-            subscription_plan: 'free' as const,
-            subscription_status: null as null,
-            trial_ends_at: null as null,
-            onboarding_completed: true,
+        const json = (await res.json().catch(() => ({}))) as {
+          error?: string
+          success?: boolean
+          trial?: {
+            granted?: boolean
+            reason?: 'granted' | 'already_claimed' | 'already_paid' | null
+            trialEndsAt?: string | null
           }
-          let { error: upErr } = await supabase.from('profiles').update(base).eq('user_id', session.user.id)
-          const msg = upErr?.message ?? ''
-          if (upErr && (upErr.code === 'PGRST204' || /onboarding_completed/i.test(msg))) {
-            const { error: e2 } = await supabase
-              .from('profiles')
-              .update({
-                subscription_plan: 'free',
-                subscription_status: null,
-                trial_ends_at: null,
-              })
-              .eq('user_id', session.user.id)
-            upErr = e2
-          }
-          ok = !upErr
-          if (upErr && !ok) {
-            throw new Error(json.error || upErr.message || 'Unable to save plan selection')
-          }
-        } else if (!ok) {
+        }
+        if (!(res.ok && json.success === true)) {
           throw new Error(json.error || 'Unable to save plan selection')
+        }
+
+        if (json.trial?.granted === false && json.trial.reason === 'already_claimed') {
+          setInfoMessage('Trial already used. Continuing on free plan.')
         }
 
         window.dispatchEvent(new CustomEvent('subscription-updated'))
@@ -439,3 +424,4 @@ export default function OnboardingPlanPage() {
     </main>
   )
 }
+

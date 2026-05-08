@@ -14,7 +14,7 @@ export async function getServerSubscriptionAccess(
 
   const { data: directData } = await supabase
     .from('profiles')
-    .select('subscription_status, subscription_plan, trial_ends_at, revenuecat_entitlements, revenuecat_subscription_id')
+    .select('subscription_status, subscription_plan, trial_ends_at, created_at')
     .eq('user_id', userId)
     .maybeSingle()
   let data = directData
@@ -23,7 +23,7 @@ export async function getServerSubscriptionAccess(
   if (!data) {
     const { data: fallbackData } = await supabaseServer
       .from('profiles')
-      .select('subscription_status, subscription_plan, trial_ends_at, revenuecat_entitlements, revenuecat_subscription_id')
+      .select('subscription_status, subscription_plan, trial_ends_at, created_at')
       .eq('user_id', userId)
       .maybeSingle()
     data = fallbackData
@@ -33,8 +33,9 @@ export async function getServerSubscriptionAccess(
     subscriptionStatus: data?.subscription_status ?? null,
     subscriptionPlan: data?.subscription_plan ?? null,
     trialEndsAt: data?.trial_ends_at ?? null,
-    revenuecatEntitlements: data?.revenuecat_entitlements ?? null,
-    revenuecatSubscriptionId: data?.revenuecat_subscription_id ?? null,
+    profileCreatedAt: data?.created_at ?? null,
+    revenuecatEntitlements: null,
+    revenuecatSubscriptionId: null,
   })
 
   return access

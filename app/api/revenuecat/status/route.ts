@@ -20,7 +20,9 @@ export async function GET(req: NextRequest) {
     // Get user's RevenueCat user ID from profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('revenuecat_user_id, subscription_platform, subscription_status, subscription_plan, trial_ends_at, revenuecat_entitlements, revenuecat_subscription_id')
+      .select(
+        'revenuecat_user_id, subscription_platform, subscription_status, subscription_plan, trial_ends_at, created_at',
+      )
       .eq('user_id', userId)
       .maybeSingle()
 
@@ -38,8 +40,9 @@ export async function GET(req: NextRequest) {
         subscriptionStatus: profile?.subscription_status,
         subscriptionPlan: profile?.subscription_plan,
         trialEndsAt: profile?.trial_ends_at,
-        revenuecatEntitlements: profile?.revenuecat_entitlements,
-        revenuecatSubscriptionId: profile?.revenuecat_subscription_id,
+        profileCreatedAt: profile?.created_at,
+        revenuecatEntitlements: null,
+        revenuecatSubscriptionId: null,
       })
       return NextResponse.json({
         isActive: access.isPro,
@@ -55,8 +58,9 @@ export async function GET(req: NextRequest) {
         subscriptionStatus: profile?.subscription_status,
         subscriptionPlan: profile?.subscription_plan,
         trialEndsAt: profile?.trial_ends_at,
-        revenuecatEntitlements: profile?.revenuecat_entitlements,
-        revenuecatSubscriptionId: profile?.revenuecat_subscription_id,
+        profileCreatedAt: profile?.created_at,
+        revenuecatEntitlements: null,
+        revenuecatSubscriptionId: null,
       })
       return NextResponse.json({
         isActive: access.isPro,
@@ -83,8 +87,9 @@ export async function GET(req: NextRequest) {
         subscriptionStatus: profile.subscription_status,
         subscriptionPlan: profile.subscription_plan,
         trialEndsAt: profile?.trial_ends_at,
-        revenuecatEntitlements: profile.revenuecat_entitlements,
-        revenuecatSubscriptionId: profile.revenuecat_subscription_id,
+        profileCreatedAt: profile?.created_at,
+        revenuecatEntitlements: null,
+        revenuecatSubscriptionId: null,
       })
       return NextResponse.json({
         isActive: access.isPro,
@@ -99,7 +104,7 @@ export async function GET(req: NextRequest) {
     // Check if subscription is active + normalize plan for app use.
     const activeEntitlements = subscriber?.entitlements?.active ?? {}
     const activeEntitlement = Object.values(activeEntitlements)[0] as any
-    const productId = activeEntitlement?.product_identifier ?? profile.revenuecat_subscription_id ?? null
+    const productId = activeEntitlement?.product_identifier ?? null
     const nextPlan = getPlanFromProductId(productId)
     const rcEntitlementActive = Object.keys(activeEntitlements).length > 0
 
@@ -109,8 +114,7 @@ export async function GET(req: NextRequest) {
     const shouldSyncProfile =
       rcEntitlementActive &&
       (profile.subscription_status !== 'active' ||
-        planForUpdate !== profile.subscription_plan ||
-        (productId && productId !== profile.revenuecat_subscription_id))
+        planForUpdate !== profile.subscription_plan)
 
     if (shouldSyncProfile) {
       await supabase
@@ -118,8 +122,6 @@ export async function GET(req: NextRequest) {
         .update({
           subscription_status: 'active',
           subscription_plan: planForUpdate,
-          revenuecat_subscription_id: productId ?? profile.revenuecat_subscription_id,
-          revenuecat_entitlements: subscriber.entitlements,
         })
         .eq('user_id', userId)
     }
@@ -129,8 +131,9 @@ export async function GET(req: NextRequest) {
       subscriptionStatus: profile.subscription_status,
       subscriptionPlan: profile.subscription_plan,
       trialEndsAt: profile.trial_ends_at,
-      revenuecatEntitlements: subscriber?.entitlements ?? profile.revenuecat_entitlements,
-      revenuecatSubscriptionId: productId ?? profile.revenuecat_subscription_id,
+      profileCreatedAt: profile.created_at,
+      revenuecatEntitlements: subscriber?.entitlements ?? null,
+      revenuecatSubscriptionId: productId,
     })
 
     return NextResponse.json({

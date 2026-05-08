@@ -464,8 +464,8 @@ export default function OnboardingPage() {
   }
 
   const isSignInDetails = screen === SCREEN_ACCOUNT
-  const shellBg = isSignInDetails ? "#F7F7F7" : "var(--bg)"
-  const shellInnerBg = isSignInDetails ? "#F7F7F7" : "var(--bg)"
+  const shellBg = "var(--bg)"
+  const shellInnerBg = "var(--bg)"
 
   return (
       <div style={{ background: shellBg, width: "100%", minHeight: "100vh", display: "flex", justifyContent: "center" }}>
