@@ -143,7 +143,13 @@ export function stepsByHourFromCumulativeLogs(
   const buckets = Array.from({ length: 24 }, () => 0)
   let prev = 0
   for (const row of sorted) {
-    const delta = Math.max(0, row.steps - prev)
+    let rawDelta = row.steps - prev
+    // Wearable cumulative totals reset at local calendar boundaries; treat a drop as a new day chain.
+    if (rawDelta < 0) {
+      prev = 0
+      rawDelta = row.steps - prev
+    }
+    const delta = Math.max(0, rawDelta)
     if (delta > 0) {
       if (useShiftAnchor) {
         const idx = bucketIndexShiftAnchored(row.t, shiftStart!)

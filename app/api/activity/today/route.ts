@@ -45,9 +45,17 @@ import { computePersonalizedActivityTargets } from '@/lib/activity/personalizedA
 import { computeAdaptedStepGoalAgent, type AdaptedStepShift } from '@/lib/activity/computeAdaptedStepGoalAgent'
 import { persistAdaptedStepGoalAgent } from '@/lib/activity/persistAdaptedStepGoalAgent'
 import {
+  civilYmdRangeInclusive,
   filterActivityLogRowsToCivilYmd,
+  filterActivityLogRowsToCivilYmdSet,
   resolveActivityLogCivilYmd,
 } from '@/lib/activity/activityLogCivilDay'
+import {
+  applyCurrentShiftFallbackBounds,
+  isWorkRosterLabel,
+  pickCurrentShiftFromOverlapRows,
+  type ActivityTodayShiftRow,
+} from '@/lib/activity/currentShiftForActivityToday'
 
 function toAgentShift(
   shiftType: string | null | undefined,
@@ -199,36 +207,39 @@ export async function GET(req: NextRequest) {
     const nowPlusBufferAfterIso = new Date(now.getTime() + SHIFT_WINDOW_BUFFER_MS).toISOString()
     const nowMinusBufferBeforeIso = new Date(now.getTime() - SHIFT_WINDOW_BUFFER_MS).toISOString()
 
-    let currentShift:
-      | { label: string | null; date: string | null; start_ts: string | null; end_ts: string | null }
-      | null = null
+    let currentShift: ActivityTodayShiftRow | null = null
 
-    // Prefer an actual "current" shift (now is within start_ts/end_ts)
-    const { data: shiftInProgress } = await supabase
+    // Time-overlap candidates (±1h buffer). Avoid `.maybeSingle()` — multiple matches are possible.
+    const { data: overlapRaw } = await supabase
       .from('shifts')
       .select('label, date, start_ts, end_ts')
       .eq('user_id', userId)
-      // Include shifts whose start is up to 1 hour in the future (travel buffer).
+      .not('start_ts', 'is', null)
+      .not('end_ts', 'is', null)
       .lte('start_ts', nowPlusBufferAfterIso)
-      // And still consider it "active" for 1 hour after the shift ends.
       .gt('end_ts', nowMinusBufferBeforeIso)
-      .maybeSingle()
+      .order('start_ts', { ascending: false })
+      .limit(24)
 
-    if (shiftInProgress) {
-      currentShift = shiftInProgress as any
-    } else {
-      // Fallback: last shift that has started (covers cases where end_ts may be missing)
-      const { data: lastStartedShift } = await supabase
+    const overlapList = (Array.isArray(overlapRaw) ? overlapRaw : []) as ActivityTodayShiftRow[]
+    currentShift = pickCurrentShiftFromOverlapRows(overlapList, now, SHIFT_WINDOW_BUFFER_MS)
+
+    // Roster fallback: civil “today” row may be DAY/NIGHT but instants missing or outside buffer.
+    if (!currentShift) {
+      const { data: todayShift } = await supabase
         .from('shifts')
         .select('label, date, start_ts, end_ts')
         .eq('user_id', userId)
-        .lte('start_ts', nowPlusBufferAfterIso)
-        .gt('end_ts', nowMinusBufferBeforeIso)
-        .order('start_ts', { ascending: false })
-        .limit(1)
+        .eq('date', localToday)
         .maybeSingle()
 
-      currentShift = (lastStartedShift as any) ?? null
+      if (todayShift && isWorkRosterLabel(todayShift.label)) {
+        currentShift = applyCurrentShiftFallbackBounds(
+          todayShift as ActivityTodayShiftRow,
+          localToday,
+          activityIntelTimeZone,
+        )
+      }
     }
 
     const holidayToday = await fetchHolidayLocalDatesSet(supabase, userId, localToday, localToday)
@@ -1055,11 +1066,16 @@ export async function GET(req: NextRequest) {
 
     if (!hourlyQuery.error) {
       let hourlyRows = hourlyQuery.data ?? []
+      /** Night shifts cross midnight: include every local civil day the chart window touches so cumulative logs are not truncated. */
+      const hourlyChartCivilYmds = civilYmdRangeInclusive(windowStartDate, windowEndDate, activityIntelTimeZone)
+      const hourlyChartYmdMin = hourlyChartCivilYmds[0] ?? today
+      const hourlyChartYmdMax = hourlyChartCivilYmds[hourlyChartCivilYmds.length - 1] ?? today
       const hourlyByDate = await supabase
         .from('activity_logs')
         .select('id, steps, merge_status, ts, created_at, activity_date, source')
         .eq('user_id', userId)
-        .eq('activity_date', today)
+        .gte('activity_date', hourlyChartYmdMin)
+        .lte('activity_date', hourlyChartYmdMax)
         .order('ts', { ascending: true })
       if (!hourlyByDate.error && hourlyByDate.data?.length) {
         hourlyRows = mergeActivityLogRowsDedupe(hourlyRows, hourlyByDate.data)
@@ -1068,9 +1084,9 @@ export async function GET(req: NextRequest) {
             new Date(a.ts ?? a.created_at ?? 0).getTime() - new Date(b.ts ?? b.created_at ?? 0).getTime(),
         )
       }
-      hourlyRows = filterActivityLogRowsToCivilYmd(
+      hourlyRows = filterActivityLogRowsToCivilYmdSet(
         hourlyRows as Record<string, unknown>[],
-        today,
+        hourlyChartCivilYmds,
         activityIntelTimeZone,
       ) as any[]
       const hourlyKept = filterActivityLogRowsForWearableDedupe(hourlyRows, activityIntelTimeZone)
