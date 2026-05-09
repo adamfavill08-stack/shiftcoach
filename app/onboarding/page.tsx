@@ -183,6 +183,138 @@ function Block({ type, index, size, onTap, isToday }: {
   )
 }
 
+/** Read-only block matching `Block` visuals — for filled-in examples only. */
+function StaticPatternBlock({ type, index, size = 36, fluid }: { type: ShiftType; index: number; size?: number; fluid?: boolean }) {
+  const s = SS[type]
+  const box: React.CSSProperties = fluid
+    ? {
+        width: "100%",
+        minWidth: 0,
+        aspectRatio: "25 / 28",
+        height: "auto",
+      }
+    : {
+        width: size,
+        height: size * 1.28,
+        flexShrink: 0,
+      }
+  const iconSize = fluid ? "clamp(8px, 3.2vw, 10px)" : size > 55 ? 15 : 11
+  const labelSize = fluid ? "clamp(4px, 2.2vw, 6px)" : size > 55 ? 7 : 6
+  return (
+    <div
+      style={{
+        ...box,
+        background: s.bg,
+        border: "1.5px solid " + s.border,
+        borderRadius: fluid ? 8 : 10,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        userSelect: "none",
+      }}
+    >
+      <div
+        style={{
+          fontSize: fluid ? "clamp(4px, 2vw, 5px)" : 6,
+          color: "var(--text-muted)",
+          letterSpacing: fluid ? "0.4px" : "0.8px",
+          marginBottom: fluid ? 1 : 2,
+        }}
+      >
+        D{index + 1}
+      </div>
+      <div style={{ fontSize: iconSize, marginBottom: 2, lineHeight: 1 }}>{s.icon}</div>
+      <div
+        style={{
+          fontSize: labelSize,
+          color: s.color,
+          letterSpacing: "0.5px",
+          fontWeight: 700,
+          textAlign: "center",
+          lineHeight: 1.1,
+        }}
+      >
+        {type === "off" ? "—" : s.short}
+      </div>
+    </div>
+  )
+}
+
+function ExamplePatternRow({ types, startIndex }: { types: ShiftType[]; startIndex: number }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${types.length}, minmax(0, 1fr))`,
+        gap: 3,
+        width: "100%",
+      }}
+    >
+      {types.map((type, i) => (
+        <StaticPatternBlock key={`${startIndex}-${i}`} type={type} index={startIndex + i} fluid />
+      ))}
+    </div>
+  )
+}
+
+function CycleLengthExplainerCard() {
+  const cap: React.CSSProperties = {
+    fontSize: 9,
+    fontWeight: 600,
+    letterSpacing: "0.06em",
+    color: "var(--text-muted)",
+    textTransform: "uppercase",
+    marginBottom: 6,
+  }
+  const eight: ShiftType[] = ["day", "day", "night", "night", "off", "off", "off", "off"]
+  const sixteenA: ShiftType[] = ["day", "day", "day", "day", "off", "off", "off", "off"]
+  const sixteenB: ShiftType[] = ["night", "night", "night", "night", "off", "off", "off", "off"]
+
+  const preview: React.CSSProperties = {
+    maxWidth: "min(252px, 100%)",
+    marginLeft: "auto",
+    marginRight: "auto",
+    width: "100%",
+  }
+
+  return (
+    <div
+      style={{
+        width: "calc(100% + 40px)",
+        marginLeft: -20,
+        marginRight: -20,
+        boxSizing: "border-box",
+        borderRadius: 12,
+        padding: "10px 20px 12px",
+        marginBottom: 18,
+        background: "var(--card-subtle)",
+        border: "1px solid var(--border-subtle)",
+      }}
+    >
+      <div style={{ ...LBL, marginBottom: 4 }}>Examples</div>
+      <p style={{ margin: "0 0 10px", fontSize: 11, color: "var(--text-soft)", fontWeight: 300, lineHeight: 1.45 }}>
+        Yours should look like this when filled in — tap blocks below to match your rotation.
+      </p>
+
+      <div style={preview}>
+        <div style={{ ...cap, marginTop: 0 }}>8 days · 2 day + 2 night + 4 off</div>
+        <ExamplePatternRow types={eight} startIndex={0} />
+
+        <div style={{ ...cap, marginTop: 10 }}>16 days · 4 day + 4 night + 8 off</div>
+        <ExamplePatternRow types={sixteenA} startIndex={0} />
+        <div style={{ marginTop: 4 }}>
+          <ExamplePatternRow types={sixteenB} startIndex={8} />
+        </div>
+      </div>
+
+      <p style={{ margin: "10px 0 0", fontSize: 10, color: "var(--text-muted)", fontWeight: 300, lineHeight: 1.45 }}>
+        Cycle length is how many days are in the loop — count every block from D1 through the last day, off days included.
+      </p>
+    </div>
+  )
+}
+
 function ProgressDots({ total, current }: { total: number; current: number }) {
   return (
     <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
@@ -542,12 +674,15 @@ export default function OnboardingPage() {
                 <div style={rv(0)}>
                   <div style={{ ...LBL, marginBottom: 10 }}>YOUR ROTATION</div>
                   <div style={{ fontSize: 28, fontWeight: 300, lineHeight: 1.1, marginBottom: 6 }}>Build your pattern</div>
-                  <div style={{ fontSize: 13, color: "var(--text-soft)", fontWeight: 300, marginBottom: 8, lineHeight: 1.5 }}>
+                  <div style={{ fontSize: 13, color: "var(--text-soft)", fontWeight: 300, marginBottom: 14, lineHeight: 1.5 }}>
                     Enter your full repeating cycle from day 1 through the last day — every working day and every rest day. Do not only add the shifts you work; the loop must include time off.
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 300, marginBottom: 20, lineHeight: 1.5 }}>
-                    Tap a block to cycle type: OFF (grey) is a day off — leave those days as OFF. Then set day or night for shifts.
-                  </div>
+                </div>
+
+                <CycleLengthExplainerCard />
+
+                <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 300, marginBottom: 18, lineHeight: 1.5, ...rv(0.04) }}>
+                  Tap a block to cycle type: OFF (grey) is a day off — leave those days as OFF. Then set day or night for shifts.
                 </div>
 
                 <div style={{ marginBottom: 18, ...rv(0.06) }}>
