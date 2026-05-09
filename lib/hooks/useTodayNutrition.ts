@@ -79,8 +79,13 @@ export function useTodayNutrition() {
     try {
       setLoading(true)
 
+      const tzParam =
+        typeof window !== 'undefined'
+          ? `?tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)}`
+          : ''
+
       const res = await authedFetch(
-        '/api/nutrition/today',
+        `/api/nutrition/today${tzParam}`,
         (forceFresh
           ? { cache: 'no-store' }
           : { next: { revalidate: 30 } }) as RequestInit,

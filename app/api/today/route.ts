@@ -3,6 +3,7 @@ import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/sup
 import { calculateAdjustedCalories } from '@/lib/nutrition/calculateAdjustedCalories'
 import { getTodayMealSchedule } from '@/lib/nutrition/getTodayMealSchedule'
 import { getTodayHydrationIntake } from '@/lib/nutrition/getTodayHydrationIntake'
+import { resolveIanaTimeZoneParam } from '@/lib/hydration/resolveIanaTimeZoneParam'
 import { calculateBingeRisk } from '@/lib/binge/calculateBingeRisk'
 import { isoLocalDate } from '@/lib/shifts'
 import { toShiftType, toActivityShiftType } from '@/lib/shifts/toShiftType'
@@ -33,6 +34,8 @@ export async function GET(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
   if (!userId) return buildUnauthorizedResponse()
 
+  const tz = resolveIanaTimeZoneParam(req.nextUrl.searchParams.get('tz'))
+
   try {
     const now = new Date()
     const today = isoLocalDate(now)
@@ -51,7 +54,7 @@ export async function GET(req: NextRequest) {
         .order('ts', { ascending: false })
         .limit(1),
       calculateAdjustedCalories(supabase, userId),
-      getTodayHydrationIntake(supabase, userId),
+      getTodayHydrationIntake(supabase, userId, tz),
       supabase.from('profiles').select('sleep_goal_h,chronotype,shift_times').eq('user_id', userId).maybeSingle(),
       supabase.from('shifts').select('label,start_ts,end_ts').eq('user_id', userId).eq('date', today).maybeSingle(),
       supabase

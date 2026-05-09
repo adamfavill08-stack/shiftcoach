@@ -649,7 +649,8 @@ const messages: Record<string, string> = {
     'detail.hydration.whyP2':
       'Your daily goal here is a total across the whole day, not something to drink in one go. Aim to spread it in small drinks before, during and after your shift so your body and digestion can keep up.',
     'detail.hydration.weeklyTitle': 'Hydration last 7 days',
-    'detail.hydration.weeklySub': 'Bars show what you drank vs your daily goal.',
+    'detail.hydration.weeklySub':
+      'Bars show what you drank vs your daily goal. Each bar is a hydration day from 5:00 AM to 5:00 AM (local time).',
 
     'detail.bingeRisk.title': 'Binge Risk',
     'detail.bingeRisk.scoreLabel': 'Score',

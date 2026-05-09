@@ -3,10 +3,13 @@ import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/sup
 import { calculateAdjustedCalories } from '@/lib/nutrition/calculateAdjustedCalories'
 import { getHydrationAndCaffeineTargets } from '@/lib/nutrition/getHydrationAndCaffeineTargets'
 import { getTodayHydrationIntake } from '@/lib/nutrition/getTodayHydrationIntake'
+import { resolveIanaTimeZoneParam } from '@/lib/hydration/resolveIanaTimeZoneParam'
 
 export async function GET(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
   if (!userId) return buildUnauthorizedResponse()
+
+  const tz = resolveIanaTimeZoneParam(req.nextUrl.searchParams.get('tz'))
 
   try {
     const [calorieResult, hydrationTargets, hydrationIntake] = await Promise.all([
@@ -18,7 +21,7 @@ export async function GET(req: NextRequest) {
         console.error('[/api/nutrition/today] hydration targets error', err)
         return { water_ml: 2500, caffeine_mg: 300 }
       }),
-      getTodayHydrationIntake(supabase, userId).catch((err: unknown) => {
+      getTodayHydrationIntake(supabase, userId, tz).catch((err: unknown) => {
         console.error('[/api/nutrition/today] hydration intake error', err)
         return { water_ml: 0, caffeine_mg: 0 }
       }),

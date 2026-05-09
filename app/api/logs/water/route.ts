@@ -3,9 +3,12 @@ import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/sup
 import { z } from 'zod'
 import { parseJsonBody } from '@/lib/api/validation'
 import { apiServerError } from '@/lib/api/response'
+import { getHydrationDayWindow } from '@/lib/hydration/hydrationDayWindow'
+import { resolveIanaTimeZoneParam } from '@/lib/hydration/resolveIanaTimeZoneParam'
 
 const WaterLogSchema = z.object({
-  ml: z.number().positive().max(5000),
+  /** Positive adds water; negative removes (correction) for the same hydration day. */
+  ml: z.number().refine((n) => n !== 0 && Math.abs(n) <= 5000, 'ml must be non-zero and within ±5000'),
 })
 
 export async function POST(req: NextRequest) {
@@ -16,29 +19,28 @@ export async function POST(req: NextRequest) {
   if (!parsed.ok) return parsed.response
   const { ml } = parsed.data
 
-  const { error: insErr } = await supabase
-    .from('water_logs')
-    .insert({ user_id: userId, ml })
+  const tz = resolveIanaTimeZoneParam(req.nextUrl.searchParams.get('tz'))
+
+  const { error: insErr } = await supabase.from('water_logs').insert({ user_id: userId, ml })
 
   if (insErr) {
     return apiServerError('db_insert_failed', insErr.message)
   }
 
-  // Return today's total (UTC-safe)
   const now = new Date()
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-  const end   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()+1))
+  const { start, end } = getHydrationDayWindow(now, tz)
 
   const { data, error } = await supabase
-    .from('water_logs').select('ml')
-    .gte('ts', start.toISOString()).lt('ts', end.toISOString())
+    .from('water_logs')
+    .select('ml')
     .eq('user_id', userId)
+    .gte('ts', start.toISOString())
+    .lt('ts', end.toISOString())
 
   if (error) {
     return apiServerError('db_query_failed', error.message)
   }
 
-  const total = (data || []).reduce((a: number, r: any) => a + r.ml, 0)
+  const total = (data || []).reduce((a: number, r: any) => a + (Number(r.ml) || 0), 0)
   return new Response(JSON.stringify({ ok: true, total }), { status: 200 })
 }
-

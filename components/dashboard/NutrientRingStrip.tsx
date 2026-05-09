@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { PremiumQuickLogSheet } from '@/components/ui/PremiumQuickLogSheet'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 
 type RingTheme = 'default' | 'maxIsBad'
 
@@ -156,11 +157,18 @@ export function NutrientRingStrip({
 	const satTargetG = targets.saturatedFatMaxG
 
 	async function submitWater(amount: number) {
-		await fetch('/api/logs/water', {
+		const tz =
+			typeof window !== 'undefined'
+				? encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)
+				: encodeURIComponent('UTC')
+		const res = await authedFetch(`/api/logs/water?tz=${tz}`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ ml: amount }),
 		})
+		if (res.ok) {
+			window.dispatchEvent(new Event('water-logged'))
+		}
 		onRefreshNutrition?.()
 	}
 	async function submitCaffeine(amount: number) {

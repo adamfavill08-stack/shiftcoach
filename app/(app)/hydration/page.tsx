@@ -1,18 +1,17 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Droplets, ChevronLeft, ChevronUp, ChevronDown } from "lucide-react"
 import Link from "next/link"
 import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition"
-import { useWeeklyProgress } from "@/lib/hooks/useWeeklyProgress"
-import { useLanguage, useTranslation } from "@/components/providers/language-provider"
-import { intlLocaleForApp, type AppLocaleCode } from "@/lib/i18n/supportedLocales"
+import { useHydrationWeek } from "@/lib/hooks/useHydrationWeek"
+import { useTranslation } from "@/components/providers/language-provider"
+import { authedFetch } from "@/lib/supabase/authedFetch"
 
 export default function HydrationPage() {
   const { t } = useTranslation()
-  const { language } = useLanguage()
   const { data } = useTodayNutrition()
-  const weekly = useWeeklyProgress()
+  const { data: weekData, loading: weekLoading } = useHydrationWeek()
 
   const targetMl = data?.hydrationTargets?.water_ml ?? 0
   const consumedMlInitial = data?.hydrationIntake?.water_ml ?? 0
@@ -21,6 +20,9 @@ export default function HydrationPage() {
   const [selectedMl, setSelectedMl] = useState<number>(consumedMlInitial)
   const [saving, setSaving] = useState(false)
 
+  const deviceTz =
+    typeof window !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC"
+
   useEffect(() => {
     setBaseMl(consumedMlInitial)
     setSelectedMl(consumedMlInitial)
@@ -28,12 +30,12 @@ export default function HydrationPage() {
 
   const targetLitres = useMemo(
     () => (targetMl > 0 ? (targetMl / 1000).toFixed(targetMl >= 2000 ? 1 : 2) : "—"),
-    [targetMl]
+    [targetMl],
   )
 
   const selectedLitres = useMemo(
     () => (selectedMl > 0 ? (selectedMl / 1000).toFixed(2) : "0.00"),
-    [selectedMl]
+    [selectedMl],
   )
 
   const levels = useMemo(() => {
@@ -76,38 +78,42 @@ export default function HydrationPage() {
     return t("detail.hydration.motivationFull")
   }, [selectedMl, targetMl, t])
 
-  const handleSave = async () => {
-    const delta = Math.max(0, Math.round(selectedMl - baseMl))
-    if (!delta) return
+  const persistDelta = useCallback(
+    async (delta: number, baselineBeforeSave: number) => {
+      if (delta === 0) return
+      try {
+        setSaving(true)
+        const res = await authedFetch(`/api/logs/water?tz=${encodeURIComponent(deviceTz)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ml: delta }),
+        })
 
-    try {
-      setSaving(true)
-      const res = await fetch("/api/logs/water", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ml: delta }),
-      })
+        const json = (await res.json().catch(() => null)) as { total?: number } | null
+        if (!res.ok || typeof json?.total !== "number") {
+          if (!res.ok) console.error("[HydrationPage] water log failed", res.status)
+          setSelectedMl(baselineBeforeSave)
+          return
+        }
 
-      if (!res.ok) {
-        // Silently fail for now; could add toast later
-        return
+        const clamped = Math.max(0, Math.min(Math.round(json.total), targetMl || Number.POSITIVE_INFINITY))
+        setBaseMl(clamped)
+        setSelectedMl(clamped)
+        window.dispatchEvent(new Event("water-logged"))
+      } catch {
+        setSelectedMl(baselineBeforeSave)
+      } finally {
+        setSaving(false)
       }
-
-      const json = await res.json().catch(() => null as any)
-      const total = typeof json?.total === "number" ? json.total : baseMl + delta
-      setBaseMl(total)
-      setSelectedMl(total)
-      window.dispatchEvent(new Event("water-logged"))
-    } finally {
-      setSaving(false)
-    }
-  }
+    },
+    [deviceTz, targetMl],
+  )
 
   useEffect(() => {
-    if (saving) return
-    if (selectedMl <= baseMl) return
-    void handleSave()
-  }, [selectedMl, baseMl, saving])
+    const delta = Math.round(selectedMl - baseMl)
+    if (delta === 0 || saving) return
+    void persistDelta(delta, baseMl)
+  }, [selectedMl, baseMl, saving, persistDelta])
 
   return (
     <main className="min-h-screen bg-slate-100">
@@ -161,6 +167,7 @@ export default function HydrationPage() {
                 type="button"
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-600"
                 onClick={() => handleAdjust("up")}
+                disabled={saving || targetMl <= 0}
                 aria-label={t("detail.hydration.ariaIncrease")}
               >
                 <ChevronUp className="h-4 w-4" />
@@ -196,6 +203,7 @@ export default function HydrationPage() {
                     key={level.fraction}
                     type="button"
                     onClick={() => setSelectedMl(level.ml)}
+                    disabled={saving || targetMl <= 0}
                     className="relative flex-1 w-full"
                     aria-label={t("detail.hydration.ariaLogLitres", {
                       n: (level.ml / 1000).toFixed(2),
@@ -211,6 +219,7 @@ export default function HydrationPage() {
                 type="button"
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-600"
                 onClick={() => handleAdjust("down")}
+                disabled={saving || targetMl <= 0}
                 aria-label={t("detail.hydration.ariaDecrease")}
               >
                 <ChevronDown className="h-4 w-4" />
@@ -248,7 +257,14 @@ export default function HydrationPage() {
             </div>
           </div>
 
-          <HydrationWeeklyBarGraph weekly={weekly} language={language} />
+          <HydrationWeeklyBarGraph
+            days={weekData.days}
+            targets={weekData.hydrationTargetMl}
+            actuals={weekData.hydrationActualMl}
+            todayHydrationDayKey={weekData.todayHydrationDayKey}
+            dayKeys={weekData.dayKeys}
+            loading={weekLoading}
+          />
         </section>
 
         {/* ShiftCoach logo footer */}
@@ -266,20 +282,38 @@ export default function HydrationPage() {
 }
 
 type HydrationWeeklyProps = {
-  weekly: ReturnType<typeof useWeeklyProgress>
-  language: AppLocaleCode
+  days: string[]
+  targets: number[]
+  actuals: number[]
+  todayHydrationDayKey: string
+  dayKeys: string[]
+  loading: boolean
 }
 
-function HydrationWeeklyBarGraph({ weekly, language }: HydrationWeeklyProps) {
-  const days = weekly?.days ?? []
-  const targets = weekly?.hydrationTargetMl ?? []
-  const actuals = weekly?.hydrationActualMl ?? []
+function HydrationWeeklyBarGraph({
+  days,
+  targets,
+  actuals,
+  todayHydrationDayKey,
+  dayKeys,
+  loading,
+}: HydrationWeeklyProps) {
+  if (loading) {
+    return (
+      <div className="mt-1 flex h-24 items-end justify-between gap-2 px-1">
+        {Array.from({ length: 7 }, (_, i) => (
+          <div key={i} className="flex-1 flex flex-col items-center gap-1">
+            <div className="h-20 w-5 animate-pulse rounded-full bg-slate-100" />
+            <div className="h-2 w-3 animate-pulse rounded bg-slate-100" />
+          </div>
+        ))}
+      </div>
+    )
+  }
 
-  if (!days.length || !targets.length || !actuals.length) return null
+  if (!days.length || days.length !== 7 || targets.length !== 7 || actuals.length !== 7) return null
 
   const maxMl = Math.max(...targets, ...actuals, 1)
-  const intlLocale = intlLocaleForApp(language)
-  const todayShort = new Date().toLocaleDateString(intlLocale, { weekday: "short" })
 
   return (
     <div className="mt-1 flex items-end justify-between gap-2 px-1">
@@ -289,10 +323,11 @@ function HydrationWeeklyBarGraph({ weekly, language }: HydrationWeeklyProps) {
         const pct = Math.min(100, Math.round((actual / maxMl) * 100))
         const targetPct = Math.min(100, Math.round((target / maxMl) * 100))
 
-        const isToday = label === todayShort
+        const key = dayKeys[idx] ?? ""
+        const isToday = key === todayHydrationDayKey
 
         return (
-          <div key={`${label}-${idx}`} className="flex-1 flex flex-col items-center gap-1">
+          <div key={`${key}-${idx}`} className="flex-1 flex flex-col items-center gap-1">
             <div className="relative h-24 w-5 flex items-end justify-center">
               {/* Target outline */}
               <div className="absolute bottom-0 w-3 rounded-full bg-slate-100" style={{ height: `${targetPct}%` }} />
@@ -306,6 +341,7 @@ function HydrationWeeklyBarGraph({ weekly, language }: HydrationWeeklyProps) {
               className={`text-[9px] uppercase tracking-[0.12em] ${
                 isToday ? "text-sky-700 font-semibold" : "text-slate-500"
               }`}
+              title={key}
             >
               {label.charAt(0)}
             </span>
@@ -315,4 +351,3 @@ function HydrationWeeklyBarGraph({ weekly, language }: HydrationWeeklyProps) {
     </div>
   )
 }
-

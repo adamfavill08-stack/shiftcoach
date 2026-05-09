@@ -1275,7 +1275,12 @@ function HydrationCard() {
     if (adding) return;
     try {
       setAdding(true);
-      const res = await authedFetch("/api/logs/water", {
+      const tz = encodeURIComponent(
+        typeof window !== "undefined"
+          ? Intl.DateTimeFormat().resolvedOptions().timeZone
+          : "UTC",
+      );
+      const res = await authedFetch(`/api/logs/water?tz=${tz}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ml: HYDRATION_QUICK_ADD_ML }),
