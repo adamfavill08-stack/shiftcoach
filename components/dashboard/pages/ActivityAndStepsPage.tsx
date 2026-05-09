@@ -17,6 +17,7 @@ import { runHealthConnectNativeSync } from '@/lib/native/runHealthConnectNativeS
 import { persistHealthConnectNativeLinked } from '@/lib/native/wearablesHealthConnectPersisted'
 import type { ShiftStepsDuringShiftDay } from '@/lib/activity/computeShiftStepsDuringShifts'
 import { isoLocalDate } from '@/lib/shifts'
+import { formatYmdInTimeZone } from '@/lib/sleep/utils'
 import {
   AdaptiveMovementCard,
   buildAdaptiveMovementData,
@@ -654,8 +655,32 @@ export default function ActivityAndStepsPage() {
         ? data.stepsByHour
         : null
 
+    const hourlyShiftAnchoredBuckets =
+      data.stepsByHourAnchorStart != null &&
+      Array.isArray(data.stepsByHour) &&
+      data.stepsByHour.length === 24
+        ? data.stepsByHour
+        : null
+
+    const stepsByHourAnchorStart =
+      typeof data.stepsByHourAnchorStart === 'string' && data.stepsByHourAnchorStart.trim()
+        ? data.stepsByHourAnchorStart.trim()
+        : null
+
     const coherentStepsFallback = getActivityDayStepsFromTodayApi(data)
     const nowForDistribution = new Date()
+
+    /**
+     * Civil hour 0–23 for `stepsByHour` (anchor null) matches `/api/activity/today` filter on **local civil
+     * “today”** in `activityTimeZone`, not `data.date` (rota row) nor `activityIntelligence.activityDayKey`
+     * (shift-aware totals). Wall-clock YMD here keeps the adaptive split aligned with that chart.
+     */
+    const activityDateYmd =
+      typeof activityTimeZone === 'string' && activityTimeZone.trim()
+        ? formatYmdInTimeZone(nowForDistribution, activityTimeZone.trim())
+        : typeof data.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(data.date)
+          ? data.date.slice(0, 10)
+          : null
 
     const adaptiveOpts = {
       samples,
@@ -663,6 +688,9 @@ export default function ActivityAndStepsPage() {
       shift: shift ?? undefined,
       activityTimeZone,
       hourlyCivilBuckets,
+      hourlyShiftAnchoredBuckets,
+      stepsByHourAnchorStart,
+      activityDateYmd,
       coherentStepsFallback,
       nowForDistribution,
     } as const
@@ -684,6 +712,7 @@ export default function ActivityAndStepsPage() {
     data.shiftEnd,
     data.stepsByHour,
     data.stepsByHourAnchorStart,
+    data.date,
     data.steps,
     intel?.activityTimeZone,
     intel?.activityDaySteps,

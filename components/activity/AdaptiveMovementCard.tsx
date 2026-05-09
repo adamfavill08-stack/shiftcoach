@@ -2,6 +2,7 @@
 
 import { Footprints, Moon, Sunrise, Sun, Lightbulb } from "lucide-react";
 import { estimateStepsByHourCivil, getLocalHourFromIso } from "@/lib/activity/buildStepsByHour";
+import { formatYmdInTimeZone, startOfLocalDayUtcMs } from "@/lib/sleep/utils";
 
 type DayType = "shift" | "recovery" | "day_off";
 type ShiftType = "day" | "evening" | "night" | "unknown";
@@ -27,6 +28,8 @@ export type AdaptiveMovementData =
       label: string;
       insight: string;
       totalSteps: number;
+      /** Used for icons / emphasis; inferred from `shift` when not supplied at build time. */
+      shiftType: ShiftType;
       segments: {
         before: number;
         during: number;
@@ -181,12 +184,103 @@ function stepsTotalFromBuckets(b: { morning: number; midday: number; evening: nu
   return b.morning + b.midday + b.evening;
 }
 
+const HOUR_MS = 60 * 60 * 1000;
+
+function sameCalendarDayInZone(isoA: string, isoB: string, timeZone: string): boolean {
+  try {
+    return formatYmdInTimeZone(new Date(isoA), timeZone) === formatYmdInTimeZone(new Date(isoB), timeZone);
+  } catch {
+    return false;
+  }
+}
+
+/** Split one hourly bucket’s steps across before / during / after the shift window using overlap length. */
+function splitBucketStepsAcrossShift(
+  steps: number,
+  intervalStartMs: number,
+  intervalEndMs: number,
+  shiftStartMs: number,
+  shiftEndMs: number,
+): { before: number; during: number; after: number } {
+  const span = intervalEndMs - intervalStartMs;
+  if (span <= 0 || steps <= 0) return { before: 0, during: 0, after: 0 };
+
+  const beforeDur = Math.max(0, Math.min(shiftStartMs, intervalEndMs) - intervalStartMs);
+  const duringDur = Math.max(0, Math.min(intervalEndMs, shiftEndMs) - Math.max(intervalStartMs, shiftStartMs));
+  const afterDur = Math.max(0, intervalEndMs - Math.max(intervalStartMs, shiftEndMs));
+
+  return {
+    before: (steps * beforeDur) / span,
+    during: (steps * duringDur) / span,
+    after: (steps * afterDur) / span,
+  };
+}
+
+function roundBeforeDuringAfter(
+  before: number,
+  during: number,
+  after: number,
+  targetTotal: number,
+): { before: number; during: number; after: number } {
+  const t = Math.round(targetTotal);
+  let b = Math.max(0, Math.round(before));
+  let d = Math.max(0, Math.round(during));
+  let a = Math.max(0, Math.round(after));
+  let diff = t - (b + d + a);
+  let guard = 0;
+  while (diff !== 0 && guard < 50) {
+    if (diff > 0) {
+      if (d >= b && d >= a) d++;
+      else if (b >= a) b++;
+      else a++;
+      diff--;
+    } else {
+      if (a > 0 && a >= d && a >= b) a--;
+      else if (b > 0 && b >= d) b--;
+      else if (d > 0) d--;
+      else break;
+      diff++;
+    }
+    guard++;
+  }
+  return { before: b, during: d, after: a };
+}
+
+function shiftSegmentsFrom24HourlyBuckets(
+  buckets: readonly number[],
+  shiftStartMs: number,
+  shiftEndMs: number,
+  intervalForIndex: (hourIndex: number) => { startMs: number; endMs: number },
+): { before: number; during: number; after: number; hourlySum: number } | null {
+  if (buckets.length !== 24) return null;
+  let before = 0;
+  let during = 0;
+  let after = 0;
+  let hourlySum = 0;
+  for (let h = 0; h < 24; h += 1) {
+    const steps = Math.max(0, Math.round(buckets[h] ?? 0));
+    if (steps <= 0) continue;
+    hourlySum += steps;
+    const { startMs, endMs } = intervalForIndex(h);
+    const part = splitBucketStepsAcrossShift(steps, startMs, endMs, shiftStartMs, shiftEndMs);
+    before += part.before;
+    during += part.during;
+    after += part.after;
+  }
+  if (hourlySum <= 0) return null;
+  const rounded = roundBeforeDuringAfter(before, during, after, hourlySum);
+  return { ...rounded, hourlySum };
+}
+
 export function buildAdaptiveMovementData({
   samples,
   dayType,
   shift,
   activityTimeZone,
   hourlyCivilBuckets,
+  hourlyShiftAnchoredBuckets,
+  stepsByHourAnchorStart,
+  activityDateYmd,
   coherentStepsFallback,
   nowForDistribution,
 }: {
@@ -195,8 +289,14 @@ export function buildAdaptiveMovementData({
   shift?: Shift | null;
   /** Align 15‑min samples to morning/mid/evening in this IANA zone (not device locale). */
   activityTimeZone?: string | null;
-  /** Fallback when `samples` yield 0: today’s civil `stepsByHour` from `/api/activity/today` (same zone as snapshots). */
+  /** Civil clock `stepsByHour` (anchor null on API) — 24 buckets local hour 0–23 for `activityDateYmd`. */
   hourlyCivilBuckets?: readonly number[] | null;
+  /** Shift‑anchored `stepsByHour` when `stepsByHourAnchorStart` is set (bucket i = hour i after anchor). */
+  hourlyShiftAnchoredBuckets?: readonly number[] | null;
+  /** ISO start of bucket 0 for `hourlyShiftAnchoredBuckets` (e.g. window start including pre‑shift buffer). */
+  stepsByHourAnchorStart?: string | null;
+  /** Civil `YYYY-MM-DD` for the activity card (matches `/api/activity/today` `date`). */
+  activityDateYmd?: string | null;
   /** Last resort when both samples and hourly are empty but activity total is known from logs. */
   coherentStepsFallback?: number | null;
   nowForDistribution?: Date;
@@ -238,8 +338,88 @@ export function buildAdaptiveMovementData({
       }
     }
 
-    const totalSteps = before + during + after;
     const shiftType = inferShiftType(shift);
+    const tzTrim =
+      typeof activityTimeZone === "string" && activityTimeZone.trim() ? activityTimeZone.trim() : null;
+    const now = nowForDistribution ?? new Date();
+
+    if (samples.length === 0) {
+      const civilYmd =
+        (typeof activityDateYmd === "string" && /^\d{4}-\d{2}-\d{2}$/.test(activityDateYmd.trim())
+          ? activityDateYmd.trim()
+          : null) ??
+        (tzTrim != null ? formatYmdInTimeZone(new Date(shift.start), tzTrim) : null);
+
+      let filledFromHourly = false;
+
+      if (
+        tzTrim != null &&
+        civilYmd != null &&
+        hourlyCivilBuckets &&
+        hourlyCivilBuckets.length === 24 &&
+        sameCalendarDayInZone(shift.start, shift.end, tzTrim)
+      ) {
+        const dayStartMs = startOfLocalDayUtcMs(civilYmd, tzTrim);
+        const split = shiftSegmentsFrom24HourlyBuckets(
+          hourlyCivilBuckets,
+          shiftStart,
+          shiftEnd,
+          (h) => ({ startMs: dayStartMs + h * HOUR_MS, endMs: dayStartMs + (h + 1) * HOUR_MS }),
+        );
+        if (split && split.hourlySum > 0) {
+          before = split.before;
+          during = split.during;
+          after = split.after;
+          filledFromHourly = true;
+        }
+      }
+
+      if (
+        !filledFromHourly &&
+        typeof stepsByHourAnchorStart === "string" &&
+        stepsByHourAnchorStart.trim() &&
+        hourlyShiftAnchoredBuckets &&
+        hourlyShiftAnchoredBuckets.length === 24
+      ) {
+        const anchorMs = toTime(stepsByHourAnchorStart.trim());
+        if (isValidTime(anchorMs)) {
+          const split = shiftSegmentsFrom24HourlyBuckets(
+            hourlyShiftAnchoredBuckets,
+            shiftStart,
+            shiftEnd,
+            (h) => ({ startMs: anchorMs + h * HOUR_MS, endMs: anchorMs + (h + 1) * HOUR_MS }),
+          );
+          if (split && split.hourlySum > 0) {
+            before = split.before;
+            during = split.during;
+            after = split.after;
+            filledFromHourly = true;
+          }
+        }
+      }
+
+      if (
+        !filledFromHourly &&
+        tzTrim != null &&
+        civilYmd != null &&
+        typeof coherentStepsFallback === "number" &&
+        coherentStepsFallback > 0
+      ) {
+        const est = estimateStepsByHourCivil(Math.round(coherentStepsFallback), tzTrim, now);
+        const dayStartMsFallback = startOfLocalDayUtcMs(civilYmd, tzTrim);
+        const split = shiftSegmentsFrom24HourlyBuckets(est, shiftStart, shiftEnd, (h) => ({
+          startMs: dayStartMsFallback + h * HOUR_MS,
+          endMs: dayStartMsFallback + (h + 1) * HOUR_MS,
+        }));
+        if (split && split.hourlySum > 0) {
+          before = split.before;
+          during = split.during;
+          after = split.after;
+        }
+      }
+    }
+
+    const totalSteps = before + during + after;
     const verdict = getShiftVerdict(during, shiftType);
 
     return {
@@ -250,6 +430,7 @@ export function buildAdaptiveMovementData({
       label: totalSteps === 0 ? "No movement data" : `${verdict} for a ${shiftType} shift`,
       insight: totalSteps === 0 ? "No movement data yet." : getShiftInsight(verdict, shiftType),
       totalSteps,
+      shiftType,
       segments: {
         before,
         during,
@@ -346,6 +527,7 @@ export function buildEmptyShiftMovementData(): AdaptiveMovementData {
     label: "Shift times unavailable",
     insight: "Add shift times to see movement during work.",
     totalSteps: 0,
+    shiftType: "unknown",
     segments: {
       before: 0,
       during: 0,
@@ -376,8 +558,18 @@ function getSegmentItems(data: AdaptiveMovementData) {
   ];
 }
 
-function segmentIcon(label: string) {
-  if (label.includes("During") || label === "Midday") return Moon;
+function shiftHeaderIcon(shiftType: ShiftType) {
+  if (shiftType === "day") return Sun;
+  if (shiftType === "evening") return Sun;
+  if (shiftType === "night") return Moon;
+  return Moon;
+}
+
+function segmentIcon(label: string, card: AdaptiveMovementData) {
+  if (label.includes("During") || label === "Midday") {
+    if (card.mode === "shift" && (card.shiftType === "day" || card.shiftType === "evening")) return Sun;
+    return Moon;
+  }
   if (label.includes("After") || label === "Evening") return Sun;
   return Sunrise;
 }
@@ -390,7 +582,8 @@ export function AdaptiveMovementCard({
   const items = getSegmentItems(data);
   const total = items.reduce((sum, item) => sum + item.value, 0);
   const mainLabel = data.mode === "shift" ? "steps during shift" : "steps today";
-  const HeaderIcon = data.mode === "shift" ? Moon : data.mode === "recovery" ? Lightbulb : Sun;
+  const HeaderIcon =
+    data.mode === "shift" ? shiftHeaderIcon(data.shiftType) : data.mode === "recovery" ? Lightbulb : Sun;
 
   return (
     <section className="w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_8px_22px_rgba(15,23,42,0.08)] dark:border-[var(--border-subtle)] dark:bg-[var(--card)] dark:shadow-[0_12px_34px_rgba(0,0,0,0.35)]">
@@ -434,7 +627,7 @@ export function AdaptiveMovementCard({
 
             <div className="mt-4 grid grid-cols-3 gap-2">
               {items.map((item, index) => {
-                const Icon = segmentIcon(item.label);
+                const Icon = segmentIcon(item.label, data);
                 return (
                   <div key={item.label} className={index > 0 ? "border-l border-slate-200 pl-2 dark:border-[var(--border-subtle)]" : ""}>
                     <Icon className="mb-1 h-4 w-4 text-emerald-500 dark:text-emerald-300" />
