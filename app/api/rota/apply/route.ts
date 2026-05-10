@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
-import { getPatternSlots } from '@/lib/rota/patternSlots'
+import { getPatternSlots, type ShiftSlot } from '@/lib/rota/patternSlots'
 import { inferShiftPattern } from '@/lib/rota/inferShiftPattern'
 import {
   buildConcreteShiftsRows,
@@ -14,6 +14,20 @@ import { apiServerError } from '@/lib/api/response'
 
 export const dynamic = 'force-dynamic'
 
+function parsePatternSlotsOverride(raw: unknown): ShiftSlot[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null
+  const out: ShiftSlot[] = []
+  for (const el of raw) {
+    const c = String(el).trim().toUpperCase()
+    if (c === 'M' || c === 'A' || c === 'D' || c === 'N' || c === 'O') {
+      out.push(c)
+    } else {
+      return null
+    }
+  }
+  return out
+}
+
 const RotaApplySchema = z.object({
   patternId: z.string().min(1),
   startDate: z.string().min(1),
@@ -22,6 +36,8 @@ const RotaApplySchema = z.object({
     const num = typeof value === 'number' ? value : Number(value)
     return Number.isFinite(num) ? num : 0
   }, z.number().int().min(0)).optional(),
+  /** When provided, overrides `getPatternSlots(patternId)` (e.g. onboarding custom cycle). */
+  patternSlots: z.array(z.string()).optional(),
   shiftTimes: z.record(z.string(), z.object({ start: z.string().optional(), end: z.string().optional() })).optional(),
   commute: z.unknown().optional(),
   endDate: z.string().nullable().optional(),
@@ -40,13 +56,14 @@ export async function POST(req: NextRequest) {
       patternId,
       startDate,
       startCycleIndex = 0,
+      patternSlots: patternSlotsRaw,
       shiftTimes,
       commute,
       endDate,
     } = parsed.data
 
-    // Get pattern slots
-    const patternSlots = getPatternSlots(patternId)
+    const slotsOverride = parsePatternSlotsOverride(patternSlotsRaw)
+    const patternSlots = slotsOverride ?? getPatternSlots(patternId)
     if (!patternSlots || patternSlots.length === 0) {
       return NextResponse.json(
         { error: 'Invalid pattern ID or pattern has no slots' },
@@ -84,6 +101,7 @@ export async function POST(req: NextRequest) {
     const uniqueShifts = buildConcreteShiftsRows({
       userId,
       patternId,
+      patternSlotsOverride: slotsOverride,
       patternStart,
       startCycleIndex,
       rangeStart: generateStart,

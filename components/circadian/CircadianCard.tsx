@@ -378,7 +378,7 @@ function RingMarker({ angle, color, label }: { angle: number; color: string; lab
   )
 }
 
-/** New account / no usable sleep yet — steer to profile, rota, and sleep log. */
+/** New account / no usable sleep yet — steer to profile and sleep log. */
 function circadianNeedsFirstVisitOnboarding(reason: string | null, apiStatus: string | null): boolean {
   const r = reason ?? ''
   const s = apiStatus ?? ''
@@ -419,7 +419,7 @@ function sleepLogRowIsMain(log: Record<string, unknown>): boolean {
   return false
 }
 
-type BodyClockSetupProgress = { profile: boolean; rota: boolean; sleep: boolean }
+type BodyClockSetupProgress = { profile: boolean; sleep: boolean }
 
 // ─── Main component ───────────────────────────────────────────────
 type CircadianCardProps = {
@@ -520,25 +520,12 @@ export default function CircadianCard({
 
       const profRes = await supabase
         .from("profiles")
-        .select("weight_kg, height_cm, sex, goal, cycle_length, rotation_pattern")
+        .select("weight_kg, height_cm, sex, goal")
         .eq("user_id", uid)
         .maybeSingle()
 
-      const [shiftsRes, rotaRes] = await Promise.all([
-        supabase.from("shifts").select("id").eq("user_id", uid).limit(1),
-        supabase.from("rota_events").select("id").eq("user_id", uid).limit(1),
-      ])
-
       const prof = profRes.data
       const profileOk = !!(prof?.weight_kg && prof?.height_cm && prof?.sex && prof?.goal)
-      const rotaFromPattern =
-        !!prof?.cycle_length &&
-        Array.isArray(prof?.rotation_pattern) &&
-        prof.rotation_pattern.length > 0
-      const rotaOk =
-        rotaFromPattern ||
-        (shiftsRes.data?.length ?? 0) > 0 ||
-        (rotaRes.data?.length ?? 0) > 0
 
       let logs: any[] = []
       const rNew = await supabase
@@ -560,7 +547,7 @@ export default function CircadianCard({
       }
 
       const sleepOk = logs.some((row) => sleepLogRowIsMain(row as Record<string, unknown>))
-      setSetupProgress({ profile: profileOk, rota: rotaOk, sleep: sleepOk })
+      setSetupProgress({ profile: profileOk, sleep: sleepOk })
     } catch {
       setSetupProgress(null)
     }
@@ -654,7 +641,7 @@ export default function CircadianCard({
   const setupIncompleteRef = useRef(true)
   useEffect(() => {
     if (!setupProgress) return
-    const done = setupProgress.profile && setupProgress.rota && setupProgress.sleep
+    const done = setupProgress.profile && setupProgress.sleep
     if (!done) {
       setupIncompleteRef.current = true
       return
@@ -665,7 +652,7 @@ export default function CircadianCard({
     void fetchData({ bustCache: true })
   }, [setupProgress, fetchData])
 
-  const allSetupTasksDone = !!(setupProgress?.profile && setupProgress?.rota && setupProgress?.sleep)
+  const allSetupTasksDone = !!(setupProgress?.profile && setupProgress?.sleep)
   const reasonLower = (reason ?? "").toLowerCase()
   const showSetupTaskList =
     (needsFirstVisitChecklist || setupPanelActive) &&
@@ -687,16 +674,12 @@ export default function CircadianCard({
     window.addEventListener("sleep-refreshed", bump)
     window.addEventListener(SLEEP_LOGS_UPDATED_EVENT, bump)
     window.addEventListener("event-updated", bump)
-    window.addEventListener("rota-saved", bump)
-    window.addEventListener("rota-cleared", bump)
     window.addEventListener("profile-updated", bump)
     return () => {
       clearInterval(id)
       window.removeEventListener("sleep-refreshed", bump)
       window.removeEventListener(SLEEP_LOGS_UPDATED_EVENT, bump)
       window.removeEventListener("event-updated", bump)
-      window.removeEventListener("rota-saved", bump)
-      window.removeEventListener("rota-cleared", bump)
       window.removeEventListener("profile-updated", bump)
     }
   }, [pollSetupProgress, loadBodyClockSetupProgress])
@@ -914,13 +897,6 @@ export default function CircadianCard({
         title: "Profile in Settings",
         sub: "Add weight, height, sex, and goal",
         href: "/settings/profile",
-      },
-      {
-        key: "rota",
-        done: setupProgress?.rota ?? false,
-        title: "Rota on your calendar",
-        sub: "Save shifts or add rota / calendar events",
-        href: "/rota",
       },
       {
         key: "sleep",

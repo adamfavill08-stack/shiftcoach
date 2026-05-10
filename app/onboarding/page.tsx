@@ -1,9 +1,12 @@
 "use client"
 
-import { useState, useEffect, useLayoutEffect, useMemo } from "react"
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { getMyProfile } from "@/lib/profile"
+import { authedFetch } from "@/lib/supabase/authedFetch"
+import { mapOnboardingRotationToPatternSlots } from "@/lib/rota/mapOnboardingRotationToPatternSlots"
+import { notifyRotaUpdated } from "@/lib/shift-agent/shiftAgent"
 import { OnboardingSignInDetailsPanel } from "@/components/onboarding/OnboardingSignInDetailsPanel"
 
 type WorkerType = "fixed" | "rotating" | "variable" | "oncall"
@@ -19,8 +22,8 @@ const ONBOARDING_DRAFT_STORAGE_KEY = "shiftcoach.onboardingDraft.v1"
 
 /** Persisted when the user leaves mid-wizard without a session; restored after sign-in. */
 interface OnboardingDraftStored {
-  /** v1: `screenReady` was the ALL SET index only. v2: gate screen inserted before it; `screenReady` is the ALL SET index. */
-  v: 1 | 2
+  /** v1: `screenReady` was the ALL SET index only. v2: gate screen inserted before it; `screenReady` is the ALL SET index. v3: adds commute draft fields. */
+  v: 1 | 2 | 3
   workerType: WorkerType
   cycleLen: number
   rotation: ShiftType[]
@@ -32,6 +35,8 @@ interface OnboardingDraftStored {
   wkndExt: WeekendExtension | null
   customLen: string
   screenReady: number
+  commuteToWork?: { minutes: string; method: string }
+  commuteFromWork?: { minutes: string; method: string }
 }
 
 const SS: Record<ShiftType, { label: string; short: string; icon: string; bg: string; color: string; border: string }> = {
@@ -97,6 +102,7 @@ function maxConsecutiveWork(rot: ShiftType[]): number {
   return Math.min(max, rot.length)
 }
 
+/** True for agency/variable slot types. Note: `night` is included — gate with `isVar` when choosing varTimes vs times for fixed day/night. */
 function isVariableShiftType(value: AnyShiftType): value is VariableShiftType {
   return value === "morning" || value === "afternoon" || value === "night"
 }
@@ -398,6 +404,16 @@ export default function OnboardingPage() {
   const [todayPos, setTodayPos] = useState<number | string | null>(null)
   const [wkndExt, setWkndExt] = useState<WeekendExtension | null>(null)
   const [customLen, setCustomLen] = useState("")
+  const [commuteToWork, setCommuteToWork] = useState<{ minutes: string; method: string }>({
+    minutes: "30",
+    method: "drive",
+  })
+  const [commuteFromWork, setCommuteFromWork] = useState<{ minutes: string; method: string }>({
+    minutes: "30",
+    method: "drive",
+  })
+  /** Prevents duplicate profile/rota saves (e.g. sign-up onSuccess + skip-account effect). */
+  const completingOnboardingRef = useRef(false)
 
   useEffect(() => { setVisible(false); const t = setTimeout(() => setVisible(true), 80); return () => clearTimeout(t) }, [screen])
   useEffect(() => {
@@ -428,10 +444,10 @@ export default function OnboardingPage() {
 
   const SCREEN_WKND = needsWknd ? 5 : -1
   const SCREEN_SLEEP = hasNights ? (needsWknd ? 6 : 5) : -1
-  /** Create / sign in before the ALL SET summary (guests); signed-in users skip past this. */
-  const SCREEN_ACCOUNT = needsWknd ? (hasNights ? 7 : 6) : (hasNights ? 6 : 5)
-  const SCREEN_SUMMARY = SCREEN_ACCOUNT + 1
-  const totalScreens = SCREEN_SUMMARY + 1
+  /** Review summary before account creation; guests then see sign-up. */
+  const SCREEN_SUMMARY = needsWknd ? (hasNights ? 7 : 6) : (hasNights ? 6 : 5)
+  const SCREEN_ACCOUNT = SCREEN_SUMMARY + 1
+  const totalScreens = SCREEN_ACCOUNT + 1
 
   useLayoutEffect(() => {
     if (typeof window === "undefined") return
@@ -443,7 +459,7 @@ export default function OnboardingPage() {
       if (cancelled || !session?.user) return
       try {
         const d = JSON.parse(raw) as OnboardingDraftStored
-        if (d.v !== 1 && d.v !== 2) return
+        if (d.v !== 1 && d.v !== 2 && d.v !== 3) return
         sessionStorage.removeItem(ONBOARDING_DRAFT_STORAGE_KEY)
         setWorkerType(d.workerType)
         setCycleLen(d.cycleLen)
@@ -455,6 +471,8 @@ export default function OnboardingPage() {
         setTodayPos(d.todayPos)
         setWkndExt(d.wkndExt)
         setCustomLen(d.customLen ?? "")
+        setCommuteToWork(d.commuteToWork ?? { minutes: "30", method: "drive" })
+        setCommuteFromWork(d.commuteFromWork ?? { minutes: "30", method: "drive" })
         // v1 drafts stored the old final index (ALL SET only); one gate screen was inserted after.
         const summaryScreen = d.v === 1 ? d.screenReady + 1 : d.screenReady
         setScreen(summaryScreen)
@@ -467,6 +485,7 @@ export default function OnboardingPage() {
     }
   }, [])
 
+  /** Already signed in: skip account step and complete profile + rota from onboarding. */
   useLayoutEffect(() => {
     if (typeof window === "undefined") return
     if (!workerType) return
@@ -474,17 +493,18 @@ export default function OnboardingPage() {
     let cancelled = false
     void supabase.auth.getSession().then(({ data: { session } }) => {
       if (cancelled || !session?.user) return
-      setScreen(SCREEN_SUMMARY)
+      void handleSubmit()
     })
     return () => {
       cancelled = true
     }
-  }, [screen, workerType, SCREEN_ACCOUNT, SCREEN_SUMMARY])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- submit uses latest state when ACCOUNT+session fires
+  }, [screen, workerType, SCREEN_ACCOUNT])
 
   const persistOnboardingDraft = (summaryScreenIndex: number) => {
     if (!workerType) return
     const draft: OnboardingDraftStored = {
-      v: 2,
+      v: 3,
       workerType,
       cycleLen,
       rotation,
@@ -496,6 +516,8 @@ export default function OnboardingPage() {
       wkndExt,
       customLen,
       screenReady: summaryScreenIndex,
+      commuteToWork,
+      commuteFromWork,
     }
     try {
       sessionStorage.setItem(ONBOARDING_DRAFT_STORAGE_KEY, JSON.stringify(draft))
@@ -541,6 +563,8 @@ export default function OnboardingPage() {
   })
 
   const handleSubmit = async () => {
+    if (completingOnboardingRef.current) return
+    completingOnboardingRef.current = true
     setSaving(true)
     setError(null)
     try {
@@ -557,7 +581,8 @@ export default function OnboardingPage() {
         if (!workerType) {
           throw new Error("Session not found — please sign in again.")
         }
-        persistOnboardingDraft(SCREEN_SUMMARY)
+        persistOnboardingDraft(SCREEN_ACCOUNT)
+        completingOnboardingRef.current = false
         setSaving(false)
         router.push("/auth/sign-up?from=onboarding")
         return
@@ -568,13 +593,14 @@ export default function OnboardingPage() {
       const metaName = user.user_metadata?.name ?? user.user_metadata?.first_name
       const nameFromAuth =
         typeof metaName === "string" && metaName.trim() ? metaName.trim() : undefined
+      const anchorYmd = new Date().toISOString().split("T")[0]
       const { error: err } = await supabase.from("profiles").update({
         ...(nameFromAuth ? { name: nameFromAuth } : {}),
         worker_type: workerType,
         cycle_length: cycleLen,
         rotation_pattern: rotation,
         shift_times: isVar ? varTimes : times,
-        rotation_anchor_date: new Date().toISOString().split("T")[0],
+        rotation_anchor_date: anchorYmd,
         rotation_anchor_day: typeof todayPos === "number" ? todayPos : null,
         weekend_extension: wkndExt,
         post_night_sleep: postSleep || null,
@@ -582,16 +608,88 @@ export default function OnboardingPage() {
         onboarding_completed: true,
       }).eq("user_id", user.id)
       if (err) throw err
+
+      if (!isVar && typeof todayPos === "number") {
+        const hasWorkDay = rotation.some((r) => r !== "off")
+        if (hasWorkDay && rotation.length > 0) {
+          const patternSlots = mapOnboardingRotationToPatternSlots(rotation)
+          const shiftTimesPayload: Record<string, { start: string; end: string }> = {}
+          if (rotation.some((r) => r === "day")) {
+            shiftTimesPayload.day = { start: times.day.start, end: times.day.end }
+          }
+          if (rotation.some((r) => r === "night")) {
+            shiftTimesPayload.night = { start: times.night.start, end: times.night.end }
+          }
+          const commutePayload = {
+            toWork: {
+              minutes: Math.min(300, Math.max(0, parseInt(commuteToWork.minutes, 10) || 0)),
+              method: commuteToWork.method.trim() || "drive",
+            },
+            fromWork: {
+              minutes: Math.min(300, Math.max(0, parseInt(commuteFromWork.minutes, 10) || 0)),
+              method: commuteFromWork.method.trim() || "drive",
+            },
+          }
+          const colorConfig = {
+            morning: "#10B981",
+            day: "#3B82F6",
+            afternoon: "#A855F7",
+            night: "#EF4444",
+            off: "transparent",
+          }
+          const patternRes = await authedFetch("/api/rota/pattern", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              shiftLength: "12h",
+              patternId: "12h-custom",
+              patternSlots,
+              currentShiftIndex: todayPos,
+              startDate: anchorYmd,
+              colorConfig,
+              notes: null,
+            }),
+          })
+          if (!patternRes.ok) {
+            const detail = await patternRes.text().catch(() => "")
+            throw new Error(`Could not save your calendar pattern.${detail ? ` ${detail}` : ""}`)
+          }
+          const applyRes = await authedFetch("/api/rota/apply", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              patternId: "12h-custom",
+              patternSlots,
+              startDate: anchorYmd,
+              startCycleIndex: todayPos,
+              shiftTimes: shiftTimesPayload,
+              commute: commutePayload,
+              endDate: null,
+            }),
+          })
+          if (!applyRes.ok) {
+            const detail = await applyRes.text().catch(() => "")
+            throw new Error(`Could not apply shifts to your calendar.${detail ? ` ${detail}` : ""}`)
+          }
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("rota-saved"))
+            notifyRotaUpdated()
+          }
+        }
+      }
+
       try {
         sessionStorage.removeItem(ONBOARDING_DRAFT_STORAGE_KEY)
       } catch {
         /* ignore */
       }
       sessionStorage.setItem("fromOnboarding", "true")
+      completingOnboardingRef.current = false
       router.push("/onboarding/plan")
     } catch (e: any) {
       setError(e.message || "Something went wrong. Please try again.")
       setSaving(false)
+      completingOnboardingRef.current = false
     }
   }
 
@@ -620,9 +718,9 @@ export default function OnboardingPage() {
           {!isSignInDetails && (
             <div style={{ padding: "52px 24px 0", position: "relative", display: "flex", justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
               <div style={{ fontSize: 14, letterSpacing: screen === SCREEN_SUMMARY ? "0.06em" : "0.12em", fontWeight: 700, color: "#05afc5" }}>
-                {screen === SCREEN_SUMMARY ? "Account Created" : "SHIFTCOACH"}
+                {screen === SCREEN_SUMMARY ? "Review" : "SHIFTCOACH"}
               </div>
-              {screen > 0 && screen < SCREEN_SUMMARY && (
+              {screen > 0 && screen <= SCREEN_SUMMARY && (
                 <button type="button" onClick={back} style={{ position: "absolute", left: 24, background: "none", border: "none", color: "var(--text-muted)", fontSize: 11, cursor: "pointer", fontFamily: "Inter,sans-serif" }}>← Back</button>
               )}
             </div>
@@ -785,9 +883,10 @@ export default function OnboardingPage() {
                     ? (["morning", "afternoon", "night"] as const).filter((t) => usedTypes.includes(t))
                     : (["day", "night"] as const).filter((t) => usedTypes.includes(t))
                   ).map((type, i) => {
-                    const isVariable = type === "morning" || type === "afternoon"
-                    const s = isVariable ? VAR_SS[type] : SS[type]
-                    const t = isVariable ? varTimes[type] : times[type as keyof ShiftTimes]
+                    const useVarTimesRow =
+                      isVar && (type === "morning" || type === "afternoon" || type === "night")
+                    const s = useVarTimesRow ? VAR_SS[type] : SS[type as ShiftType]
+                    const t = useVarTimesRow ? varTimes[type as keyof VariableShiftTimes] : times[type as keyof ShiftTimes]
                     return (
                       <div key={type} style={rv(0.05 + i * 0.06)}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
@@ -797,16 +896,16 @@ export default function OnboardingPage() {
                         </div>
                         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                           <TimePicker value={t.start} onChange={(v) => {
-                            if (isVariable) {
-                              updVarTime(type, "start", v)
+                            if (useVarTimesRow) {
+                              updVarTime(type as keyof VariableShiftTimes, "start", v)
                             } else {
                               updTime(type as keyof ShiftTimes, "start", v)
                             }
                           }} label="Starts" />
                           <div style={{ color: "var(--text-muted)", fontSize: 18, paddingTop: 22 }}>→</div>
                           <TimePicker value={t.end} onChange={(v) => {
-                            if (isVariable) {
-                              updVarTime(type, "end", v)
+                            if (useVarTimesRow) {
+                              updVarTime(type as keyof VariableShiftTimes, "end", v)
                             } else {
                               updTime(type as keyof ShiftTimes, "end", v)
                             }
@@ -816,6 +915,91 @@ export default function OnboardingPage() {
                     )
                   })}
                 </div>
+                {!isVar && (
+                  <div style={{ marginBottom: 24, ...rv(0.1) }}>
+                    <div style={{ ...LBL, marginBottom: 10 }}>TRAVEL TIME</div>
+                    <div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 300, marginBottom: 14, lineHeight: 1.45 }}>
+                      How you get to and from work — same as rota setup. Saved on your calendar so you don&apos;t enter shifts twice.
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                      {([
+                        {
+                          key: "to" as const,
+                          title: "To work",
+                          state: commuteToWork,
+                          set: setCommuteToWork,
+                        },
+                        {
+                          key: "from" as const,
+                          title: "From work",
+                          state: commuteFromWork,
+                          set: setCommuteFromWork,
+                        },
+                      ]).map(({ key, title, state, set }) => {
+                        const fieldStyle: React.CSSProperties = {
+                          width: "100%",
+                          padding: "12px 14px",
+                          borderRadius: 12,
+                          border: "1px solid var(--border-subtle)",
+                          background: "var(--card-subtle)",
+                          color: "var(--text-main)",
+                          fontSize: 14,
+                          boxSizing: "border-box",
+                        }
+                        const labelStyle: React.CSSProperties = {
+                          fontSize: 10,
+                          color: "var(--text-muted)",
+                          marginBottom: 6,
+                          fontWeight: 500,
+                        }
+                        return (
+                          <div
+                            key={key}
+                            style={{
+                              borderRadius: 14,
+                              border: "1px solid var(--border-subtle)",
+                              background: "var(--card)",
+                              padding: "14px 14px 16px",
+                            }}
+                          >
+                            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-main)", marginBottom: 12 }}>
+                              {title}
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                              <div>
+                                <div style={labelStyle}>Time (minutes)</div>
+                                <input
+                                  type="number"
+                                  inputMode="numeric"
+                                  min={0}
+                                  max={300}
+                                  value={state.minutes}
+                                  onChange={(e) => set((p) => ({ ...p, minutes: e.target.value }))}
+                                  style={fieldStyle}
+                                  placeholder="30"
+                                />
+                              </div>
+                              <div>
+                                <div style={labelStyle}>Method</div>
+                                <select
+                                  value={state.method}
+                                  onChange={(e) => set((p) => ({ ...p, method: e.target.value }))}
+                                  style={{ ...fieldStyle, cursor: "pointer" }}
+                                >
+                                  <option value="walk">Walk</option>
+                                  <option value="bike">Bike</option>
+                                  <option value="drive">Drive</option>
+                                  <option value="taxi">Taxi</option>
+                                  <option value="other">Other</option>
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
                 <PBtn onClick={next}>Continue</PBtn>
               </div>
             )}
@@ -985,8 +1169,8 @@ export default function OnboardingPage() {
             {/* ══ Ready ════════════════════════════════════════════ */}
             {screen === SCREEN_ACCOUNT && (
               <OnboardingSignInDetailsPanel
-                persistDraft={() => persistOnboardingDraft(SCREEN_SUMMARY)}
-                onSuccess={() => setScreen(SCREEN_SUMMARY)}
+                persistDraft={() => persistOnboardingDraft(SCREEN_ACCOUNT)}
+                onSuccess={() => void handleSubmit()}
                 onBack={back}
               />
             )}
@@ -996,7 +1180,10 @@ export default function OnboardingPage() {
                 <div style={rv(0)}>
                   <div style={{ ...LBL, color: "#00BCD4", marginBottom: 10 }}>ALL SET</div>
                   <div style={{ fontSize: 34, fontWeight: 300, lineHeight: 1.1, marginBottom: 8 }}>ShiftCoach knows<br />your pattern</div>
-                  <div style={{ fontSize: 13, color: "var(--text-soft)", fontWeight: 300, marginBottom: 24, lineHeight: 1.6 }}>We&apos;ll get smarter every week as we learn how your body responds to your rotation.</div>
+                  <div style={{ fontSize: 13, color: "var(--text-soft)", fontWeight: 300, marginBottom: 12, lineHeight: 1.6 }}>We&apos;ll get smarter every week as we learn how your body responds to your rotation.</div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 300, marginBottom: 24, lineHeight: 1.55 }}>
+                    Check everything below. Use ← Back (top left) if you need to fix anything — then continue to create your account.
+                  </div>
                 </div>
                 <div style={{ background: "var(--card-subtle)", border: "1px solid var(--border-subtle)", borderRadius: 16, padding: 18, marginBottom: 12, ...rv(0.06) }}>
                   <div style={{ ...LBL, marginBottom: 14 }}>WHAT WE KNOW</div>
@@ -1006,9 +1193,9 @@ export default function OnboardingPage() {
                       !isVar && { label: "Rotation", value: cycleLen + " days" },
                       !isVar && maxConsec >= 5 && { label: "Consecutive shifts", value: maxConsec + " on, " + rotation.filter((r) => r === "off").length + " off", color: "#F59E0B" },
                       ...usedTypes.map((t) => (
-                        isVariableShiftType(t)
+                        isVar && isVariableShiftType(t)
                           ? { label: VAR_SS[t].label, value: varTimes[t].start + " – " + varTimes[t].end, color: VAR_SS[t].color }
-                          : { label: SS[t].label, value: times[t as keyof ShiftTimes].start + " – " + times[t as keyof ShiftTimes].end, color: SS[t].color }
+                          : { label: SS[t as ShiftType].label, value: times[t as keyof ShiftTimes].start + " – " + times[t as keyof ShiftTimes].end, color: SS[t as ShiftType].color }
                       )),
                       hasNights && { label: "Post-night sleep", value: "~" + postSleep },
                       !isVar && typeof todayPos === "number" && { label: "Today", value: "Day " + (todayPos + 1) + " of " + cycleLen + " — " + SS[rotation[todayPos as number]].label + " " + times[rotation[todayPos as number] as keyof ShiftTimes]?.start + "–" + times[rotation[todayPos as number] as keyof ShiftTimes]?.end },
@@ -1029,8 +1216,17 @@ export default function OnboardingPage() {
                   <div style={{ color: "#EF4444", fontSize: 12, textAlign: "center", marginBottom: 16 }}>{error}</div>
                 )}
                 <div style={{ marginTop: "auto", paddingBottom: 32, ...rv(0.14) }}>
-                  <PBtn onClick={handleSubmit} disabled={saving}>
-                    {saving ? "Saving…" : "Start ShiftCoach →"}
+                  <PBtn
+                    onClick={() => {
+                      void (async () => {
+                        const { data: { session } } = await supabase.auth.getSession()
+                        if (session?.user) await handleSubmit()
+                        else setScreen(SCREEN_ACCOUNT)
+                      })()
+                    }}
+                    disabled={saving}
+                  >
+                    {saving ? "Saving…" : "Create account →"}
                   </PBtn>
                 </div>
               </div>

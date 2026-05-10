@@ -1,7 +1,7 @@
 /**
  * Build `shifts` rows from a repeating slot pattern (same semantics as /api/rota/apply).
  */
-import { getPatternSlots } from '@/lib/rota/patternSlots'
+import { getPatternSlots, type ShiftSlot } from '@/lib/rota/patternSlots'
 
 const slotToType: Record<string, string> = {
   M: 'morning',
@@ -46,6 +46,8 @@ export function countInclusiveCalendarDays(rangeStart: Date, throughDate: Date):
 export type BuildConcreteShiftsRowsArgs = {
   userId: string
   patternId: string
+  /** When set (e.g. onboarding custom cycle), used instead of `getPatternSlots(patternId)`. */
+  patternSlotsOverride?: ShiftSlot[] | null
   /** Anchor date for the pattern cycle (local midnight). */
   patternStart: Date
   startCycleIndex: number
@@ -63,6 +65,7 @@ export type BuildConcreteShiftsRowsArgs = {
 export function buildConcreteShiftsRows({
   userId,
   patternId,
+  patternSlotsOverride,
   patternStart,
   startCycleIndex,
   rangeStart,
@@ -70,7 +73,10 @@ export function buildConcreteShiftsRows({
   shiftTimes,
   commute,
 }: BuildConcreteShiftsRowsArgs): ConcreteShiftRow[] {
-  const patternSlots = getPatternSlots(patternId)
+  const patternSlots: ShiftSlot[] =
+    patternSlotsOverride && patternSlotsOverride.length > 0
+      ? patternSlotsOverride
+      : getPatternSlots(patternId)
   if (!patternSlots.length || dayCount <= 0) {
     return []
   }
