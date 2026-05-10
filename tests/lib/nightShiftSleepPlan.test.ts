@@ -368,7 +368,7 @@ describe('resolveRotaContextForSleepPlan', () => {
     }
   })
 
-  it('returns no_shift_anchor when rota has no work before sleep', () => {
+  it('synthesises rest anchor when rota has no work rows (OFF-only / empty timeline)', () => {
     const ctx = resolveRotaContextForSleepPlan(
       [
         {
@@ -378,10 +378,13 @@ describe('resolveRotaContextForSleepPlan', () => {
         },
       ],
       [{ date: '2026-08-01', label: 'OFF', start_ts: null, end_ts: null }],
-      {},
+      { timeZone: 'UTC' },
     )
-    expect(ctx.state).toBe('insufficient_data')
-    if (ctx.state === 'insufficient_data') expect(ctx.reason).toBe('no_shift_anchor')
+    expect(ctx.state).toBe('ok')
+    if (ctx.state === 'ok') {
+      expect(ctx.restAnchorSynthetic).toBe(true)
+      expect(ctx.shiftJustEnded.label).toMatch(/off/i)
+    }
   })
 
   it('OFF row plus night shift: synthesises rest anchor before night', () => {

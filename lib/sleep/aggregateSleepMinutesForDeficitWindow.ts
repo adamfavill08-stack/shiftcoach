@@ -87,7 +87,8 @@ export async function aggregateSleepMinutesForDeficitWindow(
       key = getLocalDateFromISO(endTime)
     }
 
-    if (!byDay[key]) {
+    // `byDay[key]` is initialised to 0 — must not treat 0 as "missing" (would skip all minutes).
+    if (!(key in byDay)) {
       continue
     }
     byDay[key] += minutesBetween(startTime, endTime)

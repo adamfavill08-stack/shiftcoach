@@ -2,7 +2,16 @@
 
 import { Footprints, Moon, Sunrise, Sun, Lightbulb } from "lucide-react";
 import { estimateStepsByHourCivil, getLocalHourFromIso } from "@/lib/activity/buildStepsByHour";
-import { formatYmdInTimeZone, startOfLocalDayUtcMs } from "@/lib/sleep/utils";
+import {
+  addCalendarDaysToYmd,
+  formatYmdInTimeZone,
+  startOfLocalDayUtcMs,
+} from "@/lib/sleep/utils";
+import {
+  allocateStepsAcrossWindows,
+  recoveryDayMovementWindows,
+  shiftDayMovementWindows,
+} from "@/lib/activity/normalizeWearableStepSamplesForMovement";
 
 type DayType = "shift" | "recovery" | "day_off";
 type ShiftType = "day" | "evening" | "night" | "unknown";
@@ -11,6 +20,8 @@ type Verdict = "Low" | "Good" | "High";
 export type StepSample = {
   timestamp: string;
   steps: number;
+  /** Bucket end (ISO). When absent, overlap logic assumes a 15-minute bucket. */
+  endTimestamp?: string | null;
 };
 
 export type Shift = {
@@ -154,8 +165,8 @@ function getDayPart(timestamp: string, activityTimeZone?: string | null): "morni
     hour = new Date(timestamp).getHours();
   }
 
-  /** Civil clock day-parts aligned with UX copy (recovery / day off). */
-  if (hour >= 5 && hour < 12) return "morning";
+  /** Civil clock day-parts: 00:00–12:00 morning, 12:00–18:00 midday, 18:00+ evening (recovery / day off). */
+  if (hour >= 0 && hour < 12) return "morning";
   if (hour >= 12 && hour < 18) return "midday";
   return "evening";
 }
@@ -173,7 +184,7 @@ function morningMidEveningFrom24CivilBuckets(buckets: readonly number[]): {
   for (let h = 0; h < 24; h += 1) {
     const steps = Math.max(0, Math.round(buckets[h] ?? 0));
     if (steps <= 0) continue;
-    if (h >= 5 && h < 12) morning += steps;
+    if (h >= 0 && h < 12) morning += steps;
     else if (h >= 12 && h < 18) midday += steps;
     else evening += steps;
   }
@@ -323,25 +334,46 @@ export function buildAdaptiveMovementData({
     let during = 0;
     let after = 0;
 
-    for (const sample of samples) {
-      const time = toTime(sample.timestamp);
-      if (!isValidTime(time)) continue;
-
-      const steps = safeSteps(sample.steps);
-
-      if (time < shiftStart) {
-        before += steps;
-      } else if (time >= shiftStart && time <= shiftEnd) {
-        during += steps;
-      } else {
-        after += steps;
-      }
-    }
-
     const shiftType = inferShiftType(shift);
     const tzTrim =
       typeof activityTimeZone === "string" && activityTimeZone.trim() ? activityTimeZone.trim() : null;
     const now = nowForDistribution ?? new Date();
+
+    const ymdForClip =
+      typeof activityDateYmd === "string" && /^\d{4}-\d{2}-\d{2}$/.test(activityDateYmd.trim())
+        ? activityDateYmd.trim()
+        : null;
+
+    if (samples.length > 0 && tzTrim != null && ymdForClip != null) {
+      const d0 = startOfLocalDayUtcMs(ymdForClip, tzTrim);
+      const d1 = startOfLocalDayUtcMs(addCalendarDaysToYmd(ymdForClip, 1), tzTrim);
+      const windows = shiftDayMovementWindows(d0, d1, shiftStart, shiftEnd);
+      const alloc = allocateStepsAcrossWindows(samples, windows);
+      before = Math.max(0, Math.round(alloc.before ?? 0));
+      during = Math.max(0, Math.round(alloc.during ?? 0));
+      after = Math.max(0, Math.round(alloc.after ?? 0));
+      if (process.env.NODE_ENV === "development") {
+        console.info("[movement-steps]", {
+          source: "client",
+          cache: "buildAdaptiveMovementData",
+          mode: "shift",
+          ymd: ymdForClip,
+          tz: tzTrim,
+          windows,
+          sampleBuckets: samples.length,
+          alloc,
+        });
+      }
+    } else if (samples.length > 0) {
+      for (const sample of samples) {
+        const time = toTime(sample.timestamp);
+        if (!isValidTime(time)) continue;
+        const steps = safeSteps(sample.steps);
+        if (time < shiftStart) before += steps;
+        else if (time >= shiftStart && time <= shiftEnd) during += steps;
+        else after += steps;
+      }
+    }
 
     if (samples.length === 0) {
       const civilYmd =
@@ -445,15 +477,42 @@ export function buildAdaptiveMovementData({
 
   const now = nowForDistribution ?? new Date();
 
-  for (const sample of samples) {
-    const part = getDayPart(sample.timestamp, activityTimeZone);
-    if (!part) continue;
+  const tzTrimRecovery =
+    typeof activityTimeZone === "string" && activityTimeZone.trim() ? activityTimeZone.trim() : null;
+  const ymdRec =
+    typeof activityDateYmd === "string" && /^\d{4}-\d{2}-\d{2}$/.test(activityDateYmd.trim())
+      ? activityDateYmd.trim()
+      : null;
 
-    const steps = safeSteps(sample.steps);
-
-    if (part === "morning") morning += steps;
-    if (part === "midday") midday += steps;
-    if (part === "evening") evening += steps;
+  if (samples.length > 0 && tzTrimRecovery != null && ymdRec != null) {
+    const d0 = startOfLocalDayUtcMs(ymdRec, tzTrimRecovery);
+    const d1 = startOfLocalDayUtcMs(addCalendarDaysToYmd(ymdRec, 1), tzTrimRecovery);
+    const wins = recoveryDayMovementWindows(d0, d1);
+    const alloc = allocateStepsAcrossWindows(samples, wins);
+    morning = Math.max(0, Math.round(alloc.morning ?? 0));
+    midday = Math.max(0, Math.round(alloc.midday ?? 0));
+    evening = Math.max(0, Math.round(alloc.evening ?? 0));
+    if (process.env.NODE_ENV === "development") {
+      console.info("[movement-steps]", {
+        source: "client",
+        cache: "buildAdaptiveMovementData",
+        mode: dayType,
+        ymd: ymdRec,
+        tz: tzTrimRecovery,
+        wins,
+        sampleBuckets: samples.length,
+        alloc,
+      });
+    }
+  } else {
+    for (const sample of samples) {
+      const part = getDayPart(sample.timestamp, activityTimeZone);
+      if (!part) continue;
+      const steps = safeSteps(sample.steps);
+      if (part === "morning") morning += steps;
+      if (part === "midday") midday += steps;
+      if (part === "evening") evening += steps;
+    }
   }
 
   let totalSteps = morning + midday + evening;

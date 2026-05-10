@@ -10,6 +10,12 @@ import { SleepStatsCard } from './SleepStatsCard'
 
 type ShiftSleepOverviewCardProps = {
   totalMinutes: number
+  /** Full duration of latest primary sleep for the hero (optional; avoids civil-day slices from 7-day API). */
+  heroTotalMinutes?: number | null
+  /** Civil YMD for hero date line when `heroTotalMinutes` is set. */
+  heroDateKey?: string | null
+  /** When true with hero minutes, top line is post-shift copy; otherwise show wake date. */
+  heroPostShiftAfterNight?: boolean
   targetMinutes: number
   primaryMinutes: number
   napMinutes: number
@@ -51,6 +57,9 @@ const CHART_H = 128
 
 export function ShiftSleepOverviewCard({
   totalMinutes,
+  heroTotalMinutes = null,
+  heroDateKey = null,
+  heroPostShiftAfterNight = false,
   targetMinutes,
   primaryMinutes,
   napMinutes,
@@ -112,6 +121,16 @@ export function ShiftSleepOverviewCard({
     highlightDateKey && sevenDayBars.some((b) => b.dateKey === highlightDateKey)
       ? highlightDateKey
       : (sevenDayBars[sevenDayBars.length - 1]?.dateKey ?? highlightDateKey ?? '')
+
+  const heroMinutes =
+    typeof heroTotalMinutes === 'number' && heroTotalMinutes > 0 ? heroTotalMinutes : totalMinutes
+  const heroSummaryDateKey =
+    typeof heroTotalMinutes === 'number' &&
+    heroTotalMinutes > 0 &&
+    heroDateKey &&
+    heroDateKey.trim()
+      ? heroDateKey.trim()
+      : summaryDateKey
 
   return (
     <div className="flex w-full flex-col gap-3">
@@ -196,12 +215,19 @@ export function ShiftSleepOverviewCard({
         </div>
       </section>
 
-      {summaryDateKey ? (
+      {heroSummaryDateKey ? (
         <SleepDayTotalHero
-          dateKey={summaryDateKey}
-          totalMinutes={totalMinutes}
+          dateKey={heroSummaryDateKey}
+          totalMinutes={heroMinutes}
           intlLocale={intlLocale}
           chartTimeZone={chartTimeZone}
+          headingOverride={
+            typeof heroTotalMinutes === 'number' &&
+            heroTotalMinutes > 0 &&
+            heroPostShiftAfterNight
+              ? t('sleepType.post_shift_sleep')
+              : null
+          }
         />
       ) : null}
 

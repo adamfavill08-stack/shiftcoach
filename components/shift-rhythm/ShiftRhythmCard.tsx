@@ -12,6 +12,7 @@ import { NextMealWindowCard } from "@/components/nutrition/NextMealWindowCard";
 import { ShiftLagCard } from "@/components/shiftlag/ShiftLagCard";
 import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition";
 import { useTodaySleep } from "@/lib/hooks/useTodaySleep";
+import { isAndroidNativeHealthConnectShell } from "@/lib/native/healthConnectDeviceSyncEligibility";
 import { useWeeklyProgress } from "@/lib/hooks/useWeeklyProgress";
 import { getActivityDayStepsFromTodayApi, useActivityToday } from "@/lib/hooks/useActivityToday";
 import { useTranslation } from "@/components/providers/language-provider";
@@ -786,6 +787,44 @@ function HomeMealTimesCard() {
 function HomeLogSleepCard() {
   const { t } = useTranslation();
   const { totalMinutes, loading } = useTodaySleep();
+  const [hcHint, setHcHint] = useState<"perm" | "no_records" | null>(null);
+
+  useEffect(() => {
+    if (!isAndroidNativeHealthConnectShell()) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { ShiftCoachHealthConnect } = await import("@/lib/native/shiftCoachHealthConnect");
+        const st = await ShiftCoachHealthConnect.getStatus();
+        if (cancelled) return;
+        if (!st.available) {
+          setHcHint(null);
+          return;
+        }
+        if (st.sleepReadPermissionGranted === false) {
+          setHcHint("perm");
+          return;
+        }
+        const zeroAt = sessionStorage.getItem("shiftcoach_hc_sleep_read_zero_at");
+        const recentZero =
+          zeroAt != null &&
+          !Number.isNaN(Number(zeroAt)) &&
+          Date.now() - Number(zeroAt) < 25 * 60 * 1000;
+        const durationMin = Math.max(0, Math.round(totalMinutes));
+        if (st.hasPermissions && recentZero && !loading && durationMin === 0) {
+          setHcHint("no_records");
+          return;
+        }
+        setHcHint(null);
+      } catch {
+        if (!cancelled) setHcHint(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, totalMinutes]);
+
   const durationMin = Math.max(0, Math.round(totalMinutes));
   const hours = Math.floor(durationMin / 60);
   const mins = durationMin % 60;
@@ -828,6 +867,11 @@ function HomeLogSleepCard() {
             </p>
             <p className="mt-1 text-sm font-medium text-slate-700">{sleepLabel}</p>
             <p className={`mt-1 text-xs ${loading ? "text-slate-500" : statusTone}`}>{statusLine}</p>
+            {hcHint ? (
+              <p className="mt-1 text-[11px] leading-snug text-amber-800/90 dark:text-amber-200/90" role="status">
+                {hcHint === "perm" ? t("sleepCard.hcSleepPermissionHint") : t("sleepCard.hcNoSleepRecordsHint")}
+              </p>
+            ) : null}
           </div>
           <div className="flex justify-end pb-0.5 -mt-3 pr-2">
             <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-blue-900/90 dark:bg-blue-800/80">

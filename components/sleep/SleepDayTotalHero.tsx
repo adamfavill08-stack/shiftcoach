@@ -31,26 +31,37 @@ type SleepDayTotalHeroProps = {
   totalMinutes: number
   intlLocale: string
   chartTimeZone?: string | null
+  /** When set, shown as the top line instead of a formatted calendar date. */
+  headingOverride?: string | null
 }
 
-export function SleepDayTotalHero({ dateKey, totalMinutes, intlLocale, chartTimeZone = null }: SleepDayTotalHeroProps) {
+export function SleepDayTotalHero({
+  dateKey,
+  totalMinutes,
+  intlLocale,
+  chartTimeZone = null,
+  headingOverride = null,
+}: SleepDayTotalHeroProps) {
   const { t } = useTranslation()
   const safe = Math.max(0, Math.round(totalMinutes))
   const h = Math.floor(safe / 60)
   const m = safe % 60
-  const dateLine = formatSleepHeroDate(dateKey, intlLocale, chartTimeZone)
+  const topLine =
+    typeof headingOverride === 'string' && headingOverride.trim()
+      ? headingOverride.trim()
+      : formatSleepHeroDate(dateKey, intlLocale, chartTimeZone)
   const ariaDuration = t('sleepCard.durationHM', { h, m })
 
   return (
     <section
       className="relative w-full overflow-hidden rounded-lg bg-[var(--card)] px-5 py-5"
       role="group"
-      aria-label={`${dateLine}. ${ariaDuration}. ${t('sleepCard.dayTotalCaption')}`}
+      aria-label={`${topLine}. ${ariaDuration}. ${t('sleepCard.dayTotalCaption')}`}
     >
       <div
         className={`${inter.className} mx-auto flex w-full max-w-sm flex-col items-center gap-2 text-center sm:gap-2.5`}
       >
-        <p className="text-xs font-medium text-[var(--text-muted)] sm:text-sm">{dateLine}</p>
+        <p className="text-xs font-medium text-[var(--text-muted)] sm:text-sm">{topLine}</p>
         <p className="flex flex-wrap items-baseline justify-center gap-x-1.5 gap-y-0.5 sm:gap-x-2">
           <span className="text-4xl font-bold tabular-nums tracking-tight text-[var(--text-main)] sm:text-5xl">
             {h}

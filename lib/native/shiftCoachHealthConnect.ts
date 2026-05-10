@@ -57,6 +57,8 @@ export interface ShiftCoachHealthConnectPlugin {
     missingPermissions?: string[];
     packageName?: string;
     hasPermissions: boolean;
+    /** True when Health Connect read permission for sleep sessions is granted (subset of all required perms). */
+    sleepReadPermissionGranted?: boolean;
   }>;
   /** Health Connect data access (not Capacitor manifest permissions). */
   requestConnectPermissions(): Promise<{
@@ -151,6 +153,7 @@ class ShiftCoachHealthConnectWeb extends WebPlugin implements ShiftCoachHealthCo
       missingPermissions: [],
       packageName: undefined,
       hasPermissions: false,
+      sleepReadPermissionGranted: false,
     };
   }
 

@@ -610,6 +610,10 @@ export default function ActivityAndStepsPage() {
       ? data.stepSamples.map((sample) => ({
           timestamp: sample.timestamp,
           steps: Math.max(0, Math.round(sample.steps || 0)),
+          endTimestamp:
+            sample && typeof sample === 'object' && 'endTimestamp' in sample
+              ? (sample as { endTimestamp?: string | null }).endTimestamp ?? null
+              : null,
         }))
       : []
 

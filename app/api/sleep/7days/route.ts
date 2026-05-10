@@ -9,7 +9,6 @@ import {
   formatYmdInTimeZone,
   isPrimarySleepType,
   rowCountsAsPrimarySleep,
-  splitSleepMinutesAcrossLocalDays,
   startOfLocalDayUtcMs,
 } from '@/lib/sleep/utils'
 
@@ -143,17 +142,17 @@ export async function GET(req: NextRequest) {
 
     const primaryRows = (weekLogs ?? []).filter((row: any) => rowCountsAsPrimarySleep(row))
 
+    /** Attribute whole primary sleep to the civil day it starts in (shift-worker mental model). */
     if (primaryRows.length > 0) {
       for (const row of primaryRows) {
         const endTime = row.end_at || row.end_ts
         const startTime = row.start_at || row.start_ts
         if (!endTime || !startTime) continue
-
-        const pieces = splitSleepMinutesAcrossLocalDays(startTime, endTime, timeZone)
-        for (const [ymd, mins] of pieces) {
-          if (!dayKeySet.has(ymd) || !byDay[ymd]) continue
-          byDay[ymd].total += mins
-        }
+        const fullMins = minutesBetween(startTime, endTime)
+        if (fullMins <= 0) continue
+        const startYmd = formatYmdInTimeZone(new Date(startTime), timeZone)
+        if (!dayKeySet.has(startYmd) || !byDay[startYmd]) continue
+        byDay[startYmd].total += fullMins
       }
     } else {
       const merged = await fetchMergedPhoneHealthSleepSessionsOverlapping(
@@ -163,11 +162,11 @@ export async function GET(req: NextRequest) {
         fetchThrough,
       )
       for (const s of merged) {
-        const pieces = splitSleepMinutesAcrossLocalDays(s.start_at, s.end_at, timeZone)
-        for (const [ymd, mins] of pieces) {
-          if (!dayKeySet.has(ymd) || !byDay[ymd]) continue
-          byDay[ymd].total += mins
-        }
+        const fullMins = minutesBetween(s.start_at, s.end_at)
+        if (fullMins <= 0) continue
+        const startYmd = formatYmdInTimeZone(new Date(s.start_at), timeZone)
+        if (!dayKeySet.has(startYmd) || !byDay[startYmd]) continue
+        byDay[startYmd].total += fullMins
       }
     }
 
@@ -288,8 +287,8 @@ export async function GET(req: NextRequest) {
             const startTime = row.start_at || row.start_ts
             if (!endTime || !startTime) return false
             if (row.type === 'nap') return false
-            const onDay = splitSleepMinutesAcrossLocalDays(startTime, endTime, timeZone).get(d.date) ?? 0
-            if (onDay <= 0) return false
+            const startYmd = formatYmdInTimeZone(new Date(startTime), timeZone)
+            if (startYmd !== d.date) return false
             return (
               isPrimarySleepType(row.type) || row.type === 'sleep' || row.type === 'main' || row.naps === 0
             )
@@ -337,8 +336,10 @@ export async function GET(req: NextRequest) {
             const start = row.start_at || row.start_ts
             const end = row.end_at || row.end_ts
             if (!start || !end) return []
-            const minsOnDay = splitSleepMinutesAcrossLocalDays(start, end, timeZone).get(d.date) ?? 0
-            if (minsOnDay <= 0) return []
+            const startYmd = formatYmdInTimeZone(new Date(start), timeZone)
+            if (startYmd !== d.date) return []
+            const fullMins = minutesBetween(start, end)
+            if (fullMins <= 0) return []
             return [
               {
                 id: String(row.id),
@@ -348,7 +349,7 @@ export async function GET(req: NextRequest) {
                 quality: row.quality ?? null,
                 notes: row.notes ?? null,
                 source: row.source || 'manual',
-                durationHours: minsOnDay / 60,
+                durationHours: fullMins / 60,
               },
             ]
           })

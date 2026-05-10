@@ -32,12 +32,22 @@ import { calculateMovementConsistency, type DailyActivityData } from '@/lib/acti
 import { computeActivityIntelligence } from '@/lib/activity/activityIntelligence'
 import { stepsByHourFromCumulativeLogs } from '@/lib/activity/buildStepsByHour'
 import {
+  countDuplicateBucketStarts,
+  processWearableStepSamplesForMovementCard,
+} from '@/lib/activity/normalizeWearableStepSamplesForMovement'
+import {
   computeShiftStepsDuringShiftsLast7Days,
   stubShiftStepsLast7Days,
   type RotaShiftRow,
 } from '@/lib/activity/computeShiftStepsDuringShifts'
 import { toShiftType, toActivityShiftType } from '@/lib/shifts/toShiftType'
-import { addCalendarDaysToYmd, endOfLocalDayUtcMs, formatYmdInTimeZone, startOfLocalDayUtcMs } from '@/lib/sleep/utils'
+import {
+  addCalendarDaysToYmd,
+  endOfLocalDayUtcMs,
+  formatYmdInTimeZone,
+  rowCountsAsPrimarySleep,
+  startOfLocalDayUtcMs,
+} from '@/lib/sleep/utils'
 import { fetchActivityLogsByActivityDateWindow } from '@/lib/activity/fetchActivityLogsByActivityDateWindow'
 import { fetchHolidayLocalDatesSet } from '@/lib/rota/holidayRotaPriority'
 import { getSleepDeficitForCircadian } from '@/lib/circadian/sleep'
@@ -68,22 +78,52 @@ function toAgentShift(
   return null
 }
 
-function deriveSleepMinutes(recentSleepLogs: Array<{ sleep_hours: number | null; end_ts: string }> | null): {
+type RecentSleepLogRow = {
+  sleep_hours?: number | null
+  end_ts?: string | null
+  end_at?: string | null
+  start_ts?: string | null
+  start_at?: string | null
+}
+
+function sleepHoursFromLogRow(log: RecentSleepLogRow): number | null {
+  if (typeof log.sleep_hours === 'number' && Number.isFinite(log.sleep_hours) && log.sleep_hours > 0) {
+    return log.sleep_hours
+  }
+  const start = log.start_ts || log.start_at
+  const end = log.end_ts || log.end_at
+  if (!start || !end) return null
+  const ms = Date.parse(end) - Date.parse(start)
+  if (!Number.isFinite(ms) || ms <= 0) return null
+  return ms / 3600000
+}
+
+function deriveSleepMinutes(recentSleepLogs: RecentSleepLogRow[] | null): {
   sleepLastNightMinutes: number | null
   avgSleepLast3NightsMinutes: number | null
 } {
-  if (!recentSleepLogs || recentSleepLogs.length === 0) {
+  const primary =
+    recentSleepLogs?.filter((l) =>
+      rowCountsAsPrimarySleep(l as { type?: string | null; naps?: number | null }),
+    ) ?? []
+  if (primary.length === 0) {
     return { sleepLastNightMinutes: null, avgSleepLast3NightsMinutes: null }
   }
-  const sorted = [...recentSleepLogs]
-    .filter((l) => l.sleep_hours != null)
-    .sort((a, b) => Date.parse(b.end_ts) - Date.parse(a.end_ts))
+  const enriched = primary
+    .map((l) => ({
+      log: l,
+      hours: sleepHoursFromLogRow(l),
+      end: l.end_ts || l.end_at || '',
+    }))
+    .filter((x) => x.hours != null && x.end)
+    .sort((a, b) => Date.parse(b.end) - Date.parse(a.end))
+  const sorted = enriched.map((x) => ({ ...x.log, sleep_hours: x.hours! }))
   const toMin = (h: number) => Math.round(h * 60)
   const last = sorted[0]
-  const sleepLastNightMinutes = last ? toMin(last.sleep_hours!) : null
+  const sleepLastNightMinutes = last && last.sleep_hours != null ? toMin(last.sleep_hours) : null
   const avg3 =
     sorted.length >= 2
-      ? sorted.slice(0, 3).reduce((s, l) => s + toMin(l.sleep_hours!), 0) / Math.min(sorted.length, 3)
+      ? sorted.slice(0, 3).reduce((s, l) => s + toMin(l.sleep_hours ?? 0), 0) / Math.min(sorted.length, 3)
       : null
   return { sleepLastNightMinutes, avgSleepLast3NightsMinutes: avg3 != null ? Math.round(avg3) : null }
 }
@@ -659,14 +699,24 @@ export async function GET(req: NextRequest) {
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
     const yesterdayIso = yesterday.toISOString().slice(0, 10)
 
-    const [recentSleepLogsRes, previousShiftRes, sleepDeficitDataRes] = await Promise.all([
+    const sleepWindowCutoff = sevenDaysAgo.toISOString()
+    const sleepSelect =
+      'id, start_ts, end_ts, start_at, end_at, sleep_hours, quality, type, date'
+    const [sleepByEndTs, sleepByEndAt, previousShiftRes, sleepDeficitDataRes] = await Promise.all([
       supabase
         .from('sleep_logs')
-        .select('start_ts, end_ts, sleep_hours, quality, type')
+        .select(sleepSelect)
         .eq('user_id', userId)
-        .gte('end_ts', sevenDaysAgo.toISOString())
+        .gte('end_ts', sleepWindowCutoff)
         .order('end_ts', { ascending: false })
-        .limit(7),
+        .limit(12),
+      supabase
+        .from('sleep_logs')
+        .select(sleepSelect)
+        .eq('user_id', userId)
+        .gte('end_at', sleepWindowCutoff)
+        .order('end_at', { ascending: false })
+        .limit(12),
       supabase.from('shifts').select('label').eq('user_id', userId).eq('date', yesterdayIso).maybeSingle(),
       supabase
         .from('shift_rhythm_scores')
@@ -676,18 +726,39 @@ export async function GET(req: NextRequest) {
         .limit(1)
         .maybeSingle(),
     ])
-    const recentSleepLogs = recentSleepLogsRes.data
+    const mergedSleep = new Map<string, Record<string, unknown>>()
+    const pushRows = (rows: unknown[] | null | undefined) => {
+      for (const row of rows ?? []) {
+        const r = row as Record<string, unknown>
+        const id = String(r.id ?? `${r.start_at ?? r.start_ts ?? ''}|${r.end_at ?? r.end_ts ?? ''}`)
+        if (id.replace(/\|/g, '')) mergedSleep.set(id, r)
+      }
+    }
+    if (!sleepByEndTs.error) pushRows(sleepByEndTs.data)
+    if (!sleepByEndAt.error) pushRows(sleepByEndAt.data)
+    const recentSleepLogs = [...mergedSleep.values()]
+      .sort((a, b) => {
+        const endA = String(a.end_ts || a.end_at || '')
+        const endB = String(b.end_ts || b.end_at || '')
+        return Date.parse(endB) - Date.parse(endA)
+      })
+      .slice(0, 14)
     const previousShift = previousShiftRes.data
     const sleepDeficitData = sleepDeficitDataRes.data
 
-    // Process sleep data
-    const mainSleepLogs = (recentSleepLogs || []).filter((log: any) => 
-      !log.type || log.type === 'sleep' || log.type === 'main'
-    )
+    // Process sleep data (include main_sleep / post_shift_sleep from /api/sleep/log; support start_at/end_at.)
+    const mainSleepLogs = (recentSleepLogs || []).filter((log: any) => rowCountsAsPrimarySleep(log))
     const lastSleep = mainSleepLogs[0]
-    const lastSleepHours = lastSleep?.sleep_hours ?? null
-    const lastSleepQuality = lastSleep?.quality ?? null
-    const recentSleepHours = mainSleepLogs.slice(0, 7).map((log: any) => log.sleep_hours ?? 0)
+    const lastSleepHours: number | null = lastSleep
+      ? sleepHoursFromLogRow(lastSleep as RecentSleepLogRow)
+      : null
+    const lastSleepQuality =
+      typeof lastSleep?.quality === 'number' && Number.isFinite(lastSleep.quality)
+        ? lastSleep.quality
+        : null
+    const recentSleepHours = mainSleepLogs
+      .slice(0, 7)
+      .map((log: any) => sleepHoursFromLogRow(log as RecentSleepLogRow) ?? 0)
     const recentSleepQuality = mainSleepLogs.slice(0, 7).map((log: any) => log.quality ?? null)
 
     // Determine previous shift type
@@ -1111,26 +1182,58 @@ export async function GET(req: NextRequest) {
         : { shiftStart: null, shiftEnd: null, now },
     )
 
-    let stepSamples: Array<{ timestamp: string; steps: number }> = []
+    let stepSamples: Array<{ timestamp: string; steps: number; endTimestamp?: string | null }> = []
     if (Number.isFinite(stepSamplesRangeStartMs) && Number.isFinite(stepSamplesRangeEndMs)) {
       const stepSamplesStartIso = new Date(stepSamplesRangeStartMs).toISOString()
       const stepSamplesEndIso = new Date(stepSamplesRangeEndMs).toISOString()
       const stepSamplesQuery = await supabase
         .from('wearable_step_samples')
-        .select('bucket_start_utc, steps')
+        .select('bucket_start_utc, bucket_end_utc, steps')
         .eq('user_id', userId)
         .eq('source', 'health_connect')
         .gte('bucket_start_utc', stepSamplesStartIso)
         .lte('bucket_start_utc', stepSamplesEndIso)
         .order('bucket_start_utc', { ascending: true })
       if (!stepSamplesQuery.error) {
-        stepSamples = (stepSamplesQuery.data ?? [])
-          .map((row: { bucket_start_utc: string | null; steps: number | null }) => {
+        const rawRows = (stepSamplesQuery.data ?? []) as Array<{
+          bucket_start_utc: string | null
+          bucket_end_utc: string | null
+          steps: number | null
+        }>
+        const mappedPre = rawRows
+          .map((row) => {
             if (!row?.bucket_start_utc) return null
             const steps = typeof row.steps === 'number' && Number.isFinite(row.steps) ? Math.max(0, Math.round(row.steps)) : 0
-            return { timestamp: row.bucket_start_utc, steps }
+            return { timestamp: row.bucket_start_utc, steps, endTimestamp: row.bucket_end_utc ?? null }
           })
-          .filter((row): row is { timestamp: string; steps: number } => row != null)
+          .filter((row): row is { timestamp: string; steps: number; endTimestamp: string | null } => row != null)
+        const dayStartMs = startOfLocalDayUtcMs(today, activityIntelTimeZone)
+        const dayEndExclusiveMs = startOfLocalDayUtcMs(addCalendarDaysToYmd(today, 1), activityIntelTimeZone)
+        const processed = processWearableStepSamplesForMovementCard({
+          rawRows,
+          dayStartMs,
+          dayEndExclusiveMs,
+          coherentStepsHint: coherentSteps,
+        })
+        stepSamples = processed.map((s) => ({
+          timestamp: s.timestamp,
+          steps: s.steps,
+          endTimestamp: s.endTimestamp ?? null,
+        }))
+        console.info('[movement-steps]', {
+          source: 'api',
+          cache: 'no-store',
+          selectedYmd: today,
+          tz: activityIntelTimeZone,
+          shiftStart: shiftStart?.toISOString() ?? null,
+          shiftEnd: shiftEnd?.toISOString() ?? null,
+          clip: { dayStart: new Date(dayStartMs).toISOString(), dayEndExclusive: new Date(dayEndExclusiveMs).toISOString() },
+          queryRange: { stepSamplesStartIso, stepSamplesEndIso },
+          rawBucketRows: rawRows.length,
+          duplicateStartsInRaw: countDuplicateBucketStarts(mappedPre),
+          clippedSamples: stepSamples.length,
+          clippedStepsSum: stepSamples.reduce((a, s) => a + s.steps, 0),
+        })
       }
     }
 

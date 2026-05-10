@@ -25,10 +25,14 @@ import {
   pickDefaultShiftedDay,
   formatYmdInTimeZone,
   addCalendarDaysToYmd,
+  rowCountsAsPrimarySleep,
   type SleepBarPoint,
 } from '@/lib/sleep/utils'
+import { toShiftType } from '@/lib/shifts/toShiftType'
 import { authedFetch } from '@/lib/supabase/authedFetch'
 import { notifySleepLogsUpdated } from '@/lib/circadian/circadianAgent'
+import { isAndroidNativeHealthConnectShell } from '@/lib/native/healthConnectDeviceSyncEligibility'
+import { autoSyncHealthConnectIfEligible } from '@/lib/native/autoSyncHealthConnectIfEligible'
 
 interface SleepSession {
   id: string
@@ -47,6 +51,35 @@ interface ShiftedDay {
   sessions: SleepSession[]
   totalMinutes: number
   totalHours: number
+}
+
+/** Full session length from timestamps (7-day API clips `durationHours` per civil day). */
+function fullSleepSessionMinutes(s: Pick<SleepSession, 'start_at' | 'end_at'>): number {
+  const a = Date.parse(s.start_at)
+  const b = Date.parse(s.end_at)
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b <= a) return 0
+  return Math.round((b - a) / 60000)
+}
+
+/** True if rota marks a night shift on sleep start/end day or the civil day before each (post-night sleep). */
+function rosterNightNearSleepSession(
+  shiftByDate: Map<string, string>,
+  startAt: string,
+  endAt: string,
+  timeZone: string,
+): boolean {
+  const startYmd = formatYmdInTimeZone(new Date(startAt), timeZone)
+  const endYmd = formatYmdInTimeZone(new Date(endAt), timeZone)
+  const ymds = new Set([
+    startYmd,
+    endYmd,
+    addCalendarDaysToYmd(startYmd, -1),
+    addCalendarDaysToYmd(endYmd, -1),
+  ])
+  for (const ymd of ymds) {
+    if (toShiftType(shiftByDate.get(ymd), null) === 'night') return true
+  }
+  return false
 }
 
 function extractApiErrorMessage(errorData: any, fallback: string): string {
@@ -106,6 +139,7 @@ export function ShiftWorkerSleepPage() {
   const [isWearableSyncing, setIsWearableSyncing] = useState(false)
   const [heroActionError, setHeroActionError] = useState<string | null>(null)
   const [profileFirstName, setProfileFirstName] = useState<string | null>(null)
+  const [hcSleepHint, setHcSleepHint] = useState<'perm' | 'no_records' | null>(null)
 
   const selectedDayRef = useRef<string | null>(null)
   useEffect(() => {
@@ -320,14 +354,103 @@ export function ShiftWorkerSleepPage() {
     void fetchWearableStatus()
   }, [fetchWearableStatus])
 
+  useEffect(() => {
+    const tmr = window.setTimeout(() => {
+      autoSyncHealthConnectIfEligible('sleep-page-open')
+    }, 800)
+    return () => window.clearTimeout(tmr)
+  }, [])
+
+  useEffect(() => {
+    if (!isAndroidNativeHealthConnectShell()) return
+    if (loading && shiftedDays.length === 0) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const { ShiftCoachHealthConnect } = await import('@/lib/native/shiftCoachHealthConnect')
+        const st = await ShiftCoachHealthConnect.getStatus()
+        if (cancelled) return
+        if (!st.available) {
+          setHcSleepHint(null)
+          return
+        }
+        if (st.sleepReadPermissionGranted === false) {
+          setHcSleepHint('perm')
+          return
+        }
+        const zeroAt = sessionStorage.getItem('shiftcoach_hc_sleep_read_zero_at')
+        const recentZero =
+          zeroAt != null &&
+          !Number.isNaN(Number(zeroAt)) &&
+          Date.now() - Number(zeroAt) < 25 * 60 * 1000
+        const hasHcSleep = shiftedDays.some((d) =>
+          (d.sessions ?? []).some((s) => String(s.source ?? '') === 'health_connect'),
+        )
+        if (st.hasPermissions && recentZero && !hasHcSleep) {
+          setHcSleepHint('no_records')
+          return
+        }
+        setHcSleepHint(null)
+      } catch {
+        if (!cancelled) setHcSleepHint(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [shiftedDays, loading])
+
   /** Local civil "today" for charts and for the Your plan tab (today-only plan). */
   const chartHighlightYmd = useMemo(() => formatYmdInTimeZone(new Date(), userTimeZone), [userTimeZone])
 
-  /** Sleep sessions for the plan: always today's civil bucket, not the shifted-day picker. */
+  /**
+   * Sessions fed into the sleep plan. Civil "today" alone often misses post-shift sleep for night
+   * workers (main sleep ended yesterday on the calendar while they are still on the rest window).
+   */
   const planSessionsForToday = useMemo(() => {
     const ymd = chartHighlightYmd
     const fromWeek = sevenDayCalendarDays.find((d) => d.date === ymd)
-    if (fromWeek !== undefined) return fromWeek.sessions ?? []
+
+    const hasPrimary = (list: SleepSession[]) =>
+      list.some(
+        (s) =>
+          !!s?.start_at &&
+          !!s?.end_at &&
+          rowCountsAsPrimarySleep({ type: s.type }),
+      )
+
+    const dedupeSessions = (lists: SleepSession[][]) => {
+      const byKey = new Map<string, SleepSession>()
+      for (const list of lists) {
+        for (const s of list) {
+          if (!s?.start_at || !s?.end_at) continue
+          const key =
+            s.id != null && String(s.id).trim() !== '' ? String(s.id) : `${s.start_at}|${s.end_at}`
+          byKey.set(key, s)
+        }
+      }
+      return [...byKey.values()]
+    }
+
+    if (sevenDayCalendarDays.length > 0) {
+      const todaySess = fromWeek !== undefined ? (fromWeek.sessions ?? []) : []
+      if (hasPrimary(todaySess)) return todaySess
+
+      const y1 = addCalendarDaysToYmd(ymd, -1)
+      const y2 = addCalendarDaysToYmd(ymd, -2)
+      const row1 = sevenDayCalendarDays.find((d) => d.date === y1)
+      const row2 = sevenDayCalendarDays.find((d) => d.date === y2)
+      const mergedBack = dedupeSessions([row2?.sessions ?? [], row1?.sessions ?? [], todaySess])
+      if (hasPrimary(mergedBack)) return mergedBack
+
+      const allWeek = sevenDayCalendarDays.flatMap((d) => d.sessions ?? [])
+      const allShifted = shiftedDays.flatMap((d) => d.sessions ?? [])
+      const wide = dedupeSessions([allShifted, allWeek])
+      if (hasPrimary(wide)) return wide
+
+      return mergedBack.length > 0 ? mergedBack : todaySess
+    }
+
     const shifted = shiftedDays.find((d) => d.date === ymd)
     return shifted?.sessions ?? []
   }, [sevenDayCalendarDays, shiftedDays, chartHighlightYmd])
@@ -338,6 +461,33 @@ export function ShiftWorkerSleepPage() {
       : Math.round(DEFAULT_TARGET_SLEEP_H * 60)
     return getShiftAdjustedTargetMinutes(base, shiftByDate.get(chartHighlightYmd) || 'OFF')
   }, [sleepGoalHours, shiftByDate, chartHighlightYmd])
+
+  /** Hero shows full latest primary sleep; calendar-day `durationHours` slices under-count overnight sleep. */
+  const lastSleepHero = useMemo(() => {
+    const byId = new Map<string, SleepSession>()
+    for (const d of shiftedDays) {
+      for (const s of d.sessions ?? []) {
+        if (s?.id && s.start_at && s.end_at) byId.set(String(s.id), s)
+      }
+    }
+    for (const d of sevenDayCalendarDays) {
+      for (const s of d.sessions ?? []) {
+        if (s?.id && s.start_at && s.end_at) byId.set(String(s.id), s)
+      }
+    }
+    const list = [...byId.values()]
+    const primaries = list.filter((s) => rowCountsAsPrimarySleep({ type: s.type }))
+    const pool = primaries.length > 0 ? primaries : list
+    if (pool.length === 0) return null
+    const best = [...pool].sort((a, b) => Date.parse(b.end_at) - Date.parse(a.end_at))[0]
+    const minutes = fullSleepSessionMinutes(best)
+    if (minutes <= 0) return null
+    return {
+      minutes,
+      dateKey: formatYmdInTimeZone(new Date(best.start_at), userTimeZone),
+      postShiftAfterNight: rosterNightNearSleepSession(shiftByDate, best.start_at, best.end_at, userTimeZone),
+    }
+  }, [shiftedDays, sevenDayCalendarDays, userTimeZone, shiftByDate])
 
   const refreshSleepPageData = useCallback(async () => {
     try {
@@ -350,6 +500,24 @@ export function ShiftWorkerSleepPage() {
       console.error('[ShiftWorkerSleepPage] refresh error:', err)
     }
   }, [fetchShiftedDays, fetchSevenDayChart, fetchProfileSleepAndName, fetchShifts, router])
+
+  useEffect(() => {
+    let debounce: ReturnType<typeof setTimeout> | null = null
+    const bump = () => {
+      if (debounce != null) clearTimeout(debounce)
+      debounce = setTimeout(() => {
+        debounce = null
+        void refreshSleepPageData()
+      }, 300)
+    }
+    window.addEventListener('sleep-refreshed', bump)
+    window.addEventListener('wearables-synced', bump as EventListener)
+    return () => {
+      window.removeEventListener('sleep-refreshed', bump)
+      window.removeEventListener('wearables-synced', bump as EventListener)
+      if (debounce != null) clearTimeout(debounce)
+    }
+  }, [refreshSleepPageData])
 
   const handleSyncWearable = useCallback(async () => {
     try {
@@ -675,8 +843,16 @@ export function ShiftWorkerSleepPage() {
 
       {sleepTab === 'overview' ? (
         <>
+      {hcSleepHint ? (
+        <p className="text-xs text-amber-800/90 dark:text-amber-200/90" role="status">
+          {hcSleepHint === 'perm' ? t('sleepCard.hcSleepPermissionHint') : t('sleepCard.hcNoSleepRecordsHint')}
+        </p>
+      ) : null}
       <ShiftSleepOverviewCard
         totalMinutes={totalMinutes}
+        heroTotalMinutes={lastSleepHero?.minutes ?? null}
+        heroDateKey={lastSleepHero?.dateKey ?? null}
+        heroPostShiftAfterNight={lastSleepHero?.postShiftAfterNight ?? false}
         targetMinutes={adjustedTargetMinutes}
         primaryMinutes={primaryMinutes}
         napMinutes={napMinutes}

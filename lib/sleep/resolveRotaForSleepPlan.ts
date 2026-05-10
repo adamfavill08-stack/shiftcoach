@@ -3,6 +3,7 @@ import {
   operationalKindFromStandard,
   type ShiftRowInput,
 } from '@/lib/shift-context/resolveShiftContext'
+import { rowCountsAsPrimarySleep } from '@/lib/sleep/utils'
 import { toShiftType } from '@/lib/shifts/toShiftType'
 import { classifyShiftWallShape, gapMsAnchorEndToSleepStart, isNightLikeInstant } from '@/lib/sleep/sleepShiftWallClock'
 import { MAX_COMMUTE_MINUTES, type ShiftInstant } from '@/lib/sleep/nightShiftSleepPlan'
@@ -42,21 +43,20 @@ function buildWorkInstants(rows: ShiftRowInput[]): InstantRow[] {
   return out
 }
 
+/** Latest primary sleep by wake time (not longest in the list — aligns with post-shift recovery). */
 function pickPrimarySleep(sessions: SleepSessionLike[]): { startMs: number; endMs: number } | null {
-  let best: { startMs: number; endMs: number; dur: number } | null = null
+  const candidates: { startMs: number; endMs: number }[] = []
   for (const s of sessions ?? []) {
     if (!s?.start_at || !s?.end_at) continue
-    if (String(s.type).toLowerCase() === 'nap') continue
+    if (!rowCountsAsPrimarySleep({ type: s.type, naps: (s as { naps?: number | null }).naps })) continue
     const startMs = Date.parse(s.start_at)
     const endMs = Date.parse(s.end_at)
     if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) continue
-    const dur = endMs - startMs
-    if (!best || dur > best.dur) {
-      best = { startMs, endMs, dur }
-    }
+    candidates.push({ startMs, endMs })
   }
-  if (!best) return null
-  return { startMs: best.startMs, endMs: best.endMs }
+  if (!candidates.length) return null
+  candidates.sort((a, b) => b.endMs - a.endMs)
+  return candidates[0]
 }
 
 function pickNaps(sessions: SleepSessionLike[], main: { startMs: number; endMs: number } | null) {
@@ -254,8 +254,11 @@ export function resolveRotaContextForSleepPlan(
     restAnchorSynthetic = true
   }
 
+  // No work rows (OFF-only / empty rota) or sleep not overlapping any shift — still produce a plan
+  // using a synthetic rest window before sleep (same geometry as pre-night recovery).
   if (!shiftJustEnded) {
-    return { state: 'insufficient_data', reason: 'no_shift_anchor' }
+    shiftJustEnded = syntheticRestAnchor(primary.startMs, timeZone)
+    restAnchorSynthetic = true
   }
 
   const endedRow =

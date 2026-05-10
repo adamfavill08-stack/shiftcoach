@@ -10,6 +10,8 @@ import {
   supersedeManualLogsAfterWearableDelta,
 } from '@/lib/activity/manualWearableSupersede'
 import { mergeHealthConnectDailyStepsByDate } from '@/lib/health-connect/mergeHealthConnectDailyStepsByDate'
+import { healthConnectSleepItemSchema } from '@/lib/health-connect/healthConnectSleepItemSchema'
+import { withSyntheticHcSampleIds } from '@/lib/health-connect/withSyntheticHcSampleIds'
 
 const ANDROID_HEALTH_PROVIDER = 'android_health_connect'
 
@@ -24,15 +26,6 @@ const StepSampleItemSchema = z.object({
   timestamp: z.string(),
   steps: z.number(),
   endTimestamp: z.string().optional(),
-})
-
-const SleepItemSchema = z.object({
-  sampleId: z.string().trim().min(1).optional(),
-  start: z.string(),
-  end: z.string(),
-  stage: z.string().optional(),
-  quality: z.string().optional(),
-  meta: z.record(z.string(), z.unknown()).optional(),
 })
 
 const HeartRateItemSchema = z.object({
@@ -55,7 +48,7 @@ const HealthConnectSyncSchema = z.object({
   lastStepRecordAt: z.string().optional(),
   /** Preferred `logged_at` for today's row (latest sample end or sync time). */
   loggedAt: z.string().optional(),
-  sleep: z.array(SleepItemSchema).optional().default([]),
+  sleep: z.array(healthConnectSleepItemSchema).optional().default([]),
   heartRate: z.array(HeartRateItemSchema).optional().default([]),
   syncedAt: z.string().optional(),
 })
@@ -108,6 +101,7 @@ export async function POST(req: NextRequest) {
     } = parsed.data
     const steps = typeof rawSteps === 'number' ? Math.max(0, Math.round(rawSteps)) : null
     const syncedAt = typeof rawSyncedAt === 'string' ? rawSyncedAt : new Date().toISOString()
+    const sleepForPersist = withSyntheticHcSampleIds(userId, sleep)
 
     const { supabaseServer } = await import('@/lib/supabase-server')
     const supabase = supabaseServer
@@ -256,8 +250,9 @@ export async function POST(req: NextRequest) {
     let heartRateSamplesPersisted = 0
     let heartRateUpsertOk = true
 
-    if (sleep.length > 0) {
-      const rows = sleep
+    if (sleepForPersist.length > 0) {
+      console.info('[HC-sleep-sync] received=', sleep.length, 'normalized=', sleepForPersist.length)
+      const rows = sleepForPersist
         .map((s) => ({
           user_id: userId,
           source: 'health_connect',
@@ -265,11 +260,16 @@ export async function POST(req: NextRequest) {
           end_at: new Date(s.end).toISOString(),
           stage: s.stage ?? 'asleep',
           quality: s.quality ?? null,
-          meta: s.sampleId ? { ...(s.meta ?? {}), sample_id: s.sampleId } : (s.meta ?? {}),
+          meta: {
+            ...(s.meta ?? {}),
+            ...(s.sampleId ? { sample_id: s.sampleId } : {}),
+          },
         }))
         .filter((r) => !Number.isNaN(new Date(r.start_at).getTime()) && !Number.isNaN(new Date(r.end_at).getTime()))
 
       if (rows.length > 0) {
+        // Dedupe: sample_id path + upsert on (user_id, source, start_at, end_at). source is always
+        // 'health_connect' here — manual sleep rows use source 'manual' and are never selected/updated.
         const rowsWithSampleId = rows.filter((r) => typeof (r.meta as { sample_id?: string })?.sample_id === 'string')
         const rowsWithoutSampleId = rows.filter(
           (r) => typeof (r.meta as { sample_id?: string })?.sample_id !== 'string',
@@ -324,6 +324,7 @@ export async function POST(req: NextRequest) {
           }
         }
       }
+      console.info('[HC-sleep-sync] persisted=', sleepSessionsPersisted, 'errors=', sleepUpsertErrors)
     }
 
     if (heartRate.length > 0) {
@@ -385,7 +386,7 @@ export async function POST(req: NextRequest) {
         steps: steps != null,
         dailyStepsCount: dailyLimited.length,
         stepSamplesCount: normalizedSamples.length,
-        sleepCount: sleep.length,
+        sleepCount: sleepForPersist.length,
         heartRateCount: heartRate.length,
       },
       persisted,
@@ -448,7 +449,7 @@ export async function POST(req: NextRequest) {
           firstStepRecordAt: firstStepRecordAt ?? null,
           lastStepRecordAt: lastStepRecordAt ?? null,
           loggedAt: rawLoggedAt ?? null,
-          sleepSessionCount: sleep.length,
+          sleepSessionCount: sleepForPersist.length,
           heartRateSampleCount: heartRate.length,
         },
         todayPersist: {

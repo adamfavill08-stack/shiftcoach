@@ -623,15 +623,21 @@ export default function CircadianCard({
   useEffect(() => {
     void fetchData()
     void loadRecentNapEnds()
+    let debounce: ReturnType<typeof setTimeout> | null = null
     const onSleep = () => {
       void loadRecentNapEnds()
-      void fetchData({ bustCache: true })
+      if (debounce != null) clearTimeout(debounce)
+      debounce = setTimeout(() => {
+        debounce = null
+        void fetchData({ bustCache: true })
+      }, 200)
     }
     window.addEventListener("sleep-refreshed", onSleep)
     window.addEventListener(SLEEP_LOGS_UPDATED_EVENT, onSleep)
     return () => {
       window.removeEventListener("sleep-refreshed", onSleep)
       window.removeEventListener(SLEEP_LOGS_UPDATED_EVENT, onSleep)
+      if (debounce != null) clearTimeout(debounce)
     }
   }, [fetchData, loadRecentNapEnds])
 

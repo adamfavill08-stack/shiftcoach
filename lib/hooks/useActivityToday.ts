@@ -29,7 +29,7 @@ export function isAgentActivityPersonalization(
 }
 
 export type ActivityToday = {
-  stepSamples?: Array<{ timestamp: string; steps: number }>
+  stepSamples?: Array<{ timestamp: string; steps: number; endTimestamp?: string | null }>
   source?: 'apple' | 'fitbit' | 'google' | 'manual' | 'unknown'
   steps?: number
   stepTarget?: number
@@ -282,9 +282,18 @@ export function useActivityToday() {
                       const o = s as Record<string, unknown>
                       if (typeof o.timestamp !== 'string') return null
                       const steps = typeof o.steps === 'number' && Number.isFinite(o.steps) ? Math.max(0, o.steps) : 0
-                      return { timestamp: o.timestamp, steps }
+                      const endTimestamp =
+                        typeof o.endTimestamp === 'string' && o.endTimestamp.trim()
+                          ? o.endTimestamp
+                          : null
+                      return { timestamp: o.timestamp, steps, endTimestamp }
                     })
-                    .filter((s: { timestamp: string; steps: number } | null): s is { timestamp: string; steps: number } => s != null)
+                    .filter(
+                      (
+                        s: { timestamp: string; steps: number; endTimestamp: string | null } | null,
+                      ): s is { timestamp: string; steps: number; endTimestamp: string | null } =>
+                        s != null,
+                    )
                 : undefined,
             stepsByHourAnchorStart:
               json.activity && 'stepsByHourAnchorStart' in json.activity
@@ -312,19 +321,26 @@ export function useActivityToday() {
     }
     
     fetchData()
-    
-    // Listen for activity level updates
+
+    let debounce: ReturnType<typeof setTimeout> | null = null
     const handleUpdate = () => {
-      if (!cancelled) fetchData()
+      if (debounce != null) clearTimeout(debounce)
+      debounce = setTimeout(() => {
+        debounce = null
+        if (!cancelled) void fetchData()
+      }, 300)
     }
     window.addEventListener('activity-level-updated', handleUpdate)
     window.addEventListener('wearables-synced', handleUpdate)
+    window.addEventListener('sleep-refreshed', handleUpdate)
     window.addEventListener('activity-manual-logged', handleUpdate)
 
     return () => {
       cancelled = true
+      if (debounce != null) clearTimeout(debounce)
       window.removeEventListener('activity-level-updated', handleUpdate)
       window.removeEventListener('wearables-synced', handleUpdate)
+      window.removeEventListener('sleep-refreshed', handleUpdate)
       window.removeEventListener('activity-manual-logged', handleUpdate)
     }
   }, [])

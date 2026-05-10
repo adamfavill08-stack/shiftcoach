@@ -442,6 +442,8 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 ret.put("available", available)
                 if (!available) {
                     ret.put("hasPermissions", false)
+                    ret.put("sleepReadPermissionGranted", false)
+                    android.util.Log.i("ShiftCoachHCSleep", "getStatus: available=false (no client / SDK path)")
                     attachHcLauncherDiagnostics(ret, ctx, sdkDefault, granted, missingJson)
                     putHcDiagnostics(ret, ctx, sdkDefault, granted, missingJson.length())
                     call.resolve(ret)
@@ -449,6 +451,14 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 }
                 val hasAll = requiredPermissions.all { it in granted }
                 ret.put("hasPermissions", hasAll)
+                val sleepReadPerm = HealthPermission.getReadPermission(SleepSessionRecord::class)
+                val sleepReadPermissionGranted = sleepReadPerm in granted
+                ret.put("sleepReadPermissionGranted", sleepReadPermissionGranted)
+                android.util.Log.i(
+                    "ShiftCoachHCSleep",
+                    "getStatus: available=$available sleepReadPermissionGranted=$sleepReadPermissionGranted " +
+                        "allRequiredGranted=$hasAll",
+                )
                 hci(
                     "getStatus sdk=${sdkStatusLabel(sdkDefault)} canCreate=$canCreateClient " +
                         "hasPermissions=$hasAll missing=${missingJson.length()}",
@@ -934,24 +944,25 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                 val sleepDateRangeStart = sleepFrom.toString()
                 val sleepDateRangeEnd = now.toString()
 
-                val sleepArr = JSONArray()
-                var sleepTotalMinutes = 0L
-                runBlocking {
-                    val req =
-                        ReadRecordsRequest(
-                            SleepSessionRecord::class,
-                            TimeRangeFilter.between(sleepFrom, now),
-                        )
-                    val resp = client.readRecords(req)
-                    for (session in resp.records) {
-                        sleepTotalMinutes += ChronoUnit.MINUTES.between(session.startTime, session.endTime)
-                        val o = JSONObject()
-                        o.put("start", session.startTime.toString())
-                        o.put("end", session.endTime.toString())
-                        session.metadata.id?.let { o.put("sampleId", it.toString()) }
-                        sleepArr.put(o)
+                val sleepReadGranted =
+                    granted.contains(HealthPermission.getReadPermission(SleepSessionRecord::class))
+                android.util.Log.i(
+                    "ShiftCoachHCSleep",
+                    "syncNow: sleepReadPermissionGranted=$sleepReadGranted (Health Connect 1.1.0 sleep read)",
+                )
+                val (sleepArr, sleepTotalMinutes) =
+                    runBlocking {
+                        try {
+                            HealthConnectSleepJson.readSleepSessions(client, sleepFrom, now, "syncNow")
+                        } catch (e: Throwable) {
+                            android.util.Log.e(
+                                "ShiftCoachHCSleep",
+                                "syncNow: sleep read failed — continuing sync without sleep",
+                                e,
+                            )
+                            Pair(JSONArray(), 0L)
+                        }
                     }
-                }
                 val sleepSessionCount = sleepArr.length()
 
                 // Match server baseline (≈14d) for between-shift recovery + resting vs baseline — 2d was too short.

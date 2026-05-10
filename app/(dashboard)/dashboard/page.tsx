@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/providers/language-provider'
 import { useAuth } from '@/components/AuthProvider'
 import { useShiftRhythm } from '@/lib/hooks/useShiftRhythm'
+import { autoSyncHealthConnectIfEligible } from '@/lib/native/autoSyncHealthConnectIfEligible'
 import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus'
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator'
 import { DashboardPager } from '@/components/dashboard/DashboardPager'
@@ -176,6 +177,14 @@ function DashboardContent() {
 
     setUserId(authUser.id)
   }, [authLoading, authUser, isOnline, loadCachedDashboardState, router])
+
+  useEffect(() => {
+    if (!userId || authLoading || !isOnline) return
+    const tmr = window.setTimeout(() => {
+      autoSyncHealthConnectIfEligible('dashboard-open')
+    }, 1200)
+    return () => window.clearTimeout(tmr)
+  }, [userId, authLoading, isOnline])
 
   // Refetch shift rhythm when window gains focus and there's a refresh flag (circadian card listens to its own events).
   useEffect(() => {

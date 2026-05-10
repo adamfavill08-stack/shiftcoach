@@ -26,5 +26,17 @@ export async function runHealthConnectNativeSync(from: string): Promise<SyncNowR
   if (isDevClient && result?.syncResult && typeof result.syncResult === 'object') {
     console.info('[HealthConnect] syncResult', result.syncResult)
   }
+  if (typeof sessionStorage !== 'undefined') {
+    try {
+      const n = typeof result?.sleepSessionCount === 'number' ? result.sleepSessionCount : null
+      if (n === 0) {
+        sessionStorage.setItem('shiftcoach_hc_sleep_read_zero_at', String(Date.now()))
+      } else if (typeof n === 'number' && n > 0) {
+        sessionStorage.removeItem('shiftcoach_hc_sleep_read_zero_at')
+      }
+    } catch {
+      /* ignore */
+    }
+  }
   return result
 }
