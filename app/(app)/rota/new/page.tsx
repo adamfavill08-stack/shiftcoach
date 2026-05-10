@@ -10,6 +10,7 @@ import {
 } from '@/lib/rota/patternPresets'
 import { getPatternSlots, type ShiftSlot } from '@/lib/rota/patternSlots'
 import { notifyRotaUpdated } from '@/lib/shift-agent/shiftAgent'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 import { useTranslation } from '@/components/providers/language-provider'
 
 const SHIFT_LENGTHS: ShiftLength[] = ['8h', '12h', '16h']
@@ -202,7 +203,7 @@ export default function NewRotaPatternPage() {
 
     try {
       setSaving(true)
-      const res = await fetch('/api/rota/pattern', {
+      const res = await authedFetch('/api/rota/pattern', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -236,8 +237,8 @@ export default function NewRotaPatternPage() {
         notifyRotaUpdated()
       }
 
-      // Navigate to dashboard and refresh to ensure calendar refetches
-      router.push('/dashboard?tab=rota')
+      // Full month calendar (same destination as setup / event save)
+      router.push('/rota')
       router.refresh()
     } catch (err) {
       console.error('[rota/new] save error', err)

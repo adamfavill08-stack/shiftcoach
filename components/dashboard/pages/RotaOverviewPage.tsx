@@ -8,6 +8,7 @@ import { useRotaMonth } from '@/lib/hooks/useRotaMonth'
 import { useSubscriptionAccess } from '@/lib/hooks/useSubscriptionAccess'
 import { getHistoryLimitDays } from '@/lib/subscription/features'
 import { UpgradeCard } from '@/components/subscription/UpgradeCard'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 
 const weekdayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
@@ -180,7 +181,7 @@ export default function RotaOverviewPage() {
     try {
       let res: Response
       if (isShiftSelection) {
-        res = await fetch('/api/shifts', {
+        res = await authedFetch('/api/shifts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -196,7 +197,7 @@ export default function RotaOverviewPage() {
         })
       } else {
         if (!selectedBlock.eventId) return
-        res = await fetch(`/api/rota/event?id=${selectedBlock.eventId}`, {
+        res = await authedFetch(`/api/rota/event?id=${selectedBlock.eventId}`, {
           method: 'DELETE',
           credentials: 'include',
         })

@@ -694,7 +694,7 @@ export function RotaSetupPage() {
       // }))
       // await supabase.from('shift_rota').upsert(payload, { onConflict: 'user_id,date' })
 
-      router.push('/dashboard?tab=rota')
+      router.push('/rota')
     } catch (err) {
       console.error('[RotaEditor] handleSaveRotaAndReturn error', err)
     }

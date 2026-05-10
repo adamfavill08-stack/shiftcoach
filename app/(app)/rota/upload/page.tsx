@@ -257,7 +257,7 @@ export default function UploadRotaPage() {
     setTimeout(() => {
       setIsSaving(false)
       alert(t('rotaUpload.alert.savedLocal'))
-      router.push('/dashboard?tab=rota')
+      router.push('/rota')
     }, 600)
   }
 
@@ -301,7 +301,7 @@ export default function UploadRotaPage() {
           <header className="flex items-center justify-between">
             <button
               type="button"
-              onClick={() => router.push('/dashboard?tab=rota')}
+              onClick={() => router.push('/rota')}
               className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card)] text-[var(--text-main)] shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
             >
               ←
@@ -654,7 +654,7 @@ export default function UploadRotaPage() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => router.push('/dashboard?tab=rota')}
+                onClick={() => router.push('/rota')}
                 className="flex-1 rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] py-2 text-sm font-semibold text-[var(--text-main)]"
               >
                 {t('rotaUpload.cancel')}

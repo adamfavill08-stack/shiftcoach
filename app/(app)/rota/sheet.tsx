@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { type Shift } from '@/lib/shifts'
 import { notifyRotaUpdated } from '@/lib/shift-agent/shiftAgent'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 
 type Props = {
   dateISO: string
@@ -64,7 +65,7 @@ export function ShiftSheet({ dateISO, initial, onClose }: Props) {
       : null
 
     try {
-      const res = await fetch('/api/shifts', {
+      const res = await authedFetch('/api/shifts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

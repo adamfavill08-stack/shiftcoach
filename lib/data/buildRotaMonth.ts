@@ -31,7 +31,8 @@ export type BuildRotaMonthArgs = {
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 
-function formatLocalIsoDate(date: Date): string {
+/** Calendar YYYY-MM-DD in the environment local timezone (matches grid cell keys in this module). */
+export function formatLocalIsoDate(date: Date): string {
   const year = date.getFullYear()
   const month = `${date.getMonth() + 1}`.padStart(2, '0')
   const day = `${date.getDate()}`.padStart(2, '0')

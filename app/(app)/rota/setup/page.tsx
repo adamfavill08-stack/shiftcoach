@@ -3,9 +3,11 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Clock, ChevronDown, Sun, Moon, X, Sparkles, Calendar, Check, Car, Trash2 } from 'lucide-react'
+import { formatLocalIsoDate } from '@/lib/data/buildRotaMonth'
 import { getPatternsByLength, type ShiftLength } from '@/lib/rota/comprehensivePatterns'
 import { getPatternSlots } from '@/lib/rota/patternSlots'
 import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 import { notifyRotaUpdated } from '@/lib/shift-agent/shiftAgent'
 import { useTranslation } from '@/components/providers/language-provider'
 
@@ -30,7 +32,6 @@ export default function RotaSetup() {
   const [selectedShiftHours, setSelectedShiftHours] = useState<ShiftLength | null>(null)
   const [customHours, setCustomHours] = useState<string>('')
   const [selectedPattern, setSelectedPattern] = useState<string | null>(null)
-  const [showTimeConfig, setShowTimeConfig] = useState(false)
   const [showCommuteConfig, setShowCommuteConfig] = useState(false)
   const [savedNotApplied, setSavedNotApplied] = useState(false)
   const [applyErrorMessage, setApplyErrorMessage] = useState<string | null>(null)
@@ -134,13 +135,19 @@ export default function RotaSetup() {
     }
   }, [selectedShiftHours, selectedPattern])
 
+  useEffect(() => {
+    setShowPreview(false)
+    setPreviewData(new Map())
+    setTodayShiftInfo(null)
+  }, [cursorDate])
+
   // Custom pattern builder state - month view (30 days)
   const [customPattern, setCustomPattern] = useState<ShiftType[]>(
     Array(30).fill('off') // Start with 30 days all off
   )
   const [recognizedPattern, setRecognizedPattern] = useState<{ cycle: ShiftType[], cycleLength: number } | null>(null)
   const [showPatternConfirmation, setShowPatternConfirmation] = useState(false)
-  const [startDate, setStartDate] = useState<string>(today.toISOString().slice(0, 10))
+  const [startDate, setStartDate] = useState<string>(() => formatLocalIsoDate(new Date()))
   const [endDate, setEndDate] = useState<string>('')
   const [noEndDate, setNoEndDate] = useState(true)
   const [showAllShiftLengths, setShowAllShiftLengths] = useState(false)
@@ -374,12 +381,17 @@ export default function RotaSetup() {
     const pattern = availablePatterns.find((p) => p.id === selectedPattern)
     if (!pattern) return
 
-    // Generate preview data starting from TODAY for the next 30 days
+    // Preview must cover every day in the **visible** month (cursorDate), not only 30 days from today,
+    // otherwise month navigation shows an empty strip under the dates.
     const preview = new Map<string, { type: string; color: string; label: string; dayInCycle: number }>()
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const todayISO = today.toISOString().slice(0, 10)
-    
+    const todayISO = formatLocalIsoDate(today)
+
+    const viewYear = cursorDate.getFullYear()
+    const viewMonth = cursorDate.getMonth()
+    const daysInViewMonth = new Date(viewYear, viewMonth + 1, 0).getDate()
+
     // Default colors for shift types
     const shiftColors: Record<string, string> = {
       morning: '#10B981', // Green
@@ -403,19 +415,23 @@ export default function RotaSetup() {
     }
     
     const patternCycle = patternSlots.map((slot) => slotToType[slot] || 'off')
+    const cycleLen = patternCycle.length
+    if (cycleLen === 0) {
+      alert('This pattern has no slots to preview.')
+      return
+    }
 
-    // Track consecutive off days within the current cycle
+    // Track consecutive off days while walking the visible month in calendar order
     let consecutiveOffDays = 0
     let lastShiftType = ''
 
-    // Apply pattern to the next 30 calendar days starting from today
-    const previewWindowDays = 30
-    for (let offset = 0; offset < previewWindowDays; offset++) {
-      const date = new Date(today)
-      date.setDate(today.getDate() + offset)
+    const MS_PER_DAY = 24 * 60 * 60 * 1000
+
+    for (let dayNum = 1; dayNum <= daysInViewMonth; dayNum++) {
+      const date = new Date(viewYear, viewMonth, dayNum)
       date.setHours(0, 0, 0, 0)
-      const dateStr = date.toISOString().slice(0, 10)
-      
+      const dateStr = formatLocalIsoDate(date)
+
       // Skip if after end date (if set)
       if (!noEndDate && endDate) {
         const endDateObj = new Date(endDate)
@@ -423,10 +439,10 @@ export default function RotaSetup() {
         if (date > endDateObj) continue
       }
 
-      // Calculate which day in the pattern cycle based on today's position.
-      // If today is day X in the cycle, and we're Y days from today, then the cycle position is (X + Y - 1) % cycleLength.
-      const daysFromToday = Math.floor((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-      const cycleIndex = (selectedTodayPosition - 1 + daysFromToday + patternCycle.length) % patternCycle.length
+      // Anchor: selectedTodayPosition is 1-based index in the cycle for *today*.
+      const daysFromToday = Math.floor((date.getTime() - today.getTime()) / MS_PER_DAY)
+      const rawIndex = selectedTodayPosition - 1 + daysFromToday
+      const cycleIndex = ((rawIndex % cycleLen) + cycleLen) % cycleLen
       const shiftType = patternCycle[cycleIndex]
       const dayInCycle = cycleIndex + 1
       
@@ -466,7 +482,6 @@ export default function RotaSetup() {
         dayInCycle,
       })
 
-      // Check if this is today
       if (dateStr === todayISO) {
         setTodayShiftInfo({
           type: shiftType,
@@ -475,6 +490,28 @@ export default function RotaSetup() {
           isWorking,
         })
       }
+    }
+
+    // If actual "today" is not in the viewed month, still populate the summary strip from today.
+    if (!preview.has(todayISO)) {
+      const rawIndex = selectedTodayPosition - 1
+      const cycleIndex = ((rawIndex % cycleLen) + cycleLen) % cycleLen
+      const shiftType = patternCycle[cycleIndex]
+      const dayInCycle = cycleIndex + 1
+      const isWorking = shiftType !== 'off'
+      const label =
+        shiftType === 'off'
+          ? 'Off'
+          : (
+              {
+                morning: 'Morning',
+                day: 'Day',
+                afternoon: 'Afternoon',
+                night: 'Night',
+                evening: 'Evening',
+              } as Record<string, string>
+            )[shiftType] || shiftType
+      setTodayShiftInfo({ type: shiftType, label, dayInCycle, isWorking })
     }
 
     setPreviewData(preview)
@@ -493,7 +530,7 @@ export default function RotaSetup() {
 
     setClearing(true)
     try {
-      const response = await fetch('/api/rota/clear', {
+      const response = await authedFetch('/api/rota/clear', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       })
@@ -507,7 +544,6 @@ export default function RotaSetup() {
       setSelectedShiftHours(null)
       setCustomHours('')
       setSelectedPattern(null)
-      setShowTimeConfig(false)
       setShowCommuteConfig(false)
       setPreviewData(new Map())
       setShowPreview(false)
@@ -516,7 +552,7 @@ export default function RotaSetup() {
       setCustomPattern(Array(30).fill('off'))
       setRecognizedPattern(null)
       setShowPatternConfirmation(false)
-      setStartDate(today.toISOString().slice(0, 10))
+      setStartDate(formatLocalIsoDate(new Date()))
       setEndDate('')
       setNoEndDate(true)
       setShiftTimes(getSmartDefaults(null))
@@ -577,7 +613,7 @@ export default function RotaSetup() {
       }
 
       // Save pattern to rota_patterns table
-      const patternResponse = await fetch('/api/rota/pattern', {
+      const patternResponse = await authedFetch('/api/rota/pattern', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -616,7 +652,7 @@ export default function RotaSetup() {
       setLastApplyPayload(applyPayload)
 
       // Apply pattern to calendar (save shifts to shifts table)
-      const applyResponse = await fetch('/api/rota/apply', {
+      const applyResponse = await authedFetch('/api/rota/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(applyPayload),
@@ -662,7 +698,7 @@ export default function RotaSetup() {
 
     setSaving(true)
     try {
-      const applyResponse = await fetch('/api/rota/apply', {
+      const applyResponse = await authedFetch('/api/rota/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(lastApplyPayload),
@@ -739,7 +775,7 @@ export default function RotaSetup() {
     // Add days of current month
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day)
-      const dateStr = date.toISOString().slice(0, 10)
+      const dateStr = formatLocalIsoDate(date)
       cells.push({
         dayNumber: day,
         date: dateStr,
@@ -761,7 +797,7 @@ export default function RotaSetup() {
     return weeks
   }, [year, month])
 
-  const todayISO = today.toISOString().slice(0, 10)
+  const todayISO = formatLocalIsoDate(new Date())
 
   const canContinue =
     currentStep === 1
@@ -949,12 +985,14 @@ export default function RotaSetup() {
                   router.push('/rota')
                   router.refresh()
                 }}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-900 active:scale-95 transition-all"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 transition-all hover:bg-slate-50 hover:text-slate-900 active:scale-95 dark:bg-[var(--card)] dark:text-[var(--text-main)] dark:ring-[var(--border-subtle)] dark:hover:bg-slate-800/80"
                 aria-label={t('rota.setup.backAria')}
               >
                 <ChevronLeft className="h-4 w-4" strokeWidth={2.5} />
               </button>
-              <h2 className="text-lg font-semibold tracking-tight text-slate-900">{t('rota.setup.pageTitle')}</h2>
+              <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-[var(--text-main)]">
+                {t('rota.setup.pageTitle')}
+              </h2>
             </div>
             <button
               type="button"
@@ -969,21 +1007,21 @@ export default function RotaSetup() {
 
           {/* Today's Shift Info */}
           {showPreview && todayShiftInfo && (
-            <div className="mb-4 rounded-xl border-2 border-sky-300 bg-gradient-to-br from-sky-50 to-indigo-50 p-3">
+            <div className="mb-4 rounded-xl border-2 border-sky-300 bg-gradient-to-br from-sky-50 to-indigo-50 p-3 dark:border-sky-500/35 dark:from-slate-900 dark:to-slate-900/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-400">
                     {todayShiftInfo.isWorking ? 'Working Today' : 'Off Today'}
                   </p>
-                  <p className="mt-1 text-sm font-bold text-slate-900">
+                  <p className="mt-1 text-sm font-bold text-slate-900 dark:text-[var(--text-main)]">
                     {todayShiftInfo.label}
                   </p>
-                  <p className="mt-0.5 text-xs text-slate-600">
+                  <p className="mt-0.5 text-xs text-slate-600 dark:text-[var(--text-soft)]">
                     Day {todayShiftInfo.dayInCycle} of {getPatternSlots(selectedPattern || '').length} in cycle
                   </p>
                 </div>
                 {todayShiftInfo.isWorking && (
-                  <div className="rounded-full bg-sky-500 p-2 shadow-[0_4px_10px_rgba(56,189,248,0.45)]">
+                  <div className="rounded-full bg-sky-500 p-2 shadow-[0_4px_10px_rgba(56,189,248,0.45)] dark:bg-sky-600 dark:shadow-[0_4px_14px_rgba(56,189,248,0.35)]">
                     <Clock className="h-4 w-4 text-white" />
                   </div>
                 )}
@@ -992,26 +1030,27 @@ export default function RotaSetup() {
           )}
 
           {/* Mini Calendar Preview */}
-          <div className="mb-6 rounded-[28px] bg-white p-4 border border-slate-100 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)]">
-            
+          <div className="mb-6 rounded-[28px] border border-slate-100 bg-white p-4 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] dark:border-[var(--border-subtle)] dark:bg-[var(--card)] dark:shadow-none">
             <div className="relative z-10">
             {/* Calendar Header */}
             <div className="mb-4 flex items-center justify-between">
               <button
                 type="button"
                 onClick={goToPrevMonth}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-600 transition-all duration-200 hover:bg-slate-100 active:scale-95"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-600 transition-all duration-200 hover:bg-slate-100 active:scale-95 dark:text-slate-300 dark:hover:bg-slate-800/80"
                 aria-label="Previous month"
               >
                 <ChevronLeft className="h-4 w-4" strokeWidth={2.5} />
               </button>
 
-              <h3 className="text-sm font-semibold tracking-tight text-slate-900 antialiased">{monthLabel}</h3>
+              <h3 className="text-sm font-semibold tracking-tight text-slate-900 antialiased dark:text-[var(--text-main)]">
+                {monthLabel}
+              </h3>
 
               <button
                 type="button"
                 onClick={goToNextMonth}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-600 transition-all duration-200 hover:bg-slate-100 active:scale-95"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-600 transition-all duration-200 hover:bg-slate-100 active:scale-95 dark:text-slate-300 dark:hover:bg-slate-800/80"
                 aria-label="Next month"
               >
                 <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
@@ -1024,7 +1063,7 @@ export default function RotaSetup() {
               <div className="grid grid-cols-7 gap-1">
                 {weekdayLabels.map((label, idx) => (
                   <div key={`${label}-${idx}`} className="text-center">
-                    <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wide antialiased">
+                    <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-500 antialiased dark:text-slate-400">
                       {label}
                     </span>
                   </div>
@@ -1049,10 +1088,10 @@ export default function RotaSetup() {
                             className={[
                               'flex h-7 w-7 items-center justify-center rounded-lg text-[10px] font-semibold transition-all antialiased',
                               isToday
-                                ? 'bg-sky-500 text-white shadow-sm shadow-sky-500/30'
+                                ? 'bg-sky-500 text-white shadow-sm shadow-sky-500/30 dark:bg-sky-600'
                                 : day.isCurrentMonth
-                                  ? 'text-slate-900 hover:bg-slate-50'
-                                  : 'text-slate-300',
+                                  ? 'text-slate-900 hover:bg-slate-50 dark:text-[var(--text-main)] dark:hover:bg-slate-800/70'
+                                  : 'text-slate-300 dark:text-slate-600',
                             ].join(' ')}
                           >
                             {day.dayNumber}
@@ -1079,12 +1118,16 @@ export default function RotaSetup() {
                               <div
                                 className={[
                                   'rounded-md px-1 py-0.5 text-center min-h-[12px] flex items-center justify-center border border-slate-200',
-                                  isToday ? 'border-sky-500 border-2 bg-sky-50' : 'bg-slate-50',
+                                  isToday
+                                    ? 'border-2 border-sky-500 bg-sky-50 dark:border-sky-400 dark:bg-slate-800/90'
+                                    : 'bg-slate-50 dark:border-[var(--border-subtle)] dark:bg-slate-800/50',
                                 ].join(' ')}
                               >
                                 <span className={[
                                   'text-[8px] font-medium leading-tight block truncate antialiased',
-                                  isToday ? 'text-sky-700' : 'text-slate-500',
+                                  isToday
+                                    ? 'text-sky-700 dark:text-sky-200'
+                                    : 'text-slate-500 dark:text-slate-300',
                                 ].join(' ')}>
                                   {previewShift.label}
                                 </span>
@@ -1093,7 +1136,7 @@ export default function RotaSetup() {
                               <div
                                 className={[
                                   'rounded-md px-1 py-0.5 text-center min-h-[12px] flex items-center justify-center',
-                                  isToday ? 'ring-2 ring-sky-400 ring-offset-1' : '',
+                                  isToday ? 'ring-2 ring-sky-400 ring-offset-1 dark:ring-sky-500 dark:ring-offset-[var(--card)]' : '',
                                 ].join(' ')}
                                 style={{
                                   backgroundColor: previewShift.color || '#3B82F6',
@@ -1454,24 +1497,16 @@ export default function RotaSetup() {
                           {/* Times tab */}
                           {detailTab === 'times' && (
                             <div className="space-y-3 pt-1">
-                              <div className="flex items-center justify-between">
-                                <div>
-                              <h3 className="text-sm font-semibold text-slate-900">Set shift times</h3>
-                              <p className="mt-0.5 text-xs text-slate-500">
-                                    Start and end for each type in your pattern.
-                                  </p>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => setShowTimeConfig((prev) => !prev)}
-                                  className="rounded-full border border-slate-300 dark:border-slate-700/40 bg-white dark:bg-slate-800/50 px-3 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800/70"
-                                >
-                                  {showTimeConfig ? 'Hide' : 'Configure'}
-                                </button>
+                              <div>
+                                <h3 className="text-sm font-semibold text-slate-900 dark:text-[var(--text-main)]">
+                                  {t('rota.setup.timesTitle')}
+                                </h3>
+                                <p className="mt-0.5 text-xs text-slate-500 dark:text-[var(--text-soft)]">
+                                  {t('rota.setup.timesHint')}
+                                </p>
                               </div>
 
-                              {showTimeConfig && (
-                                <div className="space-y-4">
+                              <div className="space-y-4">
                                   {getRelevantShiftTypes.map((shiftType) => {
                                     const shiftTypeConfig = {
                                       morning: { label: 'Morning shift', icon: Sun, color: 'text-sky-500' },
@@ -1485,16 +1520,19 @@ export default function RotaSetup() {
                                     const isNightShift = shiftType === 'night' || shiftType === 'evening';
 
                                     return (
-                                  <div key={shiftType} className="rounded-lg border border-slate-200 bg-white p-3">
+                                  <div
+                                    key={shiftType}
+                                    className="rounded-lg border border-slate-200 bg-white p-3 dark:border-[var(--border-subtle)] dark:bg-[var(--card)]"
+                                  >
                                         <div className="mb-2 flex items-center gap-2">
                                           <Icon className={`h-4 w-4 ${shiftTypeConfig.color}`} />
-                                          <span className="text-sm font-semibold text-slate-900">
+                                          <span className="text-sm font-semibold text-slate-900 dark:text-[var(--text-main)]">
                                             {shiftTypeConfig.label}
                                           </span>
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
                                           <div>
-                                            <label className="mb-1 block text-xs font-medium text-slate-500">
+                                            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-[var(--text-soft)]">
                                               Start
                                             </label>
                                             <input
@@ -1506,11 +1544,11 @@ export default function RotaSetup() {
                                                   [shiftType]: { ...prev[shiftType], start: e.target.value },
                                                 }))
                                               }
-                                              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
+                                              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20 dark:border-[var(--border-subtle)] dark:bg-slate-950/40 dark:text-[var(--text-main)] dark:focus:border-indigo-400 dark:focus:ring-indigo-400/25"
                                             />
                                           </div>
                                           <div>
-                                            <label className="mb-1 block text-xs font-medium text-slate-500">
+                                            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-[var(--text-soft)]">
                                               End
                                             </label>
                                             <input
@@ -1522,10 +1560,12 @@ export default function RotaSetup() {
                                                   [shiftType]: { ...prev[shiftType], end: e.target.value },
                                                 }))
                                               }
-                                              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20"
+                                              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20 dark:border-[var(--border-subtle)] dark:bg-slate-950/40 dark:text-[var(--text-main)] dark:focus:border-indigo-400 dark:focus:ring-indigo-400/25"
                                             />
                                             {isNightShift && (
-                                              <p className="mt-1 text-xs text-slate-400">(Next day if after midnight)</p>
+                                              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                                                (Next day if after midnight)
+                                              </p>
                                             )}
                                           </div>
                                         </div>
@@ -1534,14 +1574,22 @@ export default function RotaSetup() {
                                   })}
 
                                   {getRelevantShiftTypes.length === 0 && (
-                                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-center">
-                                      <p className="text-sm text-slate-500">
+                                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-center dark:border-[var(--border-subtle)] dark:bg-slate-900/30">
+                                      <p className="text-sm text-slate-500 dark:text-[var(--text-soft)]">
                                         Select a pattern to configure shift times.
                                       </p>
                                     </div>
                                   )}
-                                </div>
-                              )}
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => setDetailTab('commute')}
+                                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] transition-all hover:bg-slate-800 active:scale-[0.99] dark:bg-indigo-600 dark:shadow-[0_10px_26px_-14px_rgba(79,70,229,0.45)] dark:hover:bg-indigo-500"
+                              >
+                                {t('rota.setup.nextCommute')}
+                                <ChevronRight className="h-4 w-4 opacity-90" aria-hidden />
+                              </button>
                             </div>
                           )}
 
@@ -1654,6 +1702,15 @@ export default function RotaSetup() {
                                   </div>
                                 </div>
                               </div>
+
+                              <button
+                                type="button"
+                                onClick={() => setDetailTab('today')}
+                                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_26px_-14px_rgba(15,23,42,0.6)] transition-all hover:bg-slate-800 active:scale-[0.99] dark:bg-indigo-600 dark:shadow-[0_10px_26px_-14px_rgba(79,70,229,0.45)] dark:hover:bg-indigo-500"
+                              >
+                                {t('rota.setup.nextToday')}
+                                <ChevronRight className="h-4 w-4 opacity-90" aria-hidden />
+                              </button>
                             </div>
                           )}
 

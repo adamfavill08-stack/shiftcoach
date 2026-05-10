@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
-import { buildMonthFromPattern } from '@/lib/data/buildRotaMonth'
+import { buildMonthFromPattern, formatLocalIsoDate } from '@/lib/data/buildRotaMonth'
 import { getServerSubscriptionAccess } from '@/lib/subscription/server'
 import { getHistoryLimitDays } from '@/lib/subscription/features'
 
@@ -52,16 +52,18 @@ export async function GET(req: NextRequest) {
       const max = new Date(d)
       min.setDate(min.getDate() - (historyLimitDays - 1))
       max.setDate(max.getDate() + (historyLimitDays - 1))
-      return { min: min.toISOString().slice(0, 10), max: max.toISOString().slice(0, 10) }
+      return { min: formatLocalIsoDate(min), max: formatLocalIsoDate(max) }
     })()
+    const gridStartCalendar = formatLocalIsoDate(gridStart)
+    const gridEndCalendar = formatLocalIsoDate(gridEnd)
     const effectiveGridStartStr =
-      minMaxAllowedDates.min && gridStart.toISOString().slice(0, 10) < minMaxAllowedDates.min
+      minMaxAllowedDates.min && gridStartCalendar < minMaxAllowedDates.min
         ? minMaxAllowedDates.min
-        : gridStart.toISOString().slice(0, 10)
+        : gridStartCalendar
     const effectiveGridEndStr =
-      minMaxAllowedDates.max && gridEnd.toISOString().slice(0, 10) > minMaxAllowedDates.max
+      minMaxAllowedDates.max && gridEndCalendar > minMaxAllowedDates.max
         ? minMaxAllowedDates.max
-        : gridEnd.toISOString().slice(0, 10)
+        : gridEndCalendar
     const gridStartStr = effectiveGridStartStr
     const gridEndStr = effectiveGridEndStr
     const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
@@ -184,7 +186,10 @@ export async function GET(req: NextRequest) {
           ? data.pattern_slots.map((slot: unknown) => (typeof slot === 'string' ? slot : String(slot)))
           : [],
         current_shift_index: typeof data.current_shift_index === 'number' ? data.current_shift_index : 0,
-        start_date: typeof data.start_date === 'string' ? data.start_date : new Date(year, month, 1).toISOString().slice(0, 10),
+        start_date:
+          typeof data.start_date === 'string'
+            ? data.start_date
+            : formatLocalIsoDate(new Date(year, zeroBasedMonth, 1)),
         color_config: colorConfig,
         notes: data.notes ?? null,
       }

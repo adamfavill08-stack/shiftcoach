@@ -6,6 +6,7 @@ import { parseJsonBody } from '@/lib/api/validation'
 import { apiServerError } from '@/lib/api/response'
 import { getServerSubscriptionAccess } from '@/lib/subscription/server'
 import { getHistoryLimitDays } from '@/lib/subscription/features'
+import { formatLocalIsoDate } from '@/lib/data/buildRotaMonth'
 
 // Cache for 60 seconds - shifts don't change frequently
 export const revalidate = 60
@@ -88,7 +89,7 @@ export async function GET(req: NextRequest) {
       const max = new Date(d)
       min.setDate(min.getDate() - (historyLimitDays - 1))
       max.setDate(max.getDate() + (historyLimitDays - 1))
-      return { min: min.toISOString().slice(0, 10), max: max.toISOString().slice(0, 10) }
+      return { min: formatLocalIsoDate(min), max: formatLocalIsoDate(max) }
     })()
 
     const searchParams = req.nextUrl.searchParams
@@ -146,8 +147,8 @@ export async function GET(req: NextRequest) {
       const toDate = new Date(now)
       toDate.setHours(0, 0, 0, 0)
       toDate.setDate(toDate.getDate() + futureDays)
-      fromIsoDate = fromDate.toISOString().slice(0, 10)
-      toIsoDate = toDate.toISOString().slice(0, 10)
+      fromIsoDate = formatLocalIsoDate(fromDate)
+      toIsoDate = formatLocalIsoDate(toDate)
     }
 
     if (minMaxAllowedDates.min && fromIsoDate < minMaxAllowedDates.min) {

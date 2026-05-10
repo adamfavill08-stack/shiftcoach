@@ -21,6 +21,7 @@ import { intlLocaleForApp } from '@/lib/i18n/supportedLocales'
 import { useSubscriptionAccess } from '@/lib/hooks/useSubscriptionAccess'
 import { getHistoryLimitDays } from '@/lib/subscription/features'
 import { UpgradeCard } from '@/components/subscription/UpgradeCard'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 
 // TypeScript types for Speech Recognition
 interface SpeechRecognition extends EventTarget {
@@ -479,7 +480,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
       let res: Response
       if (selectedBlock.type === 'shift') {
         // Deleting a shift means resetting that rota day to OFF.
-        res = await fetch('/api/shifts', {
+        res = await authedFetch('/api/shifts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -495,7 +496,7 @@ export default function RotaOverviewPage({ initialYearMonth }: RotaOverviewPageP
         })
       } else {
         if (!selectedBlock.eventId) return
-        res = await fetch(`/api/rota/event?id=${selectedBlock.eventId}`, {
+        res = await authedFetch(`/api/rota/event?id=${selectedBlock.eventId}`, {
           method: 'DELETE',
           credentials: 'include',
         })

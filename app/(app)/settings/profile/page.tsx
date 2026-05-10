@@ -620,9 +620,7 @@ function ProfilePageContent() {
       ? t('settings.profile.gender.male')
       : profile.sex === 'female'
         ? t('settings.profile.gender.female')
-        : profile.sex === 'other'
-          ? t('settings.profile.gender.other')
-          : '—'
+        : '—'
 
   const weightUnitChipLabel = (u: 'kg' | 'lb' | 'st+lb') =>
     u === 'st+lb'
@@ -864,7 +862,7 @@ function ProfilePageContent() {
     setShowNameModal(false)
   }
 
-  const handleSaveGender = async (sex: 'male' | 'female' | 'other') => {
+  const handleSaveGender = async (sex: 'male' | 'female') => {
     if (!profile) return
     setSaving('gender')
     const success = await updateProfile({ sex })
@@ -1017,17 +1015,24 @@ function ProfilePageContent() {
                   {/* Gender */}
                   <button
                     onClick={() => setShowGenderModal(true)}
-                    className="group flex items-center justify-between gap-3 rounded-xl px-4 py-3 bg-white border border-slate-100 shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:border-sky-100 hover:shadow-[0_4px_12px_rgba(15,23,42,0.12)] transition-colors w-full"
+                    className="group flex w-full items-center justify-between gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-colors hover:border-sky-100 hover:shadow-[0_4px_12px_rgba(15,23,42,0.12)] dark:border-[var(--border-subtle)] dark:bg-[var(--card)] dark:shadow-none dark:hover:border-sky-500/35 dark:hover:shadow-[0_4px_14px_rgba(0,0,0,0.35)]"
                   >
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-sky-500 to-emerald-400 grid place-items-center flex-shrink-0 shadow-sm">
+                    <div className="flex flex-1 items-center gap-3">
+                      <div className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-lg bg-gradient-to-br from-sky-500 to-emerald-400 shadow-sm">
                         <User className="h-4 w-4 text-white" strokeWidth={2} />
                       </div>
-                      <p className="text-sm font-medium text-slate-900">{t('settings.profile.rowGender')}</p>
+                      <p className="text-sm font-medium text-slate-900 dark:text-[var(--text-main)]">
+                        {t('settings.profile.rowGender')}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <p className="text-sm font-semibold text-slate-900 tabular-nums">{genderLabel}</p>
-                      <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-sky-400 transition" strokeWidth={2} />
+                    <div className="flex flex-shrink-0 items-center gap-2">
+                      <p className="text-sm font-semibold tabular-nums text-slate-900 dark:text-[var(--text-main)]">
+                        {genderLabel}
+                      </p>
+                      <ChevronRight
+                        className="h-4 w-4 text-slate-300 transition group-hover:text-sky-400 dark:text-slate-500 dark:group-hover:text-sky-400"
+                        strokeWidth={2}
+                      />
                     </div>
                   </button>
 
@@ -1295,35 +1300,35 @@ function ProfilePageContent() {
 
         {/* Gender Modal */}
         {showGenderModal && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className="rounded-2xl bg-white border border-slate-200 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] p-6 w-full max-w-sm">
-              <h4 className="text-lg font-semibold text-slate-900 mb-4">{t('settings.profile.modalSelectGender')}</h4>
-                <div className="space-y-2">
-                  {(['male', 'female', 'other'] as const).map((sex) => (
-                    <button
-                      key={sex}
-                      onClick={() => handleSaveGender(sex)}
-                      disabled={saving === 'gender'}
-                      className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-semibold transition-colors ${
-                        profile?.sex === sex
-                          ? 'border-sky-500 bg-sky-50 text-slate-900'
-                          : 'border-slate-200 text-slate-900 hover:bg-slate-50'
-                      } ${saving === 'gender' ? 'opacity-50 cursor-wait' : ''}`}
-                    >
-                      {sex === 'male'
-                        ? t('settings.profile.gender.male')
-                        : sex === 'female'
-                          ? t('settings.profile.gender.female')
-                          : t('settings.profile.gender.other')}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  onClick={() => setShowGenderModal(false)}
-                  disabled={saving === 'gender'}
-                className="mt-4 w-full py-2.5 text-sm font-medium text-slate-500 hover:text-slate-900 disabled:opacity-50 transition-colors"
-                >
-                  {t('settings.profile.cancel')}
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 dark:bg-black/60">
+            <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] dark:border-[var(--border-subtle)] dark:bg-[var(--card)] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.65)]">
+              <h4 className="mb-4 text-lg font-semibold text-slate-900 dark:text-[var(--text-main)]">
+                {t('settings.profile.modalSelectGender')}
+              </h4>
+              <div className="space-y-2">
+                {(['male', 'female'] as const).map((sex) => (
+                  <button
+                    key={sex}
+                    type="button"
+                    onClick={() => handleSaveGender(sex)}
+                    disabled={saving === 'gender'}
+                    className={`w-full rounded-xl border px-4 py-3 text-left text-sm font-semibold transition-colors ${
+                      profile?.sex === sex
+                        ? 'border-sky-500 bg-sky-50 text-slate-900 dark:border-sky-500 dark:bg-sky-950/40 dark:text-[var(--text-main)]'
+                        : 'border-slate-200 text-slate-900 hover:bg-slate-50 dark:border-[var(--border-subtle)] dark:text-[var(--text-main)] dark:hover:bg-slate-800/70'
+                    } ${saving === 'gender' ? 'cursor-wait opacity-50' : ''}`}
+                  >
+                    {sex === 'male' ? t('settings.profile.gender.male') : t('settings.profile.gender.female')}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowGenderModal(false)}
+                disabled={saving === 'gender'}
+                className="mt-4 w-full py-2.5 text-sm font-medium text-slate-500 transition-colors hover:text-slate-900 disabled:opacity-50 dark:text-[var(--text-soft)] dark:hover:text-[var(--text-main)]"
+              >
+                {t('settings.profile.cancel')}
               </button>
             </div>
           </div>
