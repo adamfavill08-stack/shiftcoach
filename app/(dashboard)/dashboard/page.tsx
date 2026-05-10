@@ -5,17 +5,25 @@ import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/providers/language-provider'
 import { useAuth } from '@/components/AuthProvider'
-import { authedFetch } from '@/lib/supabase/authedFetch'
-import { circadianCalculateUrlWithLocalHour } from '@/lib/circadian/wallClockHour'
 import { useShiftRhythm } from '@/lib/hooks/useShiftRhythm'
 import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus'
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator'
 import { DashboardPager } from '@/components/dashboard/DashboardPager'
 import DashboardHeader from '@/components/dashboard/DashboardHeader'
 import { ShiftWeekStrip } from '@/components/dashboard/ShiftWeekStrip'
-import CircadianCard from '@/components/circadian/CircadianCard'
-import type { CircadianOutput } from '@/lib/circadian/calcCircadianPhase'
 import type { FatigueRiskResult } from '@/lib/fatigue/calculateFatigueRisk'
+
+/** Body-clock card is large (SVG + fonts); load after shell so first paint stays light. CircadianCard owns its own /api/circadian/calculate fetch — no duplicate parent fetch. */
+const CircadianCard = dynamic(() => import('@/components/circadian/CircadianCard'), {
+  ssr: false,
+  loading: () => (
+    <div
+      className="mx-4 mt-3 min-h-[200px] animate-pulse rounded-xl border border-slate-200/80 bg-gradient-to-b from-slate-100 to-white shadow-sm dark:border-slate-600/60 dark:from-slate-800/50 dark:to-slate-900/40"
+      aria-busy="true"
+      aria-label="Loading body clock card"
+    />
+  ),
+})
 
 const ShiftRhythmCard = dynamic(
   () => import('@/components/shift-rhythm/ShiftRhythmCard'),
@@ -23,7 +31,7 @@ const ShiftRhythmCard = dynamic(
     ssr: true,
     loading: () => (
       <div
-        className="mx-4 mt-4 min-h-[280px] animate-pulse rounded-xl border border-slate-200/80 bg-gradient-to-b from-slate-100 to-white shadow-sm"
+        className="mx-4 mt-4 min-h-[280px] animate-pulse rounded-xl border border-slate-200/80 bg-gradient-to-b from-slate-100 to-white shadow-sm dark:border-slate-600/60 dark:from-slate-800/50 dark:to-slate-900/40"
         aria-busy="true"
         aria-label="Loading rhythm card"
       />
@@ -47,13 +55,10 @@ function DashboardContent() {
   const router = useRouter()
   const { user: authUser, loading: authLoading } = useAuth()
   const [userId, setUserId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
   const [googleFitMessage, setGoogleFitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [isUsingCachedData, setIsUsingCachedData] = useState(false)
-  const [hasHydrated, setHasHydrated] = useState(false)
   const { isOnline } = useNetworkStatus()
 
-  const [circadian, setCircadian] = useState<CircadianOutput | null>(null)
   const [socialJetlag, setSocialJetlag] = useState<any>(null)
 
   // Track the last time we did a heavy refetch triggered by focus/refresh events,
@@ -63,7 +68,6 @@ function DashboardContent() {
   const {
     total: totalScore,
     loading: shiftRhythmLoading,
-    initialFetchComplete: shiftRhythmInitialFetchComplete,
     refetch: refetchShiftRhythm,
     hasData: hasShiftRhythmData,
     sleepDeficit,
@@ -72,24 +76,13 @@ function DashboardContent() {
     fatigueRisk: shiftRhythmFatigueRisk,
   } = useShiftRhythm()
 
-  const fetchSleep = useCallback(async (_uid: string) => {
-    // Sleep is now surfaced on dedicated pages; keep this no-op to avoid extra dashboard pages.
-    return
-  }, [])
-
-  const fetchActivity = useCallback(async () => {
-    // Activity is now surfaced on dedicated pages; keep this no-op to avoid extra dashboard pages.
-    return
-  }, [])
-
   const [bingeRisk, setBingeRisk] = useState<any>(null)
   const [fatigueRisk, setFatigueRisk] = useState<FatigueRiskResult | null>(null)
 
   const cacheDashboardState = useCallback(
-    (partial: { circadian?: CircadianOutput | null; socialJetlag?: any; bingeRisk?: any; fatigueRisk?: FatigueRiskResult | null }) => {
+    (partial: { socialJetlag?: any; bingeRisk?: any; fatigueRisk?: FatigueRiskResult | null }) => {
       if (typeof window === 'undefined') return
       const snapshot = {
-        circadian,
         socialJetlag,
         bingeRisk,
         fatigueRisk,
@@ -98,7 +91,7 @@ function DashboardContent() {
       }
       window.localStorage.setItem('dashboard:lastKnownState', JSON.stringify(snapshot))
     },
-    [circadian, socialJetlag, bingeRisk, fatigueRisk],
+    [socialJetlag, bingeRisk, fatigueRisk],
   )
 
   // Keep the dashboard's social/binge state in sync with the consolidated
@@ -126,7 +119,6 @@ function DashboardContent() {
     if (!raw) return false
     try {
       const cached = JSON.parse(raw)
-      setCircadian(cached.circadian ?? null)
       setSocialJetlag(cached.socialJetlag ?? null)
       setBingeRisk(cached.bingeRisk ?? null)
       setFatigueRisk(cached.fatigueRisk ?? null)
@@ -137,58 +129,11 @@ function DashboardContent() {
     }
   }, [])
 
-  const fetchCircadian = useCallback(async () => {
-    try {
-      const res = await authedFetch(circadianCalculateUrlWithLocalHour('/api/circadian/calculate'), {
-        cache: 'no-store',
-      })
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}))
-        if (res.status === 503 || json.type === 'network_error') {
-          console.warn('[dashboard] circadian fetch - database temporarily unavailable')
-          // Don't log as error for network issues - it's expected when DB is down
-        } else if (res.status === 401 || res.status === 403) {
-          // Session cookie may lag behind client session; same handling as useShiftRhythm.
-          console.warn('[dashboard] circadian fetch - auth not ready yet', res.status)
-        } else {
-          console.error('[dashboard] circadian fetch failed', res.status, json.error || '')
-        }
-        setCircadian(null)
-        return
-      }
-      const json = await res.json()
-      const nextCircadian =
-        json.status === 'ok' && json.circadian
-          ? json.circadian
-          : json.status === undefined
-            ? (json.circadian ?? null)
-            : null
-      setCircadian(nextCircadian)
-      cacheDashboardState({ circadian: nextCircadian })
-      setIsUsingCachedData(false)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
-      const isNetwork = msg.includes('Failed to fetch') || msg.includes('fetch') || msg.includes('network')
-      if (isNetwork) {
-        console.warn('[dashboard] circadian fetch - network error (database may be unreachable)')
-        const hadCache = loadCachedDashboardState()
-        if (!hadCache) setCircadian(null)
-        return
-      }
-      console.error('[dashboard] circadian fetch error', err)
-      setCircadian(null)
-    }
-  }, [cacheDashboardState, loadCachedDashboardState])
-
-  // These callbacks change when dashboard slice state updates (via cacheDashboardState deps).
-  // The bootstrap effect must not list them as deps or we loop: fetch → setState → new callback → effect → fetch…
-  const fetchCircadianRef = useRef(fetchCircadian)
   const refetchShiftRhythmRef = useRef(refetchShiftRhythm)
 
   useEffect(() => {
-    fetchCircadianRef.current = fetchCircadian
     refetchShiftRhythmRef.current = refetchShiftRhythm
-  }, [fetchCircadian, refetchShiftRhythm])
+  }, [refetchShiftRhythm])
 
   // Google Fit redirect params — read from the URL on mount only (avoids useSearchParams + Suspense hydration mismatches).
   useEffect(() => {
@@ -212,10 +157,6 @@ function DashboardContent() {
   }, [router, t])
 
   useEffect(() => {
-    setHasHydrated(true)
-  }, [])
-
-  useEffect(() => {
     if (authLoading) return
 
     if (!isOnline) {
@@ -230,26 +171,13 @@ function DashboardContent() {
       }
       const devUserId = process.env.NEXT_PUBLIC_DEV_USER_ID || 'dev-user'
       setUserId(devUserId)
-      setLoading(false)
-      if (isOnline) void fetchCircadianRef.current()
       return
     }
 
     setUserId(authUser.id)
-    setLoading(false)
-    void fetchSleep(authUser.id)
-    if (isOnline) {
-      void fetchCircadianRef.current()
-    }
-  }, [authLoading, authUser, isOnline, loadCachedDashboardState, router, fetchSleep])
+  }, [authLoading, authUser, isOnline, loadCachedDashboardState, router])
 
-  // Load activity summary after the main dashboard data so first paint is faster
-  useEffect(() => {
-    if (!userId) return
-    void fetchActivity()
-  }, [userId, fetchActivity])
-
-  // Refetch sleep and circadian data when window gains focus and there's a refresh flag
+  // Refetch shift rhythm when window gains focus and there's a refresh flag (circadian card listens to its own events).
   useEffect(() => {
     const handleFocus = () => {
       if (!isOnline) return
@@ -262,9 +190,6 @@ function DashboardContent() {
         if (typeof window !== 'undefined') {
           localStorage.removeItem('sleepRefresh')
         }
-        // Refetch sleep, circadian, and shift rhythm data
-        void fetchSleep(userId)
-        void fetchCircadianRef.current()
         void refetchShiftRhythmRef.current() // Refresh shift rhythm score
       }
     }
@@ -281,8 +206,6 @@ function DashboardContent() {
       const now = Date.now()
       if (now - lastFocusRefetchRef.current < 30000) return
       lastFocusRefetchRef.current = now
-      void fetchSleep(userId)
-      void fetchCircadianRef.current()
       // Force recalculation of shift rhythm score since sleep data changed
       setTimeout(() => {
         void refetchShiftRhythmRef.current(true) // Force recalculation
@@ -311,7 +234,7 @@ function DashboardContent() {
       window.removeEventListener('rota-saved', handleRotaUpdate)
       window.removeEventListener('rota-cleared', handleRotaUpdate)
     }
-  }, [userId, isOnline, fetchSleep])
+  }, [userId, isOnline])
 
   const resolvedSocialJetlag = isOnline ? (shiftRhythmSocialJetlag ?? null) : socialJetlag
   const resolvedBingeRisk = isOnline ? (shiftRhythmBingeRisk ?? null) : bingeRisk
@@ -338,13 +261,13 @@ function DashboardContent() {
     [totalScore, resolvedSocialJetlag, resolvedBingeRisk, resolvedFatigueRisk, isOnline, shiftRhythmLoading, hasShiftRhythmData, sleepDeficit, t]
   )
 
-  const shouldShowDashboardSpinner =
-    !hasHydrated || loading || !shiftRhythmInitialFetchComplete || shiftRhythmLoading
+  /** Auth only — shift rhythm / circadian / rota load progressively in the shell (cached rhythm paints via useShiftRhythm). */
+  const showAuthBlockingSpinner = authLoading
 
   return (
-    <div className="min-h-screen bg-slate-100 flex justify-center">
-      <div className="w-full max-w-md bg-slate-100">
-        {shouldShowDashboardSpinner ? (
+    <div className="min-h-screen bg-slate-100 flex justify-center dark:bg-slate-950">
+      <div className="w-full max-w-md bg-slate-100 dark:bg-slate-950">
+        {showAuthBlockingSpinner ? (
           <div className="mx-auto flex min-h-[70vh] w-full max-w-md items-center justify-center pb-6 pt-10">
             <LoadingIndicator message={t('dashboard.loading')} size="md" />
           </div>
@@ -379,7 +302,7 @@ function DashboardContent() {
             {t('dashboard.cachedNotice')}
           </div>
         )}
-        <div className="min-h-screen pb-6 bg-slate-100">
+        <div className="min-h-screen pb-6 bg-slate-100 dark:bg-slate-950">
           <div id="phone-root" className="pb-4 relative">
             <DashboardHeader />
             <ShiftWeekStrip />

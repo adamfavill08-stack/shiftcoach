@@ -292,6 +292,32 @@ const messages: Record<string, string> = {
     'onboarding.saveFailed': 'Error al guardar el perfil',
     'onboarding.networkError': 'Error de red. Comprueba tu conexión.',
 
+    'onboarding.plan.title': 'Elige tu plan',
+    'onboarding.plan.subtitle': 'Elige una opción para continuar',
+    'onboarding.plan.freeTitle': 'Gratis',
+    'onboarding.plan.freeSubtitle': 'Funciones limitadas — pasa a Pro para acceso completo',
+    'onboarding.plan.freePrice': 'Gratis',
+    'onboarding.plan.proFullAccess': 'Acceso completo a Pro',
+    'onboarding.plan.perMonth': 'Por mes',
+    'onboarding.plan.perYear': 'Por año',
+    'onboarding.plan.saveBadge': 'Ahorra un 35%',
+    'onboarding.plan.bestValue': 'Mejor relación calidad-precio',
+    'onboarding.plan.secureCheckout': 'Pago seguro',
+    'onboarding.plan.cancelAnytime': 'Cancela cuando quieras',
+    'onboarding.plan.continue': 'Continuar',
+    'onboarding.plan.savingFree': 'Guardando…',
+    'onboarding.plan.openingCheckout': 'Abriendo el pago…',
+    'onboarding.plan.loadingPlans': 'Cargando planes…',
+    'onboarding.plan.purchaseInApp':
+      'Las suscripciones se compran en la app móvil ShiftCoach. Google Play o App Store gestionan el pago; aquí no se introduce la tarjeta.',
+    'onboarding.plan.packagesUnavailable':
+      'Este plan aún no está disponible en la tienda. Comprueba la conexión o inténtalo más tarde.',
+    'onboarding.plan.syncAfterPurchaseFailed':
+      'La compra se completó, pero aún no pudimos confirmar tu suscripción. Prueba «Restaurar compras» en unos momentos.',
+    'onboarding.plan.syncAfterRestoreFailed':
+      'Encontramos tu compra pero no pudimos actualizar el perfil. Inténtalo de nuevo.',
+    'onboarding.plan.restoreNone': 'No se encontró ninguna compra activa.',
+
     'welcome.title': 'Tu plan está listo',
     'welcome.subtitle': 'Según tu perfil, objetivos y patrón de turnos.',
     'welcome.personalisedTarget': 'Objetivo diario personalizado',

@@ -86,6 +86,7 @@ export const sleepUiWorldDe: Record<string, string> = {
   'sleepSW.noWearable': 'Noch kein Wearable verbunden. In Wearables einrichten.',
   'sleepSW.syncFailed': 'Wearable-Sync fehlgeschlagen',
   'sleepSW.deleteSessionFailed': 'Sitzung konnte nicht gelöscht werden',
+  'sleepSW.loggedSessionsTitle': 'Deine Schlafeinträge',
 
   'sleepCard.last7': 'Letzte 7 Tage',
   'sleepCard.chartSub': 'Letzte 7 Ortszeit-Tage bis heute · Ziel {target} h',
@@ -458,6 +459,7 @@ export const sleepUiWorldFr: Record<string, string> = {
   'sleepSW.noWearable': 'Aucun wearable connecté. Configurez-le dans Wearables.',
   'sleepSW.syncFailed': 'Échec de la synchronisation',
   'sleepSW.deleteSessionFailed': 'Suppression de la session impossible',
+  'sleepSW.loggedSessionsTitle': 'Vos sessions de sommeil',
 
   'sleepCard.last7': '7 derniers jours',
   'sleepCard.chartSub': '7 derniers jours locaux jusqu’à aujourd’hui · objectif {target} h',
@@ -829,6 +831,7 @@ export const sleepUiWorldPl: Record<string, string> = {
   'sleepSW.noWearable': 'Brak podłączonego wearable. Skonfiguruj w sekcji Wearables.',
   'sleepSW.syncFailed': 'Synchronizacja wearable nie powiodła się',
   'sleepSW.deleteSessionFailed': 'Nie udało się usunąć sesji',
+  'sleepSW.loggedSessionsTitle': 'Twoje wpisy snu',
 
   'sleepCard.last7': 'Ostatnie 7 dni',
   'sleepCard.chartSub': 'Ostatnie 7 dni lokalnych do dziś · cel {target} h',
@@ -1200,6 +1203,7 @@ export const sleepUiWorldPtBR: Record<string, string> = {
   'sleepSW.noWearable': 'Nenhum wearable conectado. Configure em Wearables.',
   'sleepSW.syncFailed': 'Falha ao sincronizar wearables',
   'sleepSW.deleteSessionFailed': 'Não foi possível excluir a sessão',
+  'sleepSW.loggedSessionsTitle': 'Seus registros de sono',
 
   'sleepCard.last7': 'Últimos 7 dias',
   'sleepCard.chartSub': 'Últimos 7 dias locais até hoje · meta {target} h',

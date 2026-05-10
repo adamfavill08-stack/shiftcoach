@@ -65,7 +65,7 @@ export function SleepSessionList({
   if (loading) {
     return (
       <div className="py-12 text-center">
-        <p className="text-sm text-slate-500">{t('sleepSessionList.loading')}</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{t('sleepSessionList.loading')}</p>
       </div>
     )
   }
@@ -73,7 +73,7 @@ export function SleepSessionList({
   if (sessions.length === 0) {
     return (
       <div className="py-12 text-center">
-        <p className="text-sm text-slate-500">{t('sleepSessionList.empty')}</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{t('sleepSessionList.empty')}</p>
       </div>
     )
   }
@@ -92,16 +92,16 @@ export function SleepSessionList({
         return (
           <div
             key={session.id}
-            className="relative overflow-hidden rounded-xl border border-slate-200/80 bg-white/90 backdrop-blur-sm px-4 py-3.5"
+            className="relative overflow-hidden rounded-xl border border-slate-200/80 bg-white/90 px-4 py-3.5 backdrop-blur-sm dark:border-slate-600/70 dark:bg-slate-800/95 dark:shadow-inner"
           >
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/95 to-white/85" />
-            <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-white/60" />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/95 to-white/85 dark:from-slate-800/90 dark:to-slate-900/90" />
+            <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-white/60 dark:ring-slate-500/25" />
 
             <div className="relative z-10">
-              <div className="flex items-center justify-between mb-2">
+              <div className="mb-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className={`h-2.5 w-2.5 rounded-full ${colorClass}`} />
-                  <span className="text-[13px] font-semibold text-slate-900">
+                  <span className="text-[13px] font-semibold text-slate-900 dark:text-slate-100">
                     {t(sleepTypeToUiKey(session.type))}
                   </span>
                 </div>
@@ -112,7 +112,7 @@ export function SleepSessionList({
                       <button
                         type="button"
                         onClick={() => onEdit(session)}
-                        className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50/80 border border-blue-200/60 text-blue-600 hover:bg-blue-100/80 transition-all hover:scale-105 active:scale-95"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-blue-200/60 bg-blue-50/80 text-blue-600 transition-all hover:scale-105 hover:bg-blue-100/80 active:scale-95 dark:border-blue-500/40 dark:bg-blue-950/60 dark:text-blue-300 dark:hover:bg-blue-900/70"
                         aria-label={t('sleep7.editAria')}
                       >
                         <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
@@ -122,7 +122,7 @@ export function SleepSessionList({
                       <button
                         type="button"
                         onClick={() => onDelete(session.id)}
-                        className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50/80 border border-rose-200/60 text-rose-600 hover:bg-rose-100/80 transition-all hover:scale-105 active:scale-95"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-rose-200/60 bg-rose-50/80 text-rose-600 transition-all hover:scale-105 hover:bg-rose-100/80 active:scale-95 dark:border-rose-500/35 dark:bg-rose-950/50 dark:text-rose-300 dark:hover:bg-rose-900/60"
                         aria-label={t('sleep7.deleteAria')}
                       >
                         <Trash2 className="h-3.5 w-3.5" strokeWidth={2.5} />
@@ -132,16 +132,18 @@ export function SleepSessionList({
                 )}
               </div>
 
-              <div className="flex items-center gap-4 text-[12px] text-slate-600 flex-wrap">
+              <div className="flex flex-wrap items-center gap-4 text-[12px] text-slate-600 dark:text-slate-300">
                 <div className="flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5" />
+                  <Clock className="h-3.5 w-3.5 opacity-80 dark:text-slate-400" aria-hidden />
                   <span>
                     {formatTime(session.start_at)} – {formatTime(session.end_at)}
                   </span>
                 </div>
-                <span className="font-semibold">{formatDuration(session.durationHours)}</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  {formatDuration(session.durationHours)}
+                </span>
                 {session.quality != null && session.quality !== '' && (
-                  <span className="text-slate-500">
+                  <span className="text-slate-500 dark:text-slate-400">
                     {t('sleepSessionList.quality', {
                       q: translateQuality(session.quality),
                     })}
@@ -150,7 +152,7 @@ export function SleepSessionList({
               </div>
 
               {classification.reasoningKey && (
-                <p className="mt-2 text-[11px] text-slate-500 leading-relaxed">
+                <p className="mt-2 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
                   {t(classification.reasoningKey)}
                 </p>
               )}

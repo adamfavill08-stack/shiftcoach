@@ -107,6 +107,139 @@ export const sleepUiMessagesEn: Record<string, string> = {
   'sleepSW.noWearable': 'No wearable is connected yet. Connect a provider in Wearables setup.',
   'sleepSW.syncFailed': 'Failed to sync wearables',
   'sleepSW.deleteSessionFailed': 'Failed to delete session',
+  'sleepSW.loggedSessionsTitle': 'Your sleep entries',
+  'sleepSW.loggedSessionsDropdown.summary': 'Your sleep entries ({count})',
+
+  'sleepPlan.tabOverview': 'Overview',
+  'sleepPlan.tabYourPlan': 'Your plan',
+  'sleepPlan.title': 'Suggested plan',
+  'sleepPlan.subtitle':
+    'Educational only — not medical advice. Uses sleep logged for today (local calendar) and your rota, including the next shift after that sleep when available.',
+  'sleepPlan.scopeLine': 'Today · {ymd} · your time zone',
+  'sleepPlan.insufficient.noMain': 'Log a main sleep block for today (not only naps) to see a suggested plan.',
+  'sleepPlan.insufficient.noShift':
+    'We could not match your sleep to a work shift on your rota. Check that your shift calendar covers this day.',
+  'sleepPlan.insufficient.noSessions': 'No sleep entries for today yet.',
+  'sleepPlan.section.sleepWindow': 'Sleep window',
+  'sleepPlan.section.latestCaffeine': 'Latest caffeine cutoff',
+  'sleepPlan.caffeineSensitivity.heading': 'Caffeine sensitivity',
+  'sleepPlan.caffeineSensitivity.help':
+    'Latest caffeine is set before your planned sleep start: typical −6h, lower −4h, higher −8h (not tied to shift end).',
+  'sleepPlan.caffeineOption.low': 'Lower',
+  'sleepPlan.caffeineOption.medium': 'Typical',
+  'sleepPlan.caffeineOption.high': 'Higher',
+  'sleepPlan.section.napWindow': 'Nap window',
+  'sleepPlan.section.lightExposure': 'Light exposure',
+  'sleepPlan.section.recovery': 'Recovery',
+  'sleepPlan.windowExplainer':
+    'Main sleep starts as soon as it is realistic after your shift (commute home and a short wind-down), for up to your sleep goal, and ends before you would need to be up for your next shift. Times use a 24-hour clock. Modelled block: {hours} h.',
+  'sleepPlan.windowExplainerNoWindow':
+    'We could not draw a full sleep window yet — often because the next work shift is outside the loaded rota range, or the gap between wind-down and your next start is very tight. Check your rota ahead a few days.',
+  'sleepPlan.light.body':
+    'After your main sleep block: get outdoor or bright light when you wake to anchor alertness for the day. Before that sleep: dim screens and use warm, low light in the last 60–90 minutes of wind-down.',
+  'sleepPlan.recovery.body':
+    'Stacked shifts add up — keep meals aligned to your shift clock and avoid heavy alcohol before sleep; it fragments recovery sleep. Rotating nights ↔ days: move meal and light cues gradually across changeovers where you can.',
+  'sleepPlan.recovery.tightTurnaround':
+    'Turnaround is tight — protect the sleep window you have, hydrate, and treat the pre-shift hour as prep time rather than cramming chores.',
+  'sleepPlan.nap.whenApprox':
+    '~{start} – {end} (optional nap about {napMin} min; ends about {beforeShift} min before shift start)',
+  'sleepPlan.nap.none': 'No nap window suggested — either the sleep opportunity already meets your goal or the gap is too small.',
+  'sleepPlan.feedbackDropdown.summary': 'Plan notes ({count})',
+  'sleepPlan.feedback.overlap_shift': 'Logged sleep overlaps your previous work shift on the timeline we used.',
+  'sleepPlan.feedback.shorter_than_planned': 'Logged sleep was shorter than the modelled window for your next shift.',
+  'sleepPlan.feedback.wake_close_next_shift': 'Wake time is very close to when you would need to be up for the next shift.',
+  'sleepPlan.feedback.missing_next_shift': 'No upcoming work shift found in your rota range — latest wake time is open-ended.',
+  'sleepPlan.feedback.missing_prior_shift': 'No matching prior shift (informational).',
+  'sleepPlan.feedback.tight_recovery_window':
+    'Your rota leaves limited time between the shift that ended and the next one — the model shortens the sleep window to what fits safely. This is for planning, not a medical judgement.',
+  'sleepPlan.feedback.tight_recovery_before_night':
+    'This rota gives a tight recovery window before your night shift. The plan prioritises what can fit without overlapping work — for planning only, not a medical judgement.',
+  'sleepPlan.feedback.pre_night_plan_split':
+    'Because your next shift is a night shift, this plan uses a normal evening sleep plus a pre-shift nap when timing allows.',
+  'sleepPlan.feedback.pre_night_avoid_rush_bed':
+    'This avoids sending you to bed immediately after your day shift, which is unrealistic for most people.',
+  'sleepPlan.feedback.pre_night_nap_timing':
+    'Your pre-night nap is designed to finish before the shift so you are not waking too close to work.',
+  'sleepPlan.feedback.pre_night_nap_adjusted':
+    'The pre-shift nap window was shortened or moved so it does not overlap your main sleep, commute or prep time, or logged sleep.',
+  'sleepPlan.feedback.sleep_debt_earlier_recovery':
+    'You are carrying substantial sleep debt, so an earlier main-sleep start was allowed where the schedule still fits.',
+  'sleepPlan.feedback.open_ended_recovery':
+    'No next work shift is in the loaded rota range, so recovery sleep is not capped on the far side — we model a reasonable block after commute and wind-down only.',
+  'sleepPlan.howTitle': 'How this was calculated',
+  'sleepPlan.howToggleShow': 'Show details',
+  'sleepPlan.howToggleHide': 'Hide details',
+  'sleepPlan.calc.noMainSleep': 'No main sleep interval to analyse.',
+  'sleepPlan.calc.needShiftBeforeSleep': 'Need a work shift on your rota that ends before (or overlaps) your sleep start.',
+  'sleepPlan.calc.shiftEnd': 'Start from your previous shift end time.',
+  'sleepPlan.calc.commuteHome': 'Add commute home (capped).',
+  'sleepPlan.calc.windDown': 'Add a wind-down buffer before sleep.',
+  'sleepPlan.calc.preNightEvening':
+    'When your next duty is a night shift, earliest bed is not right at shift end — you get a realistic evening first; the model also aims for about 8–9 hours before that night block when the window allows.',
+  'sleepPlan.calc.preNightEveningFloor':
+    'A local evening “earliest bed” floor is applied before the night shift when the gap allows — later when there is a long gap until that night start, earlier only if sleep debt is high or the recovery window is genuinely tight.',
+  'sleepPlan.calc.preNightEveningRelaxed':
+    'The evening bed floor was relaxed so you can still fit at least a minimum main sleep before the night block.',
+  'sleepPlan.calc.tightBeforeNight':
+    'Same-calendar-day day work into a night start: recovery time is short, so the plan focuses on what can fit and flags the squeeze.',
+  'sleepPlan.calc.sleepDebtEveningRelax':
+    'Higher sleep debt relaxes the usual evening bed floor so recovery can start earlier when it still fits safely.',
+  'sleepPlan.calc.preNightOff':
+    'Rest day before a night block: we do not anchor bed to the start of the day off — the window is placed around realistic main sleep before that night, with an optional pre-shift nap if useful.',
+  'sleepPlan.calc.preNightLongGap':
+    'Long gap before sleep and a night shift ahead: earliest bed is nudged toward your logged sleep day so the model does not sit weeks in the past on the timeline.',
+  'sleepPlan.calc.preNightTargetBand':
+    'When there is enough room before the night shift, the model uses about 8–9 hours as a typical main-sleep aim (still clamped to what actually fits).',
+  'sleepPlan.calc.preNightSplit':
+    'Pre-night pattern: main sleep plus an optional pre-shift nap. Nap timing is derived from your next night shift start (wake buffer and nap length), not fixed clock guesses.',
+  'sleepPlan.calc.preNightNapDynamic':
+    'Pre-shift nap window is placed from your next night shift start minus a wake buffer, with length capped by what fits around main sleep and logged sleep.',
+  'sleepPlan.calc.preNightNapBeforeMain':
+    'When the gap is tight, the nap may sit after your day shift and before main evening sleep so it does not collide with the main sleep block.',
+  'sleepPlan.calc.preNightNapShortened':
+    'The pre-shift nap was shortened or shifted so it stays clear of main sleep, commute or prep, and the night shift itself.',
+  'sleepPlan.calc.caffeinePreNight':
+    'Caffeine cutoff is taken as the earlier of “before main sleep” and “before any suggested pre-shift nap”.',
+  'sleepPlan.calc.tightTurnaround':
+    'Turnaround between shifts is short on the timeline we used — the plan prioritises a feasible window and flags the squeeze.',
+  'sleepPlan.calc.openEndedRecovery':
+    'Without a next shift in range, recovery length uses your sleep goal up to a sensible maximum after wind-down — not stretched to an artificial far wake.',
+  'sleepPlan.calc.nextShift': 'Use your next scheduled shift start from the rota (not a fixed +24 h guess).',
+  'sleepPlan.calc.prepCommute': 'Subtract prep time and commute to work (capped) for latest wake.',
+  'sleepPlan.calc.noNextShift': 'No next shift in range — cannot cap the sleep window.',
+  'sleepPlan.calc.windowFit': 'Fit your sleep goal inside the available window (clamped to minimums where needed).',
+  'sleepPlan.calc.noRoom': 'Not enough time between realistic sleep start and next shift — modelled sleep may be very short.',
+  'sleepPlan.calc.caffeine':
+    'Caffeine cutoff uses your sensitivity setting before the suggested main sleep start (and before a pre-shift nap when one is suggested).',
+  'sleepPlan.calc.nap': 'Shortfall vs goal suggests an optional short nap before the next shift, when timing allows.',
+  'sleepPlan.transition.unavailable': 'Transition type could not be determined from the available data.',
+  'sleepPlan.transition.dayish_work_to_night':
+    'Pattern: day-type work then a night block — we allow a normal evening before bed, aim for a fuller main sleep when the window allows, and may suggest a pre-shift nap.',
+  'sleepPlan.transition.off_to_night':
+    'Pattern: rest or off day before a night shift — bed is not modelled at the start of the day off; sleep is placed before the night block with optional nap support.',
+  'sleepPlan.transition.early_to_night':
+    'Pattern: early start then a night block — we avoid pushing sleep immediately after the early finish when a night follows; split recovery (main sleep + optional nap) is considered.',
+  'sleepPlan.transition.late_to_early':
+    'Pattern: late or evening-type start then an early start — turnaround may be tight; the plan fits what is safely possible and flags limited recovery time.',
+  'sleepPlan.transition.night_to_night':
+    'Pattern: night block followed by another night — main recovery sleep is modelled after your shift end as usual; a short pre-shift nap may help if you are short of your goal.',
+  'sleepPlan.transition.night_to_off':
+    'Pattern: night shift with no next work shift in range — recovery sleep is modelled after commute and wind-down without an artificial far wake cap.',
+  'sleepPlan.transition.night_to_day':
+    'Pattern: night shift into a day-type start — watch for a tight gap; the model shortens the window to what fits and warns when recovery time is limited.',
+  'sleepPlan.transition.no_next_shift':
+    'No upcoming work shift is in the loaded rota — the plan uses an open-ended recovery block after wind-down (educational only).',
+  'sleepPlan.transition.other':
+    'General shift spacing — standard commute, wind-down, and next-shift prep rules apply.',
+  'sleepPlan.value.notApplicable': '—',
+  'sleepPlan.disclaimerShort':
+    'For education and wellbeing planning only. If you have a sleep disorder, pregnancy, or health concerns, speak with a qualified clinician.',
+  'sleepPlan.sensitivity.low': 'lower sensitivity — earlier cutoff relative to sleep',
+  'sleepPlan.sensitivity.medium': 'medium sensitivity',
+  'sleepPlan.sensitivity.high': 'higher sensitivity — stop caffeine earlier',
+  'sleepPlan.rota.shiftEnded': 'Previous shift ({label}) ended {time}.',
+  'sleepPlan.rota.nextShift': 'Next shift ({label}) starts {time}.',
+  'sleepPlan.rota.nextShiftUnknown': 'Next shift not in loaded rota range.',
 
   'sleepSW.motivate.title': 'A note for you',
   'sleepSW.motivate.noSleep':

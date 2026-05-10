@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronUp } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/providers/language-provider'
 import { LogSleepModal } from './LogSleepModal'
@@ -11,7 +11,16 @@ import { DeleteSleepConfirmModal } from './DeleteSleepConfirmModal'
 import { LastWorkBlockCard } from './LastWorkBlockCard'
 import { deriveSleepMotivationBand, SleepMotivationCard } from './SleepMotivationCard'
 import { ShiftSleepOverviewCard } from './ShiftSleepOverviewCard'
-import type { SleepLogInput, SleepType } from '@/lib/sleep/types'
+import { SleepSessionList } from './SleepSessionList'
+import { SuggestedSleepPlanCard } from './SuggestedSleepPlanCard'
+import type { SleepLogInput, SleepPlanPreferences, SleepType } from '@/lib/sleep/types'
+import type { ShiftRowInput } from '@/lib/shift-context/resolveShiftContext'
+import {
+  computeNightShiftSleepPlan,
+  DEFAULT_TARGET_SLEEP_H,
+  type CaffeineSensitivity,
+} from '@/lib/sleep/nightShiftSleepPlan'
+import { resolveRotaContextForSleepPlan } from '@/lib/sleep/resolveRotaForSleepPlan'
 import {
   pickDefaultShiftedDay,
   formatYmdInTimeZone,
@@ -84,6 +93,13 @@ export function ShiftWorkerSleepPage() {
   const [isDeleting, setIsDeleting] = useState(false)
 
   const [shiftByDate, setShiftByDate] = useState<Map<string, string>>(new Map())
+  const [shiftPlanRows, setShiftPlanRows] = useState<ShiftRowInput[]>([])
+  const [sleepTab, setSleepTab] = useState<'overview' | 'plan'>('overview')
+  /** Collapsible sleep entries — default open so the list matches prior always-visible behaviour. */
+  const [sleepEntriesOpen, setSleepEntriesOpen] = useState(true)
+  const [planCommuteMinutes, setPlanCommuteMinutes] = useState<number | null>(null)
+  const [planCaffeineSensitivity, setPlanCaffeineSensitivity] =
+    useState<CaffeineSensitivity>('medium')
   const [sleepGoalHours, setSleepGoalHours] = useState<number | null>(null)
   const [hasWearableConnection, setHasWearableConnection] = useState(false)
   const [lastWearableSyncAt, setLastWearableSyncAt] = useState<number | null>(null)
@@ -198,6 +214,25 @@ export function ShiftWorkerSleepPage() {
       if (typeof goal === 'number' && !Number.isNaN(goal) && goal > 0 && goal < 16) {
         setSleepGoalHours(goal)
       }
+      const prefs = json?.profile?.preferences
+      if (prefs && typeof prefs === 'object') {
+        const p = prefs as SleepPlanPreferences & Record<string, unknown>
+        const c = p.sleepPlanCommuteMinutes
+        if (typeof c === 'number' && Number.isFinite(c) && c > 0 && c <= 180) {
+          setPlanCommuteMinutes(Math.round(c))
+        } else {
+          setPlanCommuteMinutes(null)
+        }
+        const sens = p.caffeineSensitivity
+        if (sens === 'low' || sens === 'medium' || sens === 'high') {
+          setPlanCaffeineSensitivity(sens)
+        } else {
+          setPlanCaffeineSensitivity('medium')
+        }
+      } else {
+        setPlanCommuteMinutes(null)
+        setPlanCaffeineSensitivity('medium')
+      }
       const rawName = json?.profile?.name
       if (typeof rawName === 'string' && rawName.trim()) {
         const first = rawName.trim().split(/\s+/)[0]
@@ -214,20 +249,47 @@ export function ShiftWorkerSleepPage() {
     void fetchProfileSleepAndName()
   }, [fetchProfileSleepAndName])
 
+  const handleCaffeineSensitivityChange = useCallback(
+    async (next: CaffeineSensitivity) => {
+      setPlanCaffeineSensitivity(next)
+      try {
+        const res = await authedFetch('/api/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ preferences: { caffeineSensitivity: next } }),
+        })
+        if (!res.ok) {
+          void fetchProfileSleepAndName()
+        }
+      } catch {
+        void fetchProfileSleepAndName()
+      }
+    },
+    [fetchProfileSleepAndName],
+  )
+
   const fetchShifts = useCallback(async () => {
     try {
-      const res = await authedFetch('/api/shifts?days=30', { cache: 'no-store' })
+      const res = await authedFetch('/api/shifts?days=45&futureDays=30', { cache: 'no-store' })
       if (!res.ok) return
 
       const json = await res.json()
       const rows: any[] = json?.shifts ?? json?.items ?? []
       const map = new Map<string, string>()
+      const planRows: ShiftRowInput[] = []
       for (const row of rows) {
         if (row?.date) {
           map.set(row.date, row.label || row.shift_label || 'OFF')
+          planRows.push({
+            date: row.date,
+            label: row.label || row.shift_label || 'OFF',
+            start_ts: row.start_ts ?? null,
+            end_ts: row.end_ts ?? null,
+          })
         }
       }
       setShiftByDate(map)
+      setShiftPlanRows(planRows)
     } catch (err) {
       console.error('[ShiftWorkerSleepPage] shift fetch error:', err)
     }
@@ -258,7 +320,24 @@ export function ShiftWorkerSleepPage() {
     void fetchWearableStatus()
   }, [fetchWearableStatus])
 
+  /** Local civil "today" for charts and for the Your plan tab (today-only plan). */
   const chartHighlightYmd = useMemo(() => formatYmdInTimeZone(new Date(), userTimeZone), [userTimeZone])
+
+  /** Sleep sessions for the plan: always today's civil bucket, not the shifted-day picker. */
+  const planSessionsForToday = useMemo(() => {
+    const ymd = chartHighlightYmd
+    const fromWeek = sevenDayCalendarDays.find((d) => d.date === ymd)
+    if (fromWeek !== undefined) return fromWeek.sessions ?? []
+    const shifted = shiftedDays.find((d) => d.date === ymd)
+    return shifted?.sessions ?? []
+  }, [sevenDayCalendarDays, shiftedDays, chartHighlightYmd])
+
+  const planTargetSleepMinutes = useMemo(() => {
+    const base = sleepGoalHours
+      ? Math.round(sleepGoalHours * 60)
+      : Math.round(DEFAULT_TARGET_SLEEP_H * 60)
+    return getShiftAdjustedTargetMinutes(base, shiftByDate.get(chartHighlightYmd) || 'OFF')
+  }, [sleepGoalHours, shiftByDate, chartHighlightYmd])
 
   const refreshSleepPageData = useCallback(async () => {
     try {
@@ -476,6 +555,42 @@ export function ShiftWorkerSleepPage() {
     sleepDebtMinutes,
   })
 
+  const sleepPlanPayload = useMemo(() => {
+    const sessionLikes = planSessionsForToday.map((s) => ({
+      start_at: s.start_at,
+      end_at: s.end_at,
+      type: s.type,
+    }))
+    const rota = resolveRotaContextForSleepPlan(sessionLikes, shiftPlanRows, {
+      commuteMinutes: planCommuteMinutes,
+      timeZone: userTimeZone,
+    })
+    if (rota.state !== 'ok') {
+      return { rota, plan: null as ReturnType<typeof computeNightShiftSleepPlan> | null }
+    }
+    const plan = computeNightShiftSleepPlan({
+      shiftJustEnded: rota.shiftJustEnded,
+      nextShift: rota.nextShift,
+      commuteMinutes: rota.commuteMinutes,
+      targetSleepMinutes: planTargetSleepMinutes,
+      caffeineSensitivity: planCaffeineSensitivity,
+      loggedMainSleep: rota.primarySleep,
+      loggedNaps: rota.loggedNaps,
+      timeZone: userTimeZone,
+      restAnchorSynthetic: rota.restAnchorSynthetic,
+      sleepDebtMinutes: sleepDebtMinutes ?? undefined,
+    })
+    return { rota, plan }
+  }, [
+    planSessionsForToday,
+    shiftPlanRows,
+    planCommuteMinutes,
+    planCaffeineSensitivity,
+    planTargetSleepMinutes,
+    userTimeZone,
+    sleepDebtMinutes,
+  ])
+
   // Show loading state
   if (loading && shiftedDays.length === 0) {
     return (
@@ -503,6 +618,63 @@ export function ShiftWorkerSleepPage() {
         </h1>
       </div>
 
+      <div className="flex rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] p-0.5 text-xs font-medium">
+        <button
+          type="button"
+          onClick={() => setSleepTab('overview')}
+          className={`flex-1 rounded-full px-3 py-1.5 transition ${
+            sleepTab === 'overview'
+              ? 'bg-[var(--card)] text-[var(--text-main)] shadow-sm'
+              : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+          }`}
+        >
+          {t('sleepPlan.tabOverview')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setSleepTab('plan')}
+          className={`flex-1 rounded-full px-3 py-1.5 transition ${
+            sleepTab === 'plan'
+              ? 'bg-[var(--card)] text-[var(--text-main)] shadow-sm'
+              : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+          }`}
+        >
+          {t('sleepPlan.tabYourPlan')}
+        </button>
+      </div>
+
+      {sleepTab === 'plan' ? (
+        <div className="space-y-4">
+          {sleepPlanPayload.rota.state !== 'ok' ? (
+            <section className="rounded-xl border border-sky-200/60 bg-gradient-to-b from-sky-50 via-white to-slate-50/90 px-5 py-5 shadow-sm dark:border-slate-700/80 dark:from-slate-900/70 dark:via-[var(--card)] dark:to-slate-950/60">
+              <h2 className="text-xl font-bold tracking-tight text-[var(--text-main)]">{t('sleepPlan.title')}</h2>
+              <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                {t('sleepPlan.scopeLine', { ymd: chartHighlightYmd })}
+              </p>
+              <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                {sleepPlanPayload.rota.reason === 'no_main_sleep'
+                  ? t('sleepPlan.insufficient.noMain')
+                  : sleepPlanPayload.rota.reason === 'no_shift_anchor'
+                    ? t('sleepPlan.insufficient.noShift')
+                    : t('sleepPlan.insufficient.noSessions')}
+              </p>
+            </section>
+          ) : sleepPlanPayload.plan ? (
+            <SuggestedSleepPlanCard
+              timeZone={userTimeZone}
+              todayYmd={chartHighlightYmd}
+              rota={sleepPlanPayload.rota}
+              plan={sleepPlanPayload.plan}
+              targetSleepMinutes={planTargetSleepMinutes}
+              caffeineSensitivity={planCaffeineSensitivity}
+              onCaffeineSensitivityChange={handleCaffeineSensitivityChange}
+            />
+          ) : null}
+        </div>
+      ) : null}
+
+      {sleepTab === 'overview' ? (
+        <>
       <ShiftSleepOverviewCard
         totalMinutes={totalMinutes}
         targetMinutes={adjustedTargetMinutes}
@@ -528,9 +700,55 @@ export function ShiftWorkerSleepPage() {
         chartTimeZone={userTimeZone}
       />
 
+      <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--card)] px-4 py-3">
+        <button
+          type="button"
+          id="sleep-entries-toggle"
+          aria-expanded={sleepEntriesOpen}
+          aria-controls="sleep-entries-panel"
+          onClick={() => setSleepEntriesOpen((v) => !v)}
+          className="flex w-full items-center justify-between gap-2 text-left"
+        >
+          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            {t('sleepSW.loggedSessionsDropdown.summary', { count: sessions.length })}
+          </span>
+          {sleepEntriesOpen ? (
+            <ChevronUp className="h-4 w-4 shrink-0 text-[var(--text-soft)] opacity-80" aria-hidden />
+          ) : (
+            <ChevronDown className="h-4 w-4 shrink-0 text-[var(--text-soft)] opacity-80" aria-hidden />
+          )}
+        </button>
+        {sleepEntriesOpen ? (
+          <div
+            id="sleep-entries-panel"
+            role="region"
+            aria-labelledby="sleep-entries-toggle"
+            className="mt-3 border-t border-[var(--border-subtle)] pt-3"
+          >
+            <SleepSessionList
+              sessions={sessions.map((s) => ({
+                id: s.id,
+                start_at: s.start_at,
+                end_at: s.end_at,
+                type: s.type,
+                durationHours: s.durationHours,
+                quality: s.quality,
+              }))}
+              onEdit={(s) => {
+                const full = sessions.find((x) => x.id === s.id)
+                if (full) setEditingSession(full)
+              }}
+              onDelete={(id) => handleDeleteClick(id)}
+            />
+          </div>
+        ) : null}
+      </section>
+
       <LastWorkBlockCard timeZone={userTimeZone} authedFetch={authedFetch} />
 
       <SleepMotivationCard profileFirstName={profileFirstName} band={motivationBand} />
+        </>
+      ) : null}
 
       <footer className="pt-6 pb-2 text-center">
         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">

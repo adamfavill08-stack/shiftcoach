@@ -95,6 +95,7 @@ export async function GET(req: NextRequest) {
     const from = searchParams.get('from')
     const to = searchParams.get('to')
     const daysParam = Number.parseInt(searchParams.get('days') || '', 10)
+    const futureDaysParam = Number.parseInt(searchParams.get('futureDays') || '0', 10)
 
     const isValidDateOnly = (value: string) =>
       /^\d{4}-\d{2}-\d{2}$/.test(value) &&
@@ -136,12 +137,15 @@ export async function GET(req: NextRequest) {
       toIsoDate = to
     } else {
       const days = Number.isFinite(daysParam) && daysParam > 0 ? daysParam : 30
+      const futureDaysRaw = Number.isFinite(futureDaysParam) && futureDaysParam >= 0 ? futureDaysParam : 0
+      const futureDays = Math.min(futureDaysRaw, 120)
       const now = new Date()
       const fromDate = new Date(now)
       fromDate.setHours(0, 0, 0, 0)
       fromDate.setDate(fromDate.getDate() - (days - 1))
       const toDate = new Date(now)
       toDate.setHours(0, 0, 0, 0)
+      toDate.setDate(toDate.getDate() + futureDays)
       fromIsoDate = fromDate.toISOString().slice(0, 10)
       toIsoDate = toDate.toISOString().slice(0, 10)
     }
@@ -162,7 +166,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabase
       .from('shifts')
-      .select('date,label')
+      .select('date,label,start_ts,end_ts')
       .eq('user_id', userId)
       .gte('date', fromIsoDate)
       .lte('date', toIsoDate)
@@ -177,6 +181,9 @@ export async function GET(req: NextRequest) {
     const items = (data ?? []).map((row: any) => ({
       date: row.date,
       shift_label: normalizeShiftLabel(row.label),
+      label: normalizeShiftLabel(row.label),
+      start_ts: row.start_ts ?? null,
+      end_ts: row.end_ts ?? null,
     }))
 
     // Keep "shifts" alias for backward compatibility while "items" is canonical.

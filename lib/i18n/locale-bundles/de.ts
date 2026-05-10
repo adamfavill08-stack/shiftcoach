@@ -248,6 +248,32 @@ const messages: Record<string, string> = {
     'onboarding.saveFailed': 'Profil konnte nicht gespeichert werden',
     'onboarding.networkError': 'Netzwerkfehler. Bitte Verbindung prüfen.',
 
+    'onboarding.plan.title': 'Plan auswählen',
+    'onboarding.plan.subtitle': 'Wähle eine Option, um fortzufahren',
+    'onboarding.plan.freeTitle': 'Kostenlos',
+    'onboarding.plan.freeSubtitle': 'Eingeschränkte Funktionen — Upgrade auf Pro für vollen Zugriff',
+    'onboarding.plan.freePrice': 'Kostenlos',
+    'onboarding.plan.proFullAccess': 'Voller Pro-Zugang',
+    'onboarding.plan.perMonth': 'Pro Monat',
+    'onboarding.plan.perYear': 'Pro Jahr',
+    'onboarding.plan.saveBadge': '35 % sparen',
+    'onboarding.plan.bestValue': 'Bester Wert',
+    'onboarding.plan.secureCheckout': 'Sicherer Checkout',
+    'onboarding.plan.cancelAnytime': 'Jederzeit kündbar',
+    'onboarding.plan.continue': 'Weiter',
+    'onboarding.plan.savingFree': 'Wird gespeichert…',
+    'onboarding.plan.openingCheckout': 'Checkout wird geöffnet…',
+    'onboarding.plan.loadingPlans': 'Pläne werden geladen…',
+    'onboarding.plan.purchaseInApp':
+      'Abonnements werden in der ShiftCoach-App gekauft. Google Play oder der App Store verarbeitet die Zahlung — hier keine Karteneingabe.',
+    'onboarding.plan.packagesUnavailable':
+      'Dieser Plan ist im Store noch nicht verfügbar. Verbindung prüfen oder später erneut versuchen.',
+    'onboarding.plan.syncAfterPurchaseFailed':
+      'Kauf erfolgreich, aber Abonnement noch nicht bestätigt. Versuche gleich „Käufe wiederherstellen“.',
+    'onboarding.plan.syncAfterRestoreFailed':
+      'Kauf gefunden, Profil konnte nicht aktualisiert werden. Bitte erneut versuchen.',
+    'onboarding.plan.restoreNone': 'Kein aktiver Kauf gefunden.',
+
     'welcome.title': 'Dein Plan ist fertig',
     'welcome.subtitle': 'Basierend auf deinem Profil, Zielen und Schichtmuster.',
     'welcome.personalisedTarget': 'Personalisierte Tagesziel',

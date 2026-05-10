@@ -115,6 +115,7 @@ export async function POST(req: NextRequest) {
       onboarding_hints_enabled,
       onboarding_hints_completed,
       onboarding_step,
+      preferences: preferencesPatch,
     } = body
 
     const profileData: any = {
@@ -254,6 +255,25 @@ export async function POST(req: NextRequest) {
       if (!Number.isNaN(s) && s >= 0 && s <= 4) profileData.onboarding_step = Math.floor(s)
     }
 
+    if (
+      preferencesPatch !== undefined &&
+      preferencesPatch !== null &&
+      typeof preferencesPatch === 'object' &&
+      !Array.isArray(preferencesPatch)
+    ) {
+      const { data: prefRow } = await dbClient.from('profiles').select('preferences').eq('user_id', userId).maybeSingle()
+      const cur =
+        prefRow?.preferences &&
+        typeof prefRow.preferences === 'object' &&
+        !Array.isArray(prefRow.preferences)
+          ? { ...(prefRow.preferences as Record<string, unknown>) }
+          : {}
+      profileData.preferences = {
+        ...cur,
+        ...(preferencesPatch as Record<string, unknown>),
+      }
+    }
+
     console.log('[api/profile] Profile data to upsert:', JSON.stringify(profileData, null, 2))
     console.log('[api/profile] Age in profileData:', profileData.age, 'Type:', typeof profileData.age)
 
@@ -306,7 +326,8 @@ export async function POST(req: NextRequest) {
       } else if (
         missingColumn === 'onboarding_hints_enabled' ||
         missingColumn === 'onboarding_hints_completed' ||
-        missingColumn === 'onboarding_step'
+        missingColumn === 'onboarding_step' ||
+        missingColumn === 'preferences'
       ) {
         delete profileDataToSave[missingColumn]
       }

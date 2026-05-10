@@ -42,7 +42,11 @@ export function operationalKindFromStandard(
   return 'other'
 }
 
-function estimateBounds(row: ShiftRowInput, now: Date): { start: Date; end: Date; usedEstimatedTimes: boolean } {
+/** Wall-clock interval for a rota row (explicit timestamps or label-based estimate). Exported for sleep-plan and other pure consumers. */
+export function estimateShiftRowBounds(
+  row: ShiftRowInput,
+  _now: Date = new Date(),
+): { start: Date; end: Date; usedEstimatedTimes: boolean } {
   if (row.start_ts && row.end_ts) {
     return { start: new Date(row.start_ts), end: new Date(row.end_ts), usedEstimatedTimes: false }
   }
@@ -131,7 +135,7 @@ function kindCluster(k: OperationalShiftKind): 'night' | 'dayish' | 'off' {
  */
 export function resolveShiftContextFromRows(rows: ShiftRowInput[], now: Date = new Date()): ShiftContextResult {
   const internal: Internal[] = (rows ?? []).map((r) => {
-    const { start, end, usedEstimatedTimes } = estimateBounds(r, now)
+    const { start, end, usedEstimatedTimes } = estimateShiftRowBounds(r, now)
     const standardType = toShiftType(r.label, r.start_ts ?? null)
     const operationalKind = operationalKindFromStandard(standardType, r.label)
     return {

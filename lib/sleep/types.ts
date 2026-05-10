@@ -23,6 +23,12 @@ export type SleepLogInput = {
   source?: SleepSource
 }
 
+/** Optional `profiles.preferences` fields for the suggested sleep plan (local-first; easy to sync later). */
+export type SleepPlanPreferences = {
+  sleepPlanCommuteMinutes?: number | null
+  caffeineSensitivity?: 'low' | 'medium' | 'high' | null
+}
+
 export type SleepLogRow = {
   id: string
   user_id: string

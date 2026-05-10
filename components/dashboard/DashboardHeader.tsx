@@ -1,11 +1,20 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { Bell } from 'lucide-react'
 
-import { NotificationModal } from '@/components/notifications/NotificationModal'
 import { useTranslation } from '@/components/providers/language-provider'
+
+/** Modal chunk only loads when the user opens notifications — keeps dashboard header bundle smaller on first paint. */
+const NotificationModal = dynamic(
+  () =>
+    import('@/components/notifications/NotificationModal').then((m) => ({
+      default: m.NotificationModal,
+    })),
+  { ssr: false },
+)
 import { useNotifications } from '@/lib/hooks/useNotifications'
 import { authedFetch } from '@/lib/supabase/authedFetch'
 

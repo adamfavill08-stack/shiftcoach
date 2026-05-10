@@ -558,20 +558,16 @@ function getSegmentItems(data: AdaptiveMovementData) {
   ];
 }
 
-function shiftHeaderIcon(shiftType: ShiftType) {
-  if (shiftType === "day") return Sun;
-  if (shiftType === "evening") return Sun;
-  if (shiftType === "night") return Moon;
-  return Moon;
-}
-
-function segmentIcon(label: string, card: AdaptiveMovementData) {
+function segmentIconMarkup(label: string, card: AdaptiveMovementData) {
+  const cls = "mb-1 h-4 w-4 text-emerald-500 dark:text-emerald-300"
   if (label.includes("During") || label === "Midday") {
-    if (card.mode === "shift" && (card.shiftType === "day" || card.shiftType === "evening")) return Sun;
-    return Moon;
+    if (card.mode === "shift" && (card.shiftType === "day" || card.shiftType === "evening")) {
+      return <Sun className={cls} />
+    }
+    return <Moon className={cls} />
   }
-  if (label.includes("After") || label === "Evening") return Sun;
-  return Sunrise;
+  if (label.includes("After") || label === "Evening") return <Sun className={cls} />
+  return <Sunrise className={cls} />
 }
 
 export function AdaptiveMovementCard({
@@ -582,15 +578,23 @@ export function AdaptiveMovementCard({
   const items = getSegmentItems(data);
   const total = items.reduce((sum, item) => sum + item.value, 0);
   const mainLabel = data.mode === "shift" ? "steps during shift" : "steps today";
-  const HeaderIcon =
-    data.mode === "shift" ? shiftHeaderIcon(data.shiftType) : data.mode === "recovery" ? Lightbulb : Sun;
 
   return (
     <section className="w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_8px_22px_rgba(15,23,42,0.08)] dark:border-[var(--border-subtle)] dark:bg-[var(--card)] dark:shadow-[0_12px_34px_rgba(0,0,0,0.35)]">
       <div className="p-4 sm:p-5">
         <div className="mb-4 flex items-center gap-3">
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300">
-            <HeaderIcon className="h-5 w-5" />
+            {data.mode === "shift" ? (
+              data.shiftType === "day" || data.shiftType === "evening" ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )
+            ) : data.mode === "recovery" ? (
+              <Lightbulb className="h-5 w-5" />
+            ) : (
+              <Sun className="h-5 w-5" />
+            )}
           </span>
           <p className="text-lg font-semibold tracking-tight text-slate-900 dark:text-[var(--text-main)]">{data.title}</p>
         </div>
@@ -627,10 +631,9 @@ export function AdaptiveMovementCard({
 
             <div className="mt-4 grid grid-cols-3 gap-2">
               {items.map((item, index) => {
-                const Icon = segmentIcon(item.label, data);
                 return (
                   <div key={item.label} className={index > 0 ? "border-l border-slate-200 pl-2 dark:border-[var(--border-subtle)]" : ""}>
-                    <Icon className="mb-1 h-4 w-4 text-emerald-500 dark:text-emerald-300" />
+                    {segmentIconMarkup(item.label, data)}
                     <p className="text-sm text-slate-600 dark:text-[var(--text-soft)]">{item.label}</p>
                     <p className={item.emphasis ? "text-2xl font-semibold text-emerald-600 dark:text-amber-300" : "text-2xl font-semibold text-slate-900 dark:text-[var(--text-main)]"}>
                       {formatSteps(item.value)}

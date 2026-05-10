@@ -44,12 +44,12 @@ const resolvedSupabaseKey: string = effectiveSupabaseKey
  * Capacitor WebView often fails to persist auth cookies across process death; `localStorage`
  * survives. OAuth still lands with cookies first — see `hydrateNativeAuthFromCookiesIfNeeded`.
  */
-function useNativePersistentAuth(): boolean {
+function isNativePersistentAuthPlatform(): boolean {
   return typeof window !== 'undefined' && Capacitor.isNativePlatform()
 }
 
 function createSupabaseSingleton(): SupabaseClient {
-  if (useNativePersistentAuth()) {
+  if (isNativePersistentAuthPlatform()) {
     return createClient(resolvedSupabaseUrl, resolvedSupabaseKey, {
       auth: {
         persistSession: true,
