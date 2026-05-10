@@ -210,6 +210,8 @@ export async function POST(req: NextRequest) {
     const parsed = await parseJsonBody(req, RotaEventCreateSchema)
     if (!parsed.ok) return parsed.response
     const body = parsed.data
+    // Form default is all-day; only explicit `allDay: false` is timed. (Omitted optional → undefined, must not flip `all_day` off.)
+    const allDay = body.allDay !== false
 
     console.log('[api/rota/event] incoming body', body)
 
@@ -295,7 +297,7 @@ export async function POST(req: NextRequest) {
       let startAt: string
       let endAt: string
 
-      if (body.allDay) {
+      if (allDay) {
         // All-day events: start at 00:00:00 UTC, end at 23:59:59 UTC
         startAt = new Date(Date.UTC(
           parseInt(dateStr.substring(0, 4)),
@@ -337,7 +339,7 @@ export async function POST(req: NextRequest) {
         date: dateStr,
         start_at: startAt,
         end_at: endAt,
-        all_day: !!body.allDay,
+        all_day: allDay,
         // Default to the same amber-yellow used in the UI if no explicit colour chosen
         color: body.color ?? '#FCD34D',
         notes: body.description?.trim() || null,
@@ -347,67 +349,59 @@ export async function POST(req: NextRequest) {
 
     console.log('[api/rota/event] inserting', eventsToCreate.length, 'event(s)')
 
+    // Some deployments have NOT NULL `event_date` (calendar anchor); mirror `date` (YYYY-MM-DD).
+    // Always keep `start_at` / `end_at` on every shape so NOT NULL instants are never omitted.
+    const rowBase = (e: (typeof eventsToCreate)[0]) => ({
+      user_id: e.user_id,
+      title: e.title,
+      date: e.date,
+      event_date: e.date,
+      start_at: e.start_at,
+      end_at: e.end_at,
+    })
+
     const withoutTypeAttempts = [
-      // New schema: date + start_at/end_at + all_day + notes
-      () => eventsToCreate.map((e) => ({
-        user_id: e.user_id,
-        title: e.title,
-        date: e.date,
-        event_date: e.date,
-        start_at: e.start_at,
-        end_at: e.end_at,
-        all_day: e.all_day,
-        color: e.color,
-        notes: e.notes,
-        type: e.type,
-      })),
-      // Legacy schema: date + start_time/end_time + all_day + notes
-      () => eventsToCreate.map((e) => ({
-        user_id: e.user_id,
-        title: e.title,
-        date: e.date,
-        event_date: e.date,
-        start_time: body.allDay ? null : (body.startTime || '00:00'),
-        end_time: body.allDay ? null : (body.endTime || '23:59'),
-        all_day: e.all_day,
-        color: e.color,
-        notes: e.notes,
-      })),
-      // Minimal no-type shape (for strict/older variants)
-      () => eventsToCreate.map((e) => ({
-        user_id: e.user_id,
-        title: e.title,
-        date: e.date,
-        event_date: e.date,
-        color: e.color,
-        notes: e.notes,
-      })),
+      () =>
+        eventsToCreate.map((e) => ({
+          ...rowBase(e),
+          all_day: e.all_day,
+          color: e.color,
+          notes: e.notes,
+          type: e.type,
+        })),
+      () =>
+        eventsToCreate.map((e) => ({
+          ...rowBase(e),
+          start_time: allDay ? null : (body.startTime || '00:00'),
+          end_time: allDay ? null : (body.endTime || '23:59'),
+          all_day: e.all_day,
+          color: e.color,
+          notes: e.notes,
+        })),
+      () =>
+        eventsToCreate.map((e) => ({
+          ...rowBase(e),
+          color: e.color,
+          notes: e.notes,
+        })),
     ]
 
     const withTypeAttempts = [
-      // Old schema that requires type (no time columns)
-      () => eventsToCreate.map((e) => ({
-        user_id: e.user_id,
-        title: e.title,
-        type: body.eventType || 'other',
-        date: e.date,
-        event_date: e.date,
-        color: e.color,
-        notes: e.notes,
-      })),
-      // Type + start_at/end_at variant
-      () => eventsToCreate.map((e) => ({
-        user_id: e.user_id,
-        title: e.title,
-        type: body.eventType || 'other',
-        date: e.date,
-        event_date: e.date,
-        start_at: e.start_at,
-        end_at: e.end_at,
-        all_day: e.all_day,
-        color: e.color,
-        notes: e.notes,
-      })),
+      () =>
+        eventsToCreate.map((e) => ({
+          ...rowBase(e),
+          type: body.eventType || 'other',
+          color: e.color,
+          notes: e.notes,
+        })),
+      () =>
+        eventsToCreate.map((e) => ({
+          ...rowBase(e),
+          type: body.eventType || 'other',
+          all_day: e.all_day,
+          color: e.color,
+          notes: e.notes,
+        })),
     ]
 
     let data: any[] | null = null
@@ -482,6 +476,7 @@ export async function PUT(req: NextRequest) {
     const parsed = await parseJsonBody(req, RotaEventCreateSchema)
     if (!parsed.ok) return parsed.response
     const body = parsed.data
+    const allDay = body.allDay !== false
 
     if (!body.title || !body.startDate) {
       return NextResponse.json(
@@ -494,7 +489,7 @@ export async function PUT(req: NextRequest) {
     let startAt: string
     let endAt: string
 
-    if (body.allDay) {
+    if (allDay) {
       startAt = new Date(
         Date.UTC(
           parseInt(dateStr.substring(0, 4)),
@@ -546,9 +541,10 @@ export async function PUT(req: NextRequest) {
     const updatePayload = {
       title: body.title,
       date: dateStr,
+      event_date: dateStr,
       start_at: startAt,
       end_at: endAt,
-      all_day: body.allDay ?? true,
+      all_day: allDay,
       type: body.eventType ?? 'other',
       color: body.color ?? null,
       notes: body.description?.trim() || null,

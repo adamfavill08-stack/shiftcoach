@@ -2,40 +2,19 @@
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { NextRequest, NextResponse } from 'next/server'
-import { Event } from '@/lib/models/calendar/Event'
-import type { SupabaseClient } from '@supabase/supabase-js'
-
-async function resolveEventTypeId(
-  supabase: SupabaseClient,
-  requestedEventType?: number
-): Promise<number> {
-  if (typeof requestedEventType === 'number' && Number.isFinite(requestedEventType) && requestedEventType > 0) {
-    const { data: existing } = await supabase
-      .from('event_types')
-      .select('id')
-      .eq('id', requestedEventType)
-      .maybeSingle()
-    if (existing?.id) return existing.id
-  }
-
-  const { data: fallback } = await supabase
-    .from('event_types')
-    .select('id')
-    .order('id', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-
-  return fallback?.id ?? 1
-}
+import { Event, type Attendee } from '@/lib/models/calendar/Event'
+import { parseJsonArray } from '@/lib/helpers/calendar/normalizeCalendarEvent'
+import { resolveEventTypeId } from '@/lib/helpers/calendar/resolveEventTypeId'
 
 // GET /api/calendar/events - Get events in date range
 export async function GET(request: NextRequest) {
   try {
-    const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    const { userId } = await getServerSupabaseAndUserId()
     if (!userId) return buildUnauthorizedResponse()
 
-    const supabase = isDevFallback ? supabaseServer : authSupabase
-
+    // Service role + explicit user_id filter (same pattern as /api/rota/event): RLS often blocks
+    // inserts/updates when the route uses the anon cookie client without a forwarded JWT.
+    const supabase = supabaseServer
 
     const searchParams = request.nextUrl.searchParams
     const fromTS = searchParams.get('fromTS')
@@ -83,15 +62,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Parse JSON fields
-    const events = (data || []).map(event => ({
-      ...event,
-      repetitionExceptions: Array.isArray(event.repetition_exceptions) 
-        ? event.repetition_exceptions 
-        : (typeof event.repetition_exceptions === 'string' ? JSON.parse(event.repetition_exceptions || '[]') : []),
-      attendees: Array.isArray(event.attendees) 
-        ? event.attendees 
-        : (typeof event.attendees === 'string' ? JSON.parse(event.attendees || '[]') : []),
+    const events = (data || []).map((row) => ({
+      ...row,
+      repetitionExceptions: parseJsonArray<string>(row.repetition_exceptions, []),
+      attendees: parseJsonArray<Attendee>(row.attendees, []),
     }))
 
     return NextResponse.json({ events })
@@ -104,11 +78,10 @@ export async function GET(request: NextRequest) {
 // POST /api/calendar/events - Create new event
 export async function POST(request: NextRequest) {
   try {
-    const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    const { userId } = await getServerSupabaseAndUserId()
     if (!userId) return buildUnauthorizedResponse()
 
-    const supabase = isDevFallback ? supabaseServer : authSupabase
-
+    const supabase = supabaseServer
 
     const body = await request.json()
     const event: Partial<Event> = body
@@ -156,15 +129,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Parse JSON fields
     const createdEvent = {
       ...data,
-      repetitionExceptions: Array.isArray(data.repetition_exceptions) 
-        ? data.repetition_exceptions 
-        : JSON.parse(data.repetition_exceptions || '[]'),
-      attendees: Array.isArray(data.attendees) 
-        ? data.attendees 
-        : JSON.parse(data.attendees || '[]'),
+      repetitionExceptions: parseJsonArray<string>(data.repetition_exceptions, []),
+      attendees: parseJsonArray<Attendee>(data.attendees, []),
     }
 
     return NextResponse.json({ event: createdEvent }, { status: 201 })

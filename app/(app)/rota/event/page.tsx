@@ -6,6 +6,7 @@ import { ChevronLeft, Plus, X, Bell } from 'lucide-react'
 import { useEventNotifications } from '@/lib/hooks/useEventNotifications'
 import { requestNotificationPermission } from '@/lib/notifications/eventNotifications'
 import { useTranslation } from '@/components/providers/language-provider'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 
 type FormState = {
   startDate: string
@@ -110,7 +111,7 @@ export default function NewRotaEventPage() {
     const load = async () => {
       setLoadingEdit(true)
       try {
-        const res = await fetch(`/api/rota/event?id=${encodeURIComponent(editId)}`, {
+        const res = await authedFetch(`/api/rota/event?id=${encodeURIComponent(editId)}`, {
           cache: 'no-store',
           credentials: 'include',
         })
@@ -189,14 +190,15 @@ export default function NewRotaEventPage() {
 
     try {
       setSaving(true)
-      const res = await fetch(
+      const res = await authedFetch(
         isEditing ? `/api/rota/event?id=${encodeURIComponent(editId as string)}` : '/api/rota/event',
         {
-        method: isEditing ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload),
-      })
+          method: isEditing ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload),
+        },
+      )
 
       let responseText: string | null = null
       let responseJson: any = null

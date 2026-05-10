@@ -1,6 +1,6 @@
 import type { Attendee, Event } from '@/lib/models/calendar/Event'
 
-function parseJsonArray<T>(value: unknown, fallback: T[]): T[] {
+export function parseJsonArray<T>(value: unknown, fallback: T[]): T[] {
   if (Array.isArray(value)) return value as T[]
   if (typeof value === 'string') {
     try {

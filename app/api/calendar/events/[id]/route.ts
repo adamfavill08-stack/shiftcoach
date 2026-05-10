@@ -1,7 +1,9 @@
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { NextRequest, NextResponse } from 'next/server'
-import { Event } from '@/lib/models/calendar/Event'
+import { Event, type Attendee } from '@/lib/models/calendar/Event'
+import { parseJsonArray } from '@/lib/helpers/calendar/normalizeCalendarEvent'
+import { resolveEventTypeId } from '@/lib/helpers/calendar/resolveEventTypeId'
 
 // GET /api/calendar/events/[id] - Get single event
 export async function GET(
@@ -9,11 +11,10 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    const { userId } = await getServerSupabaseAndUserId()
     if (!userId) return buildUnauthorizedResponse()
 
-    const supabase = isDevFallback ? supabaseServer : authSupabase
-
+    const supabase = supabaseServer
 
     const { id } = await context.params
 
@@ -32,15 +33,10 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Parse JSON fields
     const event = {
       ...data,
-      repetitionExceptions: Array.isArray(data.repetition_exceptions) 
-        ? data.repetition_exceptions 
-        : JSON.parse(data.repetition_exceptions || '[]'),
-      attendees: Array.isArray(data.attendees) 
-        ? data.attendees 
-        : JSON.parse(data.attendees || '[]'),
+      repetitionExceptions: parseJsonArray<string>(data.repetition_exceptions, []),
+      attendees: parseJsonArray<Attendee>(data.attendees, []),
     }
 
     return NextResponse.json({ event })
@@ -56,18 +52,17 @@ export async function PUT(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    const { userId } = await getServerSupabaseAndUserId()
     if (!userId) return buildUnauthorizedResponse()
 
-    const supabase = isDevFallback ? supabaseServer : authSupabase
-
+    const supabase = supabaseServer
 
     const { id } = await context.params
     const body = await request.json()
     const event: Partial<Event> = body
 
     // Prepare update data
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
     if (event.startTS !== undefined) updateData.start_ts = event.startTS
     if (event.endTS !== undefined) updateData.end_ts = event.endTS
     if (event.title !== undefined) updateData.title = event.title
@@ -87,7 +82,9 @@ export async function PUT(
     if (event.importId !== undefined) updateData.import_id = event.importId
     if (event.timeZone !== undefined) updateData.time_zone = event.timeZone
     if (event.flags !== undefined) updateData.flags = event.flags
-    if (event.eventType !== undefined) updateData.event_type = event.eventType
+    if (event.eventType !== undefined) {
+      updateData.event_type = await resolveEventTypeId(supabase, event.eventType)
+    }
     if (event.parentId !== undefined) updateData.parent_id = event.parentId
     if (event.source !== undefined) updateData.source = event.source
     if (event.availability !== undefined) updateData.availability = event.availability
@@ -109,15 +106,10 @@ export async function PUT(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Parse JSON fields
     const updatedEvent = {
       ...data,
-      repetitionExceptions: Array.isArray(data.repetition_exceptions) 
-        ? data.repetition_exceptions 
-        : JSON.parse(data.repetition_exceptions || '[]'),
-      attendees: Array.isArray(data.attendees) 
-        ? data.attendees 
-        : JSON.parse(data.attendees || '[]'),
+      repetitionExceptions: parseJsonArray<string>(data.repetition_exceptions, []),
+      attendees: parseJsonArray<Attendee>(data.attendees, []),
     }
 
     return NextResponse.json({ event: updatedEvent })
@@ -133,11 +125,10 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { supabase: authSupabase, userId, isDevFallback } = await getServerSupabaseAndUserId()
+    const { userId } = await getServerSupabaseAndUserId()
     if (!userId) return buildUnauthorizedResponse()
 
-    const supabase = isDevFallback ? supabaseServer : authSupabase
-
+    const supabase = supabaseServer
 
     const { id } = await context.params
 
