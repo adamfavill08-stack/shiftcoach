@@ -138,7 +138,7 @@ export default function FatigueRiskPage() {
         const { data: auth } = await supabase.auth.getSession()
         const token = auth.session?.access_token
         if (!token) return
-        const circadianData = await getCircadianData(token)
+        const { circadian: circadianData } = await getCircadianData(token)
         if (!active) return
         if (circadianData) {
           if (typeof circadianData.fatigueScore === 'number') {

@@ -3,6 +3,12 @@
 
 import { circadianCalculateUrlWithLocalHour } from '@/lib/circadian/wallClockHour'
 
+export type CircadianDataFetch = {
+  circadian: any | null
+  status?: string
+  reason?: string
+}
+
 interface CachedResult {
   data: any
   fetchedAt: number
@@ -11,29 +17,39 @@ interface CachedResult {
 let cache: CachedResult | null = null
 const CACHE_TTL_MS = 60_000 // 1 minute
 
-export async function getCircadianData(accessToken: string): Promise<any> {
+export async function getCircadianData(accessToken: string): Promise<CircadianDataFetch> {
   const now = Date.now()
 
-  // Return cached result if still fresh
   if (cache && now - cache.fetchedAt < CACHE_TTL_MS) {
-    return cache.data
+    return { circadian: cache.data, status: 'ok' }
   }
 
-  const res = await fetch(circadianCalculateUrlWithLocalHour("/api/circadian/calculate"), {
-    cache: "no-store",
-    credentials: "include",
+  const res = await fetch(circadianCalculateUrlWithLocalHour('/api/circadian/calculate'), {
+    cache: 'no-store',
+    credentials: 'include',
     headers: { Authorization: `Bearer ${accessToken}` },
   })
 
-  if (!res.ok) return null
+  const json = await res.json().catch(() => ({} as Record<string, unknown>))
 
-  const json = await res.json()
-  if (json.status === "ok" && json.circadian) {
-    cache = { data: json.circadian, fetchedAt: now }
-    return json.circadian
+  if (!res.ok) {
+    return {
+      circadian: null,
+      reason: String((json as any)?.reason ?? (json as any)?.error ?? `Request failed (${res.status})`),
+      status: String((json as any)?.status ?? 'error'),
+    }
   }
 
-  return null
+  if (json.status === 'ok' && json.circadian) {
+    cache = { data: json.circadian, fetchedAt: now }
+    return { circadian: json.circadian, status: 'ok' }
+  }
+
+  return {
+    circadian: null,
+    reason: String((json as any)?.reason ?? (json as any)?.error ?? 'No data available'),
+    status: typeof (json as any)?.status === 'string' ? (json as any).status : undefined,
+  }
 }
 
 export function clearCircadianCache() {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Inter } from "next/font/google"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
@@ -378,6 +378,49 @@ function RingMarker({ angle, color, label }: { angle: number; color: string; lab
   )
 }
 
+/** New account / no usable sleep yet — steer to profile, rota, and sleep log. */
+function circadianNeedsFirstVisitOnboarding(reason: string | null, apiStatus: string | null): boolean {
+  const r = reason ?? ''
+  const s = apiStatus ?? ''
+  if (!r && !s) return false
+  if (r.includes('sign in') || r.includes('Please sign in')) return false
+  if (r.includes('Authentication') || r.includes('Database') || r.includes('temporarily unavailable')) return false
+  if (r === 'Could not load circadian data') return false
+  if (r === 'Insufficient sleep data') return false
+  if (r.includes('Failed to fetch')) return false
+
+  if (r === 'No sleep data available' || r === 'No main sleep data available' || r === 'Latest sleep missing start/end times') return true
+  if (r === 'No data available') return true
+  if (s === 'no_main_sleep' || s === 'invalid_sleep_timestamps') return true
+  if (s === 'insufficient_data' && r !== 'Insufficient sleep data') return true
+  return false
+}
+
+/** Matches /api/circadian/calculate main-sleep detection closely enough for checklist UX. */
+function sleepLogRowIsMain(log: Record<string, unknown>): boolean {
+  const t = log.type as string | undefined
+  if (t === "nap" || t === "pre_shift_nap") return false
+  if (t === "sleep" || t === "main_sleep" || t === "post_shift_sleep" || t === "recovery_sleep") {
+    const start = (log.start_at ?? log.start_ts) as string | undefined
+    const end = (log.end_at ?? log.end_ts) as string | undefined
+    return Boolean(start && end)
+  }
+  const startTs = log.start_ts as string | undefined
+  const endTs = log.end_ts as string | undefined
+  const startAt = log.start_at as string | undefined
+  const endAt = log.end_at as string | undefined
+  const naps = log.naps as number | null | undefined
+  if (startTs && endTs) {
+    const n = typeof naps === "number" ? naps : Number(naps)
+    if (!Number.isNaN(n) && n > 0) return false
+    return true
+  }
+  if (startAt && endAt) return t !== "nap" && t !== "pre_shift_nap"
+  return false
+}
+
+type BodyClockSetupProgress = { profile: boolean; rota: boolean; sleep: boolean }
+
 // ─── Main component ───────────────────────────────────────────────
 type CircadianCardProps = {
   showMainSections?: boolean
@@ -393,6 +436,9 @@ export default function CircadianCard({
   const [data,     setData]     = useState<CircadianData | null>(null)
   const [status,   setStatus]   = useState<"loading" | "ok" | "unavailable">("loading")
   const [reason,   setReason]   = useState<string | null>(null)
+  const [circadianApiStatus, setCircadianApiStatus] = useState<string | null>(null)
+  const [setupPanelActive, setSetupPanelActive] = useState(false)
+  const [setupProgress, setSetupProgress] = useState<BodyClockSetupProgress | null>(null)
   const [revealed, setRevealed] = useState(false)
   const [now,      setNow]      = useState(() => {
     const d = new Date()
@@ -462,6 +508,64 @@ export default function CircadianCard({
     }
   }, [])
 
+  const loadBodyClockSetupProgress = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) {
+        setSetupProgress(null)
+        return
+      }
+      const uid = session.user.id
+      const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+
+      const profRes = await supabase
+        .from("profiles")
+        .select("weight_kg, height_cm, sex, goal, cycle_length, rotation_pattern")
+        .eq("user_id", uid)
+        .maybeSingle()
+
+      const [shiftsRes, rotaRes] = await Promise.all([
+        supabase.from("shifts").select("id").eq("user_id", uid).limit(1),
+        supabase.from("rota_events").select("id").eq("user_id", uid).limit(1),
+      ])
+
+      const prof = profRes.data
+      const profileOk = !!(prof?.weight_kg && prof?.height_cm && prof?.sex && prof?.goal)
+      const rotaFromPattern =
+        !!prof?.cycle_length &&
+        Array.isArray(prof?.rotation_pattern) &&
+        prof.rotation_pattern.length > 0
+      const rotaOk =
+        rotaFromPattern ||
+        (shiftsRes.data?.length ?? 0) > 0 ||
+        (rotaRes.data?.length ?? 0) > 0
+
+      let logs: any[] = []
+      const rNew = await supabase
+        .from("sleep_logs")
+        .select("type, start_at, end_at")
+        .eq("user_id", uid)
+        .gte("start_at", since)
+        .limit(80)
+      if (!rNew.error && rNew.data?.length) {
+        logs = rNew.data
+      } else {
+        const rOld = await supabase
+          .from("sleep_logs")
+          .select("type, start_ts, end_ts, naps")
+          .eq("user_id", uid)
+          .gte("start_ts", since)
+          .limit(80)
+        if (!rOld.error && rOld.data) logs = rOld.data
+      }
+
+      const sleepOk = logs.some((row) => sleepLogRowIsMain(row as Record<string, unknown>))
+      setSetupProgress({ profile: profileOk, rota: rotaOk, sleep: sleepOk })
+    } catch {
+      setSetupProgress(null)
+    }
+  }, [])
+
   const fetchData = useCallback(async (opts?: { bustCache?: boolean }) => {
     try {
       // Wait for a confirmed session before hitting the API
@@ -469,37 +573,48 @@ export default function CircadianCard({
       const { data: { session } } = await supabase.auth.getSession()
 
       if (!session) {
+        setCircadianApiStatus(null)
+        setSetupPanelActive(false)
         setStatus("unavailable")
         setReason("Please sign in to view your body clock analysis.")
         return
       }
 
       if (opts?.bustCache) clearCircadianCache()
-      const circadian = await getCircadianData(session.access_token)
+      const result = await getCircadianData(session.access_token)
 
-      if (!circadian) {
+      if (!result.circadian) {
         // Try refreshing session and retry once
         const { data: refreshed } = await supabase.auth.refreshSession()
         if (refreshed.session) {
           if (opts?.bustCache) clearCircadianCache()
-          const retryData = await getCircadianData(refreshed.session.access_token)
-          if (retryData) {
-            setData(retryData)
+          const retry = await getCircadianData(refreshed.session.access_token)
+          if (retry.circadian) {
+            setData(retry.circadian)
+            setCircadianApiStatus(null)
             setStatus("ok")
             setRevealed(true)
             return
           }
+          setCircadianApiStatus(retry.status ?? null)
+          setStatus("unavailable")
+          setReason(retry.reason ?? "No data available")
+          return
         }
+        setCircadianApiStatus(result.status ?? null)
         setStatus("unavailable")
-        setReason("No data available")
+        setReason(result.reason ?? "No data available")
         return
       }
 
-      setData(circadian)
+      setData(result.circadian)
+      setCircadianApiStatus(null)
+      setSetupProgress(null)
       setStatus("ok")
       setRevealed(true)
     } catch (err) {
       console.error("[CircadianCard] fetchData error:", err)
+      setCircadianApiStatus("error")
       setStatus("unavailable")
       setReason("Could not load circadian data")
     }
@@ -519,6 +634,66 @@ export default function CircadianCard({
       window.removeEventListener(SLEEP_LOGS_UPDATED_EVENT, onSleep)
     }
   }, [fetchData, loadRecentNapEnds])
+
+  const needsFirstVisitChecklist = circadianNeedsFirstVisitOnboarding(reason, circadianApiStatus)
+
+  useEffect(() => {
+    if (needsFirstVisitChecklist) setSetupPanelActive(true)
+  }, [needsFirstVisitChecklist])
+
+  useEffect(() => {
+    if (status === "ok") setSetupPanelActive(false)
+  }, [status])
+
+  const setupIncompleteRef = useRef(true)
+  useEffect(() => {
+    if (!setupProgress) return
+    const done = setupProgress.profile && setupProgress.rota && setupProgress.sleep
+    if (!done) {
+      setupIncompleteRef.current = true
+      return
+    }
+    if (!setupIncompleteRef.current) return
+    setupIncompleteRef.current = false
+    setSetupPanelActive(false)
+    void fetchData({ bustCache: true })
+  }, [setupProgress, fetchData])
+
+  const allSetupTasksDone = !!(setupProgress?.profile && setupProgress?.rota && setupProgress?.sleep)
+  const reasonLower = (reason ?? "").toLowerCase()
+  const showSetupTaskList =
+    (needsFirstVisitChecklist || setupPanelActive) &&
+    Boolean(reason) &&
+    !reasonLower.includes("sign in") &&
+    !allSetupTasksDone
+
+  const pollSetupProgress =
+    (needsFirstVisitChecklist || setupPanelActive) &&
+    !allSetupTasksDone &&
+    Boolean(reason) &&
+    !reasonLower.includes("sign in")
+
+  useEffect(() => {
+    if (!pollSetupProgress) return
+    void loadBodyClockSetupProgress()
+    const id = setInterval(() => void loadBodyClockSetupProgress(), 12_000)
+    const bump = () => void loadBodyClockSetupProgress()
+    window.addEventListener("sleep-refreshed", bump)
+    window.addEventListener(SLEEP_LOGS_UPDATED_EVENT, bump)
+    window.addEventListener("event-updated", bump)
+    window.addEventListener("rota-saved", bump)
+    window.addEventListener("rota-cleared", bump)
+    window.addEventListener("profile-updated", bump)
+    return () => {
+      clearInterval(id)
+      window.removeEventListener("sleep-refreshed", bump)
+      window.removeEventListener(SLEEP_LOGS_UPDATED_EVENT, bump)
+      window.removeEventListener("event-updated", bump)
+      window.removeEventListener("rota-saved", bump)
+      window.removeEventListener("rota-cleared", bump)
+      window.removeEventListener("profile-updated", bump)
+    }
+  }, [pollSetupProgress, loadBodyClockSetupProgress])
 
   // ── Derived values ────────────────────────────────────────────
   const CURRENT = now
@@ -705,6 +880,51 @@ export default function CircadianCard({
 
   // ── Unavailable state ─────────────────────────────────────────
   if (status === "unavailable" || !data) {
+    const unavailableTitle = showSetupTaskList
+      ? "Let’s bring your body clock to life"
+      : "Body clock data loading"
+
+    const fallbackBody =
+      reason === "No sleep data available" || reason === "No main sleep data available" ? (
+        "Log your first sleep session to unlock your body clock analysis."
+      ) : reason === "Insufficient sleep data" ? (
+        "Log a few more sleep sessions — your body clock analysis will appear shortly."
+      ) : (
+        "Your circadian analysis will appear here once your data loads."
+      )
+
+    const ringHint = showSetupTaskList ? "Complete the steps" : "Log sleep to unlock"
+
+    const setupSteps: Array<{
+      key: string
+      done: boolean
+      title: string
+      sub: string
+      href: string
+    }> = [
+      {
+        key: "profile",
+        done: setupProgress?.profile ?? false,
+        title: "Profile in Settings",
+        sub: "Add weight, height, sex, and goal",
+        href: "/settings/profile",
+      },
+      {
+        key: "rota",
+        done: setupProgress?.rota ?? false,
+        title: "Rota on your calendar",
+        sub: "Save shifts or add rota / calendar events",
+        href: "/rota",
+      },
+      {
+        key: "sleep",
+        done: setupProgress?.sleep ?? false,
+        title: "Last night’s sleep",
+        sub: "Log a main sleep session",
+        href: "/sleep/logs",
+      },
+    ]
+
     return (
       <div className={inter.className} style={{ margin: `12px ${sidePad}` }}>
         <div style={{ padding: "16px 18px", background: "var(--card)", borderRadius: 12, border: "1px solid var(--border-subtle)" }}>
@@ -712,15 +932,66 @@ export default function CircadianCard({
             Circadian Rhythm
           </div>
           <div style={{ fontSize: 16, fontWeight: 400, color: "var(--text-main)", marginBottom: 6 }}>
-            Body clock data loading
+            {unavailableTitle}
           </div>
           <div style={{ fontSize: 13, color: "var(--text-soft)", lineHeight: 1.6, fontWeight: 300 }}>
-            {reason === "No sleep data available" || reason === "No main sleep data available"
-              ? "Log your first sleep session to unlock your body clock analysis."
-              : reason === "Insufficient sleep data"
-              ? "Log a few more sleep sessions — your body clock analysis will appear shortly."
-              : "Your circadian analysis will appear here once your data loads."
-            }
+            {showSetupTaskList ? (
+              <>
+                <p style={{ margin: "0 0 10px" }}>
+                  I’ll stay on this card until every step below is done — each turns green when complete — then I’ll
+                  load your circadian rhythm.
+                </p>
+                {setupSteps.map((step) => (
+                  <button
+                    key={step.key}
+                    type="button"
+                    onClick={() => router.push(step.href)}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 10,
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "10px 12px",
+                      marginTop: 8,
+                      borderRadius: 10,
+                      border: step.done ? "1px solid rgba(34,197,94,0.5)" : "1px solid var(--border-subtle)",
+                      background: step.done ? "rgba(34,197,94,0.1)" : "var(--card-subtle)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <span
+                      style={{
+                        flexShrink: 0,
+                        width: 22,
+                        height: 22,
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: step.done ? "#166534" : "var(--text-muted)",
+                        background: step.done ? "#86efac" : "rgba(148,163,184,0.28)",
+                      }}
+                      aria-hidden
+                    >
+                      {step.done ? "✓" : ""}
+                    </span>
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: "block", fontWeight: 600, color: "var(--text-main)", fontSize: 13 }}>
+                        {step.title}
+                      </span>
+                      <span style={{ display: "block", fontSize: 12, color: "var(--text-soft)", marginTop: 2, fontWeight: 300 }}>
+                        {step.sub}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </>
+            ) : (
+              fallbackBody
+            )}
           </div>
         </div>
 
@@ -738,7 +1009,7 @@ export default function CircadianCard({
             />
             <text x={170} y={170} textAnchor="middle" dominantBaseline="middle"
               fill="rgba(128,128,128,0.55)" fontSize={11} fontFamily="Inter">
-              Log sleep to unlock
+              {ringHint}
             </text>
           </svg>
         </div>

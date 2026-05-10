@@ -117,7 +117,7 @@ export async function scheduleFatigueRiskAlerts(): Promise<void> {
     const token = auth.session?.access_token
     if (!token) return
 
-    const circadian = await getCircadianData(token)
+    const { circadian } = await getCircadianData(token)
     const nextTroughHour =
       circadian && typeof circadian.nextTroughHour === 'number' ? circadian.nextTroughHour : null
     if (nextTroughHour == null) return
