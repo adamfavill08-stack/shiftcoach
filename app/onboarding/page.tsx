@@ -1364,16 +1364,10 @@ export default function OnboardingPage() {
                 )}
                 <div style={{ marginTop: "auto", paddingBottom: 32, ...rv(0.14) }}>
                   <PBtn
-                    onClick={() => {
-                      void (async () => {
-                        const { data: { session } } = await supabase.auth.getSession()
-                        if (session?.user) await handleSubmit()
-                        else setScreen(SCREEN_ACCOUNT)
-                      })()
-                    }}
+                    onClick={() => setScreen(SCREEN_ACCOUNT)}
                     disabled={saving}
                   >
-                    {saving ? "Saving…" : "Create account →"}
+                    Create account →
                   </PBtn>
                 </div>
               </div>
