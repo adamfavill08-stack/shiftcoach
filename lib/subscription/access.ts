@@ -71,6 +71,21 @@ export function deriveSubscriptionAccess(input: {
     return { isPro: true, plan: 'tester' }
   }
 
+  /**
+   * First 7 days after `profiles.created_at`: unlock Pro UI for everyone **except** users who clearly
+   * already have an active paid path (avoids stale `pro`+`canceled`, trialing without `trial_ends_at`
+   * synced yet, Play Store / RevenueCat lag vs profile columns).
+   */
+  const clearlyActivePaid =
+    entitlementActive ||
+    (normalizedPlan === 'pro' && (status === 'active' || status === 'trialing')) ||
+    ((normalizedPlan === 'monthly' || normalizedPlan === 'yearly') &&
+      (status === 'active' || (status === 'trialing' && hasValidTrialWindow)))
+
+  if (hasValidFirstWeekWindow && !clearlyActivePaid) {
+    return { isPro: true, plan: 'free' }
+  }
+
   if (normalizedPlan === 'pro') {
     if (status === 'active' || status === 'trialing' || entitlementActive) {
       return { isPro: true, plan: 'pro' }
@@ -86,13 +101,6 @@ export function deriveSubscriptionAccess(input: {
     if (mappedPlan) {
       return { isPro: true, plan: mappedPlan }
     }
-    return { isPro: true, plan: 'free' }
-  }
-
-  // Safety fallback: if profile trial fields were not persisted yet for a new free user,
-  // keep Pro access for first 7 days after profile creation.
-  // Treat null/unknown plan like free — production rows often omit `subscription_plan` until store sync.
-  if ((normalizedPlan === 'free' || normalizedPlan === null) && hasValidFirstWeekWindow) {
     return { isPro: true, plan: 'free' }
   }
 

@@ -86,6 +86,26 @@ describe('deriveSubscriptionAccess — trialing + trial_ends_at (e.g. store-sync
     expect(access).toEqual({ isPro: false, plan: 'free' })
   })
 
+  it('grants first-week grace when plan is stale pro+canceled inside 7 days of profile', () => {
+    const access = deriveSubscriptionAccess({
+      subscriptionStatus: 'canceled',
+      subscriptionPlan: 'pro',
+      trialEndsAt: null,
+      profileCreatedAt: '2026-04-29T12:00:00.000Z',
+    })
+    expect(access).toEqual({ isPro: true, plan: 'free' })
+  })
+
+  it('grants first-week grace for monthly+trialing when trial_ends_at not synced yet', () => {
+    const access = deriveSubscriptionAccess({
+      subscriptionStatus: 'trialing',
+      subscriptionPlan: 'monthly',
+      trialEndsAt: null,
+      profileCreatedAt: '2026-04-29T12:00:00.000Z',
+    })
+    expect(access).toEqual({ isPro: true, plan: 'free' })
+  })
+
   it('does not drop Pro access when status is active even if profile plan says free', () => {
     const access = deriveSubscriptionAccess({
       subscriptionStatus: 'active',
