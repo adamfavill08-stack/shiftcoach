@@ -10,6 +10,7 @@ import {
   supersedeManualLogsAfterWearableDelta,
 } from '@/lib/activity/manualWearableSupersede'
 import { mergeHealthConnectDailyStepsByDate } from '@/lib/health-connect/mergeHealthConnectDailyStepsByDate'
+import { sumHcStepSamplesForLocalCivilDay } from '@/lib/health-connect/reconcileDailyStepsFromHcSamples'
 import { healthConnectSleepItemSchema } from '@/lib/health-connect/healthConnectSleepItemSchema'
 import { withSyntheticHcSampleIds } from '@/lib/health-connect/withSyntheticHcSampleIds'
 
@@ -73,8 +74,9 @@ const isDevServer = process.env.NODE_ENV === 'development'
  * POST /api/health-connect/sync
  *
  * Session-authenticated Android ingestion path for Health Connect.
- * Step totals can include watch, phone, and any permitted apps writing to HC;
- * the native client sums records and ShiftCoach stores that unified total.
+ * Step totals: native may still send interval-sum daily totals (inflated vs HC). When `stepSamples`
+ * are present, we recompute each civil day from 15m `COUNT_TOTAL` buckets using `profiles.tz` so
+ * users get HC-aligned totals without an app update.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -113,6 +115,10 @@ export async function POST(req: NextRequest) {
         { onConflict: 'user_id,platform' },
       )
 
+    const { data: profileTzRow } = await supabase.from('profiles').select('tz').eq('user_id', userId).maybeSingle()
+    const profileTz =
+      typeof profileTzRow?.tz === 'string' && profileTzRow.tz.trim() ? profileTzRow.tz.trim() : 'UTC'
+
     let activityLogUpsertOk = false
     let stepSamplesPersisted = 0
     let persistedDailyStepsCount = 0
@@ -125,6 +131,15 @@ export async function POST(req: NextRequest) {
         steps: Math.max(0, Math.round(d.steps)),
       }))
     const dailyLimited = mergeHealthConnectDailyStepsByDate(normalizedDaily).slice(0, 14)
+
+    /** Prefer sample-backed totals when buckets exist for that local civil day (HC-deduped). */
+    const dailyForUpsert = dailyLimited.map((row) => {
+      const fromSamples = sumHcStepSamplesForLocalCivilDay(rawStepSamples ?? [], row.activityDate, profileTz)
+      if (fromSamples != null) {
+        return { ...row, steps: fromSamples }
+      }
+      return row
+    })
 
     const clientToday =
       typeof activityDate === 'string' && YMD.test(String(activityDate).trim())
@@ -141,7 +156,7 @@ export async function POST(req: NextRequest) {
     let todayStepsWritten: number | null = null
     let todayUpsertError: string | null = null
 
-    for (const row of dailyLimited) {
+    for (const row of dailyForUpsert) {
       dailyStepsTotalReceived += row.steps
       const prevSteps = await fetchWearableDailyStepsForSource(supabase, userId, row.activityDate, 'health_connect')
       const loggedAtForRow = clientToday != null && row.activityDate === clientToday ? loggedAtForToday : syncedAt
@@ -177,9 +192,11 @@ export async function POST(req: NextRequest) {
 
     if (dailyLimited.length === 0 && steps != null) {
       const ad = typeof activityDate === 'string' && YMD.test(String(activityDate).trim()) ? String(activityDate).trim().slice(0, 10) : null
+      const fromSamples = ad ? sumHcStepSamplesForLocalCivilDay(rawStepSamples ?? [], ad, profileTz) : null
+      const stepsToPersist = fromSamples != null ? fromSamples : steps
       const prevSteps = ad ? await fetchWearableDailyStepsForSource(supabase, userId, ad, 'health_connect') : null
       const { error: actErr } = await upsertActivityLogDailySteps(supabase, userId, {
-        steps,
+        steps: stepsToPersist,
         syncedAt,
         source: 'health_connect',
         activityDate,
@@ -195,10 +212,10 @@ export async function POST(req: NextRequest) {
         activityLogUpsertOk = true
         if (ad && clientToday === ad) {
           todayPersisted = true
-          todayStepsWritten = steps
+          todayStepsWritten = stepsToPersist
         }
         if (ad && prevSteps != null) {
-          const delta = steps - prevSteps
+          const delta = stepsToPersist - prevSteps
           if (delta > 0) {
             await supersedeManualLogsAfterWearableDelta(supabase, userId, ad, delta, 'health_connect')
           }
@@ -354,7 +371,7 @@ export async function POST(req: NextRequest) {
     const persisted = {
       stepsPersisted: activityLogUpsertOk,
       persistedDailyStepsCount,
-      dailyStepsCount: dailyLimited.length,
+      dailyStepsCount: dailyForUpsert.length,
       dailyStepsTotal: dailyStepsTotalReceived,
       stepSamplesPersisted,
       datesPersisted: [...new Set(datesPersisted)].sort(),
@@ -364,7 +381,7 @@ export async function POST(req: NextRequest) {
 
     const stepsRead =
       clientToday != null
-        ? (dailyLimited.find((d) => d.activityDate === clientToday)?.steps ?? steps ?? 0)
+        ? (dailyForUpsert.find((d) => d.activityDate === clientToday)?.steps ?? steps ?? 0)
         : (steps ?? 0)
     const stepRecordsRead = typeof stepRecordsReadToday === 'number' ? stepRecordsReadToday : 0
     const stepsSaved = todayPersisted && todayStepsWritten != null ? todayStepsWritten : 0
@@ -384,7 +401,7 @@ export async function POST(req: NextRequest) {
       lastSyncedAt: syncedAt,
       accepted: {
         steps: steps != null,
-        dailyStepsCount: dailyLimited.length,
+        dailyStepsCount: dailyForUpsert.length,
         stepSamplesCount: normalizedSamples.length,
         sleepCount: sleepForPersist.length,
         heartRateCount: heartRate.length,
@@ -443,7 +460,7 @@ export async function POST(req: NextRequest) {
         received: {
           stepsTotal: steps,
           activityDate: activityDate ?? null,
-          dailyStepsCount: dailyLimited.length,
+          dailyStepsCount: dailyForUpsert.length,
           dailyStepsTotalReceived,
           stepRecordsReadToday: stepRecordsReadToday ?? null,
           firstStepRecordAt: firstStepRecordAt ?? null,
