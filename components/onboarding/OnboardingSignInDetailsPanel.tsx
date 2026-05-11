@@ -155,24 +155,17 @@ export function OnboardingSignInDetailsPanel({
         flexDirection: "column",
         background: PAGE_BG,
         minHeight: 0,
-        overflow: "hidden",
+        overflowY: "auto",
+        WebkitOverflowScrolling: "touch",
       }}
     >
       <div
         style={{
-          flex: 1,
-          overflowY: "auto",
-          WebkitOverflowScrolling: "touch",
-          minHeight: 0,
+          position: "relative",
+          padding: "calc(8px + env(safe-area-inset-top, 0px)) 20px 16px",
+          flexShrink: 0,
         }}
       >
-        <div
-          style={{
-            position: "relative",
-            padding: "calc(8px + env(safe-area-inset-top, 0px)) 20px 16px",
-            flexShrink: 0,
-          }}
-        >
           <button
             type="button"
             onClick={onBack}
@@ -203,9 +196,9 @@ export function OnboardingSignInDetailsPanel({
           >
             Create your account
           </h2>
-        </div>
+      </div>
 
-        <div style={{ padding: "0 20px 24px" }}>
+      <div style={{ padding: "0 20px calc(16px + env(safe-area-inset-bottom, 0px))" }}>
           <form id={formId} onSubmit={submit}>
           <div
             style={{
@@ -333,62 +326,59 @@ export function OnboardingSignInDetailsPanel({
             </p>
           )}
           </form>
-        </div>
-      </div>
 
-      <div
-        style={{
-          padding: "12px 20px calc(12px + env(safe-area-inset-bottom, 0px))",
-          background: PAGE_BG,
-          flexShrink: 0,
-          boxShadow: "0 -4px 20px rgba(0,0,0,0.14)",
-        }}
-      >
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            background: PILL_BG,
-            borderRadius: 9999,
-            padding: "16px 28px",
-            boxShadow: "0 8px 24px rgba(5,175,197,0.45)",
+            marginTop: 16,
+            paddingTop: 4,
           }}
         >
-          <button
-            type="button"
-            onClick={onBack}
-            disabled={busy}
+          <div
             style={{
-              background: "none",
-              border: "none",
-              color: "#fff",
-              fontSize: 16,
-              fontWeight: 600,
-              cursor: busy ? "default" : "pointer",
-              fontFamily: "Inter, sans-serif",
-              opacity: busy ? 0.6 : 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              background: PILL_BG,
+              borderRadius: 9999,
+              padding: "16px 28px",
+              boxShadow: "0 8px 24px rgba(5,175,197,0.45)",
             }}
           >
-            Back
-          </button>
-          <button
-            type="submit"
-            form={formId}
-            disabled={busy}
-            style={{
-              background: "none",
-              border: "none",
-              color: "#fff",
-              fontSize: 16,
-              fontWeight: 600,
-              cursor: busy ? "wait" : "pointer",
-              fontFamily: "Inter, sans-serif",
-              opacity: busy ? 0.7 : 1,
-            }}
-          >
-            {busy ? "Please wait…" : "Next"}
-          </button>
+            <button
+              type="button"
+              onClick={onBack}
+              disabled={busy}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#fff",
+                fontSize: 16,
+                fontWeight: 600,
+                cursor: busy ? "default" : "pointer",
+                fontFamily: "Inter, sans-serif",
+                opacity: busy ? 0.6 : 1,
+              }}
+            >
+              Back
+            </button>
+            <button
+              type="submit"
+              form={formId}
+              disabled={busy}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#fff",
+                fontSize: 16,
+                fontWeight: 600,
+                cursor: busy ? "wait" : "pointer",
+                fontFamily: "Inter, sans-serif",
+                opacity: busy ? 0.7 : 1,
+              }}
+            >
+              {busy ? "Please wait…" : "Next"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
