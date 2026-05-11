@@ -414,6 +414,9 @@ export default function OnboardingPage() {
   })
   /** Prevents duplicate profile/rota saves (e.g. sign-up onSuccess + skip-account effect). */
   const completingOnboardingRef = useRef(false)
+  /** When on account step: null = checking session, false = show sign-up, true = already signed in. */
+  const [accountStepSession, setAccountStepSession] = useState<boolean | null>(null)
+  const [accountStepEmail, setAccountStepEmail] = useState<string | null>(null)
 
   useEffect(() => { setVisible(false); const t = setTimeout(() => setVisible(true), 80); return () => clearTimeout(t) }, [screen])
   useEffect(() => {
@@ -485,21 +488,23 @@ export default function OnboardingPage() {
     }
   }, [])
 
-  /** Already signed in: skip account step and complete profile + rota from onboarding. */
-  useLayoutEffect(() => {
-    if (typeof window === "undefined") return
-    if (!workerType) return
-    if (screen !== SCREEN_ACCOUNT) return
+  useEffect(() => {
+    if (screen !== SCREEN_ACCOUNT) {
+      setAccountStepSession(null)
+      setAccountStepEmail(null)
+      return
+    }
     let cancelled = false
     void supabase.auth.getSession().then(({ data: { session } }) => {
-      if (cancelled || !session?.user) return
-      void handleSubmit()
+      if (cancelled) return
+      const u = session?.user
+      setAccountStepSession(Boolean(u))
+      setAccountStepEmail(u?.email ?? null)
     })
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- submit uses latest state when ACCOUNT+session fires
-  }, [screen, workerType, SCREEN_ACCOUNT])
+  }, [screen, SCREEN_ACCOUNT])
 
   const persistOnboardingDraft = (summaryScreenIndex: number) => {
     if (!workerType) return
@@ -1172,12 +1177,149 @@ export default function OnboardingPage() {
             )}
 
             {/* ══ Ready ════════════════════════════════════════════ */}
-            {screen === SCREEN_ACCOUNT && (
+            {screen === SCREEN_ACCOUNT && accountStepSession === true && (
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  background: "var(--bg)",
+                  minHeight: 0,
+                  overflow: "hidden",
+                }}
+              >
+                <div style={{ padding: "calc(8px + env(safe-area-inset-top, 0px)) 20px 16px", position: "relative" }}>
+                  <button
+                    type="button"
+                    onClick={back}
+                    aria-label="Close"
+                    style={{
+                      position: "absolute",
+                      right: 16,
+                      top: 4,
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: 8,
+                      lineHeight: 0,
+                      color: "#149191",
+                    }}
+                  >
+                    <span style={{ fontSize: 22, fontWeight: 600 }}>×</span>
+                  </button>
+                  <h2
+                    style={{
+                      textAlign: "center",
+                      fontSize: 17,
+                      fontWeight: 600,
+                      color: "var(--text-main)",
+                      margin: "12px 40px 0",
+                      letterSpacing: "-0.02em",
+                    }}
+                  >
+                    Almost there
+                  </h2>
+                </div>
+                <div style={{ padding: "0 24px 24px", flex: 1, overflowY: "auto" }}>
+                  <p style={{ fontSize: 15, color: "var(--text-soft)", lineHeight: 1.55, marginTop: 8 }}>
+                    You&apos;re already signed in{accountStepEmail ? (
+                      <>
+                        {" "}
+                        as <span style={{ color: "var(--text-main)", fontWeight: 600 }}>{accountStepEmail}</span>
+                      </>
+                    ) : null}
+                    . Continue to save your shift pattern and pick your plan.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void supabase.auth.signOut().then(() => {
+                      setAccountStepSession(false)
+                      setAccountStepEmail(null)
+                    })}
+                    style={{
+                      marginTop: 20,
+                      background: "none",
+                      border: "none",
+                      color: "#149191",
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      padding: 0,
+                      textDecoration: "underline",
+                      fontFamily: "Inter,sans-serif",
+                    }}
+                  >
+                    Use a different email
+                  </button>
+                </div>
+                <div
+                  style={{
+                    padding: "12px 20px calc(12px + env(safe-area-inset-bottom, 0px))",
+                    background: "var(--bg)",
+                    flexShrink: 0,
+                    boxShadow: "0 -4px 20px rgba(0,0,0,0.14)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      background: "#05afc5",
+                      borderRadius: 9999,
+                      padding: "16px 28px",
+                      boxShadow: "0 8px 24px rgba(5,175,197,0.45)",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={back}
+                      disabled={saving}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "#fff",
+                        fontSize: 16,
+                        fontWeight: 600,
+                        cursor: saving ? "default" : "pointer",
+                        fontFamily: "Inter,sans-serif",
+                        opacity: saving ? 0.6 : 1,
+                      }}
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleSubmit()}
+                      disabled={saving}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "#fff",
+                        fontSize: 16,
+                        fontWeight: 600,
+                        cursor: saving ? "wait" : "pointer",
+                        fontFamily: "Inter,sans-serif",
+                        opacity: saving ? 0.7 : 1,
+                      }}
+                    >
+                      {saving ? "Please wait…" : "Continue"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {screen === SCREEN_ACCOUNT && accountStepSession === false && (
               <OnboardingSignInDetailsPanel
                 persistDraft={() => persistOnboardingDraft(SCREEN_ACCOUNT)}
                 onSuccess={() => void handleSubmit()}
                 onBack={back}
               />
+            )}
+            {screen === SCREEN_ACCOUNT && accountStepSession === null && (
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
+                <p style={{ fontSize: 14, color: "var(--text-muted)" }}>Loading…</p>
+              </div>
             )}
 
             {screen === SCREEN_SUMMARY && (
