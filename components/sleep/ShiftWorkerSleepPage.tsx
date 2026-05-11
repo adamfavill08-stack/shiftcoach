@@ -25,8 +25,10 @@ import {
 import {
   coercePostNightSleepString,
   postNightStartDayAfterScopeUtcMs,
+  resolvePostNightAsleepByUtcMs,
 } from '@/lib/sleep/postNightSleepHabit'
 import { resolveRotaContextForSleepPlan } from '@/lib/sleep/resolveRotaForSleepPlan'
+import { isNightLikeInstant } from '@/lib/sleep/sleepShiftWallClock'
 import {
   pickDefaultShiftedDay,
   formatYmdInTimeZone,
@@ -790,11 +792,20 @@ export function ShiftWorkerSleepPage() {
       shiftPlanRows,
       planCommuteMinutes,
     )
-    const postNightPreferredStartTomorrowUtcMs = postNightStartDayAfterScopeUtcMs(
+    /** After a night-like duty, tie `post_night_sleep` to the morning after *that* block (shift end), not civil day after calendar "today" — avoids wrong evening pre-night windows for night workers. */
+    let postNightPreferredStartTomorrowUtcMs = postNightStartDayAfterScopeUtcMs(
       chartHighlightYmd,
       postNightSleepRaw,
       sleepPlanTimeZone,
     )
+    if (isNightLikeInstant(rota.shiftJustEnded, sleepPlanTimeZone)) {
+      const fromDutyEnd = resolvePostNightAsleepByUtcMs(
+        rota.shiftJustEnded.endMs,
+        postNightSleepRaw,
+        sleepPlanTimeZone,
+      )
+      if (fromDutyEnd != null) postNightPreferredStartTomorrowUtcMs = fromDutyEnd
+    }
     const plan = computeNightShiftSleepPlan({
       shiftJustEnded: rota.shiftJustEnded,
       nextShift: rota.nextShift,

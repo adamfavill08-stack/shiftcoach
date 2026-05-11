@@ -76,9 +76,44 @@ function pickNaps(sessions: SleepSessionLike[], main: { startMs: number; endMs: 
 const SLEEP_START_GRACE_MS = 45 * 60 * 1000
 const MS_H = 60 * 60 * 1000
 
-function pickShiftJustEnded(instants: InstantRow[], sleepStartMs: number): ShiftInstant | null {
-  const endedBefore = instants.filter((x) => x.instant.endMs <= sleepStartMs + SLEEP_START_GRACE_MS)
+const POST_NIGHT_SLEEP_START_HOUR_MIN = 4
+const POST_NIGHT_SLEEP_START_HOUR_MAX = 15
+/** If a day/early block ends within this of main-sleep start, it beats a prior night anchor (same-morning handover). */
+const SAME_MORNING_NON_NIGHT_MAX_GAP_MS = 4 * MS_H
+
+/**
+ * Pick the work block that most plausibly precedes this sleep start.
+ * Evening pre-night: keep “latest shift end before bed” (day/early before a night).
+ * Morning-ish main sleep: prefer the **night** that just finished unless a non-night shift ended
+ * *after* that night and within a short gap of sleep (same-morning early → nap/sleep handover).
+ */
+function pickShiftJustEnded(instants: InstantRow[], sleepStartMs: number, timeZone: string): ShiftInstant | null {
+  const grace = SLEEP_START_GRACE_MS
+  const endedBefore = instants.filter((x) => x.instant.endMs <= sleepStartMs + grace)
   if (endedBefore.length) {
+    const sleepHour = localWallHour(sleepStartMs, timeZone)
+    const morningRecovery =
+      sleepHour >= POST_NIGHT_SLEEP_START_HOUR_MIN && sleepHour <= POST_NIGHT_SLEEP_START_HOUR_MAX
+
+    if (morningRecovery) {
+      const nightRows = endedBefore.filter((x) => isNightLikeInstant(x.instant, timeZone))
+      if (nightRows.length) {
+        const maxNightEnd = Math.max(...nightRows.map((x) => x.instant.endMs))
+        const nonNightAfterNight = endedBefore.filter(
+          (x) => !isNightLikeInstant(x.instant, timeZone) && x.instant.endMs > maxNightEnd,
+        )
+        if (nonNightAfterNight.length) {
+          const bestFollow = nonNightAfterNight.reduce((a, b) =>
+            a.instant.endMs >= b.instant.endMs ? a : b,
+          )
+          if (sleepStartMs - bestFollow.instant.endMs <= SAME_MORNING_NON_NIGHT_MAX_GAP_MS) {
+            return bestFollow.instant
+          }
+        }
+        return nightRows.reduce((a, b) => (a.instant.endMs >= b.instant.endMs ? a : b)).instant
+      }
+    }
+
     return endedBefore.reduce((a, b) => (a.instant.endMs >= b.instant.endMs ? a : b)).instant
   }
 
@@ -254,7 +289,7 @@ export function resolveRotaContextForSleepPlan(
   const instants = buildWorkInstants(shifts)
 
   let restAnchorSynthetic = false
-  let shiftJustEnded = pickShiftJustEnded(instants, primary.startMs)
+  let shiftJustEnded = pickShiftJustEnded(instants, primary.startMs, timeZone)
   const firstAfterSleep = firstWorkAfterSleepEnd(instants, primary.endMs)
 
   if (

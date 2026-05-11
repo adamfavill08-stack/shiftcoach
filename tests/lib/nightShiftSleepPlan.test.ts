@@ -289,6 +289,64 @@ describe('resolveRotaContextForSleepPlan', () => {
     }
   })
 
+  it('morning post-night sleep: anchors to night that just ended, not a same-morning early block that ended hours earlier', () => {
+    const nightEnd = Date.parse('2026-05-11T07:00:00.000Z')
+    const nightStart = nightEnd - 9 * H
+    const earlyEnd = Date.parse('2026-05-11T14:00:00.000Z')
+    const earlyStart = earlyEnd - 8 * H
+    const shifts = [
+      { date: '2026-05-10', label: 'NIGHT', start_ts: new Date(nightStart).toISOString(), end_ts: new Date(nightEnd).toISOString() },
+      { date: '2026-05-11', label: 'EARLY', start_ts: new Date(earlyStart).toISOString(), end_ts: new Date(earlyEnd).toISOString() },
+    ]
+    const sleepStart = Date.parse('2026-05-11T08:30:00.000Z')
+    const sleepEnd = Date.parse('2026-05-11T16:00:00.000Z')
+    const ctx = resolveRotaContextForSleepPlan(
+      [
+        {
+          start_at: new Date(sleepStart).toISOString(),
+          end_at: new Date(sleepEnd).toISOString(),
+          type: 'main_sleep',
+        },
+      ],
+      shifts,
+      { timeZone: 'UTC' },
+    )
+    expect(ctx.state).toBe('ok')
+    if (ctx.state === 'ok') {
+      expect(ctx.shiftJustEnded.label).toMatch(/night/i)
+      expect(ctx.shiftJustEnded.endMs).toBe(nightEnd)
+    }
+  })
+
+  it('morning sleep after a short early same day: anchors to early when it ends within a few hours of bed', () => {
+    const nightEnd = Date.parse('2026-05-11T07:00:00.000Z')
+    const nightStart = nightEnd - 9 * H
+    const earlyEnd = Date.parse('2026-05-11T09:00:00.000Z')
+    const earlyStart = Date.parse('2026-05-11T05:00:00.000Z')
+    const shifts = [
+      { date: '2026-05-10', label: 'NIGHT', start_ts: new Date(nightStart).toISOString(), end_ts: new Date(nightEnd).toISOString() },
+      { date: '2026-05-11', label: 'EARLY', start_ts: new Date(earlyStart).toISOString(), end_ts: new Date(earlyEnd).toISOString() },
+    ]
+    const sleepStart = Date.parse('2026-05-11T10:30:00.000Z')
+    const sleepEnd = Date.parse('2026-05-11T16:00:00.000Z')
+    const ctx = resolveRotaContextForSleepPlan(
+      [
+        {
+          start_at: new Date(sleepStart).toISOString(),
+          end_at: new Date(sleepEnd).toISOString(),
+          type: 'main_sleep',
+        },
+      ],
+      shifts,
+      { timeZone: 'UTC' },
+    )
+    expect(ctx.state).toBe('ok')
+    if (ctx.state === 'ok') {
+      expect(ctx.shiftJustEnded.label).toMatch(/early/i)
+      expect(ctx.shiftJustEnded.endMs).toBe(earlyEnd)
+    }
+  })
+
   it('returns insufficient when only naps', () => {
     const ctx = resolveRotaContextForSleepPlan(
       [{ start_at: new Date(0).toISOString(), end_at: new Date(H).toISOString(), type: 'nap' }],
