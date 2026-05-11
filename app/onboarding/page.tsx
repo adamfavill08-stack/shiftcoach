@@ -1157,7 +1157,12 @@ export default function OnboardingPage() {
                   <div style={{ fontSize: 13, color: "var(--text-soft)", fontWeight: 300, marginBottom: 28 }}>Roughly — you can always adjust this later.</div>
                 </div>
                 <div style={{ display: "flex", justifyContent: "center", marginBottom: 14, ...rv(0.06) }}>
-                  <TimePicker value={postSleep} onChange={setPostSleep} label="Usually asleep by" caption={"after finishing at " + times.night.end} />
+                  <TimePicker
+                    value={postSleep}
+                    onChange={setPostSleep}
+                    label="Usually asleep by"
+                    caption={"after finishing at " + (isVar ? varTimes.night.end : times.night.end)}
+                  />
                 </div>
                 <div style={{ background: "var(--card-subtle)", border: "1px solid var(--border-subtle)", borderRadius: 12, padding: "12px 14px", marginBottom: 28, ...rv(0.1) }}>
                   <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.6 }}>We use this to calculate your sleep midpoint — the core of your circadian alignment score.</div>

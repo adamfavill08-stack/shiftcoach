@@ -24,6 +24,20 @@ export function useSubscriptionAccess(): SubscriptionAccessState {
   })
 
   const load = useCallback(async () => {
+    /**
+     * Local dev: keep Pro UI unlocked so localhost is not tied to DB `created_at` + 7d grace.
+     * Set `NEXT_PUBLIC_STRICT_SUBSCRIPTION=1` in `.env.local` to test paywalls / free tier locally.
+     */
+    const strictSubscription = process.env.NEXT_PUBLIC_STRICT_SUBSCRIPTION === '1'
+    const isDevBuild = process.env.NODE_ENV === 'development'
+    const isLocalhost =
+      typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    if (!strictSubscription && (isDevBuild || isLocalhost)) {
+      setState({ isLoading: false, isPro: true, plan: 'tester', isActive: true })
+      return
+    }
+
     const loadFromServerAccess = async (): Promise<boolean> => {
       const accessRes = await fetch('/api/subscription/access', {
         cache: 'no-store',

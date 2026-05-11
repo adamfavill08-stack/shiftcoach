@@ -23,7 +23,9 @@ export async function GET() {
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('subscription_status, subscription_plan, trial_ends_at, created_at')
+      .select(
+        'subscription_status, subscription_plan, trial_ends_at, created_at, revenuecat_entitlements, revenuecat_subscription_id',
+      )
       .eq('user_id', userId)
       .maybeSingle()
     if (profileError) {
@@ -38,8 +40,8 @@ export async function GET() {
       subscriptionPlan: profile?.subscription_plan ?? null,
       trialEndsAt: profile?.trial_ends_at ?? null,
       profileCreatedAt: profile?.created_at ?? null,
-      revenuecatEntitlements: null,
-      revenuecatSubscriptionId: null,
+      revenuecatEntitlements: profile?.revenuecat_entitlements ?? null,
+      revenuecatSubscriptionId: profile?.revenuecat_subscription_id ?? null,
     })
 
     return NextResponse.json({

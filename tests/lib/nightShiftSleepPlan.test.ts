@@ -552,6 +552,43 @@ describe('computeNightShiftSleepPlan transitions', () => {
     expect(plan.transition).toBe('off_to_night')
     expect(plan.calculationStepKeys).toContain('sleepPlan.calc.preNightOff')
   })
+
+  it('forcedLatestWakeMs pulls latest wake earlier than rota nextShift; relaxes bed time when evening floor leaves no room', () => {
+    const dayStart = Date.parse('2026-08-13T06:00:00.000Z')
+    const dayEnd = Date.parse('2026-08-13T14:00:00.000Z')
+    const sleepStart = Date.parse('2026-08-13T18:00:00.000Z')
+    const sleepEnd = Date.parse('2026-08-14T14:00:00.000Z')
+    const farNightStart = Date.parse('2026-08-16T22:00:00.000Z')
+    const tonightsDuty = Date.parse('2026-08-13T22:00:00.000Z')
+    const commute = 25
+    const forcedLatestWakeMs =
+      tonightsDuty - PREP_BEFORE_NEXT_SHIFT * 60 * 1000 - commute * 60 * 1000
+
+    const plan = computeNightShiftSleepPlan({
+      shiftJustEnded: { label: 'DAY', date: '2026-08-13', startMs: dayStart, endMs: dayEnd },
+      nextShift: {
+        label: 'NIGHT',
+        date: '2026-08-16',
+        startMs: farNightStart,
+        endMs: farNightStart + 9 * H,
+      },
+      commuteMinutes: commute,
+      targetSleepMinutes: 7 * 60,
+      caffeineSensitivity: 'medium',
+      loggedMainSleep: { startMs: sleepStart, endMs: sleepEnd },
+      loggedNaps: [],
+      timeZone: 'UTC',
+      forcedLatestWakeMs,
+    })
+
+    expect(plan.ok).toBe(true)
+    expect(['early_to_night', 'dayish_work_to_night']).toContain(plan.transition)
+    expect(plan.latestWakeMs).toBe(forcedLatestWakeMs)
+    expect(plan.calculationStepKeys).toContain('sleepPlan.calc.forcedWakeCapDutyTonight')
+    expect(plan.calculationStepKeys).toContain('sleepPlan.calc.relaxedEarliestForWakeCap')
+    expect(plan.suggestedSleepEndMs).not.toBeNull()
+    expect(plan.suggestedSleepEndMs!).toBeLessThanOrEqual(forcedLatestWakeMs)
+  })
 })
 
 describe('DST boundary (explicit UTC timestamps)', () => {

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useTranslation } from '@/components/providers/language-provider'
 import { NAP_END_BEFORE_SHIFT, type CaffeineSensitivity, type NightShiftSleepPlanResult } from '@/lib/sleep/nightShiftSleepPlan'
+import { isoDateInTimeZone } from '@/lib/sleep/sleepShiftWallClock'
 import type { RotaSleepPlanContext } from '@/lib/sleep/resolveRotaForSleepPlan'
 
 type Props = {
@@ -28,6 +29,25 @@ function formatLocalTime(ms: number | null, timeZone: string): string {
     }).format(new Date(ms))
   } catch {
     return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+}
+
+/** When the instant is not on the plan scope civil day, include a short local date so “tomorrow” reads clearly. */
+function formatLocalTimeForScope(ms: number | null, timeZone: string, scopeYmd: string): string {
+  if (ms == null || !Number.isFinite(ms)) return '—'
+  const ymd = isoDateInTimeZone(ms, timeZone)
+  const clock = formatLocalTime(ms, timeZone)
+  if (ymd === scopeYmd) return clock
+  try {
+    const datePart = new Intl.DateTimeFormat(undefined, {
+      timeZone,
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    }).format(new Date(ms))
+    return `${datePart}, ${clock}`
+  } catch {
+    return clock
   }
 }
 
@@ -63,8 +83,8 @@ export function SuggestedSleepPlanCard({
     Number.isFinite(plan.suggestedSleepStartMs) &&
     Number.isFinite(plan.suggestedSleepEndMs)
 
-  const windowStart = formatLocalTime(plan.suggestedSleepStartMs, timeZone)
-  const windowEnd = formatLocalTime(plan.suggestedSleepEndMs, timeZone)
+  const windowStart = formatLocalTimeForScope(plan.suggestedSleepStartMs, timeZone, todayYmd)
+  const windowEnd = formatLocalTimeForScope(plan.suggestedSleepEndMs, timeZone, todayYmd)
   const windowRange = hasSleepWindow ? `${windowStart} – ${windowEnd}` : '— – —'
 
   const napDurationMin =

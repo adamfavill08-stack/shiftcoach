@@ -11,6 +11,7 @@ import {
   EVENING_MAIN_BED_FLOOR_MINUTES_PREFERRED,
   gapMsAnchorEndToSleepStart,
   isoDateInTimeZone,
+  isNightLikeInstant,
   LONG_REST_GAP_BEFORE_SLEEP_MS,
   OPEN_RECOVERY_MAX_MS,
   SHIFT_END_TO_NIGHT_START_FOR_PREFERRED_FLOOR_MS,
@@ -97,6 +98,16 @@ export type NightShiftSleepPlanInput = {
   restAnchorSynthetic?: boolean
   /** Optional shortfall vs target — high debt relaxes the local evening bed floor. */
   sleepDebtMinutes?: number | null
+  /**
+   * Latest instant the user should wake for main sleep (ms UTC), e.g. prep + commute before
+   * **tonight’s** night shift when rota `nextShift` resolved to a later calendar row.
+   */
+  forcedLatestWakeMs?: number | null
+  /**
+   * Onboarding `post_night_sleep` on the civil day **after** the plan scope day (`chartHighlightYmd+1`
+   * local). When the anchor shift is night-like, this becomes the suggested main-sleep **start** (UTC ms).
+   */
+  postNightPreferredStartTomorrowUtcMs?: number | null
 }
 
 export type PlanFeedbackCode =
@@ -243,6 +254,14 @@ export function computeNightShiftSleepPlan(input: NightShiftSleepPlanInput): Nig
     stepKeys.push('sleepPlan.calc.noNextShift')
   }
 
+  const forcedCap = input.forcedLatestWakeMs
+  if (typeof forcedCap === 'number' && Number.isFinite(forcedCap)) {
+    if (latestWakeMs == null || forcedCap < latestWakeMs) {
+      latestWakeMs = forcedCap
+      stepKeys.push('sleepPlan.calc.forcedWakeCapDutyTonight')
+    }
+  }
+
   const gapMs = gapMsAnchorEndToSleepStart(shift, log.startMs)
   const pNight = preNightFamily(transition)
 
@@ -326,6 +345,17 @@ export function computeNightShiftSleepPlan(input: NightShiftSleepPlanInput): Nig
     }
   }
 
+  /** When a wake cap (e.g. duty tonight) is tighter than the pre-night evening floor, pull bed time earlier so the window is non-empty. */
+  if (latestWakeMs != null) {
+    const maxStartForMinSleep = latestWakeMs - MIN_SLEEP_MINUTES * MS_MIN
+    const minStart = homeArrivalMs + WIND_DOWN_MINUTES * MS_MIN
+    if (earliestSleepStartMs > maxStartForMinSleep && maxStartForMinSleep >= minStart) {
+      earliestSleepStartMs = maxStartForMinSleep
+      stepKeys.push('sleepPlan.calc.relaxedEarliestForWakeCap')
+      feedback.push({ code: 'tight_recovery_window', severity: 'warn' })
+    }
+  }
+
   const turnaroundMs =
     input.nextShift != null ? input.nextShift.startMs - shift.endMs : Number.POSITIVE_INFINITY
   if (
@@ -369,6 +399,78 @@ export function computeNightShiftSleepPlan(input: NightShiftSleepPlanInput): Nig
     modelSleepMs = dur
     stepKeys.push('sleepPlan.calc.openEndedRecovery')
     feedback.push({ code: 'open_ended_recovery', severity: 'info' })
+  }
+
+  // Open-ended recovery can extend past an upcoming night start when `nextShift` was missing from
+  // rota resolution; re-apply the same wake cap as `latestWakeMs` whenever we do have a next block.
+  if (
+    input.nextShift != null &&
+    suggestedSleepStartMs != null &&
+    suggestedSleepEndMs != null &&
+    Number.isFinite(input.nextShift.startMs)
+  ) {
+    const wakeCapMs =
+      input.nextShift.startMs - PREP_BEFORE_NEXT_SHIFT * MS_MIN - commuteMs
+    if (Number.isFinite(wakeCapMs) && suggestedSleepEndMs > wakeCapMs) {
+      suggestedSleepEndMs = wakeCapMs
+      if (suggestedSleepEndMs <= suggestedSleepStartMs) {
+        suggestedSleepEndMs = null
+        suggestedSleepStartMs = null
+        modelSleepMs = 0
+        feedback.push({ code: 'tight_recovery_window', severity: 'warn' })
+        stepKeys.push('sleepPlan.calc.clampedRemovedNoRoom')
+      } else {
+        modelSleepMs = suggestedSleepEndMs - suggestedSleepStartMs
+        if (modelSleepMs < targetMs * 0.85) {
+          feedback.push({ code: 'wake_close_next_shift', severity: 'info' })
+        }
+        stepKeys.push('sleepPlan.calc.clampedBeforeUpcomingWork')
+      }
+    }
+  }
+
+  const preferredTomorrow = input.postNightPreferredStartTomorrowUtcMs
+  const anchorWasNight = isNightLikeInstant(shift, timeZone)
+  const postNightOnboardingStart =
+    anchorWasNight &&
+    (transition === 'night_to_off' ||
+      transition === 'night_to_day' ||
+      transition === 'night_to_night')
+  if (
+    postNightOnboardingStart &&
+    preferredTomorrow != null &&
+    Number.isFinite(preferredTomorrow) &&
+    preferredTomorrow > shift.endMs - MS_H
+  ) {
+    const floorStart = homeArrivalMs + WIND_DOWN_MINUTES * MS_MIN
+    const startAt = preferredTomorrow >= floorStart ? preferredTomorrow : floorStart
+    suggestedSleepStartMs = startAt
+    stepKeys.push('sleepPlan.calc.postNightOnboardingStart')
+    const openCeiling =
+      latestWakeMs != null && Number.isFinite(latestWakeMs)
+        ? latestWakeMs
+        : startAt + OPEN_RECOVERY_MAX_MS
+    let endAt = Math.min(startAt + targetMs, openCeiling)
+    if (input.nextShift != null && Number.isFinite(input.nextShift.startMs)) {
+      const dutyWakeCap =
+        input.nextShift.startMs - PREP_BEFORE_NEXT_SHIFT * MS_MIN - commuteMs
+      if (Number.isFinite(dutyWakeCap)) {
+        endAt = Math.min(endAt, dutyWakeCap)
+      }
+    }
+    if (endAt > startAt) {
+      suggestedSleepEndMs = endAt
+      modelSleepMs = endAt - startAt
+      if (modelSleepMs < targetMs * 0.85) {
+        feedback.push({ code: 'shorter_than_planned', severity: 'info' })
+      }
+    } else {
+      suggestedSleepEndMs = null
+      suggestedSleepStartMs = null
+      modelSleepMs = 0
+      feedback.push({ code: 'tight_recovery_window', severity: 'warn' })
+      stepKeys.push('sleepPlan.calc.postNightOnboardingNoRoom')
+    }
   }
 
   const loggedMs = log.endMs - log.startMs

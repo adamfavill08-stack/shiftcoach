@@ -91,7 +91,8 @@ export function deriveSubscriptionAccess(input: {
 
   // Safety fallback: if profile trial fields were not persisted yet for a new free user,
   // keep Pro access for first 7 days after profile creation.
-  if (normalizedPlan === 'free' && hasValidFirstWeekWindow) {
+  // Treat null/unknown plan like free — production rows often omit `subscription_plan` until store sync.
+  if ((normalizedPlan === 'free' || normalizedPlan === null) && hasValidFirstWeekWindow) {
     return { isPro: true, plan: 'free' }
   }
 

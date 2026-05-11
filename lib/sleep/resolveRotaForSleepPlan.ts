@@ -203,6 +203,18 @@ function pickNextShift(
   return first.instant
 }
 
+/** When no generic "next work" is found, still cap recovery if a night block starts after sleep ended (rota gaps / label quirks). */
+function findFirstNightLikeAfterSleepEnd(
+  instants: InstantRow[],
+  sleepEndMs: number,
+  timeZone: string,
+): ShiftInstant | null {
+  const rows = instants
+    .filter((x) => x.instant.startMs > sleepEndMs && isNightLikeInstant(x.instant, timeZone))
+    .sort((a, b) => a.instant.startMs - b.instant.startMs)
+  return rows[0]?.instant ?? null
+}
+
 export type RotaSleepPlanContext =
   | {
       state: 'ok'
@@ -269,7 +281,7 @@ export function resolveRotaContextForSleepPlan(
         Math.abs(x.instant.endMs - shiftJustEnded.endMs) < 120_000,
     )?.row ?? null
 
-  const nextShift = pickNextShift(
+  let nextShift = pickNextShift(
     instants,
     primary.endMs,
     timeZone,
@@ -277,6 +289,9 @@ export function resolveRotaContextForSleepPlan(
     endedRow,
     restAnchorSynthetic,
   )
+  if (!nextShift) {
+    nextShift = findFirstNightLikeAfterSleepEnd(instants, primary.endMs, timeZone)
+  }
 
   const gapMsBeforeSleep = gapMsAnchorEndToSleepStart(shiftJustEnded, primary.startMs)
 

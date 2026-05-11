@@ -14,12 +14,18 @@ import { ShiftSleepOverviewCard } from './ShiftSleepOverviewCard'
 import { SleepSessionList } from './SleepSessionList'
 import { SuggestedSleepPlanCard } from './SuggestedSleepPlanCard'
 import type { SleepLogInput, SleepPlanPreferences, SleepType } from '@/lib/sleep/types'
-import type { ShiftRowInput } from '@/lib/shift-context/resolveShiftContext'
+import { estimateShiftRowBounds, type ShiftRowInput } from '@/lib/shift-context/resolveShiftContext'
 import {
   computeNightShiftSleepPlan,
   DEFAULT_TARGET_SLEEP_H,
+  MAX_COMMUTE_MINUTES,
+  PREP_BEFORE_NEXT_SHIFT,
   type CaffeineSensitivity,
 } from '@/lib/sleep/nightShiftSleepPlan'
+import {
+  coercePostNightSleepString,
+  postNightStartDayAfterScopeUtcMs,
+} from '@/lib/sleep/postNightSleepHabit'
 import { resolveRotaContextForSleepPlan } from '@/lib/sleep/resolveRotaForSleepPlan'
 import {
   pickDefaultShiftedDay,
@@ -94,6 +100,31 @@ function extractApiErrorMessage(errorData: any, fallback: string): string {
   return fallback
 }
 
+const MS_MIN = 60_000
+
+/** Wake-by time before tonight’s night shift (prep + commute), when that shift starts after logged sleep ended. */
+function forcedLatestWakeBeforeTonightsNight(
+  primarySleepEndMs: number,
+  planYmd: string,
+  rows: ShiftRowInput[],
+  commuteMinutes: number | null,
+): number | null {
+  const row = rows.find((r) => String(r.date ?? '').slice(0, 10) === planYmd)
+  if (!row) return null
+  const lab = String(row.label ?? '').toUpperCase()
+  const st = toShiftType(row.label ?? undefined, row.start_ts ?? null)
+  if (st !== 'night' && !lab.includes('NIGHT')) return null
+  const { start } = estimateShiftRowBounds(row, new Date())
+  const dutyStart = start.getTime()
+  if (!Number.isFinite(dutyStart) || dutyStart <= primarySleepEndMs) return null
+  const raw =
+    typeof commuteMinutes === 'number' && Number.isFinite(commuteMinutes) && commuteMinutes > 0
+      ? Math.round(commuteMinutes)
+      : 25
+  const c = Math.min(MAX_COMMUTE_MINUTES, Math.max(0, raw))
+  return dutyStart - PREP_BEFORE_NEXT_SHIFT * MS_MIN - c * MS_MIN
+}
+
 function getShiftAdjustedTargetMinutes(baseTargetMinutes: number, shiftLabel: string) {
   if (baseTargetMinutes <= 0) return 0
   switch (shiftLabel) {
@@ -139,6 +170,10 @@ export function ShiftWorkerSleepPage() {
   const [isWearableSyncing, setIsWearableSyncing] = useState(false)
   const [heroActionError, setHeroActionError] = useState<string | null>(null)
   const [profileFirstName, setProfileFirstName] = useState<string | null>(null)
+  /** Onboarding post–night sleep clock (HH:mm) — drives suggested main sleep start. */
+  const [postNightSleepRaw, setPostNightSleepRaw] = useState<string | null>(null)
+  /** Profile `tz` when set — matches onboarding wall times better than browser default. */
+  const [profileTimeZone, setProfileTimeZone] = useState<string | null>(null)
   const [hcSleepHint, setHcSleepHint] = useState<'perm' | 'no_records' | null>(null)
 
   const selectedDayRef = useRef<string | null>(null)
@@ -150,6 +185,8 @@ export function ShiftWorkerSleepPage() {
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     [],
   )
+
+  const sleepPlanTimeZone = useMemo(() => profileTimeZone ?? userTimeZone, [profileTimeZone, userTimeZone])
 
   // Fetch shifted day sleep data
   const fetchShiftedDays = useCallback(async (isInitial = false) => {
@@ -274,6 +311,14 @@ export function ShiftWorkerSleepPage() {
       } else {
         setProfileFirstName(null)
       }
+      const rawTz = json?.profile?.tz
+      if (typeof rawTz === 'string' && rawTz.trim()) {
+        setProfileTimeZone(rawTz.trim())
+      } else {
+        setProfileTimeZone(null)
+      }
+      const pns = coercePostNightSleepString(json?.profile?.post_night_sleep)
+      setPostNightSleepRaw(pns)
     } catch (err) {
       console.error('[ShiftWorkerSleepPage] profile fetch error:', err)
     }
@@ -401,7 +446,10 @@ export function ShiftWorkerSleepPage() {
   }, [shiftedDays, loading])
 
   /** Local civil "today" for charts and for the Your plan tab (today-only plan). */
-  const chartHighlightYmd = useMemo(() => formatYmdInTimeZone(new Date(), userTimeZone), [userTimeZone])
+  const chartHighlightYmd = useMemo(
+    () => formatYmdInTimeZone(new Date(), sleepPlanTimeZone),
+    [sleepPlanTimeZone],
+  )
 
   /**
    * Sessions fed into the sleep plan. Civil "today" alone often misses post-shift sleep for night
@@ -731,11 +779,22 @@ export function ShiftWorkerSleepPage() {
     }))
     const rota = resolveRotaContextForSleepPlan(sessionLikes, shiftPlanRows, {
       commuteMinutes: planCommuteMinutes,
-      timeZone: userTimeZone,
+      timeZone: sleepPlanTimeZone,
     })
     if (rota.state !== 'ok') {
       return { rota, plan: null as ReturnType<typeof computeNightShiftSleepPlan> | null }
     }
+    const forcedLatestWakeMs = forcedLatestWakeBeforeTonightsNight(
+      rota.primarySleep.endMs,
+      chartHighlightYmd,
+      shiftPlanRows,
+      planCommuteMinutes,
+    )
+    const postNightPreferredStartTomorrowUtcMs = postNightStartDayAfterScopeUtcMs(
+      chartHighlightYmd,
+      postNightSleepRaw,
+      sleepPlanTimeZone,
+    )
     const plan = computeNightShiftSleepPlan({
       shiftJustEnded: rota.shiftJustEnded,
       nextShift: rota.nextShift,
@@ -744,9 +803,11 @@ export function ShiftWorkerSleepPage() {
       caffeineSensitivity: planCaffeineSensitivity,
       loggedMainSleep: rota.primarySleep,
       loggedNaps: rota.loggedNaps,
-      timeZone: userTimeZone,
+      timeZone: sleepPlanTimeZone,
       restAnchorSynthetic: rota.restAnchorSynthetic,
       sleepDebtMinutes: sleepDebtMinutes ?? undefined,
+      forcedLatestWakeMs,
+      postNightPreferredStartTomorrowUtcMs,
     })
     return { rota, plan }
   }, [
@@ -755,8 +816,10 @@ export function ShiftWorkerSleepPage() {
     planCommuteMinutes,
     planCaffeineSensitivity,
     planTargetSleepMinutes,
-    userTimeZone,
+    sleepPlanTimeZone,
     sleepDebtMinutes,
+    chartHighlightYmd,
+    postNightSleepRaw,
   ])
 
   // Show loading state
@@ -829,7 +892,7 @@ export function ShiftWorkerSleepPage() {
             </section>
           ) : sleepPlanPayload.plan ? (
             <SuggestedSleepPlanCard
-              timeZone={userTimeZone}
+              timeZone={sleepPlanTimeZone}
               todayYmd={chartHighlightYmd}
               rota={sleepPlanPayload.rota}
               plan={sleepPlanPayload.plan}
