@@ -40,6 +40,7 @@ export async function GET() {
       subscriptionPlan: profile?.subscription_plan ?? null,
       trialEndsAt: profile?.trial_ends_at ?? null,
       profileCreatedAt: profile?.created_at ?? null,
+      authUserCreatedAt: authData?.user?.created_at ?? null,
       revenuecatEntitlements: profile?.revenuecat_entitlements ?? null,
       revenuecatSubscriptionId: profile?.revenuecat_subscription_id ?? null,
     })

@@ -51,6 +51,17 @@ describe('deriveSubscriptionAccess — trialing + trial_ends_at (e.g. store-sync
     expect(access).toEqual({ isPro: true, plan: 'free' })
   })
 
+  it('uses auth user created_at when profile created_at is missing (native / delayed profile row)', () => {
+    const access = deriveSubscriptionAccess({
+      subscriptionStatus: null,
+      subscriptionPlan: 'free',
+      trialEndsAt: null,
+      profileCreatedAt: null,
+      authUserCreatedAt: '2026-04-29T12:00:00.000Z',
+    })
+    expect(access).toEqual({ isPro: true, plan: 'free' })
+  })
+
   it('does not grant fallback trial after first 7 days when trial fields are missing', () => {
     const access = deriveSubscriptionAccess({
       subscriptionStatus: null,

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { deriveSubscriptionAccess, type SubscriptionPlan } from '@/lib/subscription/access'
 import { createClientComponentClient } from '@/lib/supabase'
+import { authedFetch } from '@/lib/supabase/authedFetch'
 
 type SubscriptionAccessState = {
   isLoading: boolean
@@ -39,9 +40,8 @@ export function useSubscriptionAccess(): SubscriptionAccessState {
     }
 
     const loadFromServerAccess = async (): Promise<boolean> => {
-      const accessRes = await fetch('/api/subscription/access', {
+      const accessRes = await authedFetch('/api/subscription/access', {
         cache: 'no-store',
-        credentials: 'include',
       })
       if (!accessRes.ok) return false
       const accessJson = await accessRes.json()
@@ -79,6 +79,7 @@ export function useSubscriptionAccess(): SubscriptionAccessState {
         subscriptionPlan: profile?.subscription_plan ?? null,
         trialEndsAt: profile?.trial_ends_at ?? null,
         profileCreatedAt: profile?.created_at ?? null,
+        authUserCreatedAt: user.created_at ?? null,
         revenuecatEntitlements: profile?.revenuecat_entitlements ?? null,
         revenuecatSubscriptionId: profile?.revenuecat_subscription_id ?? null,
       })
@@ -94,7 +95,7 @@ export function useSubscriptionAccess(): SubscriptionAccessState {
       // Primary source: server-derived access from authenticated profile row.
       if (await loadFromServerAccess()) return
 
-      const res = await fetch('/api/revenuecat/status', { cache: 'no-store', credentials: 'include' })
+      const res = await authedFetch('/api/revenuecat/status', { cache: 'no-store' })
       if (!res.ok) {
         await loadFromProfile()
         return

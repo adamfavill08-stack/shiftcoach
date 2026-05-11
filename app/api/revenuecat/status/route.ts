@@ -17,6 +17,9 @@ export async function GET(req: NextRequest) {
     
     if (!userId) return buildUnauthorizedResponse()
 
+    const { data: authData } = await supabase.auth.getUser()
+    const authUserCreatedAt = authData?.user?.created_at ?? null
+
     // Get user's RevenueCat user ID from profile
     const { data: profile } = await supabase
       .from('profiles')
@@ -27,9 +30,18 @@ export async function GET(req: NextRequest) {
       .maybeSingle()
 
     if (!profile) {
+      const access = deriveSubscriptionAccess({
+        subscriptionStatus: null,
+        subscriptionPlan: null,
+        trialEndsAt: null,
+        profileCreatedAt: null,
+        authUserCreatedAt,
+        revenuecatEntitlements: null,
+        revenuecatSubscriptionId: null,
+      })
       return NextResponse.json({
-        isActive: false,
-        plan: 'free',
+        isActive: access.isPro,
+        plan: access.plan,
         platform: null,
       })
     }
@@ -41,6 +53,7 @@ export async function GET(req: NextRequest) {
         subscriptionPlan: profile?.subscription_plan,
         trialEndsAt: profile?.trial_ends_at,
         profileCreatedAt: profile?.created_at,
+        authUserCreatedAt,
         revenuecatEntitlements: null,
         revenuecatSubscriptionId: null,
       })
@@ -59,6 +72,7 @@ export async function GET(req: NextRequest) {
         subscriptionPlan: profile?.subscription_plan,
         trialEndsAt: profile?.trial_ends_at,
         profileCreatedAt: profile?.created_at,
+        authUserCreatedAt,
         revenuecatEntitlements: null,
         revenuecatSubscriptionId: null,
       })
@@ -88,6 +102,7 @@ export async function GET(req: NextRequest) {
         subscriptionPlan: profile.subscription_plan,
         trialEndsAt: profile?.trial_ends_at,
         profileCreatedAt: profile?.created_at,
+        authUserCreatedAt,
         revenuecatEntitlements: null,
         revenuecatSubscriptionId: null,
       })
@@ -132,6 +147,7 @@ export async function GET(req: NextRequest) {
       subscriptionPlan: profile.subscription_plan,
       trialEndsAt: profile.trial_ends_at,
       profileCreatedAt: profile.created_at,
+      authUserCreatedAt,
       revenuecatEntitlements: subscriber?.entitlements ?? null,
       revenuecatSubscriptionId: productId,
     })

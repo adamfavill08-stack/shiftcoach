@@ -29,11 +29,18 @@ export async function getServerSubscriptionAccess(
     data = fallbackData
   }
 
+  let authUserCreatedAt: string | null = null
+  if (supabase.auth && typeof supabase.auth.getUser === 'function') {
+    const { data: authData } = await supabase.auth.getUser()
+    authUserCreatedAt = authData?.user?.created_at ?? null
+  }
+
   const access = deriveSubscriptionAccess({
     subscriptionStatus: data?.subscription_status ?? null,
     subscriptionPlan: data?.subscription_plan ?? null,
     trialEndsAt: data?.trial_ends_at ?? null,
     profileCreatedAt: data?.created_at ?? null,
+    authUserCreatedAt,
     revenuecatEntitlements: null,
     revenuecatSubscriptionId: null,
   })

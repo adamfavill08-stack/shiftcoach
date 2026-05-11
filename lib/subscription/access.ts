@@ -48,11 +48,28 @@ export function normalizePlan(
   return null
 }
 
+/** Start of “first week” grace: earliest trustworthy anchor (profile row vs auth user). */
+function firstWeekAnchorMs(
+  profileCreatedAt?: string | null,
+  authUserCreatedAt?: string | null,
+): number {
+  const candidates: number[] = []
+  for (const raw of [profileCreatedAt, authUserCreatedAt]) {
+    if (!raw) continue
+    const t = new Date(raw).getTime()
+    if (Number.isFinite(t)) candidates.push(t)
+  }
+  if (!candidates.length) return NaN
+  return Math.min(...candidates)
+}
+
 export function deriveSubscriptionAccess(input: {
   subscriptionStatus?: string | null
   subscriptionPlan?: string | null
   trialEndsAt?: string | null
   profileCreatedAt?: string | null
+  /** Supabase `auth.users.created_at` when `profiles.created_at` is missing or reset. */
+  authUserCreatedAt?: string | null
   revenuecatEntitlements?: unknown
   revenuecatSubscriptionId?: string | null
 }): { isPro: boolean; plan: EffectivePlan } {
@@ -60,9 +77,9 @@ export function deriveSubscriptionAccess(input: {
   const status = (input.subscriptionStatus ?? '').toLowerCase()
   const trialEndsAtMs = input.trialEndsAt ? new Date(input.trialEndsAt).getTime() : NaN
   const hasValidTrialWindow = Number.isFinite(trialEndsAtMs) && trialEndsAtMs > Date.now()
-  const profileCreatedAtMs = input.profileCreatedAt ? new Date(input.profileCreatedAt).getTime() : NaN
+  const anchorMs = firstWeekAnchorMs(input.profileCreatedAt, input.authUserCreatedAt)
   const hasValidFirstWeekWindow =
-    Number.isFinite(profileCreatedAtMs) && profileCreatedAtMs + 7 * 24 * 60 * 60 * 1000 > Date.now()
+    Number.isFinite(anchorMs) && anchorMs + 7 * 24 * 60 * 60 * 1000 > Date.now()
   const isTrialing = status === 'trialing' && hasValidTrialWindow
   const entitlementActive = isEntitlementActive(input.revenuecatEntitlements)
   const mappedPlan = getPlanFromProductId(input.revenuecatSubscriptionId)
