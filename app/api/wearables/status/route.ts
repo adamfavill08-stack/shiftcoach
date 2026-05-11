@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
+import { computeActivityTotalsBreakdown } from '@/lib/activity/activityLogStepSum'
 import { formatYmdInTimeZone } from '@/lib/sleep/utils'
 
 const ANDROID_HEALTH_PROVIDER = 'android_health_connect'
@@ -84,38 +85,32 @@ export async function GET(req: Request) {
     let totalSteps = 0
     const byActivityDate = await supabase
       .from('activity_logs')
-      .select('steps,source,ts,activity_date')
+      .select('steps,source,merge_status,ts,logged_at,activity_date')
       .eq('user_id', userId)
       .eq('activity_date', localToday)
 
     if (!byActivityDate.error && byActivityDate.data?.length) {
-      for (const row of byActivityDate.data as { steps?: number }[]) {
-        if (typeof row?.steps === 'number') totalSteps += row.steps
-      }
+      totalSteps = computeActivityTotalsBreakdown(byActivityDate.data as any[]).totalSteps
     } else if (
       byActivityDate.error &&
       (byActivityDate.error.code === '42703' || String(byActivityDate.error.message ?? '').includes('activity_date'))
     ) {
       const activityRows = await supabase
         .from('activity_logs')
-        .select('steps,source,created_at')
+        .select('steps,source,merge_status,ts,logged_at,created_at,activity_date')
         .eq('user_id', userId)
         .gte('created_at', startIso)
         .lt('created_at', endIso)
         .order('created_at', { ascending: false })
         .limit(200)
 
-      if (!activityRows.error && activityRows.data) {
-        for (const row of activityRows.data as any[]) {
-          if (typeof row?.steps === 'number') {
-            totalSteps += row.steps
-          }
-        }
+      if (!activityRows.error && activityRows.data?.length) {
+        totalSteps = computeActivityTotalsBreakdown(activityRows.data as any[]).totalSteps
       }
     } else if (!byActivityDate.error) {
       const byTs = await supabase
         .from('activity_logs')
-        .select('steps')
+        .select('steps,source,merge_status,ts,logged_at,created_at,activity_date')
         .eq('user_id', userId)
         .gte('ts', startIso)
         .lt('ts', endIso)
@@ -125,23 +120,19 @@ export async function GET(req: Request) {
         !!byTs.error &&
         (byTs.error.code === '42703' || String(byTs.error.message ?? '').toLowerCase().includes('ts'))
       if (!tsBroken && !byTs.error && byTs.data?.length) {
-        for (const row of byTs.data as { steps?: number }[]) {
-          if (typeof row?.steps === 'number') totalSteps += row.steps
-        }
+        totalSteps = computeActivityTotalsBreakdown(byTs.data as any[]).totalSteps
       }
       if (totalSteps === 0) {
         const byCreated = await supabase
           .from('activity_logs')
-          .select('steps')
+          .select('steps,source,merge_status,ts,logged_at,created_at,activity_date')
           .eq('user_id', userId)
           .gte('created_at', startIso)
           .lt('created_at', endIso)
           .order('created_at', { ascending: false })
           .limit(200)
-        if (!byCreated.error && byCreated.data) {
-          for (const row of byCreated.data as { steps?: number }[]) {
-            if (typeof row?.steps === 'number') totalSteps += row.steps
-          }
+        if (!byCreated.error && byCreated.data?.length) {
+          totalSteps = computeActivityTotalsBreakdown(byCreated.data as any[]).totalSteps
         }
       }
     }

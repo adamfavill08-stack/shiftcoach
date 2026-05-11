@@ -16,6 +16,9 @@ const FAMILY_MATCHERS: readonly { id: string; normalizedLabel: string }[] = [
   { id: 'health_connect', normalizedLabel: 'health_connect' },
   { id: 'health_connect', normalizedLabel: 'android_health_connect' },
   { id: 'apple_health', normalizedLabel: 'apple health' },
+  /** Deprecated on Android; can still exist beside Health Connect and inflate totals if summed with HC. */
+  { id: 'google_fit', normalizedLabel: 'google_fit' },
+  { id: 'google_fit', normalizedLabel: 'google fit' },
 ]
 
 export function wearableAggregatedFamilyId(source: string | null | undefined): string | null {

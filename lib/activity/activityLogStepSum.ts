@@ -2,7 +2,13 @@
  * Step totals for activity_logs rows: exclude manual rows superseded when wearable caught up.
  * Daily totals use {@link computeActivityTotalsBreakdown}: wearable is source of truth when present;
  * manual steps are fallback only (not added on top of wearable).
+ *
+ * When several wearables exist for the same civil day (e.g. legacy Google Fit + Health Connect),
+ * we prefer Health Connect and pick the **latest** row by `logged_at` / `ts` within that family
+ * so totals track the HC app rather than `max()` across stale sources.
  */
+
+import { wearableAggregatedFamilyId } from '@/lib/activity/activityLogWearableDedupe'
 
 export type ActivityTotalsSourceOfTruth = 'wearable' | 'manual' | 'none'
 
@@ -11,6 +17,9 @@ export type ActivityLogRowForTotals = {
   steps?: number | null
   source?: string | null
   merge_status?: string | null
+  logged_at?: string | null
+  ts?: string | null
+  created_at?: string | null
 }
 
 export type ActivityTotalsBreakdown = {
@@ -34,6 +43,54 @@ function rowSteps(row: { steps?: number | null }): number {
   return Math.max(0, Math.round(s))
 }
 
+/** Prefer `logged_at` (Health Connect daily anchor), then sync `ts`, then `created_at`. */
+function rowRecencyMs(row: ActivityLogRowForTotals): number {
+  const r = row as Record<string, unknown>
+  for (const key of ['logged_at', 'ts', 'created_at'] as const) {
+    const v = r[key]
+    if (typeof v === 'string' && v.trim()) {
+      const ms = Date.parse(v.trim())
+      if (Number.isFinite(ms)) return ms
+    }
+  }
+  return 0
+}
+
+/** Order for choosing one wearable total when multiple sources wrote the same calendar day. */
+const WEARABLE_FAMILY_PRIORITY = ['health_connect', 'apple_health', 'google_fit'] as const
+
+function pickWearableTotalSteps(wearableRows: ActivityLogRowForTotals[]): number {
+  if (!wearableRows.length) return 0
+  const byFam = new Map<string, ActivityLogRowForTotals[]>()
+  for (const r of wearableRows) {
+    const fam = wearableAggregatedFamilyId(r.source) ?? '_unknown'
+    const arr = byFam.get(fam) ?? []
+    arr.push(r)
+    byFam.set(fam, arr)
+  }
+  const pickLatestInGroup = (rows: ActivityLogRowForTotals[]): ActivityLogRowForTotals =>
+    rows.reduce((best, cur) => {
+      const tb = rowRecencyMs(best)
+      const tc = rowRecencyMs(cur)
+      if (tc > tb) return cur
+      if (tc < tb) return best
+      return rowSteps(cur) >= rowSteps(best) ? cur : best
+    })
+
+  for (const fam of WEARABLE_FAMILY_PRIORITY) {
+    const rows = byFam.get(fam)
+    if (!rows?.length) continue
+    const s = rowSteps(pickLatestInGroup(rows))
+    if (s > 0) return s
+  }
+  let best = 0
+  for (const [fam, rows] of byFam) {
+    if ((WEARABLE_FAMILY_PRIORITY as readonly string[]).includes(fam)) continue
+    best = Math.max(best, rowSteps(pickLatestInGroup(rows)))
+  }
+  return best
+}
+
 function dedupeRowsById<T extends { id?: unknown }>(rows: readonly T[]): T[] {
   const byId = new Map<string, T>()
   const noId: T[] = []
@@ -46,9 +103,9 @@ function dedupeRowsById<T extends { id?: unknown }>(rows: readonly T[]): T[] {
 }
 
 /**
- * Wearable-first daily total: if any wearable row has steps &gt; 0, total equals the max wearable
- * value for the day (dedupes duplicate daily sync rows). Otherwise total is the sum of active
- * (non-superseded) manual session steps.
+ * Wearable-first daily total: picks one wearable total via {@link pickWearableTotalSteps}
+ * (Health Connect preferred over legacy Google Fit; latest sync wins within a family).
+ * Otherwise total is the sum of active (non-superseded) manual session steps.
  */
 export function computeActivityTotalsBreakdown(
   rows: readonly ActivityLogRowForTotals[],
@@ -59,8 +116,7 @@ export function computeActivityTotalsBreakdown(
   const manualRows = deduped.filter((r) => isManualActivityRow(r.source))
   const wearableRows = deduped.filter((r) => !isManualActivityRow(r.source))
 
-  const wearableStepVals = wearableRows.map(rowSteps).filter((s) => s > 0)
-  const wearableSteps = wearableStepVals.length > 0 ? Math.max(...wearableStepVals) : 0
+  const wearableSteps = pickWearableTotalSteps(wearableRows)
 
   let manualActiveSum = 0
   let manualSupersededSum = 0

@@ -74,12 +74,38 @@ describe('computeActivityTotalsBreakdown', () => {
     expect(b.totalSteps).toBe(4000)
   })
 
-  it('uses max among duplicate wearable daily rows', () => {
+  it('among health_connect rows with tied sync times, uses higher step total (monotonic day)', () => {
     const b = computeActivityTotalsBreakdown([
       { id: 'a', steps: 4000, source: 'health_connect' },
       { id: 'b', steps: 4632, source: 'health_connect' },
     ])
     expect(b.totalSteps).toBe(4632)
+  })
+
+  it('prefers health_connect over a higher google_fit row (same calendar day double-source)', () => {
+    const b = computeActivityTotalsBreakdown([
+      { id: 'gf', steps: 7438, source: 'google_fit', ts: '2026-05-09T10:00:00.000Z' },
+      { id: 'hc', steps: 5921, source: 'health_connect', logged_at: '2026-05-09T20:00:00.000Z' },
+    ])
+    expect(b.totalSteps).toBe(5921)
+  })
+
+  it('within health_connect prefers latest logged_at over a higher stale total', () => {
+    const b = computeActivityTotalsBreakdown([
+      {
+        id: 'old',
+        steps: 7438,
+        source: 'health_connect',
+        logged_at: '2026-05-09T08:00:00.000Z',
+      },
+      {
+        id: 'new',
+        steps: 5921,
+        source: 'health_connect',
+        logged_at: '2026-05-09T18:00:00.000Z',
+      },
+    ])
+    expect(b.totalSteps).toBe(5921)
   })
 
   it('superseded manual steps appear in manualStepsSuperseded only', () => {
