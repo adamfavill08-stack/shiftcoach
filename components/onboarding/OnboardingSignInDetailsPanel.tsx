@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type FormEvent, type ReactNode } from "react"
+import { useRef, useState, type FormEvent, type ReactNode } from "react"
 import { User, Mail, Lock, Eye, EyeOff, X, ShieldCheck } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { buildEmailConfirmationRedirectTo } from "@/lib/auth/oauthRedirect"
@@ -57,54 +57,94 @@ export function OnboardingSignInDetailsPanel({
   const [showPassword, setShowPassword] = useState(false)
   const [err, setErr] = useState<string | undefined>()
   const [busy, setBusy] = useState(false)
+  /** React `busy` updates after paint — rapid double-taps could run two `signUp`s and the second returns “already registered”. */
+  const submitInFlight = useRef(false)
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
+    if (submitInFlight.current) return
+    submitInFlight.current = true
     setErr(undefined)
 
     const fn = firstName.trim()
+    const emailTrimmed = email.trim()
     if (fn.length < 3) {
       setErr("Please enter your first name (at least 3 characters).")
+      submitInFlight.current = false
       return
     }
     if (password.length < 6) {
       setErr("Password must be at least 6 characters.")
+      submitInFlight.current = false
       return
     }
 
     setBusy(true)
     const emailRedirectTo = buildEmailConfirmationRedirectTo()
 
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        ...(emailRedirectTo ? { emailRedirectTo } : {}),
-        data: {
-          name: fn,
-          first_name: fn,
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: emailTrimmed,
+        password,
+        options: {
+          ...(emailRedirectTo ? { emailRedirectTo } : {}),
+          data: {
+            name: fn,
+            first_name: fn,
+          },
         },
-      },
-    })
+      })
 
-    if (error) {
-      setBusy(false)
-      setErr(error.message)
-      return
-    }
+      if (error) {
+        const msg = (error.message ?? "").toLowerCase()
+        const status = (error as { status?: number }).status
+        const looksLikeDuplicate =
+          status === 422 ||
+          /already registered|already been registered|user already exists|email.*already|duplicate/.test(
+            msg,
+          )
 
-    if (!data.session) {
+        if (looksLikeDuplicate) {
+          const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+            email: emailTrimmed,
+            password,
+          })
+          if (!signInErr && signInData.session) {
+            persistDraft()
+            onSuccess()
+            return
+          }
+          const signInMsg = signInErr?.message?.toLowerCase() ?? ""
+          if (/email not confirmed|not verified|confirm your email/.test(signInMsg)) {
+            setErr(
+              "This email is already registered but not confirmed yet. Open the link in your confirmation email, then return and tap Next again.",
+            )
+            return
+          }
+          setErr(
+            "This email already has a ShiftCoach account. Sign in from the app home screen with this email and password, or use a different email.",
+          )
+          return
+        }
+
+        setErr(error.message)
+        return
+      }
+
+      if (!data.session) {
+        persistDraft()
+        setErr(
+          "No active session yet. If your project requires email confirmation, open the link in your email, then come back and sign in to finish setup.",
+        )
+        return
+      }
+
       persistDraft()
+      onSuccess()
+    } finally {
       setBusy(false)
-      setErr(
-        "No active session yet. If your project requires email confirmation, open the link in your email, then come back and sign in to finish setup."
-      )
-      return
+      submitInFlight.current = false
     }
-
-    persistDraft()
-    setBusy(false)
-    onSuccess()
   }
 
   return (
@@ -161,7 +201,7 @@ export function OnboardingSignInDetailsPanel({
               letterSpacing: "-0.02em",
             }}
           >
-            Sign in details
+            Create your account
           </h2>
         </div>
 
