@@ -331,8 +331,7 @@ export function OnboardingSignInDetailsPanel({
 
         <div
           style={{
-            marginTop: 16,
-            paddingTop: 4,
+            marginTop: 28,
           }}
         >
           <div
