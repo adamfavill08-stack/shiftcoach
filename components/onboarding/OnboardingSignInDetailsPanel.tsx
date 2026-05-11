@@ -157,12 +157,14 @@ export function OnboardingSignInDetailsPanel({
         minHeight: 0,
         overflowY: "auto",
         WebkitOverflowScrolling: "touch",
+        /** Extra breathing room below status bar / notch — shifts the whole column down. */
+        paddingTop: "calc(36px + env(safe-area-inset-top, 0px))",
       }}
     >
       <div
         style={{
           position: "relative",
-          padding: "calc(8px + env(safe-area-inset-top, 0px)) 20px 16px",
+          padding: "12px 20px 16px",
           flexShrink: 0,
         }}
       >
