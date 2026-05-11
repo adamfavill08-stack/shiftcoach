@@ -614,6 +614,20 @@ export default function OnboardingPage() {
       }).eq("user_id", user.id)
       if (err) throw err
 
+      try {
+        sessionStorage.removeItem(ONBOARDING_DRAFT_STORAGE_KEY)
+      } catch {
+        /* ignore */
+      }
+      sessionStorage.setItem("fromOnboarding", "true")
+      completingOnboardingRef.current = false
+      setSaving(false)
+      router.push("/onboarding/plan")
+
+      /**
+       * Pattern + apply can take several seconds on mobile; profile is already saved.
+       * Finish rota after navigation so the plan page is not blocked on two sequential API calls.
+       */
       if (!isVar && typeof todayPos === "number") {
         const hasWorkDay = rotation.some((r) => r !== "off")
         if (hasWorkDay && rotation.length > 0) {
@@ -642,55 +656,54 @@ export default function OnboardingPage() {
             night: "#EF4444",
             off: "transparent",
           }
-          const patternRes = await authedFetch("/api/rota/pattern", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              shiftLength: "12h",
-              patternId: "12h-custom",
-              patternSlots,
-              currentShiftIndex: todayPos,
-              startDate: anchorYmd,
-              colorConfig,
-              notes: null,
-            }),
-          })
-          if (!patternRes.ok) {
-            const detail = await patternRes.text().catch(() => "")
-            throw new Error(`Could not save your calendar pattern.${detail ? ` ${detail}` : ""}`)
-          }
-          const applyRes = await authedFetch("/api/rota/apply", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              patternId: "12h-custom",
-              patternSlots,
-              startDate: anchorYmd,
-              startCycleIndex: todayPos,
-              shiftTimes: shiftTimesPayload,
-              commute: commutePayload,
-              endDate: null,
-            }),
-          })
-          if (!applyRes.ok) {
-            const detail = await applyRes.text().catch(() => "")
-            throw new Error(`Could not apply shifts to your calendar.${detail ? ` ${detail}` : ""}`)
-          }
-          if (typeof window !== "undefined") {
-            window.dispatchEvent(new CustomEvent("rota-saved"))
-            notifyRotaUpdated()
-          }
+          void (async () => {
+            try {
+              const patternRes = await authedFetch("/api/rota/pattern", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  shiftLength: "12h",
+                  patternId: "12h-custom",
+                  patternSlots,
+                  currentShiftIndex: todayPos,
+                  startDate: anchorYmd,
+                  colorConfig,
+                  notes: null,
+                }),
+              })
+              if (!patternRes.ok) {
+                const detail = await patternRes.text().catch(() => "")
+                console.error("[onboarding] rota pattern failed:", patternRes.status, detail)
+                return
+              }
+              const applyRes = await authedFetch("/api/rota/apply", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  patternId: "12h-custom",
+                  patternSlots,
+                  startDate: anchorYmd,
+                  startCycleIndex: todayPos,
+                  shiftTimes: shiftTimesPayload,
+                  commute: commutePayload,
+                  endDate: null,
+                }),
+              })
+              if (!applyRes.ok) {
+                const detail = await applyRes.text().catch(() => "")
+                console.error("[onboarding] rota apply failed:", applyRes.status, detail)
+                return
+              }
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("rota-saved"))
+                notifyRotaUpdated()
+              }
+            } catch (rotaErr) {
+              console.error("[onboarding] deferred rota save:", rotaErr)
+            }
+          })()
         }
       }
-
-      try {
-        sessionStorage.removeItem(ONBOARDING_DRAFT_STORAGE_KEY)
-      } catch {
-        /* ignore */
-      }
-      sessionStorage.setItem("fromOnboarding", "true")
-      completingOnboardingRef.current = false
-      router.push("/onboarding/plan")
     } catch (e: any) {
       setError(e.message || "Something went wrong. Please try again.")
       setSaving(false)
