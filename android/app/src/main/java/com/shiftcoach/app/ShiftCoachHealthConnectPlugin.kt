@@ -48,8 +48,9 @@ import org.json.JSONTokener
  * Phone-side Health Connect → POST /api/health-connect/sync.
  * Auth: [pullAuthFromWebSession] reads the Supabase session from WebView `localStorage` (no token in Capacitor `methodData`).
  * [syncNow] sends `Authorization: Bearer …`. WebView cookies may still be sent when present.
- * Steps: use [HealthConnectClient.aggregate] with [StepsRecord.COUNT_TOTAL] so HC dedupes watch/phone
- * (summing raw [StepsRecord] intervals can under-count or mis-handle merged sources). Falls back to readRecords sum.
+ * Steps: daily totals use [HealthConnectClient.aggregate] + [StepsRecord.COUNT_TOTAL] first (HC-deduped, matches
+ * the Health Connect "Steps" screen). Summing raw [StepsRecord] interval counts is only a fallback when aggregate
+ * fails (can double-count overlapping phone/watch segments).
  */
 @CapacitorPlugin(name = "ShiftCoachHealthConnect")
 class ShiftCoachHealthConnectPlugin : Plugin() {
@@ -871,6 +872,24 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                         var daySteps = 0L
                         var recordCountForDay = 0
                         if (start < end) {
+                            var aggregateFailed = false
+                            try {
+                                val agg =
+                                    client.aggregate(
+                                        AggregateRequest(
+                                            metrics = setOf(StepsRecord.COUNT_TOTAL),
+                                            timeRangeFilter = TimeRangeFilter.between(start, end),
+                                        ),
+                                    )
+                                daySteps = agg[StepsRecord.COUNT_TOTAL] ?: 0L
+                            } catch (eAgg: Exception) {
+                                aggregateFailed = true
+                                if (BuildConfig.HC_VERBOSE_LOG) {
+                                    hci(
+                                        "aggregate steps for $day failed, will try readRecords sum: ${eAgg.message}",
+                                    )
+                                }
+                            }
                             try {
                                 val req =
                                     ReadRecordsRequest(
@@ -879,7 +898,12 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                                     )
                                 val resp = client.readRecords(req)
                                 recordCountForDay = resp.records.size
-                                daySteps = resp.records.sumOf { it.count.toLong() }
+                                if (aggregateFailed) {
+                                    daySteps = resp.records.sumOf { it.count.toLong() }
+                                    if (BuildConfig.HC_VERBOSE_LOG && daySteps > 0L) {
+                                        hci("steps readRecords sum fallback for $day → $daySteps (records=$recordCountForDay)")
+                                    }
+                                }
                                 if (resp.records.isNotEmpty()) {
                                     val minStart = resp.records.minOf { it.startTime }
                                     val maxEnd = resp.records.maxOf { it.endTime }
@@ -894,26 +918,8 @@ class ShiftCoachHealthConnectPlugin : Plugin() {
                                     hci("readRecords steps failed for $day: ${e.message}")
                                 }
                                 recordCountForDay = 0
-                                daySteps = 0L
-                            }
-                            // Many devices return many small intervals; aggregate can still be 0 — use HC aggregate as fallback only when no intervals.
-                            if (recordCountForDay == 0 && daySteps == 0L) {
-                                try {
-                                    val agg =
-                                        client.aggregate(
-                                            AggregateRequest(
-                                                metrics = setOf(StepsRecord.COUNT_TOTAL),
-                                                timeRangeFilter = TimeRangeFilter.between(start, end),
-                                            ),
-                                        )
-                                    daySteps = agg[StepsRecord.COUNT_TOTAL] ?: 0L
-                                    if (BuildConfig.HC_VERBOSE_LOG && daySteps > 0L) {
-                                        hci("steps aggregate fallback for $day → $daySteps (no interval records)")
-                                    }
-                                } catch (e2: Exception) {
-                                    if (BuildConfig.HC_VERBOSE_LOG) {
-                                        hci("aggregate fallback failed for $day: ${e2.message}")
-                                    }
+                                if (aggregateFailed) {
+                                    daySteps = 0L
                                 }
                             }
                         }
