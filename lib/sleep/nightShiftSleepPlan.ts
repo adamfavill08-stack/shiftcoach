@@ -20,6 +20,14 @@ import {
   type SleepPlanTransition,
   utcMsAtLocalWallOnDate,
 } from '@/lib/sleep/sleepShiftWallClock'
+import {
+  parsePostNightSleepToWallMinutes,
+  resolvePostNightAsleepByUtcMs,
+} from '@/lib/sleep/postNightSleepHabit'
+
+import { resolveForcedDayToNightPreNightNapWindow } from '@/lib/sleep/forcedDayToNightNap'
+
+export { resolveForcedDayToNightPreNightNapWindow }
 
 export const DAY_MINUTES = 24 * 60
 
@@ -104,10 +112,17 @@ export type NightShiftSleepPlanInput = {
    */
   forcedLatestWakeMs?: number | null
   /**
-   * Onboarding `post_night_sleep` on the civil day **after** the plan scope day (`chartHighlightYmd+1`
-   * local). When the anchor shift is night-like, this becomes the suggested main-sleep **start** (UTC ms).
+   * Preferred main-sleep start (UTC ms) from the page resolver — duty-relative for real nights, or
+   * scope-day+1 when synthetic/off. Ignored for real nights when duty-relative resolve is recomputed
+   * here and null (see `allowPagePreferredRaw`).
+   */
+  postNightPreferredStartUtcMs?: number | null
+  /**
+   * @deprecated Prefer `postNightPreferredStartUtcMs`. Scope civil day after chart day when synthetic/off.
    */
   postNightPreferredStartTomorrowUtcMs?: number | null
+  /** Profile `post_night_sleep` raw string for duty resolve and outside-window copy. */
+  postNightSleepRaw?: string | null
 }
 
 export type PlanFeedbackCode =
@@ -124,6 +139,7 @@ export type PlanFeedbackCode =
   | 'pre_night_nap_timing'
   | 'pre_night_nap_adjusted'
   | 'sleep_debt_earlier_recovery'
+  | 'post_night_profile_outside_window'
   | 'none'
 
 export type NightShiftSleepPlanResult = {
@@ -265,7 +281,7 @@ export function computeNightShiftSleepPlan(input: NightShiftSleepPlanInput): Nig
   const gapMs = gapMsAnchorEndToSleepStart(shift, log.startMs)
   const pNight = preNightFamily(transition)
 
-  if (!input.nextShift && transition !== 'night_to_off') {
+  if (!input.nextShift && transition !== 'night_to_off' && transition !== 'no_next_shift') {
     feedback.push({ code: 'missing_next_shift', severity: 'info' })
   }
 
@@ -429,38 +445,87 @@ export function computeNightShiftSleepPlan(input: NightShiftSleepPlanInput): Nig
     }
   }
 
-  const preferredTomorrow = input.postNightPreferredStartTomorrowUtcMs
   const anchorWasNight = isNightLikeInstant(shift, timeZone)
-  const postNightOnboardingStart =
+  const homeArrivalPlusWindDownMs = shift.endMs + commuteMs + WIND_DOWN_MINUTES * MS_MIN
+  const isPostNightTransition =
+    transition === 'night_to_off' ||
+    transition === 'night_to_day' ||
+    transition === 'night_to_night' ||
+    transition === 'no_next_shift'
+
+  const preferredPostNightStartMsRaw =
+    input.postNightPreferredStartUtcMs ?? input.postNightPreferredStartTomorrowUtcMs
+  const profileWallParsed = parsePostNightSleepToWallMinutes(input.postNightSleepRaw ?? null)
+  const preferredFromProfileDuty =
+    profileWallParsed != null &&
     anchorWasNight &&
-    (transition === 'night_to_off' ||
-      transition === 'night_to_day' ||
-      transition === 'night_to_night')
-  if (
-    postNightOnboardingStart &&
-    preferredTomorrow != null &&
-    Number.isFinite(preferredTomorrow) &&
-    preferredTomorrow > shift.endMs - MS_H
-  ) {
-    const floorStart = homeArrivalMs + WIND_DOWN_MINUTES * MS_MIN
-    const startAt = preferredTomorrow >= floorStart ? preferredTomorrow : floorStart
-    suggestedSleepStartMs = startAt
-    stepKeys.push('sleepPlan.calc.postNightOnboardingStart')
-    const openCeiling =
-      latestWakeMs != null && Number.isFinite(latestWakeMs)
-        ? latestWakeMs
-        : startAt + OPEN_RECOVERY_MAX_MS
-    let endAt = Math.min(startAt + targetMs, openCeiling)
+    isPostNightTransition &&
+    !restSynthetic
+      ? resolvePostNightAsleepByUtcMs(shift.endMs, input.postNightSleepRaw, timeZone)
+      : null
+  const allowPagePreferredRaw =
+    !anchorWasNight ||
+    !isPostNightTransition ||
+    restSynthetic ||
+    preferredFromProfileDuty != null
+  const preferredPostNightStartMs =
+    preferredFromProfileDuty ??
+    (allowPagePreferredRaw &&
+    preferredPostNightStartMsRaw != null &&
+    Number.isFinite(preferredPostNightStartMsRaw)
+      ? preferredPostNightStartMsRaw
+      : null)
+
+  const preferredIsUsable =
+    preferredPostNightStartMs != null &&
+    preferredPostNightStartMs >= shift.endMs - MS_H &&
+    preferredPostNightStartMs <= shift.endMs + 18 * MS_H
+
+  if (anchorWasNight && isPostNightTransition) {
+    const baseStartMs = preferredIsUsable
+      ? Math.max(preferredPostNightStartMs!, homeArrivalPlusWindDownMs)
+      : homeArrivalPlusWindDownMs
+
+    suggestedSleepStartMs = baseStartMs
+
+    let wakeCap: number | null =
+      latestWakeMs != null && Number.isFinite(latestWakeMs) ? latestWakeMs : null
     if (input.nextShift != null && Number.isFinite(input.nextShift.startMs)) {
       const dutyWakeCap =
         input.nextShift.startMs - PREP_BEFORE_NEXT_SHIFT * MS_MIN - commuteMs
       if (Number.isFinite(dutyWakeCap)) {
-        endAt = Math.min(endAt, dutyWakeCap)
+        wakeCap = wakeCap == null ? dutyWakeCap : Math.min(wakeCap, dutyWakeCap)
       }
     }
-    if (endAt > startAt) {
+
+    const openCeiling =
+      wakeCap != null && Number.isFinite(wakeCap)
+        ? wakeCap
+        : baseStartMs + OPEN_RECOVERY_MAX_MS
+
+    let endAt = Math.min(baseStartMs + targetMs, openCeiling)
+
+    if (wakeCap != null && Number.isFinite(wakeCap) && endAt > wakeCap) {
+      endAt = wakeCap
+      suggestedSleepStartMs = Math.max(homeArrivalPlusWindDownMs, endAt - targetMs)
+    }
+
+    if (endAt > suggestedSleepStartMs!) {
       suggestedSleepEndMs = endAt
-      modelSleepMs = endAt - startAt
+      modelSleepMs = endAt - suggestedSleepStartMs!
+      const profileParsed = parsePostNightSleepToWallMinutes(input.postNightSleepRaw ?? null) != null
+      const profileBeforeCommuteWindDownFloor =
+        preferredIsUsable &&
+        preferredPostNightStartMs != null &&
+        preferredPostNightStartMs < homeArrivalPlusWindDownMs
+      if (profileBeforeCommuteWindDownFloor) {
+        stepKeys.push('sleepPlan.calc.postNightProfileAdjustedCommuteWindDown')
+      } else if (preferredIsUsable) {
+        stepKeys.push('sleepPlan.calc.postNightProfileSavedTime')
+      } else if (profileParsed) {
+        stepKeys.push('sleepPlan.calc.postNightProfileOutsideWindow')
+        feedback.push({ code: 'post_night_profile_outside_window', severity: 'info' })
+      }
       if (modelSleepMs < targetMs * 0.85) {
         feedback.push({ code: 'shorter_than_planned', severity: 'info' })
       }
@@ -558,6 +623,37 @@ export function computeNightShiftSleepPlan(input: NightShiftSleepPlanInput): Nig
         napWindowEndMs <= input.nextShift.startMs &&
         napWindowStartMs < napWindowEndMs
       if (napSuggested) stepKeys.push('sleepPlan.calc.nap')
+    }
+
+    const dayToNightForceNapTransition =
+      transition === 'dayish_work_to_night' || transition === 'early_to_night'
+
+    if (dayToNightForceNapTransition && !napSuggested) {
+      const forced = resolveForcedDayToNightPreNightNapWindow({
+        nightStartMs: input.nextShift.startMs,
+        afterShiftHome: shift.endMs + commuteMs,
+        logStartMs: log.startMs,
+        logEndMs: log.endMs,
+        mainStartMs: suggestedSleepStartMs,
+        mainEndMs: suggestedSleepEndMs,
+      })
+      if (forced) {
+        napWindowStartMs = forced.startMs
+        napWindowEndMs = forced.endMs
+        napSuggested = true
+        if (!stepKeys.includes('sleepPlan.calc.preNightNapDynamic')) {
+          stepKeys.push('sleepPlan.calc.preNightNapDynamic')
+        }
+        stepKeys.push('sleepPlan.calc.preNightSplit')
+        stepKeys.push('sleepPlan.calc.dayToNightNapAlways')
+        feedback.push({ code: 'pre_night_nap_timing', severity: 'info' })
+        feedback.push({ code: 'pre_night_plan_split', severity: 'info' })
+        feedback.push({ code: 'pre_night_avoid_rush_bed', severity: 'info' })
+        if (forced.endMs - forced.startMs < PRE_NIGHT_NAP_DURATION_MS - MS_MIN) {
+          feedback.push({ code: 'pre_night_nap_adjusted', severity: 'info' })
+          stepKeys.push('sleepPlan.calc.preNightNapShortened')
+        }
+      }
     }
   }
 

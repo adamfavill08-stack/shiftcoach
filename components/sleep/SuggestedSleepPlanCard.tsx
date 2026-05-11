@@ -32,23 +32,49 @@ function formatLocalTime(ms: number | null, timeZone: string): string {
   }
 }
 
-/** When the instant is not on the plan scope civil day, include a short local date so “tomorrow” reads clearly. */
-function formatLocalTimeForScope(ms: number | null, timeZone: string, scopeYmd: string): string {
-  if (ms == null || !Number.isFinite(ms)) return '—'
-  const ymd = isoDateInTimeZone(ms, timeZone)
-  const clock = formatLocalTime(ms, timeZone)
-  if (ymd === scopeYmd) return clock
+/** Weekday + civil date + clock (local), for unambiguous cross-midnight ranges. */
+function formatLocalDateTimeShort(ms: number, timeZone: string): string {
   try {
-    const datePart = new Intl.DateTimeFormat(undefined, {
+    return new Intl.DateTimeFormat(undefined, {
       timeZone,
       weekday: 'short',
       day: 'numeric',
       month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
     }).format(new Date(ms))
-    return `${datePart}, ${clock}`
   } catch {
-    return clock
+    return formatLocalTime(ms, timeZone)
   }
+}
+
+/**
+ * Sleep window can span two local civil days (e.g. Sun 22:30 → Mon 06:45): show full local datetime
+ * on both sides when start/end civil dates differ.
+ *
+ * When start/end share the same civil day: if that day is the page scope day, show compact clocks only
+ * (scope line already carries the date). If the window is on another civil day, show the date once
+ * plus start time, then end time only — avoids “Tue, May 12, 08:00 – Tue, May 12, 16:15”.
+ */
+function formatSuggestedSleepWindowRange(
+  startMs: number | null,
+  endMs: number | null,
+  timeZone: string,
+  scopeYmd: string,
+): string {
+  if (startMs == null || endMs == null || !Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+    return '— – —'
+  }
+  const d0 = isoDateInTimeZone(startMs, timeZone)
+  const d1 = isoDateInTimeZone(endMs, timeZone)
+  if (d0 !== d1) {
+    return `${formatLocalDateTimeShort(startMs, timeZone)} – ${formatLocalDateTimeShort(endMs, timeZone)}`
+  }
+  if (d0 === scopeYmd) {
+    return `${formatLocalTime(startMs, timeZone)} – ${formatLocalTime(endMs, timeZone)}`
+  }
+  return `${formatLocalDateTimeShort(startMs, timeZone)} – ${formatLocalTime(endMs, timeZone)}`
 }
 
 export function SuggestedSleepPlanCard({
@@ -83,9 +109,9 @@ export function SuggestedSleepPlanCard({
     Number.isFinite(plan.suggestedSleepStartMs) &&
     Number.isFinite(plan.suggestedSleepEndMs)
 
-  const windowStart = formatLocalTimeForScope(plan.suggestedSleepStartMs, timeZone, todayYmd)
-  const windowEnd = formatLocalTimeForScope(plan.suggestedSleepEndMs, timeZone, todayYmd)
-  const windowRange = hasSleepWindow ? `${windowStart} – ${windowEnd}` : '— – —'
+  const windowRange = hasSleepWindow
+    ? formatSuggestedSleepWindowRange(plan.suggestedSleepStartMs, plan.suggestedSleepEndMs, timeZone, todayYmd)
+    : '— – —'
 
   const napDurationMin =
     plan.napSuggested && plan.napWindowStartMs != null && plan.napWindowEndMs != null

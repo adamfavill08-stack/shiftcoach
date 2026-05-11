@@ -24,11 +24,10 @@ import {
 } from '@/lib/sleep/nightShiftSleepPlan'
 import {
   coercePostNightSleepString,
-  postNightStartDayAfterScopeUtcMs,
-  resolvePostNightAsleepByUtcMs,
+  resolvePostNightPreferredStartForSleepPlan,
 } from '@/lib/sleep/postNightSleepHabit'
+import { buildForwardPostNightPreviewSession } from '@/lib/sleep/forwardPostNightPlanPreview'
 import { resolveRotaContextForSleepPlan } from '@/lib/sleep/resolveRotaForSleepPlan'
-import { isNightLikeInstant } from '@/lib/sleep/sleepShiftWallClock'
 import {
   pickDefaultShiftedDay,
   formatYmdInTimeZone,
@@ -110,13 +109,14 @@ function forcedLatestWakeBeforeTonightsNight(
   planYmd: string,
   rows: ShiftRowInput[],
   commuteMinutes: number | null,
+  sleepPlanTimeZone: string,
 ): number | null {
   const row = rows.find((r) => String(r.date ?? '').slice(0, 10) === planYmd)
   if (!row) return null
   const lab = String(row.label ?? '').toUpperCase()
   const st = toShiftType(row.label ?? undefined, row.start_ts ?? null)
   if (st !== 'night' && !lab.includes('NIGHT')) return null
-  const { start } = estimateShiftRowBounds(row, new Date())
+  const { start } = estimateShiftRowBounds(row, new Date(), sleepPlanTimeZone)
   const dutyStart = start.getTime()
   if (!Number.isFinite(dutyStart) || dutyStart <= primarySleepEndMs) return null
   const raw =
@@ -774,11 +774,29 @@ export function ShiftWorkerSleepPage() {
   })
 
   const sleepPlanPayload = useMemo(() => {
-    const sessionLikes = planSessionsForToday.map((s) => ({
+    const sessionLikesBase = planSessionsForToday.map((s) => ({
       start_at: s.start_at,
       end_at: s.end_at,
       type: s.type,
     }))
+    const rosterLab = String(shiftByDate.get(chartHighlightYmd) ?? '').toUpperCase()
+    const rosterNightOnScope =
+      rosterLab.includes('NIGHT') || toShiftType(shiftByDate.get(chartHighlightYmd), null) === 'night'
+    const rawCommute =
+      typeof planCommuteMinutes === 'number' && Number.isFinite(planCommuteMinutes) && planCommuteMinutes > 0
+        ? Math.round(planCommuteMinutes)
+        : 25
+    const forwardPreview = buildForwardPostNightPreviewSession({
+      scopeYmd: chartHighlightYmd,
+      shifts: shiftPlanRows,
+      timeZone: sleepPlanTimeZone,
+      nowMs: Date.now(),
+      commuteMinutes: rawCommute,
+      targetSleepMinutes: planTargetSleepMinutes,
+      rosterNightOnScope,
+      existingSessionLikes: sessionLikesBase,
+    })
+    const sessionLikes = forwardPreview ? [forwardPreview, ...sessionLikesBase] : sessionLikesBase
     const rota = resolveRotaContextForSleepPlan(sessionLikes, shiftPlanRows, {
       commuteMinutes: planCommuteMinutes,
       timeZone: sleepPlanTimeZone,
@@ -792,21 +810,21 @@ export function ShiftWorkerSleepPage() {
       chartHighlightYmd,
       shiftPlanRows,
       planCommuteMinutes,
-    )
-    /** After a night-like duty, tie `post_night_sleep` to the morning after *that* block (shift end), not civil day after calendar "today" — avoids wrong evening pre-night windows for night workers. */
-    let postNightPreferredStartTomorrowUtcMs = postNightStartDayAfterScopeUtcMs(
-      chartHighlightYmd,
-      postNightSleepRaw,
       sleepPlanTimeZone,
     )
-    if (isNightLikeInstant(rota.shiftJustEnded, sleepPlanTimeZone)) {
-      const fromDutyEnd = resolvePostNightAsleepByUtcMs(
-        rota.shiftJustEnded.endMs,
-        postNightSleepRaw,
-        sleepPlanTimeZone,
-      )
-      if (fromDutyEnd != null) postNightPreferredStartTomorrowUtcMs = fromDutyEnd
-    }
+    /**
+     * Post-night suggested start hierarchy: (1) rota picks `shiftJustEnded`; (2) if night-like,
+     * profile `post_night_sleep` → UTC instant after that shift’s end (not inferred from sleep logs);
+     * (3) commute + wind-down can push later inside `computeNightShiftSleepPlan`; (4) scope-day
+     * fallback only when duty-relative resolve is unavailable.
+     */
+    const postNightPreferredStartUtcMs = resolvePostNightPreferredStartForSleepPlan({
+      shiftJustEnded: rota.shiftJustEnded,
+      restAnchorSynthetic: rota.restAnchorSynthetic,
+      chartHighlightYmd,
+      postNightSleepRaw,
+      timeZone: sleepPlanTimeZone,
+    })
     const plan = computeNightShiftSleepPlan({
       shiftJustEnded: rota.shiftJustEnded,
       nextShift: rota.nextShift,
@@ -819,7 +837,8 @@ export function ShiftWorkerSleepPage() {
       restAnchorSynthetic: rota.restAnchorSynthetic,
       sleepDebtMinutes: sleepDebtMinutes ?? undefined,
       forcedLatestWakeMs,
-      postNightPreferredStartTomorrowUtcMs,
+      postNightPreferredStartUtcMs,
+      postNightSleepRaw: coercePostNightSleepString(postNightSleepRaw ?? null),
     })
     return { rota, plan }
   }, [
@@ -832,6 +851,7 @@ export function ShiftWorkerSleepPage() {
     sleepDebtMinutes,
     chartHighlightYmd,
     postNightSleepRaw,
+    shiftByDate,
   ])
 
   // Show loading state

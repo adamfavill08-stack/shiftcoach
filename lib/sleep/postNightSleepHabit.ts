@@ -1,4 +1,9 @@
-import { isoDateInTimeZone, utcMsAtLocalWallOnDate } from '@/lib/sleep/sleepShiftWallClock'
+import {
+  isoDateInTimeZone,
+  isNightLikeInstant,
+  utcMsAtLocalWallOnDate,
+  type WallShiftInstant,
+} from '@/lib/sleep/sleepShiftWallClock'
 import { addCalendarDaysToYmd, startOfLocalDayUtcMs } from '@/lib/sleep/utils'
 
 const MS_MIN = 60_000
@@ -40,9 +45,13 @@ export function parsePostNightSleepToWallMinutes(raw: string | null | undefined 
   return h * 60 + min
 }
 
+const MS_H = 60 * MS_MIN
+
 /**
- * First UTC instant ≥ shiftEndMs where local civil time matches `post_night_sleep` wall minutes
- * (onboarding: "usually asleep by" after a night shift). Scans a few local days from shift end.
+ * First UTC instant after `shiftEndMs` where local civil time matches `post_night_sleep` wall minutes
+ * (onboarding: "usually asleep by" after a night shift). Uses the local civil day of shift end first,
+ * then later days. Rejects matches more than 18h after shift end (e.g. preferred clock before end
+ * would otherwise jump to the next calendar morning).
  */
 export function resolvePostNightAsleepByUtcMs(
   shiftEndMs: number,
@@ -53,12 +62,16 @@ export function resolvePostNightAsleepByUtcMs(
   if (wallMin == null) return null
   const tz = (timeZone ?? 'UTC').trim() || 'UTC'
   const endYmd = isoDateInTimeZone(shiftEndMs, tz)
+  const maxAfter = 18 * MS_H
+  let best: number | null = null
   for (let d = 0; d <= 3; d++) {
     const ymd = addCalendarDaysToYmd(endYmd, d)
     const t = utcMsAtLocalWallOnDate(ymd, wallMin, tz, shiftEndMs)
-    if (t != null && t > shiftEndMs + 2 * MS_MIN) return t
+    if (t == null || t <= shiftEndMs + 2 * MS_MIN) continue
+    if (t - shiftEndMs > maxAfter) continue
+    if (best == null || t < best) best = t
   }
-  return null
+  return best
 }
 
 /**
@@ -78,4 +91,36 @@ export function postNightStartDayAfterScopeUtcMs(
   if (!Number.isFinite(dayStart)) return null
   const centerMs = dayStart + 12 * 60 * MS_MIN
   return utcMsAtLocalWallOnDate(ymd, wallMin, tz, centerMs)
+}
+
+/**
+ * Same hierarchy as `ShiftWorkerSleepPage` / sleep plan payload:
+ * - **Real night anchor** (night-like, not synthetic rest): only
+ *   `resolvePostNightAsleepByUtcMs(shiftJustEnded.endMs, …)`. If that is `null`, return **`null`**
+ *   — do **not** use `postNightStartDayAfterScopeUtcMs` (scope +1 civil day can be wrong).
+ * - **Otherwise** (off / synthetic / non-night): `postNightStartDayAfterScopeUtcMs` when profile
+ *   parses.
+ */
+export function resolvePostNightPreferredStartForSleepPlan(input: {
+  shiftJustEnded: WallShiftInstant
+  restAnchorSynthetic: boolean
+  chartHighlightYmd: string
+  postNightSleepRaw: string | null | undefined
+  timeZone: string
+}): number | null {
+  const tz = (input.timeZone ?? 'UTC').trim() || 'UTC'
+  const nightAnchorForProfile =
+    isNightLikeInstant(input.shiftJustEnded, tz) && !input.restAnchorSynthetic
+  if (nightAnchorForProfile) {
+    return resolvePostNightAsleepByUtcMs(
+      input.shiftJustEnded.endMs,
+      input.postNightSleepRaw,
+      tz,
+    )
+  }
+  return postNightStartDayAfterScopeUtcMs(
+    input.chartHighlightYmd,
+    input.postNightSleepRaw,
+    tz,
+  )
 }

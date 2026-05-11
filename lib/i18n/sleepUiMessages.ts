@@ -166,6 +166,8 @@ export const sleepUiMessagesEn: Record<string, string> = {
     'You are carrying substantial sleep debt, so an earlier main-sleep start was allowed where the schedule still fits.',
   'sleepPlan.feedback.open_ended_recovery':
     'No next work shift is in the loaded rota range, so recovery sleep is not capped on the far side — we model a reasonable block after commute and wind-down only.',
+  'sleepPlan.feedback.post_night_profile_outside_window':
+    'Your saved post-night sleep time was outside the realistic recovery window, so ShiftCoach used your shift end time, commute and wind-down instead.',
   'sleepPlan.howTitle': 'How this was calculated',
   'sleepPlan.howToggleShow': 'Show details',
   'sleepPlan.howToggleHide': 'Hide details',
@@ -194,6 +196,8 @@ export const sleepUiMessagesEn: Record<string, string> = {
     'Pre-night pattern: main sleep plus an optional pre-shift nap. Nap timing is derived from your next night shift start (wake buffer and nap length), not fixed clock guesses.',
   'sleepPlan.calc.preNightNapDynamic':
     'Pre-shift nap window is placed from your next night shift start minus a wake buffer, with length capped by what fits around main sleep and logged sleep.',
+  'sleepPlan.calc.dayToNightNapAlways':
+    'After a day shift when your next duty is a night shift the following calendar day, we always suggest a pre-shift nap when any safe slot exists — the wake buffer before clock-in may be shorter than the usual 90 minutes if your main sleep leaves little room.',
   'sleepPlan.calc.preNightNapBeforeMain':
     'When the gap is tight, the nap may sit after your day shift and before main evening sleep so it does not collide with the main sleep block.',
   'sleepPlan.calc.preNightNapShortened':
@@ -209,6 +213,14 @@ export const sleepUiMessagesEn: Record<string, string> = {
   'sleepPlan.calc.noNextShift': 'No next shift in range — cannot cap the sleep window.',
   'sleepPlan.calc.windowFit': 'Fit your sleep goal inside the available window (clamped to minimums where needed).',
   'sleepPlan.calc.noRoom': 'Not enough time between realistic sleep start and next shift — modelled sleep may be very short.',
+  'sleepPlan.calc.postNightProfileSavedTime':
+    'Used your saved post-night sleep time from your profile.',
+  'sleepPlan.calc.postNightProfileAdjustedCommuteWindDown':
+    'Your saved post-night sleep time was adjusted for commute and wind-down.',
+  'sleepPlan.calc.postNightProfileOutsideWindow':
+    'Your saved post-night sleep time was outside the realistic recovery window after this shift end, so timing used shift end, commute and wind-down instead.',
+  'sleepPlan.calc.postNightOnboardingNoRoom':
+    'Not enough room for a full main sleep in the post-night window we modelled — timings were cleared where the schedule would not fit.',
   'sleepPlan.calc.caffeine':
     'Caffeine cutoff uses your sensitivity setting before the suggested main sleep start (and before a pre-shift nap when one is suggested).',
   'sleepPlan.calc.nap': 'Shortfall vs goal suggests an optional short nap before the next shift, when timing allows.',

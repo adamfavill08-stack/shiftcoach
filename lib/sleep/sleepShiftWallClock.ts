@@ -71,7 +71,7 @@ export function crossesLocalMidnight(startMs: number, endMs: number, timeZone: s
 
 const NIGHT_LABEL = /NIGHT/i
 
-/** Night-like: evening start, very early start, crosses midnight, or explicit NIGHT label. */
+/** Night-like: evening start, very early start, crosses local midnight, or explicit NIGHT label. */
 export function isNightLikeInstant(instant: WallShiftInstant, timeZone: string): boolean {
   if (NIGHT_LABEL.test(instant.label ?? '')) return true
   if (crossesLocalMidnight(instant.startMs, instant.endMs, timeZone)) return true

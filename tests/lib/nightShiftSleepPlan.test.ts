@@ -9,6 +9,7 @@ import {
   PRE_NIGHT_NAP_DURATION_MS,
   PRE_NIGHT_NAP_WAKE_BEFORE_SHIFT_MS,
   PREP_BEFORE_NEXT_SHIFT,
+  resolveForcedDayToNightPreNightNapWindow,
   WIND_DOWN_MINUTES,
 } from '@/lib/sleep/nightShiftSleepPlan'
 import { resolveRotaContextForSleepPlan } from '@/lib/sleep/resolveRotaForSleepPlan'
@@ -262,6 +263,66 @@ describe('computeNightShiftSleepPlan', () => {
     })
     expect(plan.ok).toBe(false)
     expect(plan.reason).toBe('no_main_sleep')
+  })
+
+  it('day → next-calendar-day night: still suggests nap when main sleep ends after the 90-min-before-shift nap anchor', () => {
+    const dayEnd = Date.parse('2026-08-10T17:00:00.000Z')
+    const dayStart = dayEnd - 8 * H
+    const nextNightStart = Date.parse('2026-08-11T22:00:00.000Z')
+    const commute = 0
+    const commuteMs = 0
+    const homePlusWind = dayEnd + commuteMs + WIND_DOWN_MINUTES * 60 * 1000
+    const socialEarliest = dayEnd + POST_DAY_BEFORE_NIGHT_MIN_REST_MS
+    const gapToNight = nextNightStart - dayEnd
+    const ymd = eveningBedFloorYmd(dayEnd, nextNightStart, 'UTC')
+    const wallMin =
+      gapToNight >= SHIFT_END_TO_NIGHT_START_FOR_PREFERRED_FLOOR_MS
+        ? EVENING_MAIN_BED_FLOOR_MINUTES_PREFERRED
+        : EVENING_MAIN_BED_FLOOR_MINUTES_DEFAULT
+    const eveningUtc = utcMsAtLocalWallOnDate(ymd, wallMin, 'UTC', dayEnd + Math.floor(gapToNight / 2))
+    expect(eveningUtc).not.toBeNull()
+    const expectedEarliest = Math.max(homePlusWind, socialEarliest, eveningUtc!)
+    const latestWake = nextNightStart - PREP_BEFORE_NEXT_SHIFT * 60 * 1000 - commuteMs
+    expect(latestWake).toBeGreaterThan(nextNightStart - PRE_NIGHT_NAP_WAKE_BEFORE_SHIFT_MS)
+
+    const plan = computeNightShiftSleepPlan({
+      shiftJustEnded: { label: 'DAY', date: '2026-08-10', startMs: dayStart, endMs: dayEnd },
+      nextShift: { label: 'NIGHT', date: '2026-08-11', startMs: nextNightStart, endMs: nextNightStart + 9 * H },
+      commuteMinutes: commute,
+      targetSleepMinutes: 8 * 60,
+      caffeineSensitivity: 'medium',
+      loggedMainSleep: { startMs: expectedEarliest + 30 * 60 * 1000, endMs: expectedEarliest + 8 * H },
+      loggedNaps: [],
+      timeZone: 'UTC',
+    })
+    expect(plan.transition).toBe('dayish_work_to_night')
+    expect(plan.suggestedSleepEndMs).not.toBeNull()
+    expect(plan.napSuggested).toBe(true)
+    expect(plan.napWindowStartMs).not.toBeNull()
+    expect(plan.napWindowEndMs).not.toBeNull()
+    expect(plan.napWindowEndMs!).toBeLessThanOrEqual(nextNightStart)
+    if (plan.suggestedSleepEndMs != null) {
+      expect(plan.napWindowStartMs!).toBeGreaterThanOrEqual(plan.suggestedSleepEndMs - 2 * 60 * 1000)
+    }
+  })
+})
+
+describe('resolveForcedDayToNightPreNightNapWindow', () => {
+  it('finds a slot after late-ending main by relaxing wake buffer before night start', () => {
+    const nightStart = 24 * H
+    const afterShiftHome = H
+    const forced = resolveForcedDayToNightPreNightNapWindow({
+      nightStartMs: nightStart,
+      afterShiftHome,
+      logStartMs: 0,
+      logEndMs: 0,
+      mainStartMs: 2 * H,
+      mainEndMs: 22 * H,
+    })
+    expect(forced).not.toBeNull()
+    expect(forced!.startMs).toBeGreaterThanOrEqual(22 * H + 15 * 60 * 1000)
+    expect(forced!.endMs).toBeLessThanOrEqual(nightStart)
+    expect(forced!.endMs - forced!.startMs).toBeGreaterThanOrEqual(20 * 60 * 1000)
   })
 })
 

@@ -36,12 +36,12 @@ function toInstant(row: ShiftRowInput, start: Date, end: Date): ShiftInstant {
 
 type InstantRow = { row: ShiftRowInput; instant: ShiftInstant }
 
-function buildWorkInstants(rows: ShiftRowInput[]): InstantRow[] {
+function buildWorkInstants(rows: ShiftRowInput[], sleepPlanTimeZone: string): InstantRow[] {
   const ref = new Date()
   const out: InstantRow[] = []
   for (const row of rows ?? []) {
     if (!row?.date || !isWorkRow(row)) continue
-    const { start, end } = estimateShiftRowBounds(row, ref)
+    const { start, end } = estimateShiftRowBounds(row, ref, sleepPlanTimeZone)
     out.push({ row, instant: toInstant(row, start, end) })
   }
   out.sort((a, b) => a.instant.startMs - b.instant.startMs)
@@ -237,13 +237,6 @@ function isMorningishDayWorkRow(row: ShiftRowInput, startMs: number, timeZone: s
 
 const FOLLOWING_SHIFT_LOOKAHEAD_MS = 48 * 60 * 60 * 1000
 
-function firstWorkAfterSleepEnd(instants: InstantRow[], sleepEndMs: number): InstantRow | null {
-  const c = instants
-    .filter((x) => x.instant.startMs > sleepEndMs)
-    .sort((a, b) => a.instant.startMs - b.instant.startMs)
-  return c[0] ?? null
-}
-
 function syntheticRestAnchor(sleepStartMs: number, timeZone: string): ShiftInstant {
   const endMs = sleepStartMs - 45 * 60 * 1000
   const startMs = sleepStartMs - 20 * MS_H
@@ -358,27 +351,14 @@ export function resolveRotaContextForSleepPlan(
   }
 
   const timeZone = (options?.timeZone ?? 'UTC').trim() || 'UTC'
-  const instants = buildWorkInstants(shifts)
+  const instants = buildWorkInstants(shifts, timeZone)
 
-  let restAnchorSynthetic = false
-  let shiftJustEnded = pickShiftJustEnded(instants, primary.startMs, timeZone)
-  const firstAfterSleep = firstWorkAfterSleepEnd(instants, primary.endMs)
-
-  if (
-    !shiftJustEnded &&
-    firstAfterSleep &&
-    isNightLikeInstant(firstAfterSleep.instant, timeZone)
-  ) {
-    shiftJustEnded = syntheticRestAnchor(primary.startMs, timeZone)
-    restAnchorSynthetic = true
-  }
-
+  const pickedJustEnded = pickShiftJustEnded(instants, primary.startMs, timeZone)
+  const restAnchorSynthetic = pickedJustEnded == null
   // No work rows (OFF-only / empty rota) or sleep not overlapping any shift — still produce a plan
   // using a synthetic rest window before sleep (same geometry as pre-night recovery).
-  if (!shiftJustEnded) {
-    shiftJustEnded = syntheticRestAnchor(primary.startMs, timeZone)
-    restAnchorSynthetic = true
-  }
+  let shiftJustEnded: ShiftInstant =
+    pickedJustEnded ?? syntheticRestAnchor(primary.startMs, timeZone)
 
   let endedRow =
     instants.find(

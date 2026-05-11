@@ -1,4 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  isoDateInTimeZone,
+  localMinutesFromMidnight,
+  utcMsAtLocalWallOnDate,
+} from '@/lib/sleep/sleepShiftWallClock'
+import { addCalendarDaysToYmd } from '@/lib/sleep/utils'
 import { isoLocalDate } from '@/lib/shifts'
 import {
   applyHolidayAsOffToShiftRows,
@@ -42,13 +48,47 @@ export function operationalKindFromStandard(
   return 'other'
 }
 
+const MS_MIN = 60_000
+const MS_DAY = 24 * 60 * MS_MIN
+
+/**
+ * When explicit `start_ts` / `end_ts` order end ≤ start (often same calendar date with a morning end),
+ * treat the end wall-clock as the **next local civil day** after the start (IANA-safe; not a fixed UTC +24h).
+ */
+export function adjustExplicitShiftEndForMidnightCrossover(
+  startMs: number,
+  endMs: number,
+  timeZone: string,
+): number {
+  if (endMs > startMs) return endMs
+  const tz = (timeZone ?? 'UTC').trim() || 'UTC'
+  const startYmd = isoDateInTimeZone(startMs, tz)
+  const wallEnd = localMinutesFromMidnight(endMs, tz)
+  const endYmd = addCalendarDaysToYmd(startYmd, 1)
+  const fixed = utcMsAtLocalWallOnDate(endYmd, wallEnd, tz, startMs)
+  if (fixed != null && fixed > startMs) return fixed
+  return endMs + MS_DAY
+}
+
 /** Wall-clock interval for a rota row (explicit timestamps or label-based estimate). Exported for sleep-plan and other pure consumers. */
 export function estimateShiftRowBounds(
   row: ShiftRowInput,
   _now: Date = new Date(),
+  /** When set with explicit timestamps, corrects overnight rows where `end_ts` is the next morning but sorts before `start_ts`. */
+  sleepPlanTimeZone?: string | null,
 ): { start: Date; end: Date; usedEstimatedTimes: boolean } {
   if (row.start_ts && row.end_ts) {
-    return { start: new Date(row.start_ts), end: new Date(row.end_ts), usedEstimatedTimes: false }
+    const start = new Date(row.start_ts)
+    let end = new Date(row.end_ts)
+    if (sleepPlanTimeZone) {
+      const adj = adjustExplicitShiftEndForMidnightCrossover(
+        start.getTime(),
+        end.getTime(),
+        sleepPlanTimeZone,
+      )
+      end = new Date(adj)
+    }
+    return { start, end, usedEstimatedTimes: false }
   }
   const standard = toShiftType(row.label, row.start_ts)
   const anchor = new Date(`${row.date}T12:00:00`)
