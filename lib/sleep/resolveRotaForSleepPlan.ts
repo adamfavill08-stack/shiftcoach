@@ -5,8 +5,13 @@ import {
 } from '@/lib/shift-context/resolveShiftContext'
 import { rowCountsAsPrimarySleep } from '@/lib/sleep/utils'
 import { toShiftType } from '@/lib/shifts/toShiftType'
-import { classifyShiftWallShape, gapMsAnchorEndToSleepStart, isNightLikeInstant } from '@/lib/sleep/sleepShiftWallClock'
+import {
+  classifyShiftWallShape,
+  gapMsAnchorEndToSleepStart,
+  isNightLikeInstant,
+} from '@/lib/sleep/sleepShiftWallClock'
 import { MAX_COMMUTE_MINUTES, type ShiftInstant } from '@/lib/sleep/nightShiftSleepPlan'
+import { parsePostNightSleepToWallMinutes } from '@/lib/sleep/postNightSleepHabit'
 
 export type SleepSessionLike = {
   start_at: string
@@ -80,6 +85,11 @@ const POST_NIGHT_SLEEP_START_HOUR_MIN = 4
 const POST_NIGHT_SLEEP_START_HOUR_MAX = 15
 /** If a day/early block ends within this of main-sleep start, it beats a prior night anchor (same-morning handover). */
 const SAME_MORNING_NON_NIGHT_MAX_GAP_MS = 4 * MS_H
+/** “Classic pre-night” — bed soon before an upcoming night block; do not swap anchor to a prior night. */
+const PRE_NIGHT_NEXT_NIGHT_MAX_GAP_MS = 18 * 60 * 60 * 1000
+/** Night block whose end is within this of logged main-sleep end is treated as the same recovery cycle. */
+const POST_NIGHT_WAKE_ANCHOR_MAX_MS = 18 * 60 * 60 * 1000
+const POST_NIGHT_WAKE_ANCHOR_MIN_MS = -2 * 60 * 60 * 1000
 
 /**
  * Pick the work block that most plausibly precedes this sleep start.
@@ -130,6 +140,66 @@ function pickShiftJustEnded(instants: InstantRow[], sleepStartMs: number, timeZo
     }
   }
   return best?.instant ?? null
+}
+
+/**
+ * Evening main-sleep logs often reflect a pre-bed window while the **recovery anchor** should still
+ * be the night that just finished (morning `post_night_sleep`). When `post_night_sleep` is set and
+ * this is not a tight pre-night layout, re-anchor to the night whose end lines up with the wake
+ * window of the logged session (`primary.end` within a few hours of shift end).
+ */
+function maybeUpgradeAnchorForEveningPostNightRecovery(
+  instants: InstantRow[],
+  primary: { startMs: number; endMs: number },
+  shiftJustEnded: ShiftInstant,
+  endedRow: ShiftRowInput | null,
+  nextShift: ShiftInstant | null,
+  timeZone: string,
+  postNightRaw: string | null | undefined,
+): { shiftJustEnded: ShiftInstant; endedRow: ShiftRowInput | null } {
+  if (parsePostNightSleepToWallMinutes(postNightRaw ?? null) == null) {
+    return { shiftJustEnded, endedRow }
+  }
+  if (isNightLikeInstant(shiftJustEnded, timeZone)) {
+    return { shiftJustEnded, endedRow }
+  }
+
+  const sleepStartH = localWallHour(primary.startMs, timeZone)
+  const eveningLogged = sleepStartH >= 19 || sleepStartH <= 3
+  if (!eveningLogged) return { shiftJustEnded, endedRow }
+
+  if (
+    nextShift != null &&
+    isNightLikeInstant(nextShift, timeZone) &&
+    primary.startMs < nextShift.startMs &&
+    nextShift.startMs - primary.startMs < PRE_NIGHT_NEXT_NIGHT_MAX_GAP_MS
+  ) {
+    return { shiftJustEnded, endedRow }
+  }
+
+  const recoverable = instants
+    .map((x) => x.instant)
+    .filter((inst) => {
+      if (!isNightLikeInstant(inst, timeZone)) return false
+      const delta = primary.endMs - inst.endMs
+      return delta >= POST_NIGHT_WAKE_ANCHOR_MIN_MS && delta <= POST_NIGHT_WAKE_ANCHOR_MAX_MS
+    })
+  if (!recoverable.length) return { shiftJustEnded, endedRow }
+
+  const candidate = recoverable.reduce((a, b) => (a.endMs >= b.endMs ? a : b))
+  if (candidate.endMs === shiftJustEnded.endMs && candidate.startMs === shiftJustEnded.startMs) {
+    return { shiftJustEnded, endedRow }
+  }
+
+  const row =
+    instants.find(
+      (x) =>
+        x.instant.date === candidate.date &&
+        x.instant.label === candidate.label &&
+        Math.abs(x.instant.endMs - candidate.endMs) < 120_000,
+    )?.row ?? null
+
+  return { shiftJustEnded: candidate, endedRow: row }
 }
 
 function localWallHour(ms: number, timeZone: string): number {
@@ -275,6 +345,8 @@ export function resolveRotaContextForSleepPlan(
     commuteMinutes?: number | null
     /** IANA zone for wall-clock rules when choosing the next shift across following days. */
     timeZone?: string
+    /** When set, evening sleep logs can be re-anchored to the finishing night for post-night timing. */
+    postNightSleepRaw?: string | null
   },
 ): RotaSleepPlanContext {
   if (!sessions?.length) {
@@ -308,7 +380,7 @@ export function resolveRotaContextForSleepPlan(
     restAnchorSynthetic = true
   }
 
-  const endedRow =
+  let endedRow =
     instants.find(
       (x) =>
         x.instant.date === shiftJustEnded.date &&
@@ -326,6 +398,34 @@ export function resolveRotaContextForSleepPlan(
   )
   if (!nextShift) {
     nextShift = findFirstNightLikeAfterSleepEnd(instants, primary.endMs, timeZone)
+  }
+
+  const upgraded = maybeUpgradeAnchorForEveningPostNightRecovery(
+    instants,
+    primary,
+    shiftJustEnded,
+    endedRow,
+    nextShift,
+    timeZone,
+    options?.postNightSleepRaw,
+  )
+  if (
+    upgraded.shiftJustEnded.endMs !== shiftJustEnded.endMs ||
+    upgraded.shiftJustEnded.startMs !== shiftJustEnded.startMs
+  ) {
+    shiftJustEnded = upgraded.shiftJustEnded
+    endedRow = upgraded.endedRow
+    nextShift = pickNextShift(
+      instants,
+      primary.endMs,
+      timeZone,
+      shiftJustEnded,
+      endedRow,
+      restAnchorSynthetic,
+    )
+    if (!nextShift) {
+      nextShift = findFirstNightLikeAfterSleepEnd(instants, primary.endMs, timeZone)
+    }
   }
 
   const gapMsBeforeSleep = gapMsAnchorEndToSleepStart(shiftJustEnded, primary.startMs)

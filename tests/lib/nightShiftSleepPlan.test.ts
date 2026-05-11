@@ -318,6 +318,42 @@ describe('resolveRotaContextForSleepPlan', () => {
     }
   })
 
+  it('evening main sleep log + post_night_sleep: re-anchors to finishing night when wake lines up with shift end (not generic pre-night)', () => {
+    const nightStart = Date.parse('2026-05-10T22:00:00.000Z')
+    const nightEnd = Date.parse('2026-05-11T07:00:00.000Z')
+    const earlyStart = Date.parse('2026-05-11T06:00:00.000Z')
+    const earlyEnd = Date.parse('2026-05-11T14:00:00.000Z')
+    const nextNightStart = Date.parse('2026-05-12T22:00:00.000Z')
+    const shifts = [
+      { date: '2026-05-10', label: 'NIGHT', start_ts: new Date(nightStart).toISOString(), end_ts: new Date(nightEnd).toISOString() },
+      { date: '2026-05-11', label: 'EARLY', start_ts: new Date(earlyStart).toISOString(), end_ts: new Date(earlyEnd).toISOString() },
+      {
+        date: '2026-05-12',
+        label: 'NIGHT',
+        start_ts: new Date(nextNightStart).toISOString(),
+        end_ts: new Date(nextNightStart + 9 * H).toISOString(),
+      },
+    ]
+    const sleepStart = Date.parse('2026-05-10T22:30:00.000Z')
+    const sleepEnd = Date.parse('2026-05-11T06:45:00.000Z')
+    const ctx = resolveRotaContextForSleepPlan(
+      [
+        {
+          start_at: new Date(sleepStart).toISOString(),
+          end_at: new Date(sleepEnd).toISOString(),
+          type: 'main_sleep',
+        },
+      ],
+      shifts,
+      { timeZone: 'UTC', postNightSleepRaw: '08:00' },
+    )
+    expect(ctx.state).toBe('ok')
+    if (ctx.state === 'ok') {
+      expect(ctx.shiftJustEnded.label).toMatch(/night/i)
+      expect(ctx.shiftJustEnded.endMs).toBe(nightEnd)
+    }
+  })
+
   it('morning sleep after a short early same day: anchors to early when it ends within a few hours of bed', () => {
     const nightEnd = Date.parse('2026-05-11T07:00:00.000Z')
     const nightStart = nightEnd - 9 * H

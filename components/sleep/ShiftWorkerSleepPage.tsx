@@ -782,6 +782,7 @@ export function ShiftWorkerSleepPage() {
     const rota = resolveRotaContextForSleepPlan(sessionLikes, shiftPlanRows, {
       commuteMinutes: planCommuteMinutes,
       timeZone: sleepPlanTimeZone,
+      postNightSleepRaw,
     })
     if (rota.state !== 'ok') {
       return { rota, plan: null as ReturnType<typeof computeNightShiftSleepPlan> | null }
