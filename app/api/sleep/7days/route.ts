@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/supabase/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { predictSleepStages } from '@/lib/sleep/predictSleepStages'
-import { fetchMergedPhoneHealthSleepSessionsOverlapping } from '@/lib/sleep/sleepRecordsSummaryFallback'
+import { fetchMergedPhoneHealthSleepSessionsOverlapping, sleepIntervalsOverlapIso } from '@/lib/sleep/sleepRecordsSummaryFallback'
 import {
   addCalendarDaysToYmd,
   endOfLocalDayUtcMs,
@@ -143,31 +143,35 @@ export async function GET(req: NextRequest) {
     const primaryRows = (weekLogs ?? []).filter((row: any) => rowCountsAsPrimarySleep(row))
 
     /** Attribute whole primary sleep to the civil day it starts in (shift-worker mental model). */
-    if (primaryRows.length > 0) {
-      for (const row of primaryRows) {
+    for (const row of primaryRows) {
+      const endTime = row.end_at || row.end_ts
+      const startTime = row.start_at || row.start_ts
+      if (!endTime || !startTime) continue
+      const fullMins = minutesBetween(startTime, endTime)
+      if (fullMins <= 0) continue
+      const startYmd = formatYmdInTimeZone(new Date(startTime), timeZone)
+      if (!dayKeySet.has(startYmd) || !byDay[startYmd]) continue
+      byDay[startYmd].total += fullMins
+    }
+
+    /** Health Connect → `sleep_records`: add nights that are not already covered by overlapping `sleep_logs` primaries. */
+    const merged = await fetchMergedPhoneHealthSleepSessionsOverlapping(supabase, userId, fetchFrom, fetchThrough)
+    for (const s of merged) {
+      const overlapsPrimary = primaryRows.some((row: any) => {
         const endTime = row.end_at || row.end_ts
         const startTime = row.start_at || row.start_ts
-        if (!endTime || !startTime) continue
-        const fullMins = minutesBetween(startTime, endTime)
-        if (fullMins <= 0) continue
-        const startYmd = formatYmdInTimeZone(new Date(startTime), timeZone)
-        if (!dayKeySet.has(startYmd) || !byDay[startYmd]) continue
-        byDay[startYmd].total += fullMins
-      }
-    } else {
-      const merged = await fetchMergedPhoneHealthSleepSessionsOverlapping(
-        supabase,
-        userId,
-        fetchFrom,
-        fetchThrough,
-      )
-      for (const s of merged) {
-        const fullMins = minutesBetween(s.start_at, s.end_at)
-        if (fullMins <= 0) continue
-        const startYmd = formatYmdInTimeZone(new Date(s.start_at), timeZone)
-        if (!dayKeySet.has(startYmd) || !byDay[startYmd]) continue
-        byDay[startYmd].total += fullMins
-      }
+        if (!endTime || !startTime) return false
+        return sleepIntervalsOverlapIso(
+          { start_at: startTime, end_at: endTime },
+          { start_at: s.start_at, end_at: s.end_at },
+        )
+      })
+      if (overlapsPrimary) continue
+      const fullMins = minutesBetween(s.start_at, s.end_at)
+      if (fullMins <= 0) continue
+      const startYmd = formatYmdInTimeZone(new Date(s.start_at), timeZone)
+      if (!dayKeySet.has(startYmd) || !byDay[startYmd]) continue
+      byDay[startYmd].total += fullMins
     }
 
     const shiftStartDate = dayKeysAsc[0]

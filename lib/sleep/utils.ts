@@ -222,6 +222,28 @@ export function addCalendarDaysToYmd(ymd: string, deltaDays: number): string {
   return shiftWallDateByDays(y, m, d, deltaDays)
 }
 
+/**
+ * Half-open UTC window [startMs, endExclusiveMs) covering every local civil day touched by the
+ * shift interval. Used to clip wearable buckets and split before/during/after so overnight shifts
+ * are not treated as “only civil today” after local midnight.
+ */
+export function movementAllocationWindowFromShiftInstants(
+  shiftStart: Date,
+  shiftEnd: Date,
+  timeZone: string,
+): { startMs: number; endExclusiveMs: number } | null {
+  const s = shiftStart.getTime()
+  const e = shiftEnd.getTime()
+  if (!Number.isFinite(s) || !Number.isFinite(e) || e <= s) return null
+  const startYmd = formatYmdInTimeZone(shiftStart, timeZone)
+  const endYmd = formatYmdInTimeZone(shiftEnd, timeZone)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startYmd) || !/^\d{4}-\d{2}-\d{2}$/.test(endYmd)) return null
+  const startMs = startOfLocalDayUtcMs(startYmd, timeZone)
+  const endExclusiveMs = startOfLocalDayUtcMs(addCalendarDaysToYmd(endYmd, 1), timeZone)
+  if (!Number.isFinite(startMs) || !Number.isFinite(endExclusiveMs) || endExclusiveMs <= startMs) return null
+  return { startMs, endExclusiveMs }
+}
+
 /** Last millisecond of civil `ymd` in `timeZone`. */
 export function endOfLocalDayUtcMs(ymd: string, timeZone: string): number {
   return startOfLocalDayUtcMs(addCalendarDaysToYmd(ymd, 1), timeZone) - 1

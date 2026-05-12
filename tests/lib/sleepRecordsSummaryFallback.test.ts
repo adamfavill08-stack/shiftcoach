@@ -3,6 +3,7 @@ import {
   mergeSleepRecordSegments,
   loadPhoneHealthSleepForSummary,
   fetchMergedPhoneHealthSleepSessionsOverlapping,
+  sleepIntervalsOverlapIso,
   type PhoneHealthSleepRecordRow,
 } from '@/lib/sleep/sleepRecordsSummaryFallback'
 
@@ -23,6 +24,25 @@ function mockSupabaseForSleepRecords(rows: PhoneHealthSleepRecordRow[] | null, e
   }
   return { from: vi.fn(() => chain) } as any
 }
+
+describe('sleepIntervalsOverlapIso', () => {
+  it('detects overlap', () => {
+    expect(
+      sleepIntervalsOverlapIso(
+        { start_at: '2025-01-01T22:00:00.000Z', end_at: '2025-01-02T06:00:00.000Z' },
+        { start_at: '2025-01-02T05:00:00.000Z', end_at: '2025-01-02T07:00:00.000Z' },
+      ),
+    ).toBe(true)
+  })
+  it('returns false for adjacent non-overlap', () => {
+    expect(
+      sleepIntervalsOverlapIso(
+        { start_at: '2025-01-01T22:00:00.000Z', end_at: '2025-01-02T06:00:00.000Z' },
+        { start_at: '2025-01-02T06:00:00.000Z', end_at: '2025-01-02T08:00:00.000Z' },
+      ),
+    ).toBe(false)
+  })
+})
 
 describe('mergeSleepRecordSegments', () => {
   it('returns one session when OS sends contiguous fragments (gap under 45m)', () => {

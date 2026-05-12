@@ -1,6 +1,7 @@
 /**
  * Wearable 15-minute step buckets for the "Your shift movement" card.
- * Dedupes sync retries, detects accidental cumulative series, clips to a local civil day,
+ * Dedupes sync retries, detects accidental cumulative series, clips to a caller-supplied UTC
+ * window (often a shift span, not only civil “today”),
  * and allocates bucket steps across time windows by overlap (handles shift boundaries).
  */
 
@@ -98,6 +99,75 @@ export function shiftDayMovementWindows(
   const af0 = Math.max(d0, E)
   if (d1 > af0) out.push({ key: 'after', startMs: af0, endMs: d1 })
   return out
+}
+
+/**
+ * Split incremental step buckets into before / during / after using **only** roster `start_ts` /
+ * `end_ts` instants (`rosterStartMs`, `rosterEndMs`). Do not pass activity-window or travel-buffer
+ * adjusted times here — those belong on fetch windows, not on this split.
+ *
+ * Each bucket [b0, b1) is clipped to [clipStartMs, clipEndExclusiveMs), then partitioned at S and E:
+ * - **before:** time strictly before roster start S
+ * - **during:** interval [S, E) intersected with the clipped bucket
+ * - **after:** time from roster end E until `afterSegmentEndExclusiveMs` when set (exclusive cap),
+ *   otherwise until the clip end.
+ */
+export function allocateStepsAcrossRosterShiftBoundaries(
+  samples: MovementStepSample[],
+  clipStartMs: number,
+  clipEndExclusiveMs: number,
+  rosterStartMs: number,
+  rosterEndMs: number,
+  afterSegmentEndExclusiveMs?: number | null,
+): Record<'before' | 'during' | 'after', number> {
+  const totals: Record<'before' | 'during' | 'after', number> = { before: 0, during: 0, after: 0 }
+  if (
+    !Number.isFinite(clipStartMs) ||
+    !Number.isFinite(clipEndExclusiveMs) ||
+    clipEndExclusiveMs <= clipStartMs ||
+    !Number.isFinite(rosterStartMs) ||
+    !Number.isFinite(rosterEndMs) ||
+    rosterEndMs <= rosterStartMs
+  ) {
+    return totals
+  }
+
+  const afterZoneEndExclusive =
+    afterSegmentEndExclusiveMs != null &&
+    Number.isFinite(afterSegmentEndExclusiveMs) &&
+    afterSegmentEndExclusiveMs > rosterEndMs
+      ? Math.min(clipEndExclusiveMs, afterSegmentEndExclusiveMs)
+      : clipEndExclusiveMs
+
+  for (const s of samples) {
+    const b0 = Date.parse(s.timestamp)
+    if (!Number.isFinite(b0)) continue
+    const b1 = defaultBucketEndMs(b0, s.endTimestamp ?? null)
+    const steps = Math.max(0, Math.round(s.steps))
+    if (steps <= 0 || b1 <= b0) continue
+
+    const c0 = Math.max(b0, clipStartMs)
+    const c1 = Math.min(b1, clipEndExclusiveMs)
+    if (c1 <= c0) continue
+
+    const span = b1 - b0
+    const clippedSteps = steps * ((c1 - c0) / span)
+    const clipLen = c1 - c0
+
+    const beforeLen = Math.max(0, Math.min(c1, rosterStartMs) - c0)
+    const duringLen = Math.max(0, Math.min(c1, rosterEndMs) - Math.max(c0, rosterStartMs))
+    const afterLen = Math.max(0, Math.min(c1, afterZoneEndExclusive) - Math.max(c0, rosterEndMs))
+    if (clipLen <= 0) continue
+
+    totals.before += (clippedSteps * beforeLen) / clipLen
+    totals.during += (clippedSteps * duringLen) / clipLen
+    totals.after += (clippedSteps * afterLen) / clipLen
+  }
+
+  totals.before = Math.round(totals.before)
+  totals.during = Math.round(totals.during)
+  totals.after = Math.round(totals.after)
+  return totals
 }
 
 export function recoveryDayMovementWindows(dayStartMs: number, dayEndExclusiveMs: number) {

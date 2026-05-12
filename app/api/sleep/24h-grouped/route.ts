@@ -10,7 +10,10 @@ import { getServerSupabaseAndUserId, buildUnauthorizedResponse } from '@/lib/sup
 import { supabaseServer } from '@/lib/supabase-server'
 import { getShiftedDayKey, minutesBetween, rowCountsAsPrimarySleep } from '@/lib/sleep/utils'
 import type { SleepType } from '@/lib/sleep/types'
-import { fetchMergedPhoneHealthSleepSessionsOverlapping } from '@/lib/sleep/sleepRecordsSummaryFallback'
+import {
+  fetchMergedPhoneHealthSleepSessionsOverlapping,
+  sleepIntervalsOverlapIso,
+} from '@/lib/sleep/sleepRecordsSummaryFallback'
 
 export const dynamic = 'force-dynamic'
 
@@ -185,29 +188,35 @@ export async function GET(req: NextRequest) {
       rowCountsAsPrimarySleep({ type: s.type, naps: s.naps }),
     )
 
-    /** Align with /api/sleep/7days: Health Connect writes `sleep_records`, not `sleep_logs`. */
-    let combinedForSessions = inWindow
-    if (primaryInWindow.length === 0) {
-      const merged = await fetchMergedPhoneHealthSleepSessionsOverlapping(
-        supabase,
-        userId,
-        sqlLowerBound.toISOString(),
-        sqlUpperBound.toISOString(),
+    /** Health Connect writes `sleep_records`; merge sessions that do not overlap a logged primary in `sleep_logs`. */
+    const mergedHc = await fetchMergedPhoneHealthSleepSessionsOverlapping(
+      supabase,
+      userId,
+      sqlLowerBound.toISOString(),
+      sqlUpperBound.toISOString(),
+    )
+    const hcSynthetic = mergedHc
+      .filter((m) => sessionOverlapsWindow(m.start_at, m.end_at, winStart, winEnd))
+      .filter(
+        (m) =>
+          !primaryInWindow.some((p: { start_at: string; end_at: string }) =>
+            sleepIntervalsOverlapIso(
+              { start_at: p.start_at, end_at: p.end_at },
+              { start_at: m.start_at, end_at: m.end_at },
+            ),
+          ),
       )
-      const hcSynthetic = merged
-        .filter((m) => sessionOverlapsWindow(m.start_at, m.end_at, winStart, winEnd))
-        .map((m, idx) => ({
-          id: `hc_merged_${idx}_${String(m.start_at).slice(0, 19)}`,
-          start_at: m.start_at,
-          end_at: m.end_at,
-          type: 'main_sleep' as SleepType,
-          quality: null,
-          notes: null,
-          source: 'health_connect',
-          created_at: m.end_at,
-        }))
-      combinedForSessions = [...inWindow, ...hcSynthetic]
-    }
+      .map((m, idx) => ({
+        id: `hc_merged_${idx}_${String(m.start_at).slice(0, 19)}`,
+        start_at: m.start_at,
+        end_at: m.end_at,
+        type: 'main_sleep' as SleepType,
+        quality: null,
+        notes: null,
+        source: 'health_connect',
+        created_at: m.end_at,
+      }))
+    const combinedForSessions = [...inWindow, ...hcSynthetic]
 
     const sessionsArray = combinedForSessions.map((s: any) => ({
       id: s.id,

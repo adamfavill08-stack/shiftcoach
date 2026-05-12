@@ -66,7 +66,9 @@ export type ActivityToday = {
   movementPlan?: ShiftMovementPlan
   shiftStart?: string | null
   shiftEnd?: string | null
-  
+  /** When set, “after shift” movement counts only until this instant (inferred main sleep start). */
+  movementAfterShiftSleepWindowStartIso?: string | null
+
   // Recovery and Activity scores
   recoveryScore?: number
   recoveryLevel?: 'Low' | 'Moderate' | 'High'
@@ -92,12 +94,22 @@ export type ActivityToday = {
   /** Steps attributed to each rota shift window, last 7 civil days (oldest → newest). */
   shiftStepsLast7Days?: ShiftStepsDuringShiftDay[]
 
+  /** Civil local calendar day (from client `tz`); Activity page hero steps / kcal / active time only. */
+  heroCivilCalendarDay?: {
+    ymd: string
+    steps: number
+    activeMinutes: number
+    intensityBreakdown: IntensityBreakdown
+    estimatedCaloriesBurned: number
+    source: string
+  }
+
   /** Civil-day step total policy (wearable vs manual); from `/api/activity/today`. */
   activityTotalsBreakdown?: ActivityTotalsBreakdown
 }
 
 /**
- * Steps for the current activity day (shift-aware), matching `/activity` hero.
+ * Shift-aware steps for charts, coherence fallbacks, and “Your shift movement” — not the civil-midnight hero.
  * Prefer `activityIntelligence.activityDaySteps` over top-level `steps`.
  */
 export function getActivityDayStepsFromTodayApi(data: ActivityToday | null | undefined): number {
@@ -256,6 +268,11 @@ export function useActivityToday() {
             movementPlan: json.activity?.movementPlan ?? undefined,
             shiftStart: json.activity?.shiftStart ?? null,
             shiftEnd: json.activity?.shiftEnd ?? null,
+            movementAfterShiftSleepWindowStartIso:
+              typeof json.activity?.movementAfterShiftSleepWindowStartIso === 'string' &&
+              json.activity.movementAfterShiftSleepWindowStartIso.trim()
+                ? json.activity.movementAfterShiftSleepWindowStartIso.trim()
+                : null,
             // Recovery and Activity scores
             recoveryScore: json.activity?.recoveryScore ?? 50,
             recoveryLevel: json.activity?.recoveryLevel ?? 'Moderate',

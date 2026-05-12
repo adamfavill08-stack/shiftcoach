@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { Capacitor } from '@capacitor/core'
 import { ChevronLeft, PenLine, RefreshCw, Sparkles, Timer } from 'lucide-react'
@@ -16,6 +17,7 @@ import {
 import { runHealthConnectNativeSync } from '@/lib/native/runHealthConnectNativeSync'
 import { persistHealthConnectNativeLinked } from '@/lib/native/wearablesHealthConnectPersisted'
 import type { ShiftStepsDuringShiftDay } from '@/lib/activity/computeShiftStepsDuringShifts'
+import type { IntensityBreakdown } from '@/lib/activity/calculateIntensityBreakdown'
 import { isoLocalDate } from '@/lib/shifts'
 import { formatYmdInTimeZone } from '@/lib/sleep/utils'
 import {
@@ -25,7 +27,25 @@ import {
   type Shift,
   type StepSample,
 } from '@/components/activity/AdaptiveMovementCard'
-import { ActivityHistory30Days } from '@/components/activity/ActivityHistory30Days'
+const ActivityHistory30DaysDynamic = dynamic(
+  () => import('@/components/activity/ActivityHistory30Days').then((m) => m.ActivityHistory30Days),
+  {
+    ssr: false,
+    loading: () => (
+      <section
+        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-[var(--border-subtle)] dark:bg-zinc-900/75"
+        aria-hidden
+      >
+        <div className="mb-3 h-5 w-40 animate-pulse rounded bg-slate-100 dark:bg-slate-700" />
+        <div className="space-y-2">
+          <div className="h-16 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-700" />
+          <div className="h-16 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-700" />
+          <div className="h-16 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-700" />
+        </div>
+      </section>
+    ),
+  },
+)
 
 function parseYmdLocal(ymd: string): Date {
   return new Date(ymd + 'T12:00:00')
@@ -504,37 +524,81 @@ export default function ActivityAndStepsPage() {
     : t('browse.activity.motivationAnonymous')
 
   const intel = data.activityIntelligence
-  const activityDaySteps = intel?.activityDaySteps ?? (loading ? 0 : data.steps ?? 0)
-  const dailyGoal = data.adaptedStepGoal ?? data.goal ?? data.stepTarget ?? 10000
+  const heroCivil = data.heroCivilCalendarDay
 
-  const stepsSourceLabel = useMemo(() => {
-    if (loading) return ''
-    const sot = data.activityTotalsBreakdown?.sourceOfTruth
-    if (sot === 'wearable') return t('browse.activity.stepsSourceWearable')
-    if (sot === 'manual') return t('browse.activity.stepsSourceManual')
-    const src = String(data.source ?? '').toLowerCase()
-    if (src === 'manual' || src.includes('manual')) return t('browse.activity.stepsSourceManual')
-    if (activityDaySteps > 0 && src && src !== 'unknown' && src !== 'not connected') {
-      return t('browse.activity.stepsSourceWearable')
-    }
-    return t('browse.activity.stepsSourceNone')
-  }, [loading, data.activityTotalsBreakdown?.sourceOfTruth, data.source, activityDaySteps, t])
+  /** Shift-aware total — steps-by-hour chart + movement card coherence (not civil-midnight hero). */
+  const chartDaySteps = intel?.activityDaySteps ?? (loading ? 0 : data.steps ?? 0)
 
-  const intensityBreakdown = data.intensityBreakdown ?? {
+  /** Local midnight–midnight “today” for the top summary card only. */
+  const heroSteps =
+    !loading && heroCivil != null && typeof heroCivil.steps === 'number'
+      ? Math.max(0, Math.round(heroCivil.steps))
+      : loading
+        ? 0
+        : chartDaySteps
+
+  const defaultIntensity: IntensityBreakdown = {
     light: { minutes: 0, target: 10 },
     moderate: { minutes: 0, target: 15 },
     vigorous: { minutes: 0, target: 5 },
     totalActiveMinutes: 0,
   }
+
+  const heroIntensity: IntensityBreakdown =
+    heroCivil?.intensityBreakdown ?? data.intensityBreakdown ?? defaultIntensity
+
+  const dailyGoal = data.adaptedStepGoal ?? data.goal ?? data.stepTarget ?? 10000
+
+  const stepsSourceLabel = useMemo(() => {
+    if (loading) return ''
+    if (heroCivil && typeof heroCivil.source === 'string') {
+      const srcH = heroCivil.source.toLowerCase()
+      if (srcH.includes('manual')) return t('browse.activity.stepsSourceManual')
+      if (heroSteps > 0 && srcH && !srcH.includes('not connected')) {
+        return t('browse.activity.stepsSourceWearable')
+      }
+    }
+    const sot = data.activityTotalsBreakdown?.sourceOfTruth
+    if (sot === 'wearable') return t('browse.activity.stepsSourceWearable')
+    if (sot === 'manual') return t('browse.activity.stepsSourceManual')
+    const src = String(data.source ?? '').toLowerCase()
+    if (src === 'manual' || src.includes('manual')) return t('browse.activity.stepsSourceManual')
+    if (heroSteps > 0 && src && src !== 'unknown' && src !== 'not connected') {
+      return t('browse.activity.stepsSourceWearable')
+    }
+    return t('browse.activity.stepsSourceNone')
+  }, [
+    loading,
+    heroCivil,
+    heroSteps,
+    data.activityTotalsBreakdown?.sourceOfTruth,
+    data.source,
+    t,
+  ])
+
+  const intensityBreakdown = heroIntensity
   const activeMinutesDisplay = loading
     ? 0
-    : intensityBreakdown.totalActiveMinutes > 0
-      ? Math.round(intensityBreakdown.totalActiveMinutes)
-      : Math.max(0, Math.round(data.activeMinutes ?? 0))
+    : heroCivil != null
+      ? Math.round(
+          heroIntensity.totalActiveMinutes > 0
+            ? heroIntensity.totalActiveMinutes
+            : heroCivil.activeMinutes ?? 0,
+        )
+      : heroIntensity.totalActiveMinutes > 0
+        ? Math.round(heroIntensity.totalActiveMinutes)
+        : Math.max(0, Math.round(data.activeMinutes ?? 0))
 
   const caloriesBurnedDisplay = loading
     ? 0
-    : Math.max(0, Math.round(data.estimatedCaloriesBurned ?? 0))
+    : Math.max(
+        0,
+        Math.round(
+          heroCivil != null && typeof heroCivil.estimatedCaloriesBurned === 'number'
+            ? heroCivil.estimatedCaloriesBurned
+            : data.estimatedCaloriesBurned ?? 0,
+        ),
+      )
 
   const activeTargetMins =
     intensityBreakdown.light.target +
@@ -543,15 +607,15 @@ export default function ActivityAndStepsPage() {
 
   /** No distance in API yet — rough miles from steps (~2.1k steps/mi walking). */
   const distanceMilesDisplay = useMemo(() => {
-    if (!activityDaySteps || activityDaySteps <= 0) return '0.00'
-    return (activityDaySteps / 2112).toFixed(2)
-  }, [activityDaySteps])
+    if (!heroSteps || heroSteps <= 0) return '0.00'
+    return (heroSteps / 2112).toFixed(2)
+  }, [heroSteps])
 
   /** Linear fill vs daily step goal (same pattern as `/steps` movement timing bars). */
   const stepsGoalBarPct = useMemo(() => {
     if (dailyGoal <= 0) return 0
-    return Math.min(100, (activityDaySteps / dailyGoal) * 100)
-  }, [activityDaySteps, dailyGoal])
+    return Math.min(100, (heroSteps / dailyGoal) * 100)
+  }, [heroSteps, dailyGoal])
 
   const todayYmd = isoLocalDate(new Date())
 
@@ -675,16 +739,20 @@ export default function ActivityAndStepsPage() {
     const nowForDistribution = new Date()
 
     /**
-     * Civil hour 0–23 for `stepsByHour` (anchor null) matches `/api/activity/today` filter on **local civil
-     * “today”** in `activityTimeZone`, not `data.date` (rota row) nor `activityIntelligence.activityDayKey`
-     * (shift-aware totals). Wall-clock YMD here keeps the adaptive split aligned with that chart.
+     * For shift days, prefer API `date` (rota row / shift context) so hourly fallbacks and copy stay
+     * aligned with `/api/activity/today` after local midnight on overnight shifts. Otherwise use civil
+     * “now” in the activity zone.
      */
     const activityDateYmd =
-      typeof activityTimeZone === 'string' && activityTimeZone.trim()
-        ? formatYmdInTimeZone(nowForDistribution, activityTimeZone.trim())
-        : typeof data.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(data.date)
-          ? data.date.slice(0, 10)
-          : null
+      dayType === 'shift' &&
+      typeof data.date === 'string' &&
+      /^\d{4}-\d{2}-\d{2}/.test(data.date.trim())
+        ? data.date.trim().slice(0, 10)
+        : typeof activityTimeZone === 'string' && activityTimeZone.trim()
+          ? formatYmdInTimeZone(nowForDistribution, activityTimeZone.trim())
+          : typeof data.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(data.date)
+            ? data.date.slice(0, 10)
+            : null
 
     const adaptiveOpts = {
       samples,
@@ -697,6 +765,7 @@ export default function ActivityAndStepsPage() {
       activityDateYmd,
       coherentStepsFallback,
       nowForDistribution,
+      movementAfterShiftSleepWindowStartIso: data.movementAfterShiftSleepWindowStartIso ?? null,
     } as const
 
     try {
@@ -714,6 +783,7 @@ export default function ActivityAndStepsPage() {
     data.recoverySignal,
     data.shiftStart,
     data.shiftEnd,
+    data.movementAfterShiftSleepWindowStartIso,
     data.stepsByHour,
     data.stepsByHourAnchorStart,
     data.date,
@@ -807,7 +877,7 @@ export default function ActivityAndStepsPage() {
               <div className="flex w-full flex-col items-center gap-3">
                 <div className="text-center">
                   <p className="text-[3rem] sm:text-[3.25rem] font-semibold tabular-nums leading-none tracking-tight text-slate-900 dark:text-[var(--text-main)]">
-                    {activityDaySteps.toLocaleString()}
+                    {heroSteps.toLocaleString()}
                   </p>
                   <p className="mt-1.5 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Steps
@@ -893,13 +963,13 @@ export default function ActivityAndStepsPage() {
             loading={loading}
             stepSamples={data.stepSamples}
             stepsByHour={data.stepsByHour}
-            displayTotalSteps={activityDaySteps}
+            displayTotalSteps={chartDaySteps}
             title={t('browse.activity.stepsByTimeOfDay')}
             shiftStartIso={data.stepsByHourAnchorStart ?? null}
             timeZone={intel?.activityTimeZone ?? null}
           />
 
-          <ActivityHistory30Days />
+          <ActivityHistory30DaysDynamic />
 
           <div className="w-full rounded-xl border border-transparent bg-white px-5 py-4 shadow-sm dark:border-[var(--border-subtle)]">
             <div className="flex gap-3">

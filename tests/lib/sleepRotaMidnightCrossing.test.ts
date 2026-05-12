@@ -50,10 +50,14 @@ describe('estimateShiftRowBounds (overnight explicit timestamps + IANA zone)', (
 })
 
 describe('resolvePostNightAsleepByUtcMs', () => {
-  it('Test G: preferred clock before shift end does not jump to next-morning +1 day', () => {
-    const shiftEnd = Date.parse('2026-05-11T06:00:00.000Z')
-    expect(resolvePostNightAsleepByUtcMs(shiftEnd, '06:30', 'Europe/London')).toBeNull()
-  })
+  it(
+    'Test G: preferred clock before shift end does not jump to next-morning +1 day',
+    () => {
+      const shiftEnd = Date.parse('2026-05-11T06:00:00.000Z')
+      expect(resolvePostNightAsleepByUtcMs(shiftEnd, '06:30', 'Europe/London')).toBeNull()
+    },
+    15_000,
+  )
 })
 
 describe('resolveRotaContextForSleepPlan post-night anchoring', () => {

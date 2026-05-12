@@ -14,6 +14,19 @@ export type PhoneHealthSleepRecordRow = {
 
 export type MergedPhoneHealthSleepSession = { start_at: string; end_at: string }
 
+/** True when two sleep intervals overlap in wall time (ISO instants). */
+export function sleepIntervalsOverlapIso(
+  a: { start_at: string; end_at: string },
+  b: { start_at: string; end_at: string },
+): boolean {
+  const a0 = new Date(a.start_at).getTime()
+  const a1 = new Date(a.end_at).getTime()
+  const b0 = new Date(b.start_at).getTime()
+  const b1 = new Date(b.end_at).getTime()
+  if (![a0, a1, b0, b1].every(Number.isFinite)) return false
+  return a0 < b1 && a1 > b0
+}
+
 export function mergeSleepRecordSegments(rows: PhoneHealthSleepRecordRow[]): MergedPhoneHealthSleepSession[] {
   const usable = rows.filter((r) => {
     const st = (r.stage ?? '').toLowerCase()

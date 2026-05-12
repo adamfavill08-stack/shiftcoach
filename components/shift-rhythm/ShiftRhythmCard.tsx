@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Inter } from "next/font/google";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Info, X, Clock, UtensilsCrossed, AlertCircle, Sparkles, MessageSquareText, Footprints, Timer, Flame, Heart, Droplet, ArrowUp, ArrowDown, Minus } from "lucide-react";
+import { ChevronRight, Info, X, Clock, UtensilsCrossed, AlertCircle, Sparkles, MessageSquareText, Footprints, Timer, Flame, Heart, Droplet, ArrowUp, ArrowDown, Minus, Briefcase } from "lucide-react";
 import { useGoalChange } from "@/lib/hooks/useGoalChange";
 import { useMealTimingTodayCard, type MealTimingTodayCardData } from "@/lib/hooks/useMealTimingTodayCard";
 import { NextMealWindowCard } from "@/components/nutrition/NextMealWindowCard";
@@ -14,7 +14,8 @@ import { useTodayNutrition } from "@/lib/hooks/useTodayNutrition";
 import { useTodaySleep } from "@/lib/hooks/useTodaySleep";
 import { isAndroidNativeHealthConnectShell } from "@/lib/native/healthConnectDeviceSyncEligibility";
 import { useWeeklyProgress } from "@/lib/hooks/useWeeklyProgress";
-import { getActivityDayStepsFromTodayApi, useActivityToday } from "@/lib/hooks/useActivityToday";
+import { useActivityToday } from "@/lib/hooks/useActivityToday";
+import { buildDashboardActivityHomeMetrics } from "@/components/activity/buildDashboardActivityHomeMetrics";
 import { useTranslation } from "@/components/providers/language-provider";
 import { useAuth } from "@/components/AuthProvider";
 import { useProfile } from "@/hooks/useProfile";
@@ -1009,13 +1010,12 @@ function HomeActivityCard() {
   const router = useRouter();
   const { data, loading } = useActivityToday();
 
-  const steps = loading ? 0 : getActivityDayStepsFromTodayApi(data);
-  const goal = data?.adaptedStepGoal ?? data?.goal ?? data?.stepTarget ?? 9000;
-  const activeMinutes = data?.activeMinutes ?? 0;
-  const calories = data?.estimatedCaloriesBurned ?? 0;
-
-  const progressPct =
-    goal > 0 ? Math.max(0, Math.min(100, Math.round((steps / goal) * 100))) : 0;
+  const metrics = useMemo(() => buildDashboardActivityHomeMetrics(data, loading), [data, loading]);
+  const steps = metrics.heroSteps;
+  const activeMinutes = metrics.activeMinutes;
+  const calories = metrics.caloriesBurned;
+  const duringShiftSteps = metrics.duringShiftSteps;
+  const showDuringShiftRow = metrics.showDuringShiftRow;
 
   return (
     <button
@@ -1066,6 +1066,23 @@ function HomeActivityCard() {
                 </p>
               </div>
             </div>
+
+            {showDuringShiftRow && (
+              <div className="flex items-start gap-2.5">
+                <span
+                  className="mt-0.5 inline-flex h-4.5 w-4.5 items-center justify-center rounded-full bg-violet-500/90 dark:bg-violet-500/75"
+                  aria-hidden
+                >
+                  <Briefcase className="h-2.5 w-2.5 text-white" strokeWidth={2.5} />
+                </span>
+                <div>
+                  <p className={`text-sm font-semibold text-[var(--text-main)] tabular-nums ${inter.className}`}>
+                    {loading ? "0" : (duringShiftSteps ?? 0).toLocaleString()}
+                    <span className="ml-1 text-sm font-medium text-[var(--text-muted)]">During shift</span>
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-center pt-6">

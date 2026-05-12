@@ -80,9 +80,22 @@ export function ActivityHistory30Days() {
         if (!cancelled) setLoading(false)
       }
     }
-    void load()
+    const start = () => {
+      if (!cancelled) void load()
+    }
+    let idleId: ReturnType<typeof requestIdleCallback> | ReturnType<typeof setTimeout>
+    if (typeof requestIdleCallback === 'function') {
+      idleId = requestIdleCallback(start, { timeout: 2000 })
+    } else {
+      idleId = setTimeout(start, 0)
+    }
     return () => {
       cancelled = true
+      if (typeof requestIdleCallback === 'function') {
+        cancelIdleCallback(idleId as number)
+      } else {
+        clearTimeout(idleId as ReturnType<typeof setTimeout>)
+      }
     }
   }, [])
 

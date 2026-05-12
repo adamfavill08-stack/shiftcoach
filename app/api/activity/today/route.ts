@@ -35,6 +35,7 @@ import {
   countDuplicateBucketStarts,
   processWearableStepSamplesForMovementCard,
 } from '@/lib/activity/normalizeWearableStepSamplesForMovement'
+import { inferSleepWindowStartAfterShiftEnd } from '@/lib/activity/inferSleepWindowStartAfterShiftEnd'
 import {
   computeShiftStepsDuringShiftsLast7Days,
   stubShiftStepsLast7Days,
@@ -45,6 +46,7 @@ import {
   addCalendarDaysToYmd,
   endOfLocalDayUtcMs,
   formatYmdInTimeZone,
+  movementAllocationWindowFromShiftInstants,
   rowCountsAsPrimarySleep,
   startOfLocalDayUtcMs,
 } from '@/lib/sleep/utils'
@@ -220,6 +222,70 @@ function pickMostRecentRowForDisplay(rows: any[], kept: any[], breakdown: Activi
   return rows[0]
 }
 
+/** 20d activity_logs window for movement consistency — retries match legacy column rollouts. */
+async function fetchWeeklyActivityLogsWithRetries(supabase: any, userId: string, activityIntelFromIso: string) {
+  let weeklyActivityQuery: any = await supabase
+    .from('activity_logs')
+    .select(
+      'steps, active_minutes, source, merge_status, ts, logged_at, created_at, id, shift_activity_level, activity_date',
+    )
+    .eq('user_id', userId)
+    .gte('ts', activityIntelFromIso)
+    .order('ts', { ascending: true })
+
+  if (
+    weeklyActivityQuery.error &&
+    String(weeklyActivityQuery.error.message ?? '').includes('logged_at')
+  ) {
+    weeklyActivityQuery = await supabase
+      .from('activity_logs')
+      .select('steps, active_minutes, source, merge_status, ts, created_at, id, shift_activity_level, activity_date')
+      .eq('user_id', userId)
+      .gte('ts', activityIntelFromIso)
+      .order('ts', { ascending: true })
+  }
+
+  if (
+    weeklyActivityQuery.error &&
+    (weeklyActivityQuery.error.code === '42703' ||
+      String(weeklyActivityQuery.error.message ?? '').includes('activity_date'))
+  ) {
+    weeklyActivityQuery = await supabase
+      .from('activity_logs')
+      .select('steps, active_minutes, source, merge_status, ts, shift_activity_level')
+      .eq('user_id', userId)
+      .gte('ts', activityIntelFromIso)
+      .order('ts', { ascending: true })
+  }
+
+  if (
+    weeklyActivityQuery.error &&
+    (weeklyActivityQuery.error.code === '42703' || weeklyActivityQuery.error.message?.includes('ts'))
+  ) {
+    weeklyActivityQuery = await supabase
+      .from('activity_logs')
+      .select('steps, active_minutes, source, merge_status, created_at, shift_activity_level, activity_date')
+      .eq('user_id', userId)
+      .gte('created_at', activityIntelFromIso)
+      .order('created_at', { ascending: true })
+  }
+
+  if (
+    weeklyActivityQuery.error &&
+    (weeklyActivityQuery.error.code === '42703' ||
+      String(weeklyActivityQuery.error.message ?? '').includes('activity_date'))
+  ) {
+    weeklyActivityQuery = await supabase
+      .from('activity_logs')
+      .select('steps, active_minutes, source, merge_status, created_at, shift_activity_level')
+      .eq('user_id', userId)
+      .gte('created_at', activityIntelFromIso)
+      .order('created_at', { ascending: true })
+  }
+
+  return weeklyActivityQuery
+}
+
 export async function GET(req: NextRequest) {
   const { supabase, userId } = await getServerSupabaseAndUserId()
   if (!userId) return buildUnauthorizedResponse()
@@ -237,6 +303,7 @@ export async function GET(req: NextRequest) {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
     const activityIntelFetchFrom = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000)
+    const activityIntelFromIso = activityIntelFetchFrom.toISOString()
     const sevenDaysAgoISO = sevenDaysAgo.toISOString().slice(0, 10)
     const fourteenDaysAgoISO = fourteenDaysAgo.toISOString().slice(0, 10)
 
@@ -249,17 +316,20 @@ export async function GET(req: NextRequest) {
 
     let currentShift: ActivityTodayShiftRow | null = null
 
-    // Time-overlap candidates (±1h buffer). Avoid `.maybeSingle()` — multiple matches are possible.
-    const { data: overlapRaw } = await supabase
-      .from('shifts')
-      .select('label, date, start_ts, end_ts')
-      .eq('user_id', userId)
-      .not('start_ts', 'is', null)
-      .not('end_ts', 'is', null)
-      .lte('start_ts', nowPlusBufferAfterIso)
-      .gt('end_ts', nowMinusBufferBeforeIso)
-      .order('start_ts', { ascending: false })
-      .limit(24)
+    // Overlap query and holiday lookup are independent — run together to cut latency.
+    const [{ data: overlapRaw }, holidayToday] = await Promise.all([
+      supabase
+        .from('shifts')
+        .select('label, date, start_ts, end_ts')
+        .eq('user_id', userId)
+        .not('start_ts', 'is', null)
+        .not('end_ts', 'is', null)
+        .lte('start_ts', nowPlusBufferAfterIso)
+        .gt('end_ts', nowMinusBufferBeforeIso)
+        .order('start_ts', { ascending: false })
+        .limit(24),
+      fetchHolidayLocalDatesSet(supabase, userId, localToday, localToday),
+    ])
 
     const overlapList = (Array.isArray(overlapRaw) ? overlapRaw : []) as ActivityTodayShiftRow[]
     currentShift = pickCurrentShiftFromOverlapRows(overlapList, now, SHIFT_WINDOW_BUFFER_MS)
@@ -282,7 +352,6 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const holidayToday = await fetchHolidayLocalDatesSet(supabase, userId, localToday, localToday)
     if (holidayToday.has(localToday)) {
       currentShift = null
     }
@@ -321,6 +390,16 @@ export async function GET(req: NextRequest) {
       .gte('date', sevenDaysAgoISO)
       .lte('date', today)
       .order('date', { ascending: true })
+
+    /** Runs in parallel with “today” activity resolution and later sleep batch — same inputs as the old sequential block. */
+    const weeklyActivityLogsPromise = fetchWeeklyActivityLogsWithRetries(supabase, userId, activityIntelFromIso)
+    const logsByActivityDateForWeeklyPromise = fetchActivityLogsByActivityDateWindow(
+      supabase,
+      userId,
+      addCalendarDaysToYmd(localToday, -14),
+      localToday,
+      { timeZone: activityIntelTimeZone },
+    )
 
     // Try to get today's activity - use timestamp filtering since 'date' column may not exist
     let activityResponse: any = { data: null, error: null }
@@ -673,9 +752,19 @@ export async function GET(req: NextRequest) {
     const selectedDayEndMs = endOfLocalDayUtcMs(today, activityIntelTimeZone)
     const shiftStartMs = shiftStart?.getTime() ?? NaN
     const shiftEndMs = shiftEnd?.getTime() ?? NaN
-    const stepSamplesRangeStartMs =
-      Number.isFinite(shiftStartMs) ? Math.min(selectedDayStartMs, shiftStartMs) : selectedDayStartMs
-    const stepSamplesRangeEndMs =
+    /** After local midnight, `today` is the new civil day — still include buckets from the shift start *date* so “before shift” isn’t empty. */
+    const shiftStartCivilDayStartMs =
+      shiftStart != null && Number.isFinite(shiftStartMs)
+        ? startOfLocalDayUtcMs(formatYmdInTimeZone(shiftStart, activityIntelTimeZone), activityIntelTimeZone)
+        : NaN
+    const stepSamplesRangeStartMs = Number.isFinite(shiftStartMs)
+      ? Math.min(
+          selectedDayStartMs,
+          Number.isFinite(shiftStartCivilDayStartMs) ? shiftStartCivilDayStartMs : selectedDayStartMs,
+          shiftStartMs,
+        )
+      : selectedDayStartMs
+    let stepSamplesRangeEndMs =
       Number.isFinite(shiftEndMs) ? Math.max(selectedDayEndMs, shiftEndMs) : selectedDayEndMs
 
     // Get activity level and calculate impacts
@@ -702,30 +791,34 @@ export async function GET(req: NextRequest) {
     const sleepWindowCutoff = sevenDaysAgo.toISOString()
     const sleepSelect =
       'id, start_ts, end_ts, start_at, end_at, sleep_hours, quality, type, date'
-    const [sleepByEndTs, sleepByEndAt, previousShiftRes, sleepDeficitDataRes] = await Promise.all([
-      supabase
-        .from('sleep_logs')
-        .select(sleepSelect)
-        .eq('user_id', userId)
-        .gte('end_ts', sleepWindowCutoff)
-        .order('end_ts', { ascending: false })
-        .limit(12),
-      supabase
-        .from('sleep_logs')
-        .select(sleepSelect)
-        .eq('user_id', userId)
-        .gte('end_at', sleepWindowCutoff)
-        .order('end_at', { ascending: false })
-        .limit(12),
-      supabase.from('shifts').select('label').eq('user_id', userId).eq('date', yesterdayIso).maybeSingle(),
-      supabase
-        .from('shift_rhythm_scores')
-        .select('total_score')
-        .eq('user_id', userId)
-        .order('date', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ])
+    const [[sleepByEndTs, sleepByEndAt, previousShiftRes, sleepDeficitDataRes], weeklyActivityQuery] =
+      await Promise.all([
+        Promise.all([
+          supabase
+            .from('sleep_logs')
+            .select(sleepSelect)
+            .eq('user_id', userId)
+            .gte('end_ts', sleepWindowCutoff)
+            .order('end_ts', { ascending: false })
+            .limit(12),
+          supabase
+            .from('sleep_logs')
+            .select(sleepSelect)
+            .eq('user_id', userId)
+            .gte('end_at', sleepWindowCutoff)
+            .order('end_at', { ascending: false })
+            .limit(12),
+          supabase.from('shifts').select('label').eq('user_id', userId).eq('date', yesterdayIso).maybeSingle(),
+          supabase
+            .from('shift_rhythm_scores')
+            .select('total_score')
+            .eq('user_id', userId)
+            .order('date', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+        ]),
+        weeklyActivityLogsPromise,
+      ])
     const mergedSleep = new Map<string, Record<string, unknown>>()
     const pushRows = (rows: unknown[] | null | undefined) => {
       for (const row of rows ?? []) {
@@ -772,6 +865,31 @@ export async function GET(req: NextRequest) {
 
     const hasSleepData = mainSleepLogs.length > 0 && recentSleepHours.some((h) => h > 0)
 
+    let movementAfterShiftSleepWindowStartIso: string | null = null
+    const mainSleepStartsForInfer: Date[] = []
+    for (const log of mainSleepLogs as Array<Record<string, unknown>>) {
+      const raw = log.start_ts ?? log.start_at
+      if (!raw) continue
+      const t = Date.parse(String(raw))
+      if (Number.isFinite(t)) mainSleepStartsForInfer.push(new Date(t))
+    }
+    const inferShiftType =
+      standardType === 'night' ? 'night' : standardType === 'off' ? 'off' : ('day' as const)
+    const inferredMovementSleepStart = inferSleepWindowStartAfterShiftEnd({
+      shiftEnd,
+      timeZone: activityIntelTimeZone,
+      shiftType: inferShiftType,
+      mainSleepStarts: mainSleepStartsForInfer,
+    })
+    if (inferredMovementSleepStart) {
+      movementAfterShiftSleepWindowStartIso = inferredMovementSleepStart.toISOString()
+      const capMs = inferredMovementSleepStart.getTime()
+      const padMs = 15 * 60 * 1000
+      const anchorEnd = Number.isFinite(shiftEndMs) ? shiftEndMs : now.getTime()
+      const maxExtendMs = anchorEnd + 84 * 3600000
+      stepSamplesRangeEndMs = Math.max(stepSamplesRangeEndMs, Math.min(capMs + padMs, maxExtendMs))
+    }
+
     // Calculate recovery score
     const recoveryScoreResult = hasSleepData
       ? calculateRecoveryScore({
@@ -788,64 +906,6 @@ export async function GET(req: NextRequest) {
           level: 'Low',
           description: 'Log a few nights of sleep to unlock your personalised recovery score.',
         }
-
-    // Fetch activity logs for movement consistency (7d) + baseline (14d) in one range
-    const activityIntelFromIso = activityIntelFetchFrom.toISOString()
-    let weeklyActivityQuery: any = await supabase
-      .from('activity_logs')
-      .select(
-        'steps, active_minutes, source, merge_status, ts, logged_at, created_at, id, shift_activity_level, activity_date',
-      )
-      .eq('user_id', userId)
-      .gte('ts', activityIntelFromIso)
-      .order('ts', { ascending: true })
-
-    if (
-      weeklyActivityQuery.error &&
-      String(weeklyActivityQuery.error.message ?? '').includes('logged_at')
-    ) {
-      weeklyActivityQuery = await supabase
-        .from('activity_logs')
-        .select('steps, active_minutes, source, merge_status, ts, created_at, id, shift_activity_level, activity_date')
-        .eq('user_id', userId)
-        .gte('ts', activityIntelFromIso)
-        .order('ts', { ascending: true })
-    }
-
-    if (
-      weeklyActivityQuery.error &&
-      (weeklyActivityQuery.error.code === '42703' ||
-        String(weeklyActivityQuery.error.message ?? '').includes('activity_date'))
-    ) {
-      weeklyActivityQuery = await supabase
-        .from('activity_logs')
-        .select('steps, active_minutes, source, merge_status, ts, shift_activity_level')
-        .eq('user_id', userId)
-        .gte('ts', activityIntelFromIso)
-        .order('ts', { ascending: true })
-    }
-
-    if (weeklyActivityQuery.error && (weeklyActivityQuery.error.code === '42703' || weeklyActivityQuery.error.message?.includes('ts'))) {
-      weeklyActivityQuery = await supabase
-        .from('activity_logs')
-        .select('steps, active_minutes, source, merge_status, created_at, shift_activity_level, activity_date')
-        .eq('user_id', userId)
-        .gte('created_at', activityIntelFromIso)
-        .order('created_at', { ascending: true })
-    }
-
-    if (
-      weeklyActivityQuery.error &&
-      (weeklyActivityQuery.error.code === '42703' ||
-        String(weeklyActivityQuery.error.message ?? '').includes('activity_date'))
-    ) {
-      weeklyActivityQuery = await supabase
-        .from('activity_logs')
-        .select('steps, active_minutes, source, merge_status, created_at, shift_activity_level')
-        .eq('user_id', userId)
-        .gte('created_at', activityIntelFromIso)
-        .order('created_at', { ascending: true })
-    }
 
     const { data: weeklyShifts } = await weeklyShiftsPromise
 
@@ -871,14 +931,7 @@ export async function GET(req: NextRequest) {
 
     let weeklyLogs = (weeklyActivityQuery.data ?? []) as any[]
     // Manual sessions (and some wearables) may have `activity_date` set but NULL `ts`; ts-window queries miss them.
-    const activityDateMergeFrom = addCalendarDaysToYmd(today, -14)
-    const logsByActivityDate = await fetchActivityLogsByActivityDateWindow(
-      supabase,
-      userId,
-      activityDateMergeFrom,
-      today,
-      { timeZone: activityIntelTimeZone },
-    )
+    const logsByActivityDate = await logsByActivityDateForWeeklyPromise
     if (logsByActivityDate.length) {
       weeklyLogs = mergeActivityLogRowsDedupe(weeklyLogs, logsByActivityDate)
     }
@@ -973,6 +1026,32 @@ export async function GET(req: NextRequest) {
         : coherentSteps > 0
           ? Math.round(coherentSteps * 0.04)
           : 0
+
+    /** Midnight–midnight local `today` — Activity page hero only (shift window can span nights). */
+    const civilHeroActivity = activityByDate.get(today) ?? {
+      steps: 0,
+      activeMinutes: null as number | null,
+      source: 'Manual entry',
+    }
+    const heroCivilIntensityBreakdown = calculateIntensityBreakdown(
+      null,
+      civilHeroActivity.steps,
+      civilHeroActivity.activeMinutes,
+      shiftType,
+    )
+    const heroCivilEstimatedCaloriesBurned =
+      civilHeroActivity.steps > 0 ? Math.round(civilHeroActivity.steps * 0.04) : 0
+    const heroCivilCalendarDay = {
+      ymd: today,
+      steps: civilHeroActivity.steps,
+      activeMinutes:
+        heroCivilIntensityBreakdown.totalActiveMinutes > 0
+          ? Math.round(heroCivilIntensityBreakdown.totalActiveMinutes)
+          : Math.max(0, Math.round(civilHeroActivity.activeMinutes ?? 0)),
+      intensityBreakdown: heroCivilIntensityBreakdown,
+      estimatedCaloriesBurned: heroCivilEstimatedCaloriesBurned,
+      source: civilHeroActivity.source,
+    }
 
     // Build daily data array for last 7 days
     for (let i = 6; i >= 0; i--) {
@@ -1207,12 +1286,26 @@ export async function GET(req: NextRequest) {
             return { timestamp: row.bucket_start_utc, steps, endTimestamp: row.bucket_end_utc ?? null }
           })
           .filter((row): row is { timestamp: string; steps: number; endTimestamp: string | null } => row != null)
-        const dayStartMs = startOfLocalDayUtcMs(today, activityIntelTimeZone)
-        const dayEndExclusiveMs = startOfLocalDayUtcMs(addCalendarDaysToYmd(today, 1), activityIntelTimeZone)
+        let movementClipStartMs = startOfLocalDayUtcMs(today, activityIntelTimeZone)
+        let movementClipEndExclusiveMs = startOfLocalDayUtcMs(
+          addCalendarDaysToYmd(today, 1),
+          activityIntelTimeZone,
+        )
+        if (shiftStart && shiftEnd) {
+          const span = movementAllocationWindowFromShiftInstants(
+            shiftStart,
+            shiftEnd,
+            activityIntelTimeZone,
+          )
+          if (span) {
+            movementClipStartMs = Math.min(movementClipStartMs, span.startMs)
+            movementClipEndExclusiveMs = Math.max(movementClipEndExclusiveMs, span.endExclusiveMs)
+          }
+        }
         const processed = processWearableStepSamplesForMovementCard({
           rawRows,
-          dayStartMs,
-          dayEndExclusiveMs,
+          dayStartMs: movementClipStartMs,
+          dayEndExclusiveMs: movementClipEndExclusiveMs,
           coherentStepsHint: coherentSteps,
         })
         stepSamples = processed.map((s) => ({
@@ -1227,7 +1320,10 @@ export async function GET(req: NextRequest) {
           tz: activityIntelTimeZone,
           shiftStart: shiftStart?.toISOString() ?? null,
           shiftEnd: shiftEnd?.toISOString() ?? null,
-          clip: { dayStart: new Date(dayStartMs).toISOString(), dayEndExclusive: new Date(dayEndExclusiveMs).toISOString() },
+          clip: {
+            dayStart: new Date(movementClipStartMs).toISOString(),
+            dayEndExclusive: new Date(movementClipEndExclusiveMs).toISOString(),
+          },
           queryRange: { stepSamplesStartIso, stepSamplesEndIso },
           rawBucketRows: rawRows.length,
           duplicateStartsInRaw: countDuplicateBucketStarts(mappedPre),
@@ -1265,6 +1361,8 @@ export async function GET(req: NextRequest) {
       // Shift timing
       shiftStart: shiftStart?.toISOString() ?? null,
       shiftEnd: shiftEnd?.toISOString() ?? null,
+      /** Inferred main-sleep start after roster end; caps “after shift” on the movement card. */
+      movementAfterShiftSleepWindowStartIso,
       // Recovery and Activity scores
       recoveryScore: recoveryScoreResult.score,
       recoveryLevel: recoveryScoreResult.level,
@@ -1285,6 +1383,7 @@ export async function GET(req: NextRequest) {
         lastTodayTotalsBreakdown ?? computeActivityTotalsBreakdown([]),
         process.env.NODE_ENV === 'development',
       ),
+      heroCivilCalendarDay,
     }
 
     return NextResponse.json({ activity: payload }, { status: 200, headers: ACTIVITY_TODAY_CACHE_HEADERS })
@@ -1332,6 +1431,7 @@ export async function GET(req: NextRequest) {
           },
           shiftStart: null,
           shiftEnd: null,
+          movementAfterShiftSleepWindowStartIso: null,
           recoveryScore: 50,
           recoveryLevel: 'Moderate',
           recoveryDescription: 'Recovery data not available. Log sleep to get personalized recovery insights.',
@@ -1364,6 +1464,19 @@ export async function GET(req: NextRequest) {
           stepsByHourAnchorStart: null,
           shiftStepsLast7Days: stubShiftStepsLast7Days(today),
           activityTotalsBreakdown: toPublicActivityTotalsBreakdown(computeActivityTotalsBreakdown([]), false),
+          heroCivilCalendarDay: {
+            ymd: today,
+            steps: 0,
+            activeMinutes: 0,
+            intensityBreakdown: {
+              light: { minutes: 0, target: 10 },
+              moderate: { minutes: 0, target: 15 },
+              vigorous: { minutes: 0, target: 5 },
+              totalActiveMinutes: 0,
+            },
+            estimatedCaloriesBurned: 0,
+            source: 'Not connected',
+          },
         },
       },
       { status: 200, headers: ACTIVITY_TODAY_CACHE_HEADERS },

@@ -141,6 +141,64 @@ function getShiftAdjustedTargetMinutes(baseTargetMinutes: number, shiftLabel: st
   }
 }
 
+/** After civil midnight, keep “Your plan” on yesterday until this long after yesterday’s suggested main sleep start. */
+const SLEEP_PLAN_SCOPE_PIN_MS = 3 * 60 * 60 * 1000
+
+/**
+ * Sessions fed into the sleep plan for a given civil `ymd`. Same rules as the former “today-only”
+ * picker: widen to prior days when the calendar row has no primary sleep (post–night shift).
+ */
+function pickPlanSessionsForCivilYmd(
+  ymd: string,
+  sevenDayCalendarDays: Array<{ date: string; totalMinutes: number; sessions?: SleepSession[] }>,
+  shiftedDays: ShiftedDay[],
+): SleepSession[] {
+  const fromWeek = sevenDayCalendarDays.find((d) => d.date === ymd)
+
+  const hasPrimary = (list: SleepSession[]) =>
+    list.some(
+      (s) =>
+        !!s?.start_at &&
+        !!s?.end_at &&
+        rowCountsAsPrimarySleep({ type: s.type }),
+    )
+
+  const dedupeSessions = (lists: SleepSession[][]) => {
+    const byKey = new Map<string, SleepSession>()
+    for (const list of lists) {
+      for (const s of list) {
+        if (!s?.start_at || !s?.end_at) continue
+        const key =
+          s.id != null && String(s.id).trim() !== '' ? String(s.id) : `${s.start_at}|${s.end_at}`
+        byKey.set(key, s)
+      }
+    }
+    return [...byKey.values()]
+  }
+
+  if (sevenDayCalendarDays.length > 0) {
+    const todaySess = fromWeek !== undefined ? (fromWeek.sessions ?? []) : []
+    if (hasPrimary(todaySess)) return todaySess
+
+    const y1 = addCalendarDaysToYmd(ymd, -1)
+    const y2 = addCalendarDaysToYmd(ymd, -2)
+    const row1 = sevenDayCalendarDays.find((d) => d.date === y1)
+    const row2 = sevenDayCalendarDays.find((d) => d.date === y2)
+    const mergedBack = dedupeSessions([row2?.sessions ?? [], row1?.sessions ?? [], todaySess])
+    if (hasPrimary(mergedBack)) return mergedBack
+
+    const allWeek = sevenDayCalendarDays.flatMap((d) => d.sessions ?? [])
+    const allShifted = shiftedDays.flatMap((d) => d.sessions ?? [])
+    const wide = dedupeSessions([allShifted, allWeek])
+    if (hasPrimary(wide)) return wide
+
+    return mergedBack.length > 0 ? mergedBack : todaySess
+  }
+
+  const shifted = shiftedDays.find((d) => d.date === ymd)
+  return shifted?.sessions ?? []
+}
+
 export function ShiftWorkerSleepPage() {
   const router = useRouter()
   const { t } = useTranslation()
@@ -177,6 +235,8 @@ export function ShiftWorkerSleepPage() {
   /** Profile `tz` when set — matches onboarding wall times better than browser default. */
   const [profileTimeZone, setProfileTimeZone] = useState<string | null>(null)
   const [hcSleepHint, setHcSleepHint] = useState<'perm' | 'no_records' | null>(null)
+  /** Bumps every minute so the pinned “Your plan” scope can roll forward at sleepStart + 3h. */
+  const [sleepPlanClockTick, setSleepPlanClockTick] = useState(0)
 
   const selectedDayRef = useRef<string | null>(null)
   useEffect(() => {
@@ -447,70 +507,23 @@ export function ShiftWorkerSleepPage() {
     }
   }, [shiftedDays, loading])
 
-  /** Local civil "today" for charts and for the Your plan tab (today-only plan). */
+  /** Civil “today” in sleep-plan TZ — overview chart highlight (pinned plan may stay on prior day). */
   const chartHighlightYmd = useMemo(
     () => formatYmdInTimeZone(new Date(), sleepPlanTimeZone),
     [sleepPlanTimeZone],
   )
 
-  /**
-   * Sessions fed into the sleep plan. Civil "today" alone often misses post-shift sleep for night
-   * workers (main sleep ended yesterday on the calendar while they are still on the rest window).
-   */
-  const planSessionsForToday = useMemo(() => {
-    const ymd = chartHighlightYmd
-    const fromWeek = sevenDayCalendarDays.find((d) => d.date === ymd)
+  const yesterdayPlanAnchorYmd = useMemo(
+    () => addCalendarDaysToYmd(chartHighlightYmd, -1),
+    [chartHighlightYmd],
+  )
 
-    const hasPrimary = (list: SleepSession[]) =>
-      list.some(
-        (s) =>
-          !!s?.start_at &&
-          !!s?.end_at &&
-          rowCountsAsPrimarySleep({ type: s.type }),
-      )
-
-    const dedupeSessions = (lists: SleepSession[][]) => {
-      const byKey = new Map<string, SleepSession>()
-      for (const list of lists) {
-        for (const s of list) {
-          if (!s?.start_at || !s?.end_at) continue
-          const key =
-            s.id != null && String(s.id).trim() !== '' ? String(s.id) : `${s.start_at}|${s.end_at}`
-          byKey.set(key, s)
-        }
-      }
-      return [...byKey.values()]
-    }
-
-    if (sevenDayCalendarDays.length > 0) {
-      const todaySess = fromWeek !== undefined ? (fromWeek.sessions ?? []) : []
-      if (hasPrimary(todaySess)) return todaySess
-
-      const y1 = addCalendarDaysToYmd(ymd, -1)
-      const y2 = addCalendarDaysToYmd(ymd, -2)
-      const row1 = sevenDayCalendarDays.find((d) => d.date === y1)
-      const row2 = sevenDayCalendarDays.find((d) => d.date === y2)
-      const mergedBack = dedupeSessions([row2?.sessions ?? [], row1?.sessions ?? [], todaySess])
-      if (hasPrimary(mergedBack)) return mergedBack
-
-      const allWeek = sevenDayCalendarDays.flatMap((d) => d.sessions ?? [])
-      const allShifted = shiftedDays.flatMap((d) => d.sessions ?? [])
-      const wide = dedupeSessions([allShifted, allWeek])
-      if (hasPrimary(wide)) return wide
-
-      return mergedBack.length > 0 ? mergedBack : todaySess
-    }
-
-    const shifted = shiftedDays.find((d) => d.date === ymd)
-    return shifted?.sessions ?? []
-  }, [sevenDayCalendarDays, shiftedDays, chartHighlightYmd])
-
-  const planTargetSleepMinutes = useMemo(() => {
-    const base = sleepGoalHours
-      ? Math.round(sleepGoalHours * 60)
-      : Math.round(DEFAULT_TARGET_SLEEP_H * 60)
-    return getShiftAdjustedTargetMinutes(base, shiftByDate.get(chartHighlightYmd) || 'OFF')
-  }, [sleepGoalHours, shiftByDate, chartHighlightYmd])
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setSleepPlanClockTick((n) => n + 1)
+    }, 60_000)
+    return () => window.clearInterval(id)
+  }, [])
 
   /** Hero shows full latest primary sleep; calendar-day `durationHours` slices under-count overnight sleep. */
   const lastSleepHero = useMemo(() => {
@@ -773,86 +786,148 @@ export function ShiftWorkerSleepPage() {
     sleepDebtMinutes,
   })
 
-  const sleepPlanPayload = useMemo(() => {
-    const sessionLikesBase = planSessionsForToday.map((s) => ({
-      start_at: s.start_at,
-      end_at: s.end_at,
-      type: s.type,
-    }))
-    const rosterLab = String(shiftByDate.get(chartHighlightYmd) ?? '').toUpperCase()
-    const rosterNightOnScope =
-      rosterLab.includes('NIGHT') || toShiftType(shiftByDate.get(chartHighlightYmd), null) === 'night'
-    const rawCommute =
-      typeof planCommuteMinutes === 'number' && Number.isFinite(planCommuteMinutes) && planCommuteMinutes > 0
-        ? Math.round(planCommuteMinutes)
-        : 25
-    const forwardPreview = buildForwardPostNightPreviewSession({
-      scopeYmd: chartHighlightYmd,
-      shifts: shiftPlanRows,
-      timeZone: sleepPlanTimeZone,
-      nowMs: Date.now(),
-      commuteMinutes: rawCommute,
-      targetSleepMinutes: planTargetSleepMinutes,
-      rosterNightOnScope,
-      existingSessionLikes: sessionLikesBase,
-    })
-    const sessionLikes = forwardPreview ? [forwardPreview, ...sessionLikesBase] : sessionLikesBase
-    const rota = resolveRotaContextForSleepPlan(sessionLikes, shiftPlanRows, {
-      commuteMinutes: planCommuteMinutes,
-      timeZone: sleepPlanTimeZone,
-      postNightSleepRaw,
-    })
-    if (rota.state !== 'ok') {
-      return { rota, plan: null as ReturnType<typeof computeNightShiftSleepPlan> | null }
-    }
-    const forcedLatestWakeMs = forcedLatestWakeBeforeTonightsNight(
-      rota.primarySleep.endMs,
-      chartHighlightYmd,
+  const computeSleepPlanForScope = useCallback(
+    (scopeYmd: string, sessions: SleepSession[], targetSleepMinutes: number) => {
+      const sessionLikesBase = sessions.map((s) => ({
+        start_at: s.start_at,
+        end_at: s.end_at,
+        type: s.type,
+      }))
+      const rosterLab = String(shiftByDate.get(scopeYmd) ?? '').toUpperCase()
+      const rosterNightOnScope =
+        rosterLab.includes('NIGHT') || toShiftType(shiftByDate.get(scopeYmd), null) === 'night'
+      const rawCommute =
+        typeof planCommuteMinutes === 'number' && Number.isFinite(planCommuteMinutes) && planCommuteMinutes > 0
+          ? Math.round(planCommuteMinutes)
+          : 25
+      const forwardPreview = buildForwardPostNightPreviewSession({
+        scopeYmd,
+        shifts: shiftPlanRows,
+        timeZone: sleepPlanTimeZone,
+        nowMs: Date.now(),
+        commuteMinutes: rawCommute,
+        targetSleepMinutes,
+        rosterNightOnScope,
+        existingSessionLikes: sessionLikesBase,
+      })
+      const sessionLikes = forwardPreview ? [forwardPreview, ...sessionLikesBase] : sessionLikesBase
+      const rota = resolveRotaContextForSleepPlan(sessionLikes, shiftPlanRows, {
+        commuteMinutes: planCommuteMinutes,
+        timeZone: sleepPlanTimeZone,
+        postNightSleepRaw,
+      })
+      if (rota.state !== 'ok') {
+        return { rota, plan: null as ReturnType<typeof computeNightShiftSleepPlan> | null }
+      }
+      const forcedLatestWakeMs = forcedLatestWakeBeforeTonightsNight(
+        rota.primarySleep.endMs,
+        scopeYmd,
+        shiftPlanRows,
+        planCommuteMinutes,
+        sleepPlanTimeZone,
+      )
+      const postNightPreferredStartUtcMs = resolvePostNightPreferredStartForSleepPlan({
+        shiftJustEnded: rota.shiftJustEnded,
+        restAnchorSynthetic: rota.restAnchorSynthetic,
+        chartHighlightYmd: scopeYmd,
+        postNightSleepRaw,
+        timeZone: sleepPlanTimeZone,
+      })
+      const plan = computeNightShiftSleepPlan({
+        shiftJustEnded: rota.shiftJustEnded,
+        nextShift: rota.nextShift,
+        commuteMinutes: rota.commuteMinutes,
+        targetSleepMinutes,
+        caffeineSensitivity: planCaffeineSensitivity,
+        loggedMainSleep: rota.primarySleep,
+        loggedNaps: rota.loggedNaps,
+        timeZone: sleepPlanTimeZone,
+        restAnchorSynthetic: rota.restAnchorSynthetic,
+        sleepDebtMinutes: sleepDebtMinutes ?? undefined,
+        forcedLatestWakeMs,
+        postNightPreferredStartUtcMs,
+        postNightSleepRaw: coercePostNightSleepString(postNightSleepRaw ?? null),
+      })
+      return { rota, plan }
+    },
+    [
       shiftPlanRows,
       planCommuteMinutes,
+      planCaffeineSensitivity,
       sleepPlanTimeZone,
-    )
-    /**
-     * Post-night suggested start hierarchy: (1) rota picks `shiftJustEnded`; (2) if night-like,
-     * profile `post_night_sleep` → UTC instant after that shift’s end (not inferred from sleep logs);
-     * (3) commute + wind-down can push later inside `computeNightShiftSleepPlan`; (4) scope-day
-     * fallback only when duty-relative resolve is unavailable.
-     */
-    const postNightPreferredStartUtcMs = resolvePostNightPreferredStartForSleepPlan({
-      shiftJustEnded: rota.shiftJustEnded,
-      restAnchorSynthetic: rota.restAnchorSynthetic,
-      chartHighlightYmd,
+      sleepDebtMinutes,
       postNightSleepRaw,
-      timeZone: sleepPlanTimeZone,
-    })
-    const plan = computeNightShiftSleepPlan({
-      shiftJustEnded: rota.shiftJustEnded,
-      nextShift: rota.nextShift,
-      commuteMinutes: rota.commuteMinutes,
-      targetSleepMinutes: planTargetSleepMinutes,
-      caffeineSensitivity: planCaffeineSensitivity,
-      loggedMainSleep: rota.primarySleep,
-      loggedNaps: rota.loggedNaps,
-      timeZone: sleepPlanTimeZone,
-      restAnchorSynthetic: rota.restAnchorSynthetic,
-      sleepDebtMinutes: sleepDebtMinutes ?? undefined,
-      forcedLatestWakeMs,
-      postNightPreferredStartUtcMs,
-      postNightSleepRaw: coercePostNightSleepString(postNightSleepRaw ?? null),
-    })
-    return { rota, plan }
+      shiftByDate,
+    ],
+  )
+
+  const planSessionsYesterday = useMemo(
+    () => pickPlanSessionsForCivilYmd(yesterdayPlanAnchorYmd, sevenDayCalendarDays, shiftedDays),
+    [yesterdayPlanAnchorYmd, sevenDayCalendarDays, shiftedDays],
+  )
+
+  const planTargetYesterdayMinutes = useMemo(() => {
+    const base = sleepGoalHours
+      ? Math.round(sleepGoalHours * 60)
+      : Math.round(DEFAULT_TARGET_SLEEP_H * 60)
+    return getShiftAdjustedTargetMinutes(base, shiftByDate.get(yesterdayPlanAnchorYmd) || 'OFF')
+  }, [sleepGoalHours, shiftByDate, yesterdayPlanAnchorYmd])
+
+  const yesterdaySleepPlanPayload = useMemo(
+    () =>
+      computeSleepPlanForScope(
+        yesterdayPlanAnchorYmd,
+        planSessionsYesterday,
+        planTargetYesterdayMinutes,
+      ),
+    [
+      computeSleepPlanForScope,
+      yesterdayPlanAnchorYmd,
+      planSessionsYesterday,
+      planTargetYesterdayMinutes,
+    ],
+  )
+
+  const sleepPlanScopeYmd = useMemo(() => {
+    void sleepPlanClockTick
+    const p = yesterdaySleepPlanPayload.plan
+    if (
+      p?.ok &&
+      p.suggestedSleepStartMs != null &&
+      Number.isFinite(p.suggestedSleepStartMs) &&
+      Date.now() < p.suggestedSleepStartMs + SLEEP_PLAN_SCOPE_PIN_MS
+    ) {
+      return yesterdayPlanAnchorYmd
+    }
+    return chartHighlightYmd
   }, [
-    planSessionsForToday,
-    shiftPlanRows,
-    planCommuteMinutes,
-    planCaffeineSensitivity,
-    planTargetSleepMinutes,
-    sleepPlanTimeZone,
-    sleepDebtMinutes,
     chartHighlightYmd,
-    postNightSleepRaw,
-    shiftByDate,
+    yesterdayPlanAnchorYmd,
+    yesterdaySleepPlanPayload,
+    sleepPlanClockTick,
   ])
+
+  const planSessionsForSleepPlan = useMemo(
+    () => pickPlanSessionsForCivilYmd(sleepPlanScopeYmd, sevenDayCalendarDays, shiftedDays),
+    [sleepPlanScopeYmd, sevenDayCalendarDays, shiftedDays],
+  )
+
+  const planTargetSleepMinutes = useMemo(() => {
+    const base = sleepGoalHours
+      ? Math.round(sleepGoalHours * 60)
+      : Math.round(DEFAULT_TARGET_SLEEP_H * 60)
+    return getShiftAdjustedTargetMinutes(base, shiftByDate.get(sleepPlanScopeYmd) || 'OFF')
+  }, [sleepGoalHours, shiftByDate, sleepPlanScopeYmd])
+
+  const sleepPlanPayload = useMemo(
+    () =>
+      computeSleepPlanForScope(
+        sleepPlanScopeYmd,
+        planSessionsForSleepPlan,
+        planTargetSleepMinutes,
+      ),
+    [computeSleepPlanForScope, sleepPlanScopeYmd, planSessionsForSleepPlan, planTargetSleepMinutes],
+  )
 
   // Show loading state
   if (loading && shiftedDays.length === 0) {
@@ -912,7 +987,7 @@ export function ShiftWorkerSleepPage() {
             <section className="rounded-xl border border-sky-200/60 bg-gradient-to-b from-sky-50 via-white to-slate-50/90 px-5 py-5 shadow-sm dark:border-slate-700/80 dark:from-slate-900/70 dark:via-[var(--card)] dark:to-slate-950/60">
               <h2 className="text-xl font-bold tracking-tight text-[var(--text-main)]">{t('sleepPlan.title')}</h2>
               <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                {t('sleepPlan.scopeLine', { ymd: chartHighlightYmd })}
+                {t('sleepPlan.scopeLine', { ymd: sleepPlanScopeYmd })}
               </p>
               <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
                 {sleepPlanPayload.rota.reason === 'no_main_sleep'
@@ -925,7 +1000,7 @@ export function ShiftWorkerSleepPage() {
           ) : sleepPlanPayload.plan ? (
             <SuggestedSleepPlanCard
               timeZone={sleepPlanTimeZone}
-              todayYmd={chartHighlightYmd}
+              todayYmd={sleepPlanScopeYmd}
               rota={sleepPlanPayload.rota}
               plan={sleepPlanPayload.plan}
               targetSleepMinutes={planTargetSleepMinutes}

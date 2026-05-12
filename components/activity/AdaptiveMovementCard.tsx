@@ -5,12 +5,13 @@ import { estimateStepsByHourCivil, getLocalHourFromIso } from "@/lib/activity/bu
 import {
   addCalendarDaysToYmd,
   formatYmdInTimeZone,
+  movementAllocationWindowFromShiftInstants,
   startOfLocalDayUtcMs,
 } from "@/lib/sleep/utils";
 import {
+  allocateStepsAcrossRosterShiftBoundaries,
   allocateStepsAcrossWindows,
   recoveryDayMovementWindows,
-  shiftDayMovementWindows,
 } from "@/lib/activity/normalizeWearableStepSamplesForMovement";
 
 type DayType = "shift" | "recovery" | "day_off";
@@ -294,6 +295,8 @@ export function buildAdaptiveMovementData({
   activityDateYmd,
   coherentStepsFallback,
   nowForDistribution,
+  /** From `/api/activity/today`: end of “after shift” segment (main sleep window start). */
+  movementAfterShiftSleepWindowStartIso,
 }: {
   samples: StepSample[];
   dayType: DayType;
@@ -311,6 +314,7 @@ export function buildAdaptiveMovementData({
   /** Last resort when both samples and hourly are empty but activity total is known from logs. */
   coherentStepsFallback?: number | null;
   nowForDistribution?: Date;
+  movementAfterShiftSleepWindowStartIso?: string | null;
 }): AdaptiveMovementData {
   if (dayType === "shift") {
     if (!shift) {
@@ -344,25 +348,62 @@ export function buildAdaptiveMovementData({
         ? activityDateYmd.trim()
         : null;
 
-    if (samples.length > 0 && tzTrim != null && ymdForClip != null) {
-      const d0 = startOfLocalDayUtcMs(ymdForClip, tzTrim);
-      const d1 = startOfLocalDayUtcMs(addCalendarDaysToYmd(ymdForClip, 1), tzTrim);
-      const windows = shiftDayMovementWindows(d0, d1, shiftStart, shiftEnd);
-      const alloc = allocateStepsAcrossWindows(samples, windows);
-      before = Math.max(0, Math.round(alloc.before ?? 0));
-      during = Math.max(0, Math.round(alloc.during ?? 0));
-      after = Math.max(0, Math.round(alloc.after ?? 0));
-      if (process.env.NODE_ENV === "development") {
-        console.info("[movement-steps]", {
-          source: "client",
-          cache: "buildAdaptiveMovementData",
-          mode: "shift",
-          ymd: ymdForClip,
-          tz: tzTrim,
-          windows,
-          sampleBuckets: samples.length,
-          alloc,
-        });
+    if (samples.length > 0 && tzTrim != null) {
+      const shiftSpan = movementAllocationWindowFromShiftInstants(
+        new Date(shift.start),
+        new Date(shift.end),
+        tzTrim,
+      );
+
+      const d0 =
+        shiftSpan != null
+          ? shiftSpan.startMs
+          : ymdForClip != null
+            ? startOfLocalDayUtcMs(ymdForClip, tzTrim)
+            : NaN;
+      const d1 =
+        shiftSpan != null
+          ? shiftSpan.endExclusiveMs
+          : ymdForClip != null
+            ? startOfLocalDayUtcMs(addCalendarDaysToYmd(ymdForClip, 1), tzTrim)
+            : NaN;
+
+      if (Number.isFinite(d0) && Number.isFinite(d1) && Number.isFinite(shiftStart) && Number.isFinite(shiftEnd)) {
+        const capRaw =
+          typeof movementAfterShiftSleepWindowStartIso === "string"
+            ? movementAfterShiftSleepWindowStartIso.trim()
+            : "";
+        const capMs = capRaw ? Date.parse(capRaw) : NaN;
+        const afterSegmentEndExclusiveMs =
+          Number.isFinite(capMs) && capMs > shiftEnd ? capMs : undefined;
+        const alloc = allocateStepsAcrossRosterShiftBoundaries(
+          samples,
+          d0,
+          d1,
+          shiftStart,
+          shiftEnd,
+          afterSegmentEndExclusiveMs,
+        );
+        before = Math.max(0, Math.round(alloc.before ?? 0));
+        during = Math.max(0, Math.round(alloc.during ?? 0));
+        after = Math.max(0, Math.round(alloc.after ?? 0));
+        if (process.env.NODE_ENV === "development") {
+          console.info("[movement-steps]", {
+            source: "client",
+            cache: "buildAdaptiveMovementData",
+            mode: "shift",
+            ymd: ymdForClip,
+            tz: tzTrim,
+            rosterSplit: {
+              clip: [d0, d1],
+              rosterStart: shiftStart,
+              rosterEnd: shiftEnd,
+              afterUntilExclusive: afterSegmentEndExclusiveMs ?? null,
+            },
+            sampleBuckets: samples.length,
+            alloc,
+          });
+        }
       }
     } else if (samples.length > 0) {
       for (const sample of samples) {

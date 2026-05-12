@@ -105,4 +105,29 @@ describe('buildAdaptiveMovementData shift fallbacks (no step samples)', () => {
     expect(r.segments.before + r.segments.during + r.segments.after).toBe(5000)
     expect(r.segments.during).toBe(5000)
   })
+
+  it('uses full overnight span for 15m samples when civil activityDateYmd is already the next calendar day', () => {
+    const shift = {
+      start: '2026-05-09T18:00:00.000Z',
+      end: '2026-05-10T06:00:00.000Z',
+      type: 'night' as const,
+    }
+    const samples = [
+      { timestamp: '2026-05-09T22:30:00.000Z', steps: 2000, endTimestamp: '2026-05-09T22:45:00.000Z' },
+      { timestamp: '2026-05-10T01:00:00.000Z', steps: 1500, endTimestamp: '2026-05-10T01:15:00.000Z' },
+    ]
+    const r = buildAdaptiveMovementData({
+      samples,
+      dayType: 'shift',
+      shift,
+      activityTimeZone: 'UTC',
+      activityDateYmd: '2026-05-10',
+      coherentStepsFallback: null,
+      nowForDistribution: new Date('2026-05-10T02:00:00Z'),
+    })
+    expect(r.mode).toBe('shift')
+    if (r.mode !== 'shift') return
+    expect(r.totalSteps).toBe(3500)
+    expect(r.segments.during).toBe(3500)
+  })
 })
