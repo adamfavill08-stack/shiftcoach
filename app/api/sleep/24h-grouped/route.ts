@@ -12,6 +12,7 @@ import { getShiftedDayKey, minutesBetween, rowCountsAsPrimarySleep } from '@/lib
 import type { SleepType } from '@/lib/sleep/types'
 import {
   fetchMergedPhoneHealthSleepSessionsOverlapping,
+  fetchSleepLogsOverlappingRangeMerged,
   sleepIntervalsOverlapIso,
 } from '@/lib/sleep/sleepRecordsSummaryFallback'
 
@@ -118,67 +119,23 @@ export async function GET(req: NextRequest) {
     const sqlUpperBound = new Date(winEnd)
     sqlUpperBound.setUTCDate(sqlUpperBound.getUTCDate() + 2)
 
-    const fullSelect =
-      'id, start_at, end_at, start_ts, end_ts, type, quality, notes, source, created_at'
+    const [mergedRaw, mergedHc] = await Promise.all([
+      fetchSleepLogsOverlappingRangeMerged(
+        supabase,
+        userId,
+        sqlLowerBound.toISOString(),
+        sqlUpperBound.toISOString(),
+        { limit: 800, slimColumns: false },
+      ),
+      fetchMergedPhoneHealthSleepSessionsOverlapping(
+        supabase,
+        userId,
+        sqlLowerBound.toISOString(),
+        sqlUpperBound.toISOString(),
+      ),
+    ])
 
-    async function fetchRows(opts: { withDeletedNull: boolean; columns: string }) {
-      let q = supabase
-        .from('sleep_logs')
-        .select(opts.columns)
-        .eq('user_id', userId)
-        // Loose overlap: session intersects [sqlLowerBound, sqlUpperBound]; tighten to win* in JS.
-        .not('start_at', 'is', null)
-        .not('end_at', 'is', null)
-        .gte('end_at', sqlLowerBound.toISOString())
-        .lte('start_at', sqlUpperBound.toISOString())
-        .order('start_at', { ascending: false })
-        .limit(800)
-      if (opts.withDeletedNull) q = q.is('deleted_at', null)
-      return q
-    }
-
-    let r = await fetchRows({ withDeletedNull: true, columns: fullSelect })
-    let rows: any[] | null = r.data as any[] | null
-    let error = r.error
-
-    const deletedBroken =
-      !!error &&
-      (error.code === 'PGRST204' ||
-        error.code === '42703' ||
-        (error.message ?? '').toLowerCase().includes('deleted_at') ||
-        (error.message ?? '').includes('does not exist'))
-
-    if (deletedBroken) {
-      r = await fetchRows({ withDeletedNull: false, columns: fullSelect })
-      rows = r.data as any[] | null
-      error = r.error
-    }
-
-    const columnBroken =
-      !!error &&
-      ((error.message ?? '').includes('column') || error.code === 'PGRST204' || error.code === '42703')
-
-    if (columnBroken) {
-      const r3 = await supabase
-        .from('sleep_logs')
-        .select('id, start_at, end_at, type, quality, notes, source, created_at')
-        .eq('user_id', userId)
-        .not('start_at', 'is', null)
-        .not('end_at', 'is', null)
-        .gte('end_at', sqlLowerBound.toISOString())
-        .lte('start_at', sqlUpperBound.toISOString())
-        .order('start_at', { ascending: false })
-        .limit(800)
-      rows = r3.data as any[] | null
-      error = r3.error
-    }
-
-    if (error) {
-      console.error('[api/sleep/24h-grouped] Query error:', error)
-      return NextResponse.json({ days: [], currentShiftedDay: getShiftedDayKey(now, 7, timeZone) }, { status: 200 })
-    }
-
-    const normalized = (rows ?? []).map(normalizeTimestamps).filter((s: any) => s.start_at && s.end_at)
+    const normalized = mergedRaw.map(normalizeTimestamps).filter((s: any) => s.start_at && s.end_at)
 
     const inWindow = normalized.filter((s: any) =>
       sessionOverlapsWindow(s.start_at, s.end_at, winStart, winEnd),
@@ -189,12 +146,6 @@ export async function GET(req: NextRequest) {
     )
 
     /** Health Connect writes `sleep_records`; merge sessions that do not overlap a logged primary in `sleep_logs`. */
-    const mergedHc = await fetchMergedPhoneHealthSleepSessionsOverlapping(
-      supabase,
-      userId,
-      sqlLowerBound.toISOString(),
-      sqlUpperBound.toISOString(),
-    )
     const hcSynthetic = mergedHc
       .filter((m) => sessionOverlapsWindow(m.start_at, m.end_at, winStart, winEnd))
       .filter(
@@ -231,7 +182,7 @@ export async function GET(req: NextRequest) {
 
     if (process.env.NODE_ENV === 'development') {
       console.log('[api/sleep/24h-grouped]', {
-        rawRows: rows?.length ?? 0,
+        rawRows: mergedRaw.length,
         normalized: normalized.length,
         inWindow: inWindow.length,
         primaryInWindow: primaryInWindow.length,

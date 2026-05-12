@@ -62,7 +62,7 @@ export const sleepUiWorldDe: Record<string, string> = {
   'sleepSW.last30Title': 'Letzte 30 Tage',
   'sleepSW.last30Sub':
     'Wähle einen Tag, um zu sehen, ob dein Schlaf für diese Schicht ausreichte – basierend auf deinem Profil.',
-  'sleepSW.editLogs': 'Schlaf erfassen',
+  'sleepSW.editLogs': 'Log bearbeiten',
   'sleepSW.totalSleepShiftedDay': 'Gesamtschlaf an diesem Schicht-Tag',
   'sleepSW.historyEmpty':
     'Noch kein Schlafverlauf in den letzten 30 Tagen. Erfasse Schlaf, um Hinweise zu erhalten.',
@@ -111,7 +111,7 @@ export const sleepUiWorldDe: Record<string, string> = {
   'sleepCard.btnSyncNow': 'Jetzt synchronisieren',
   'sleepCard.btnLogSleep': 'Schlaf erfassen',
   'sleepCard.btnAddSleep': 'Schlaf hinzufügen',
-  'sleepCard.btnEditLogs': 'Schlaf erfassen',
+  'sleepCard.btnEditLogs': 'Log bearbeiten',
   'sleepCard.btnLogManually': 'Manuell erfassen',
   'sleepCard.btnEditToday': 'Schlaf bearbeiten',
   'sleepCard.hl.logPostShift': 'Schlaf nach der Schicht erfassen',
@@ -437,7 +437,7 @@ export const sleepUiWorldFr: Record<string, string> = {
   'sleepSW.last30Title': '30 derniers jours',
   'sleepSW.last30Sub':
     'Choisissez un jour pour voir si votre sommeil suffisait pour cette garde, selon votre profil.',
-  'sleepSW.editLogs': 'Enregistrer le sommeil',
+  'sleepSW.editLogs': 'Modifier le journal',
   'sleepSW.totalSleepShiftedDay': 'Sommeil total ce jour décalé',
   'sleepSW.historyEmpty':
     'Pas encore d’historique sur les 30 derniers jours. Commencez à enregistrer pour obtenir des conseils.',
@@ -486,7 +486,7 @@ export const sleepUiWorldFr: Record<string, string> = {
   'sleepCard.btnSyncNow': 'Synchroniser',
   'sleepCard.btnLogSleep': 'Enregistrer le sommeil',
   'sleepCard.btnAddSleep': 'Ajouter du sommeil',
-  'sleepCard.btnEditLogs': 'Enregistrer le sommeil',
+  'sleepCard.btnEditLogs': 'Modifier le journal',
   'sleepCard.btnLogManually': 'Saisie manuelle',
   'sleepCard.btnEditToday': 'Modifier le sommeil',
   'sleepCard.hl.logPostShift': 'Enregistrer le sommeil après la garde',
@@ -811,7 +811,7 @@ export const sleepUiWorldPl: Record<string, string> = {
   'sleepSW.last30Title': 'Ostatnie 30 dni',
   'sleepSW.last30Sub':
     'Wybierz dzień, by sprawdzić, czy sen wystarczył na tę zmianę — wg profilu.',
-  'sleepSW.editLogs': 'Zapisz sen',
+  'sleepSW.editLogs': 'Edytuj dziennik',
   'sleepSW.totalSleepShiftedDay': 'Łączny sen w ten dzień zmianowy',
   'sleepSW.historyEmpty':
     'Brak historii snu z ostatnich 30 dni. Zacznij logować, by uzyskać wskazówki.',
@@ -860,7 +860,7 @@ export const sleepUiWorldPl: Record<string, string> = {
   'sleepCard.btnSyncNow': 'Synchronizuj teraz',
   'sleepCard.btnLogSleep': 'Zapisz sen',
   'sleepCard.btnAddSleep': 'Dodaj sen',
-  'sleepCard.btnEditLogs': 'Zapisz sen',
+  'sleepCard.btnEditLogs': 'Edytuj dziennik',
   'sleepCard.btnLogManually': 'Zapisz ręcznie',
   'sleepCard.btnEditToday': 'Edytuj sen',
   'sleepCard.hl.logPostShift': 'Zapisz sen po zmianie',
@@ -1185,7 +1185,7 @@ export const sleepUiWorldPtBR: Record<string, string> = {
   'sleepSW.last30Title': 'Últimos 30 dias',
   'sleepSW.last30Sub':
     'Escolha um dia para ver se o sono foi suficiente para aquele turno, com base no seu perfil.',
-  'sleepSW.editLogs': 'Registrar sono',
+  'sleepSW.editLogs': 'Editar registro',
   'sleepSW.totalSleepShiftedDay': 'Sono total naquele dia do turno',
   'sleepSW.historyEmpty':
     'Ainda sem histórico de sono nos últimos 30 dias. Comece a registrar para ver orientações.',
@@ -1234,7 +1234,7 @@ export const sleepUiWorldPtBR: Record<string, string> = {
   'sleepCard.btnSyncNow': 'Sincronizar agora',
   'sleepCard.btnLogSleep': 'Registrar sono',
   'sleepCard.btnAddSleep': 'Adicionar sono',
-  'sleepCard.btnEditLogs': 'Registrar sono',
+  'sleepCard.btnEditLogs': 'Editar registro',
   'sleepCard.btnLogManually': 'Registrar manualmente',
   'sleepCard.btnEditToday': 'Editar sono',
   'sleepCard.hl.logPostShift': 'Registrar sono pós-turno',

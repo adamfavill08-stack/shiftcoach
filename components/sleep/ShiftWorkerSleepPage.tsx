@@ -252,11 +252,17 @@ export function ShiftWorkerSleepPage() {
 
   // Fetch shifted day sleep data
   const fetchShiftedDays = useCallback(async (isInitial = false) => {
+    const controller = new AbortController()
+    const slowTimer = window.setTimeout(() => controller.abort(), 22_000)
     try {
       if (isInitial) setLoading(true)
       const tz = encodeURIComponent(userTimeZone)
-      const res = await authedFetch(`/api/sleep/24h-grouped?days=14&tz=${tz}`, { cache: 'no-store' })
-      
+      /** 7 shifted buckets keeps the handler fast; 7-day chart still loads from `/api/sleep/7days`. */
+      const res = await authedFetch(`/api/sleep/24h-grouped?days=7&tz=${tz}`, {
+        cache: 'no-store',
+        signal: controller.signal,
+      })
+
       if (!res.ok) {
         console.error('[ShiftWorkerSleepPage] Failed to fetch:', res.status)
         setShiftedDays([])
@@ -273,9 +279,14 @@ export function ShiftWorkerSleepPage() {
       )
       if (picked) setSelectedDay(picked)
     } catch (err) {
-      console.error('[ShiftWorkerSleepPage] Error:', err)
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        console.warn('[ShiftWorkerSleepPage] 24h-grouped fetch aborted (timeout)')
+      } else {
+        console.error('[ShiftWorkerSleepPage] Error:', err)
+      }
       setShiftedDays([])
     } finally {
+      window.clearTimeout(slowTimer)
       if (isInitial) setLoading(false)
     }
   }, [userTimeZone])
@@ -929,16 +940,7 @@ export function ShiftWorkerSleepPage() {
     [computeSleepPlanForScope, sleepPlanScopeYmd, planSessionsForSleepPlan, planTargetSleepMinutes],
   )
 
-  // Show loading state
-  if (loading && shiftedDays.length === 0) {
-    return (
-      <div className="w-full max-w-md mx-auto px-4 py-6">
-        <div className="text-center py-12">
-          <p className="text-sm text-slate-500">{t('sleepSW.loading')}</p>
-        </div>
-      </div>
-    )
-  }
+  const sleepListLoading = loading && shiftedDays.length === 0
 
   return (
     <div className="w-full max-w-md mx-auto px-4 py-6 space-y-6">
@@ -955,6 +957,12 @@ export function ShiftWorkerSleepPage() {
           {t('sleepSW.pageTitle')}
         </h1>
       </div>
+
+      {sleepListLoading ? (
+        <p className="rounded-lg border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2 text-xs text-[var(--text-muted)]">
+          {t('sleepSW.loading')}
+        </p>
+      ) : null}
 
       <div className="flex rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] p-0.5 text-xs font-medium">
         <button
