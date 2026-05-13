@@ -161,10 +161,15 @@ const messages: Record<string, string> = {
     'splash.imageAlt': 'Group of shift workers',
 
     'auth.tagline': 'Dedicated to shift worker health and wellbeing.',
-    'auth.welcome.taglineTop': 'shift worker wellness tracking',
-    'auth.welcome.taglineBottom': 'made easy',
-    'auth.welcome.ctaNew': "I'm new, sign me up",
+    'auth.welcome.headline': 'Welcome to ShiftCoach',
+    'auth.welcome.titleLine1': 'Built for',
+    'auth.welcome.titleLine2': 'shift workers',
+    'auth.welcome.subtitle':
+      'Personalized health guidance,\nsmart timing, and daily support\nthat fits your schedule.',
+    'auth.welcome.ctaNew': 'Get Started',
     'auth.welcome.ctaMember': "I'm already a member",
+    'auth.welcome.footerPrompt': 'Already have an account?',
+    'auth.welcome.footerLogIn': 'Log In',
     'auth.signIn.title': 'Welcome',
     'auth.signIn.subtitle': 'Sign in to continue your plan.',
     'auth.signIn.email': 'Email',

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { authedFetch } from '@/lib/supabase/authedFetch'
 import type { IntensityBreakdown } from '@/lib/activity/calculateIntensityBreakdown'
 import type { ShiftMovementPlan } from '@/lib/activity/generateShiftMovementPlan'
@@ -232,16 +232,57 @@ const fallback: ActivityToday = {
   nextCoachMessage: 'Add a short walk before your shift to balance today better.',
 }
 
+const ACTIVITY_TODAY_SWR_STORAGE_KEY = 'shiftcoach:activity-today:v1'
+/** Stale-while-revalidate: show cached payload while refetching (repeat visits / same session). */
+const ACTIVITY_TODAY_CACHE_TTL_MS = 8 * 60 * 1000
+
+function readActivityTodaySwrCache(tz: string): ActivityToday | null {
+  if (typeof window === 'undefined' || !tz) return null
+  try {
+    const raw = sessionStorage.getItem(ACTIVITY_TODAY_SWR_STORAGE_KEY)
+    if (!raw) return null
+    const o = JSON.parse(raw) as { tz: string; savedAt: number; activity: ActivityToday }
+    if (o.tz !== tz || typeof o.savedAt !== 'number' || Date.now() - o.savedAt > ACTIVITY_TODAY_CACHE_TTL_MS) {
+      return null
+    }
+    if (!o.activity || typeof o.activity !== 'object') return null
+    return { ...fallback, ...o.activity }
+  } catch {
+    return null
+  }
+}
+
+function writeActivityTodaySwrCache(tz: string, activity: ActivityToday) {
+  if (typeof window === 'undefined' || !tz) return
+  try {
+    sessionStorage.setItem(
+      ACTIVITY_TODAY_SWR_STORAGE_KEY,
+      JSON.stringify({ tz, savedAt: Date.now(), activity }),
+    )
+  } catch {
+    // quota / private mode
+  }
+}
+
+function getActivityTodayInitialState(): { data: ActivityToday; loading: boolean } {
+  if (typeof window === 'undefined') return { data: fallback, loading: true }
+  const tz = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : ''
+  const cached = readActivityTodaySwrCache(tz)
+  if (cached) return { data: cached, loading: false }
+  return { data: fallback, loading: true }
+}
+
 export function useActivityToday() {
-  const [data, setData] = useState<ActivityToday>(fallback)
-  const [loading, setLoading] = useState(true)
+  const initial = useMemo(() => getActivityTodayInitialState(), [])
+  const [data, setData] = useState<ActivityToday>(initial.data)
+  const [loading, setLoading] = useState(initial.loading)
 
   useEffect(() => {
     let cancelled = false
     const fetchData = async () => {
+      const tz =
+        typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : ''
       try {
-        const tz =
-          typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : ''
         const qs = tz ? `?tz=${encodeURIComponent(tz)}` : ''
         const res = await authedFetch(`/api/activity/today${qs}`, { cache: 'no-store' })
         if (!res.ok) throw new Error(String(res.status))
@@ -249,12 +290,11 @@ export function useActivityToday() {
         const rawPersonalization = json.activity?.activityPersonalization
         const parsedPersonalization = parseActivityPersonalization(rawPersonalization)
         if (!cancelled) {
-          setData({ 
-            ...fallback, 
+          const next: ActivityToday = {
+            ...fallback,
             ...json.activity,
             shiftType: json.activity?.shiftType ?? fallback.shiftType,
             date: typeof json.activity?.date === 'string' ? json.activity.date : undefined,
-            // Map new fields from API response
             shiftActivityLevel: json.activity?.shiftActivityLevel ?? null,
             activityLabel: json.activity?.activityLabel ?? null,
             activityDescription: json.activity?.activityDescription ?? null,
@@ -262,9 +302,7 @@ export function useActivityToday() {
             activityImpact: json.activity?.activityImpact ?? 'Not set',
             activityFactor: json.activity?.activityFactor ?? 1.0,
             recoverySuggestion: json.activity?.recoverySuggestion ?? null,
-            // Intensity breakdown
             intensityBreakdown: json.activity?.intensityBreakdown ?? undefined,
-            // Movement plan
             movementPlan: json.activity?.movementPlan ?? undefined,
             shiftStart: json.activity?.shiftStart ?? null,
             shiftEnd: json.activity?.shiftEnd ?? null,
@@ -273,7 +311,6 @@ export function useActivityToday() {
               json.activity.movementAfterShiftSleepWindowStartIso.trim()
                 ? json.activity.movementAfterShiftSleepWindowStartIso.trim()
                 : null,
-            // Recovery and Activity scores
             recoveryScore: json.activity?.recoveryScore ?? 50,
             recoveryLevel: json.activity?.recoveryLevel ?? 'Moderate',
             recoveryDescription: json.activity?.recoveryDescription ?? 'Recovery data not available.',
@@ -281,7 +318,6 @@ export function useActivityToday() {
             activityLevel: json.activity?.activityLevel ?? 'Low',
             activityScoreDescription:
               json.activity?.activityScoreDescription ?? 'Activity data not available.',
-            // Movement consistency
             movementConsistency: json.activity?.movementConsistency ?? 0,
             movementConsistencyData: json.activity?.movementConsistencyData ?? undefined,
             activityIntelligence: json.activity?.activityIntelligence ?? undefined,
@@ -328,10 +364,15 @@ export function useActivityToday() {
               (rawPersonalization && typeof rawPersonalization === 'object'
                 ? (rawPersonalization as ActivityPersonalizationFromApi)
                 : undefined),
-          })
+          }
+          setData(next)
+          if (tz) writeActivityTodaySwrCache(tz, next)
         }
       } catch {
-        if (!cancelled) setData(fallback)
+        if (!cancelled) {
+          const stale = tz ? readActivityTodaySwrCache(tz) : null
+          setData(stale ?? fallback)
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }

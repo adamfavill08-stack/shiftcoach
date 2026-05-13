@@ -406,14 +406,27 @@ export async function GET(req: NextRequest) {
     let activeMinutes: number | null = null
     let lastTodayTotalsBreakdown: ActivityTotalsBreakdown | null = null
 
-    // Strategy 1: Try with all columns using timestamp filter
-    let activityQueryTs: any = await supabase
-      .from('activity_logs')
-      .select('id,steps,active_minutes,source,merge_status,ts,shift_activity_level,activity_date')
-      .eq('user_id', userId)
-      .gte('ts', windowStartISO)
-      .lt('ts', windowEndISO)
-      .order('ts', { ascending: false })
+    // Strategy 1: window + by-activity_date overlap (parallel round trips).
+    const activityLogsTodayByDateTs = () =>
+      supabase
+        .from('activity_logs')
+        .select('id,steps,active_minutes,source,merge_status,ts,shift_activity_level,activity_date')
+        .eq('user_id', userId)
+        .eq('activity_date', today)
+        .order('ts', { ascending: false })
+    const activityLogsTodayWindowTs = () =>
+      supabase
+        .from('activity_logs')
+        .select('id,steps,active_minutes,source,merge_status,ts,shift_activity_level,activity_date')
+        .eq('user_id', userId)
+        .gte('ts', windowStartISO)
+        .lt('ts', windowEndISO)
+        .order('ts', { ascending: false })
+
+    let [activityQueryTs, byDateRes]: [any, any] = await Promise.all([
+      activityLogsTodayWindowTs(),
+      activityLogsTodayByDateTs(),
+    ])
 
     if (
       activityQueryTs.error &&
@@ -434,12 +447,6 @@ export async function GET(req: NextRequest) {
     } else {
       let rows = activityQueryTs.data ?? []
       // Health Connect / Apple daily totals: one row with device `activity_date` but `ts` = last sync (often outside shift window).
-      const byDateRes = await supabase
-        .from('activity_logs')
-        .select('id,steps,active_minutes,source,merge_status,ts,shift_activity_level,activity_date')
-        .eq('user_id', userId)
-        .eq('activity_date', today)
-        .order('ts', { ascending: false })
       if (!byDateRes.error && byDateRes.data?.length) {
         rows = mergeActivityLogRowsDedupe(rows, byDateRes.data)
         rows.sort(
@@ -468,13 +475,26 @@ export async function GET(req: NextRequest) {
 
     // Strategy 2: If ts doesn't exist, try created_at
     if (activityResponse.error && (activityResponse.error.code === '42703' || activityResponse.error.message?.includes('ts'))) {
-      let activityQueryCreatedAt: any = await supabase
-        .from('activity_logs')
-        .select('id,steps,active_minutes,source,merge_status,created_at,shift_activity_level,activity_date')
-        .eq('user_id', userId)
-        .gte('created_at', windowStartISO)
-        .lt('created_at', windowEndISO)
-        .order('created_at', { ascending: false })
+      const activityLogsTodayByDateCreatedAt = () =>
+        supabase
+          .from('activity_logs')
+          .select('id,steps,active_minutes,source,merge_status,ts,created_at,shift_activity_level,activity_date')
+          .eq('user_id', userId)
+          .eq('activity_date', today)
+          .order('created_at', { ascending: false })
+      const activityLogsTodayWindowCreatedAt = () =>
+        supabase
+          .from('activity_logs')
+          .select('id,steps,active_minutes,source,merge_status,created_at,shift_activity_level,activity_date')
+          .eq('user_id', userId)
+          .gte('created_at', windowStartISO)
+          .lt('created_at', windowEndISO)
+          .order('created_at', { ascending: false })
+
+      let [activityQueryCreatedAt, byDateRes2]: [any, any] = await Promise.all([
+        activityLogsTodayWindowCreatedAt(),
+        activityLogsTodayByDateCreatedAt(),
+      ])
 
       if (
         activityQueryCreatedAt.error &&
@@ -494,12 +514,6 @@ export async function GET(req: NextRequest) {
         activityResponse = activityQueryCreatedAt
       } else {
         let rows = activityQueryCreatedAt.data ?? []
-        const byDateRes2 = await supabase
-          .from('activity_logs')
-          .select('id,steps,active_minutes,source,merge_status,ts,created_at,shift_activity_level,activity_date')
-          .eq('user_id', userId)
-          .eq('activity_date', today)
-          .order('created_at', { ascending: false })
         if (!byDateRes2.error && byDateRes2.data?.length) {
           rows = mergeActivityLogRowsDedupe(rows, byDateRes2.data)
           rows.sort(
@@ -1192,41 +1206,71 @@ export async function GET(req: NextRequest) {
       now,
     )
 
-    let hourlyForChart: { steps: number; ts?: string | null; created_at?: string | null }[] = []
-    let hourlyQuery: any = await supabase
+    const hourlyChartCivilYmds = civilYmdRangeInclusive(windowStartDate, windowEndDate, activityIntelTimeZone)
+    const hourlyChartYmdMin = hourlyChartCivilYmds[0] ?? today
+    const hourlyChartYmdMax = hourlyChartCivilYmds[hourlyChartCivilYmds.length - 1] ?? today
+
+    const stepSamplesRangeValid =
+      Number.isFinite(stepSamplesRangeStartMs) && Number.isFinite(stepSamplesRangeEndMs)
+    const stepSamplesStartIso = stepSamplesRangeValid
+      ? new Date(stepSamplesRangeStartMs).toISOString()
+      : ''
+    const stepSamplesEndIso = stepSamplesRangeValid
+      ? new Date(stepSamplesRangeEndMs).toISOString()
+      : ''
+
+    async function fetchHourlyWindowLogs(): Promise<any> {
+      let q: any = await supabase
+        .from('activity_logs')
+        .select('id, steps, merge_status, ts, created_at, activity_date, source')
+        .eq('user_id', userId)
+        .gte('ts', windowStartISO)
+        .lte('ts', windowEndISO)
+        .order('ts', { ascending: true })
+      if (
+        q.error &&
+        (q.error.code === '42703' || String(q.error.message ?? '').includes('ts'))
+      ) {
+        q = await supabase
+          .from('activity_logs')
+          .select('id, steps, merge_status, ts, created_at, activity_date, source')
+          .eq('user_id', userId)
+          .gte('created_at', windowStartISO)
+          .lte('created_at', windowEndISO)
+          .order('created_at', { ascending: true })
+      }
+      return q
+    }
+
+    const hourlyByDatePromise = supabase
       .from('activity_logs')
       .select('id, steps, merge_status, ts, created_at, activity_date, source')
       .eq('user_id', userId)
-      .gte('ts', windowStartISO)
-      .lte('ts', windowEndISO)
+      .gte('activity_date', hourlyChartYmdMin)
+      .lte('activity_date', hourlyChartYmdMax)
       .order('ts', { ascending: true })
 
-    if (
-      hourlyQuery.error &&
-      (hourlyQuery.error.code === '42703' || String(hourlyQuery.error.message ?? '').includes('ts'))
-    ) {
-      hourlyQuery = await supabase
-        .from('activity_logs')
-        .select('id, steps, merge_status, ts, created_at, activity_date, source')
-        .eq('user_id', userId)
-        .gte('created_at', windowStartISO)
-        .lte('created_at', windowEndISO)
-        .order('created_at', { ascending: true })
-    }
+    const stepSamplesPromise =
+      stepSamplesRangeValid && stepSamplesStartIso && stepSamplesEndIso
+        ? supabase
+            .from('wearable_step_samples')
+            .select('bucket_start_utc, bucket_end_utc, steps')
+            .eq('user_id', userId)
+            .eq('source', 'health_connect')
+            .gte('bucket_start_utc', stepSamplesStartIso)
+            .lte('bucket_start_utc', stepSamplesEndIso)
+            .order('bucket_start_utc', { ascending: true })
+        : Promise.resolve({ data: [] as unknown[], error: null })
 
+    const [hourlyQuery, hourlyByDate, stepSamplesQuery] = await Promise.all([
+      fetchHourlyWindowLogs(),
+      hourlyByDatePromise,
+      stepSamplesPromise,
+    ])
+
+    let hourlyForChart: { steps: number; ts?: string | null; created_at?: string | null }[] = []
     if (!hourlyQuery.error) {
       let hourlyRows = hourlyQuery.data ?? []
-      /** Night shifts cross midnight: include every local civil day the chart window touches so cumulative logs are not truncated. */
-      const hourlyChartCivilYmds = civilYmdRangeInclusive(windowStartDate, windowEndDate, activityIntelTimeZone)
-      const hourlyChartYmdMin = hourlyChartCivilYmds[0] ?? today
-      const hourlyChartYmdMax = hourlyChartCivilYmds[hourlyChartCivilYmds.length - 1] ?? today
-      const hourlyByDate = await supabase
-        .from('activity_logs')
-        .select('id, steps, merge_status, ts, created_at, activity_date, source')
-        .eq('user_id', userId)
-        .gte('activity_date', hourlyChartYmdMin)
-        .lte('activity_date', hourlyChartYmdMax)
-        .order('ts', { ascending: true })
       if (!hourlyByDate.error && hourlyByDate.data?.length) {
         hourlyRows = mergeActivityLogRowsDedupe(hourlyRows, hourlyByDate.data)
         hourlyRows.sort(
@@ -1262,75 +1306,63 @@ export async function GET(req: NextRequest) {
     )
 
     let stepSamples: Array<{ timestamp: string; steps: number; endTimestamp?: string | null }> = []
-    if (Number.isFinite(stepSamplesRangeStartMs) && Number.isFinite(stepSamplesRangeEndMs)) {
-      const stepSamplesStartIso = new Date(stepSamplesRangeStartMs).toISOString()
-      const stepSamplesEndIso = new Date(stepSamplesRangeEndMs).toISOString()
-      const stepSamplesQuery = await supabase
-        .from('wearable_step_samples')
-        .select('bucket_start_utc, bucket_end_utc, steps')
-        .eq('user_id', userId)
-        .eq('source', 'health_connect')
-        .gte('bucket_start_utc', stepSamplesStartIso)
-        .lte('bucket_start_utc', stepSamplesEndIso)
-        .order('bucket_start_utc', { ascending: true })
-      if (!stepSamplesQuery.error) {
-        const rawRows = (stepSamplesQuery.data ?? []) as Array<{
-          bucket_start_utc: string | null
-          bucket_end_utc: string | null
-          steps: number | null
-        }>
-        const mappedPre = rawRows
-          .map((row) => {
-            if (!row?.bucket_start_utc) return null
-            const steps = typeof row.steps === 'number' && Number.isFinite(row.steps) ? Math.max(0, Math.round(row.steps)) : 0
-            return { timestamp: row.bucket_start_utc, steps, endTimestamp: row.bucket_end_utc ?? null }
-          })
-          .filter((row): row is { timestamp: string; steps: number; endTimestamp: string | null } => row != null)
-        let movementClipStartMs = startOfLocalDayUtcMs(today, activityIntelTimeZone)
-        let movementClipEndExclusiveMs = startOfLocalDayUtcMs(
-          addCalendarDaysToYmd(today, 1),
+    if (stepSamplesRangeValid && !stepSamplesQuery.error) {
+      const rawRows = (stepSamplesQuery.data ?? []) as Array<{
+        bucket_start_utc: string | null
+        bucket_end_utc: string | null
+        steps: number | null
+      }>
+      const mappedPre = rawRows
+        .map((row) => {
+          if (!row?.bucket_start_utc) return null
+          const steps = typeof row.steps === 'number' && Number.isFinite(row.steps) ? Math.max(0, Math.round(row.steps)) : 0
+          return { timestamp: row.bucket_start_utc, steps, endTimestamp: row.bucket_end_utc ?? null }
+        })
+        .filter((row): row is { timestamp: string; steps: number; endTimestamp: string | null } => row != null)
+      let movementClipStartMs = startOfLocalDayUtcMs(today, activityIntelTimeZone)
+      let movementClipEndExclusiveMs = startOfLocalDayUtcMs(
+        addCalendarDaysToYmd(today, 1),
+        activityIntelTimeZone,
+      )
+      if (shiftStart && shiftEnd) {
+        const span = movementAllocationWindowFromShiftInstants(
+          shiftStart,
+          shiftEnd,
           activityIntelTimeZone,
         )
-        if (shiftStart && shiftEnd) {
-          const span = movementAllocationWindowFromShiftInstants(
-            shiftStart,
-            shiftEnd,
-            activityIntelTimeZone,
-          )
-          if (span) {
-            movementClipStartMs = Math.min(movementClipStartMs, span.startMs)
-            movementClipEndExclusiveMs = Math.max(movementClipEndExclusiveMs, span.endExclusiveMs)
-          }
+        if (span) {
+          movementClipStartMs = Math.min(movementClipStartMs, span.startMs)
+          movementClipEndExclusiveMs = Math.max(movementClipEndExclusiveMs, span.endExclusiveMs)
         }
-        const processed = processWearableStepSamplesForMovementCard({
-          rawRows,
-          dayStartMs: movementClipStartMs,
-          dayEndExclusiveMs: movementClipEndExclusiveMs,
-          coherentStepsHint: coherentSteps,
-        })
-        stepSamples = processed.map((s) => ({
-          timestamp: s.timestamp,
-          steps: s.steps,
-          endTimestamp: s.endTimestamp ?? null,
-        }))
-        console.info('[movement-steps]', {
-          source: 'api',
-          cache: 'no-store',
-          selectedYmd: today,
-          tz: activityIntelTimeZone,
-          shiftStart: shiftStart?.toISOString() ?? null,
-          shiftEnd: shiftEnd?.toISOString() ?? null,
-          clip: {
-            dayStart: new Date(movementClipStartMs).toISOString(),
-            dayEndExclusive: new Date(movementClipEndExclusiveMs).toISOString(),
-          },
-          queryRange: { stepSamplesStartIso, stepSamplesEndIso },
-          rawBucketRows: rawRows.length,
-          duplicateStartsInRaw: countDuplicateBucketStarts(mappedPre),
-          clippedSamples: stepSamples.length,
-          clippedStepsSum: stepSamples.reduce((a, s) => a + s.steps, 0),
-        })
       }
+      const processed = processWearableStepSamplesForMovementCard({
+        rawRows,
+        dayStartMs: movementClipStartMs,
+        dayEndExclusiveMs: movementClipEndExclusiveMs,
+        coherentStepsHint: coherentSteps,
+      })
+      stepSamples = processed.map((s) => ({
+        timestamp: s.timestamp,
+        steps: s.steps,
+        endTimestamp: s.endTimestamp ?? null,
+      }))
+      console.info('[movement-steps]', {
+        source: 'api',
+        cache: 'no-store',
+        selectedYmd: today,
+        tz: activityIntelTimeZone,
+        shiftStart: shiftStart?.toISOString() ?? null,
+        shiftEnd: shiftEnd?.toISOString() ?? null,
+        clip: {
+          dayStart: new Date(movementClipStartMs).toISOString(),
+          dayEndExclusive: new Date(movementClipEndExclusiveMs).toISOString(),
+        },
+        queryRange: { stepSamplesStartIso, stepSamplesEndIso },
+        rawBucketRows: rawRows.length,
+        duplicateStartsInRaw: countDuplicateBucketStarts(mappedPre),
+        clippedSamples: stepSamples.length,
+        clippedStepsSum: stepSamples.reduce((a, s) => a + s.steps, 0),
+      })
     }
 
     const payload = {

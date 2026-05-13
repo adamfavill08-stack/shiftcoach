@@ -163,10 +163,15 @@ const messages: Record<string, string> = {
     'splash.imageAlt': 'Grupo de trabajadores por turnos',
 
     'auth.tagline': 'Dedicada a la salud del trabajador por turnos.',
-    'auth.welcome.taglineTop': 'seguimiento del bienestar en turnos',
-    'auth.welcome.taglineBottom': 'fácil y claro',
-    'auth.welcome.ctaNew': 'Soy nuevo, quiero registrarme',
+    'auth.welcome.headline': 'Bienvenido a ShiftCoach',
+    'auth.welcome.titleLine1': 'Hecho para',
+    'auth.welcome.titleLine2': 'quienes trabajan por turnos',
+    'auth.welcome.subtitle':
+      'Orientación de salud personalizada,\ntiming inteligente y apoyo diario\nadaptado a tu horario.',
+    'auth.welcome.ctaNew': 'Empezar',
     'auth.welcome.ctaMember': 'Ya soy miembro',
+    'auth.welcome.footerPrompt': '¿Ya tienes cuenta?',
+    'auth.welcome.footerLogIn': 'Iniciar sesión',
     'auth.signIn.title': 'Bienvenido de nuevo',
     'auth.signIn.subtitle': 'Inicia sesión para continuar con tu plan.',
     'auth.signIn.email': 'Correo electrónico',

@@ -121,10 +121,15 @@ const messages: Record<string, string> = {
     'splash.imageAlt': 'Gruppe von Schichtarbeitern',
 
     'auth.tagline': 'Für die Gesundheit von Schichtarbeitern.',
-    'auth.welcome.taglineTop': 'Wellness-Tracking für Schichtarbeit',
-    'auth.welcome.taglineBottom': 'einfach gemacht',
-    'auth.welcome.ctaNew': 'Ich bin neu — jetzt registrieren',
+    'auth.welcome.headline': 'Willkommen bei ShiftCoach',
+    'auth.welcome.titleLine1': 'Für Schichtarbeiter',
+    'auth.welcome.titleLine2': 'gemacht',
+    'auth.welcome.subtitle':
+      'Persönliche Gesundheitsbegleitung,\nkluges Timing und tägliche Unterstützung –\npassend zu deinem Dienstplan.',
+    'auth.welcome.ctaNew': 'Loslegen',
     'auth.welcome.ctaMember': 'Ich bin bereits Mitglied',
+    'auth.welcome.footerPrompt': 'Schon ein Konto?',
+    'auth.welcome.footerLogIn': 'Anmelden',
     'auth.signIn.title': 'Willkommen zurück',
     'auth.signIn.subtitle': 'Melde dich an, um deinen Plan fortzusetzen.',
     'auth.signIn.email': 'E-Mail',
