@@ -64,6 +64,19 @@ function SignInContent() {
     }
   }, [])
 
+  useEffect(() => {
+    const html = document.documentElement
+    const body = document.body
+    const prevHtml = html.style.overflow
+    const prevBody = body.style.overflow
+    html.style.overflow = 'hidden'
+    body.style.overflow = 'hidden'
+    return () => {
+      html.style.overflow = prevHtml
+      body.style.overflow = prevBody
+    }
+  }, [])
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!isOnline) {
@@ -128,26 +141,39 @@ function SignInContent() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center bg-slate-100 px-6 pb-12 pt-5 sm:pt-8">
-      <div className="flex w-full max-w-md flex-col items-center">
-        <div className="-mt-1 mb-5 flex flex-col items-center sm:-mt-2 sm:mb-6">
+    <main className="fixed inset-0 z-0 flex h-[100dvh] max-h-[100dvh] w-full flex-row items-stretch justify-center overflow-hidden overscroll-none bg-[#0a0a0f]">
+      <div className="relative flex h-full min-h-0 w-[min(100%,26rem)] shrink-0 flex-col overflow-hidden md:rounded-2xl md:shadow-[0_25px_80px_-20px_rgba(0,0,0,0.85)] md:ring-1 md:ring-white/10">
+        <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
           <Image
-            src="/sign-in-app-icon.png"
-            alt="ShiftCoach"
-            width={160}
-            height={160}
-            className="h-40 w-40 rounded-[28px] shadow-[0_14px_36px_-12px_rgba(5,175,197,0.55)] sm:h-44 sm:w-44 sm:rounded-[30px]"
+            src="/auth-sign-in-background.png"
+            alt=""
+            fill
+            className="object-cover object-left"
             priority
+            unoptimized
+            sizes="(max-width: 640px) 100vw, 416px"
           />
-          <div className="mt-4 flex max-w-[min(100%,20rem)] items-center justify-center gap-2 rounded-full border border-slate-200/90 bg-white px-4 py-2.5 text-center shadow-[0_2px_12px_-4px_rgba(15,23,42,0.12)]">
-            <Shield className="h-4 w-4 shrink-0 text-[#05afc5]" strokeWidth={2.25} aria-hidden />
-            <span className="text-[11px] font-semibold uppercase leading-snug tracking-[0.06em] text-slate-700 sm:text-xs sm:tracking-[0.05em]">
-              {t('upgrade.trustedBy')}
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-slate-950/40 to-slate-950/88" />
+        </div>
+
+        <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <div className="mb-3 w-full shrink-0 self-start text-left">
+            <span
+              className="text-lg font-semibold tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)] sm:text-xl"
+              aria-label={t('welcome.logoAlt')}
+            >
+              Shift<span className="text-[#05afc5]">Coach</span>
             </span>
           </div>
-        </div>
-        {/* Main sign-in card */}
-        <div className="mx-auto w-full max-w-md rounded-xl border border-slate-200 bg-white p-7 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+          <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-hidden py-1">
+            <div className="mb-3 mx-auto flex w-full max-w-[min(100%,22rem)] shrink-0 items-start justify-center gap-2 text-center drop-shadow-[0_1px_10px_rgba(0,0,0,0.55)] sm:mb-4">
+              <Shield className="mt-0.5 h-4 w-4 shrink-0 text-[#05afc5]" strokeWidth={2.25} aria-hidden />
+              <span className="min-w-0 text-center text-[11px] font-semibold uppercase leading-snug tracking-[0.08em] text-[#05afc5] sm:text-xs sm:tracking-[0.06em]">
+                {t('upgrade.trustedBy')}
+              </span>
+            </div>
+            {/* Main sign-in card */}
+            <div className="mx-auto w-full min-h-0 max-w-md shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-6 shadow-[0_1px_3px_rgba(15,23,42,0.08)] sm:p-7">
           <div>
             <div className="text-left px-0.5">
               <CompactLanguagePicker
@@ -158,13 +184,13 @@ function SignInContent() {
             </div>
 
             {/* Welcome Text */}
-            <div className="mt-5">
+            <div className="mt-4">
               <p className="text-[18px] font-semibold tracking-tight text-slate-900">
                 {t('auth.signIn.title')}
               </p>
             </div>
 
-            <div className="mt-6">
+            <div className="mt-5">
               {emailConfirmedBanner && (
                 <div
                   className="mt-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200"
@@ -248,7 +274,7 @@ function SignInContent() {
               <button
                 disabled={busy}
                 aria-describedby={err ? signInErrorId : undefined}
-                className="w-full h-12 rounded-full text-sm font-semibold text-white bg-[#05afc5] shadow-[0_10px_26px_-14px_rgba(5,175,197,0.45)] transition hover:bg-[#0499b0] active:bg-[#0489a0] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full h-12 rounded-xl text-sm font-semibold text-white bg-[#05afc5] shadow-[0_10px_26px_-14px_rgba(5,175,197,0.45)] transition hover:bg-[#0499b0] active:bg-[#0489a0] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {busy ? t('auth.signIn.busy') : t('auth.signIn.submit')}
               </button>
@@ -273,6 +299,8 @@ function SignInContent() {
             </div>
           </div>
         </div>
+        </div>
+      </div>
       </div>
     </main>
   )
@@ -280,11 +308,39 @@ function SignInContent() {
 
 function SignInFallback() {
   const { t } = useTranslation()
+
+  useEffect(() => {
+    const html = document.documentElement
+    const body = document.body
+    const prevHtml = html.style.overflow
+    const prevBody = body.style.overflow
+    html.style.overflow = 'hidden'
+    body.style.overflow = 'hidden'
+    return () => {
+      html.style.overflow = prevHtml
+      body.style.overflow = prevBody
+    }
+  }, [])
+
   return (
-    <main className="min-h-screen bg-slate-100 flex items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md relative z-10">
-        <div className="mx-auto max-w-md rounded-xl bg-white border border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.08)] p-7 text-center text-sm text-slate-500">
-          {t('auth.signIn.loading')}
+    <main className="fixed inset-0 z-0 flex h-[100dvh] max-h-[100dvh] w-full flex-row items-stretch justify-center overflow-hidden overscroll-none bg-[#0a0a0f]">
+      <div className="relative flex h-full min-h-0 w-[min(100%,26rem)] shrink-0 flex-col overflow-hidden md:rounded-2xl md:shadow-[0_25px_80px_-20px_rgba(0,0,0,0.85)] md:ring-1 md:ring-white/10">
+        <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
+          <Image
+            src="/auth-sign-in-background.png"
+            alt=""
+            fill
+            className="object-cover object-left"
+            priority
+            unoptimized
+            sizes="(max-width: 640px) 100vw, 416px"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-slate-950/40 to-slate-950/88" />
+        </div>
+        <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-5 py-4">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-7 text-center text-sm text-slate-500 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+            {t('auth.signIn.loading')}
+          </div>
         </div>
       </div>
     </main>
