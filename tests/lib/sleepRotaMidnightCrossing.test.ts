@@ -253,4 +253,33 @@ describe('computeNightShiftSleepPlan: profile post_night_sleep vs sleep logs', (
     expect(plan.suggestedSleepStartMs).toBe(profileNine)
     expect(plan.suggestedSleepStartMs).not.toBe(loggedStartWrong)
   })
+
+  it('keeps a synthetic post-night OFF-day preview on the duty-based recovery window', () => {
+    const shiftEnd = Date.parse('2026-05-11T06:00:00.000Z')
+    const nowMs = Date.parse('2026-05-11T12:00:00.000Z')
+    const preferredStart = Date.parse('2026-05-11T08:00:00.000Z')
+    const plan = computeNightShiftSleepPlan({
+      shiftJustEnded: {
+        label: 'NIGHT',
+        date: '2026-05-10',
+        startMs: Date.parse('2026-05-10T18:00:00.000Z'),
+        endMs: shiftEnd,
+      },
+      nextShift: null,
+      commuteMinutes: 30,
+      targetSleepMinutes: 8 * 60,
+      caffeineSensitivity: 'medium',
+      loggedMainSleep: {
+        startMs: nowMs,
+        endMs: nowMs + 8 * 60 * 60 * 1000,
+      },
+      loggedNaps: [],
+      timeZone: 'Europe/London',
+      postNightPreferredStartUtcMs: preferredStart,
+      postNightSleepRaw: '09:00',
+    })
+    expect(plan.ok).toBe(true)
+    expect(plan.suggestedSleepStartMs).toBe(preferredStart)
+    expect(plan.transition).toBe('night_to_off')
+  })
 })

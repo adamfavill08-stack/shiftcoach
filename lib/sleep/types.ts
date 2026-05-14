@@ -21,6 +21,7 @@ export type SleepLogInput = {
   quality?: SleepQuality | null
   notes?: string
   source?: SleepSource
+  timezone?: string | null
 }
 
 /** Optional `profiles.preferences` fields for the suggested sleep plan (local-first; easy to sync later). */

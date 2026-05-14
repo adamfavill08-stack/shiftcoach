@@ -1,11 +1,21 @@
 'use client'
 
-import { useState } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ChevronDown, ChevronUp, Heart, Target } from 'lucide-react'
 import { useTranslation } from '@/components/providers/language-provider'
-import { NAP_END_BEFORE_SHIFT, type CaffeineSensitivity, type NightShiftSleepPlanResult } from '@/lib/sleep/nightShiftSleepPlan'
+import { SleepContextChip } from '@/components/sleep/log-sleep/SleepContextChip'
+import type { ShiftRowInput } from '@/lib/shift-context/resolveShiftContext'
+import { inferShiftAwareSleepLog } from '@/lib/sleep/inferShiftAwareSleepLog'
+import { resolveLogSleepRecoveryExplainer } from '@/lib/sleep/logSleepRecoveryCopy'
+import { resolveLogSleepContextChip } from '@/lib/sleep/logSleepContextChip'
+import {
+  NAP_END_BEFORE_SHIFT,
+  type CaffeineSensitivity,
+  type NightShiftSleepPlanResult,
+} from '@/lib/sleep/nightShiftSleepPlan'
 import { isoDateInTimeZone } from '@/lib/sleep/sleepShiftWallClock'
 import type { RotaSleepPlanContext } from '@/lib/sleep/resolveRotaForSleepPlan'
+import type { ShiftRelativeSleepAnalysis } from '@/lib/sleep/shiftRelativeSleepClassification'
 
 type Props = {
   timeZone: string
@@ -13,6 +23,8 @@ type Props = {
   todayYmd: string
   rota: Extract<RotaSleepPlanContext, { state: 'ok' }>
   plan: NightShiftSleepPlanResult
+  /** Rota rows for contextual chip (same source as Log Sleep). */
+  shiftRows?: ShiftRowInput[]
   targetSleepMinutes: number
   caffeineSensitivity: CaffeineSensitivity
   onCaffeineSensitivityChange: (value: CaffeineSensitivity) => void
@@ -49,14 +61,6 @@ function formatLocalDateTimeShort(ms: number, timeZone: string): string {
   }
 }
 
-/**
- * Sleep window can span two local civil days (e.g. Sun 22:30 → Mon 06:45): show full local datetime
- * on both sides when start/end civil dates differ.
- *
- * When start/end share the same civil day: if that day is the page scope day, show compact clocks only
- * (scope line already carries the date). If the window is on another civil day, show the date once
- * plus start time, then end time only — avoids “Tue, May 12, 08:00 – Tue, May 12, 16:15”.
- */
 function formatSuggestedSleepWindowRange(
   startMs: number | null,
   endMs: number | null,
@@ -77,11 +81,41 @@ function formatSuggestedSleepWindowRange(
   return `${formatLocalDateTimeShort(startMs, timeZone)} – ${formatLocalTime(endMs, timeZone)}`
 }
 
+function formatLoggedDurationLabel(
+  durationMs: number,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string {
+  const totalMin = Math.max(0, Math.round(durationMs / 60000))
+  const h = Math.floor(totalMin / 60)
+  const m = totalMin % 60
+  if (h === 0) return t('sleepLogs.durationHM', { h: 0, m })
+  if (m === 0) return t('sleepLogs.durationH', { h })
+  return t('sleepLogs.durationHM', { h, m })
+}
+
+function pickShiftRelativeForDisplay(
+  plan: NightShiftSleepPlanResult,
+  rota: Extract<RotaSleepPlanContext, { state: 'ok' }>,
+): Pick<ShiftRelativeSleepAnalysis, 'sleepClass' | 'recoveryState' | 'nextStepMessage' | 'features'> {
+  return (
+    plan.shiftRelative ?? {
+      sleepClass: rota.shiftRelative.sleepClass,
+      recoveryState: rota.shiftRelative.recoveryState,
+      nextStepMessage: rota.shiftRelative.nextStepMessage,
+      features: rota.shiftRelative.features,
+    }
+  )
+}
+
+const detailCardClass =
+  'rounded-2xl border border-[var(--border-subtle)] bg-[var(--card)] p-4 shadow-[var(--shadow-soft)] sm:p-5'
+
 export function SuggestedSleepPlanCard({
   timeZone,
   todayYmd,
   rota,
   plan,
+  shiftRows,
   targetSleepMinutes,
   caffeineSensitivity,
   onCaffeineSensitivityChange,
@@ -90,18 +124,10 @@ export function SuggestedSleepPlanCard({
   const [howOpen, setHowOpen] = useState(false)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
 
-  const recoveryKey =
-    plan.latestWakeMs &&
-    plan.earliestSleepStartMs &&
-    plan.latestWakeMs - plan.earliestSleepStartMs < targetSleepMinutes * 60 * 1000 * 1.15
-      ? 'sleepPlan.recovery.tightTurnaround'
-      : 'sleepPlan.recovery.body'
-
   const visibleFeedback = plan.feedback.filter((f) => f.code !== 'none')
   const feedbackHasWarn = visibleFeedback.some((f) => f.severity === 'warn')
 
-  const modelHoursStr =
-    plan.modelSleepMs > 0 ? (plan.modelSleepMs / 3600000).toFixed(1) : '—'
+  const modelHoursStr = plan.modelSleepMs > 0 ? (plan.modelSleepMs / 3600000).toFixed(1) : '—'
 
   const hasSleepWindow =
     plan.suggestedSleepStartMs != null &&
@@ -132,59 +158,322 @@ export function SuggestedSleepPlanCard({
         })
       : t('sleepPlan.nap.none')
 
-  const cardShell =
-    'rounded-xl border border-sky-200/60 bg-gradient-to-b from-sky-50 via-white to-slate-50/90 px-5 py-5 shadow-sm dark:border-slate-700/80 dark:from-slate-900/70 dark:via-[var(--card)] dark:to-slate-950/60'
+  const contextChip = useMemo(() => {
+    if (!shiftRows?.length) return null
+    const previewEnd = new Date(rota.primarySleep.endMs)
+    const rotaSuggestion = inferShiftAwareSleepLog({
+      startAt: new Date(rota.primarySleep.startMs),
+      endAt: new Date(rota.primarySleep.endMs),
+      shifts: shiftRows,
+      timeZone,
+    })
+    return resolveLogSleepContextChip({
+      previewEnd,
+      rotaSuggestion,
+      shiftRows,
+      timeZone,
+    })
+  }, [rota.primarySleep.endMs, rota.primarySleep.startMs, shiftRows, timeZone])
+
+  const recoveryExplainer = useMemo(
+    () => resolveLogSleepRecoveryExplainer(rota.shiftRelative, timeZone),
+    [rota.shiftRelative, timeZone],
+  )
+
+  const loggedSleepRange = formatSuggestedSleepWindowRange(
+    rota.primarySleep.startMs,
+    rota.primarySleep.endMs,
+    timeZone,
+    todayYmd,
+  )
+  const loggedDurationMs = Math.max(0, rota.primarySleep.endMs - rota.primarySleep.startMs)
+  const loggedDurationLabel = formatLoggedDurationLabel(loggedDurationMs, t)
+
+  const pageShell = 'space-y-4'
 
   if (!plan.ok) {
     return (
-      <section className={`${cardShell} space-y-2`}>
-        <h2 className="text-lg font-bold tracking-tight text-[var(--text-main)]">{t('sleepPlan.title')}</h2>
-        <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-          {t('sleepPlan.scopeLine', { ymd: todayYmd })}
-        </p>
-        <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-          {plan.reason === 'no_main_sleep'
-            ? t('sleepPlan.calc.noMainSleep')
-            : t('sleepPlan.calc.needShiftBeforeSleep')}
-        </p>
-      </section>
+      <div className={pageShell}>
+        <header className="space-y-1 px-0.5">
+          <h2 className="text-lg font-bold tracking-tight text-[var(--text-main)] sm:text-xl">
+            {t('sleepPlan.recoveryPage.title')}
+          </h2>
+          <p className="text-sm text-[var(--text-soft)]">{t('sleepPlan.recoveryPage.subtitle')}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+            {t('sleepPlan.scopeLine', { ymd: todayYmd })}
+          </p>
+        </header>
+        <section
+          className={`${detailCardClass} space-y-2`}
+          role="status"
+        >
+          <p className="text-sm leading-relaxed text-[var(--text-soft)]">
+            {plan.reason === 'no_main_sleep'
+              ? t('sleepPlan.calc.noMainSleep')
+              : t('sleepPlan.calc.needShiftBeforeSleep')}
+          </p>
+        </section>
+      </div>
     )
   }
 
+  const shiftRel = pickShiftRelativeForDisplay(plan, rota)
+  const recoveryKey =
+    plan.latestWakeMs &&
+    plan.earliestSleepStartMs &&
+    plan.latestWakeMs - plan.earliestSleepStartMs < targetSleepMinutes * 60 * 1000 * 1.15
+      ? 'sleepPlan.recovery.tightTurnaround'
+      : 'sleepPlan.recovery.body'
+
+  const windowKind = plan.suggestedSleepWindowKind
+  const windowIntentKey = `sleepPlan.windowIntent.${windowKind}`
+  const windowIntentParams =
+    windowKind === 'nap_only' || windowKind === 'none' ? {} : { hours: modelHoursStr }
+
   return (
-    <section className={`${cardShell} space-y-6`}>
-      <header className="space-y-1">
-        <h2 className="text-xl font-bold tracking-tight text-[var(--text-main)]">{t('sleepPlan.title')}</h2>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+    <div className={pageShell}>
+      <header className="space-y-1 px-0.5">
+        <h2 className="text-lg font-bold tracking-tight text-[var(--text-main)] sm:text-xl">
+          {t('sleepPlan.recoveryPage.title')}
+        </h2>
+        <p className="text-sm text-[var(--text-soft)]">{t('sleepPlan.recoveryPage.subtitle')}</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
           {t('sleepPlan.scopeLine', { ymd: todayYmd })}
         </p>
       </header>
 
-      {/* Sleep window — directly below suggested plan title */}
-      <div>
-        <h3 className="text-sm font-bold text-[var(--text-main)]">{t('sleepPlan.section.sleepWindow')}</h3>
-        <p className="mt-2 text-[1.65rem] font-bold leading-none tracking-tight text-teal-600 tabular-nums dark:text-teal-400">
-          {windowRange}
-        </p>
-        <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-          {hasSleepWindow
-            ? t('sleepPlan.windowExplainer', { hours: modelHoursStr })
-            : t('sleepPlan.windowExplainerNoWindow')}
-        </p>
-        <p className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
-          {t(plan.transitionSummaryKey)}
-        </p>
+      {/* Hero */}
+      <section
+        className="rounded-2xl border border-[var(--border-subtle)] bg-gradient-to-b from-[var(--card-subtle)] to-[var(--card)] p-4 shadow-[var(--shadow-soft)] sm:p-5"
+        aria-labelledby="sleep-recovery-hero-heading"
+      >
+        <div className="flex flex-col items-center gap-2">
+          <SleepContextChip chip={contextChip} />
+        </div>
+
+        <div className="mt-4 flex gap-3">
+          <div
+            className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card)]"
+            aria-hidden
+          >
+            <Heart className="h-6 w-6" strokeWidth={2} style={{ color: 'var(--accent-blue)' }} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+              {t('sleepLog.section.recoveryStatus')}
+            </p>
+            <h3
+              id="sleep-recovery-hero-heading"
+              className="mt-0.5 text-xl font-bold tracking-tight sm:text-2xl"
+              style={{ color: 'var(--accent-blue)' }}
+            >
+              {t(`sleepPlan.shiftRelative.recovery.${shiftRel.recoveryState}`)}
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--text-soft)]">
+              {t(recoveryExplainer.key, recoveryExplainer.params)}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 border-t border-[var(--border-subtle)] pt-4">
+          <div className="flex gap-3">
+            <div
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)]"
+              aria-hidden
+            >
+              <Target className="h-5 w-5" strokeWidth={2} style={{ color: 'var(--accent-indigo)' }} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p
+                className="text-[10px] font-bold uppercase tracking-[0.14em]"
+                style={{ color: 'var(--accent-indigo)' }}
+              >
+                {t('sleepPlan.recoveryPage.todayPriority')}
+              </p>
+              <p className="mt-1 text-base font-semibold leading-snug text-[var(--text-main)] sm:text-lg">
+                {t(shiftRel.nextStepMessage.key, shiftRel.nextStepMessage.params)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Logged sleep summary */}
+      <section className={detailCardClass} aria-labelledby="sleep-logged-summary-heading">
+        <h3
+          id="sleep-logged-summary-heading"
+          className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]"
+        >
+          {t('sleepPlan.recoveryPage.basedOnSleep')}
+        </h3>
+        <dl className="mt-4 space-y-3">
+          <div>
+            <dt className="text-xs font-medium text-[var(--text-muted)]">{t('sleepPlan.recoveryPage.loggedInterval')}</dt>
+            <dd className="mt-1 text-lg font-bold tabular-nums tracking-tight text-[var(--text-main)] sm:text-xl">
+              {loggedSleepRange}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium text-[var(--text-muted)]">{t('sleepPlan.recoveryPage.loggedDuration')}</dt>
+            <dd className="mt-1 text-base font-semibold tabular-nums text-[var(--text-main)]">{loggedDurationLabel}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium text-[var(--text-muted)]">
+              {t('sleepPlan.recoveryPage.loggedClassification')}
+            </dt>
+            <dd className="mt-1 text-sm font-medium leading-relaxed text-[var(--text-main)]">
+              {t(`sleepPlan.shiftRelative.class.${shiftRel.sleepClass}`)}
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <h3 className="px-0.5 text-sm font-bold tracking-tight text-[var(--text-main)]">
+        {t('sleepPlan.recoveryPage.planDetails')}
+      </h3>
+
+      <div className="space-y-3">
+        {/* Suggested sleep window */}
+        <section className={detailCardClass}>
+          <h4 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            {t('sleepPlan.recoveryPage.suggestedWindowHeading')}
+          </h4>
+          {hasSleepWindow ? (
+            <>
+              <p className="mt-3 text-[1.65rem] font-bold leading-none tracking-tight tabular-nums text-[var(--text-main)] sm:text-[1.85rem]">
+                {windowRange}
+              </p>
+              <p className="mt-3 text-sm leading-relaxed text-[var(--text-soft)]">
+                {t(windowIntentKey, windowIntentParams)}
+              </p>
+              <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">{t(plan.transitionSummaryKey)}</p>
+            </>
+          ) : windowKind === 'nap_only' ? (
+            <>
+              <p className="mt-3 text-sm leading-relaxed text-[var(--text-soft)]">{t(windowIntentKey)}</p>
+              <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">{t(plan.transitionSummaryKey)}</p>
+            </>
+          ) : (
+            <>
+              <p className="mt-3 text-base font-semibold text-[var(--text-main)]">
+                {t('sleepPlan.recoveryPage.noWindowTitle')}
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--text-soft)]">
+                {t('sleepPlan.recoveryPage.noWindowBody')}
+              </p>
+              <p className="mt-3 text-xs leading-relaxed text-[var(--text-muted)]">{t(plan.transitionSummaryKey)}</p>
+            </>
+          )}
+        </section>
+
+        {/* Nap */}
+        <section className={detailCardClass}>
+          <h4 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            {t('sleepPlan.recoveryPage.napHeading')}
+          </h4>
+          {plan.napSuggested && plan.napWindowStartMs != null && plan.napWindowEndMs != null ? (
+            <>
+              <p className="mt-3 text-lg font-bold tabular-nums text-[var(--text-main)] sm:text-xl">
+                {formatLocalTime(plan.napWindowStartMs, timeZone)} – {formatLocalTime(plan.napWindowEndMs, timeZone)}
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--text-soft)]">{napLine}</p>
+            </>
+          ) : (
+            <p className="mt-3 text-sm leading-relaxed text-[var(--text-soft)]">
+              {hasSleepWindow ? t('sleepPlan.recoveryPage.napMainSleepFocus') : t('sleepPlan.recoveryPage.napNotNeeded')}
+            </p>
+          )}
+        </section>
+
+        {/* Caffeine + sensitivity */}
+        <section className={detailCardClass}>
+          <h4 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            {t('sleepPlan.section.latestCaffeine')}
+          </h4>
+          <p className="mt-3 text-2xl font-bold tabular-nums tracking-tight text-[var(--text-main)] sm:text-3xl">
+            {formatLocalTime(plan.caffeineCutoffMs, timeZone)}
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-[var(--text-soft)]">
+            {hasSleepWindow ? t('sleepPlan.recoveryPage.caffeineWhy') : t('sleepPlan.recoveryPage.caffeineWhyNoWindow')}
+          </p>
+
+          <div className="mt-5 space-y-2 border-t border-[var(--border-subtle)] pt-4">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+              {t('sleepPlan.caffeineSensitivity.heading')}
+            </p>
+            <p className="text-xs leading-relaxed text-[var(--text-soft)]">{t('sleepPlan.caffeineSensitivity.help')}</p>
+            <div
+              className="flex gap-2"
+              role="radiogroup"
+              aria-label={t('sleepPlan.caffeineSensitivity.heading')}
+            >
+              {(
+                [
+                  { value: 'low' as const, labelKey: 'sleepPlan.caffeineOption.low' },
+                  { value: 'medium' as const, labelKey: 'sleepPlan.caffeineOption.medium' },
+                  { value: 'high' as const, labelKey: 'sleepPlan.caffeineOption.high' },
+                ] as const
+              ).map(({ value, labelKey }) => {
+                const selected = caffeineSensitivity === value
+                return (
+                  <label
+                    key={value}
+                    className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border px-2 py-2.5 text-xs font-medium transition ${
+                      selected
+                        ? 'border-[var(--accent-blue)] bg-[var(--card-subtle)] text-[var(--text-main)] shadow-sm'
+                        : 'border-[var(--border-subtle)] bg-[var(--card)] text-[var(--text-soft)] hover:border-[var(--accent-blue)]/40'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="sleep-plan-caffeine-sensitivity"
+                      value={value}
+                      checked={selected}
+                      onChange={() => onCaffeineSensitivityChange(value)}
+                      className="sr-only"
+                    />
+                    <span
+                      className={`flex h-2.5 w-2.5 shrink-0 rounded-full border-2 ${
+                        selected
+                          ? 'border-[var(--accent-blue)] bg-[var(--accent-blue)]'
+                          : 'border-[var(--text-muted)] bg-transparent'
+                      }`}
+                      aria-hidden
+                    />
+                    {t(labelKey)}
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* Light */}
+        <section className={detailCardClass}>
+          <h4 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            {t('sleepPlan.section.lightExposure')}
+          </h4>
+          <p className="mt-3 text-sm leading-relaxed text-[var(--text-soft)]">{t('sleepPlan.light.body')}</p>
+        </section>
+
+        {/* Recovery focus */}
+        <section className={detailCardClass}>
+          <h4 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            {t('sleepPlan.recoveryPage.recoveryFocusHeading')}
+          </h4>
+          <p className="mt-3 text-sm leading-relaxed text-[var(--text-soft)]">{t(recoveryKey)}</p>
+        </section>
       </div>
 
-      {visibleFeedback.length > 0 && (
-        <div className="rounded-lg border border-slate-200/90 bg-white/60 dark:border-slate-600/80 dark:bg-slate-900/40">
+      {visibleFeedback.length > 0 ? (
+        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--card)] shadow-[var(--shadow-soft)]">
           <button
             type="button"
             id="sleep-plan-feedback-toggle"
             aria-expanded={feedbackOpen}
             aria-controls="sleep-plan-feedback-panel"
             onClick={() => setFeedbackOpen((v) => !v)}
-            className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-xs font-semibold text-slate-800 dark:text-slate-100"
+            className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-xs font-semibold text-[var(--text-main)]"
           >
             <span className="flex min-w-0 flex-1 items-center gap-2">
               {feedbackHasWarn ? (
@@ -196,9 +485,9 @@ export function SuggestedSleepPlanCard({
               <span className="truncate">{t('sleepPlan.feedbackDropdown.summary', { count: visibleFeedback.length })}</span>
             </span>
             {feedbackOpen ? (
-              <ChevronUp className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+              <ChevronUp className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden />
             ) : (
-              <ChevronDown className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+              <ChevronDown className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden />
             )}
           </button>
           {feedbackOpen ? (
@@ -206,16 +495,16 @@ export function SuggestedSleepPlanCard({
               id="sleep-plan-feedback-panel"
               role="region"
               aria-labelledby="sleep-plan-feedback-toggle"
-              className="border-t border-slate-200/80 px-3 py-2 dark:border-slate-600/80"
+              className="border-t border-[var(--border-subtle)] px-4 pb-4 pt-2"
             >
               <ul className="space-y-1.5">
                 {visibleFeedback.map((f, i) => (
                   <li
                     key={`${f.code}-${i}`}
-                    className={`rounded-md px-3 py-2 text-xs leading-relaxed ${
+                    className={`rounded-lg px-3 py-2 text-xs leading-relaxed ${
                       f.severity === 'warn'
                         ? 'bg-amber-500/15 text-amber-950 dark:bg-amber-500/20 dark:text-amber-50'
-                        : 'bg-slate-200/60 text-slate-700 dark:bg-slate-800/80 dark:text-slate-300'
+                        : 'bg-[var(--card-subtle)] text-[var(--text-soft)]'
                     }`}
                   >
                     {t(`sleepPlan.feedback.${f.code}`)}
@@ -225,109 +514,36 @@ export function SuggestedSleepPlanCard({
             </div>
           ) : null}
         </div>
-      )}
+      ) : null}
 
-      {/* Caffeine sensitivity — drives cutoff below */}
-      <div className="space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-800/90 dark:text-sky-300/90">
-          {t('sleepPlan.caffeineSensitivity.heading')}
-        </p>
-        <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400">
-          {t('sleepPlan.caffeineSensitivity.help')}
-        </p>
-        <div
-          className="flex gap-2"
-          role="radiogroup"
-          aria-label={t('sleepPlan.caffeineSensitivity.heading')}
-        >
-          {(
-            [
-              { value: 'low' as const, labelKey: 'sleepPlan.caffeineOption.low' },
-              { value: 'medium' as const, labelKey: 'sleepPlan.caffeineOption.medium' },
-              { value: 'high' as const, labelKey: 'sleepPlan.caffeineOption.high' },
-            ] as const
-          ).map(({ value, labelKey }) => {
-            const selected = caffeineSensitivity === value
-            return (
-              <label
-                key={value}
-                className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border px-2 py-2.5 text-xs font-medium transition ${
-                  selected
-                    ? 'border-sky-400 bg-sky-100 text-slate-900 shadow-sm dark:border-sky-500/60 dark:bg-sky-950/50 dark:text-sky-50'
-                    : 'border-slate-200/80 bg-white/80 text-slate-700 hover:border-sky-300/60 dark:border-slate-600 dark:bg-slate-900/40 dark:text-slate-200'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="sleep-plan-caffeine-sensitivity"
-                  value={value}
-                  checked={selected}
-                  onChange={() => onCaffeineSensitivityChange(value)}
-                  className="sr-only"
-                />
-                <span
-                  className={`flex h-2.5 w-2.5 shrink-0 rounded-full border-2 ${
-                    selected
-                      ? 'border-red-500 bg-red-500 dark:border-red-400 dark:bg-red-400'
-                      : 'border-slate-400 bg-transparent dark:border-slate-500'
-                  }`}
-                  aria-hidden
-                />
-                {t(labelKey)}
-              </label>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Latest caffeine cutoff */}
-      <div>
-        <h3 className="text-sm font-bold text-[var(--text-main)]">{t('sleepPlan.section.latestCaffeine')}</h3>
-        <p className="mt-2 text-lg font-bold tabular-nums text-[var(--text-main)]">
-          {formatLocalTime(plan.caffeineCutoffMs, timeZone)}
-        </p>
-      </div>
-
-      {/* Nap window */}
-      <div>
-        <h3 className="text-sm font-bold text-[var(--text-main)]">{t('sleepPlan.section.napWindow')}</h3>
-        <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">{napLine}</p>
-      </div>
-
-      {/* Light exposure — italic body */}
-      <div>
-        <h3 className="text-sm font-bold text-[var(--text-main)]">{t('sleepPlan.section.lightExposure')}</h3>
-        <p className="mt-2 text-sm italic leading-relaxed text-slate-600 dark:text-slate-400">
-          {t('sleepPlan.light.body')}
-        </p>
-      </div>
-
-      {/* Recovery */}
-      <div>
-        <h3 className="text-sm font-bold text-[var(--text-main)]">{t('sleepPlan.section.recovery')}</h3>
-        <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{t(recoveryKey)}</p>
-      </div>
-
-      <div className="border-t border-sky-200/50 pt-4 dark:border-slate-700/80">
+      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--card)] px-4 py-3 shadow-[var(--shadow-soft)]">
         <button
           type="button"
           onClick={() => setHowOpen((v) => !v)}
-          className="flex w-full items-center justify-between gap-2 text-left text-xs font-semibold text-teal-700 dark:text-teal-400/90"
+          className="flex w-full items-center justify-between gap-2 text-left text-xs font-semibold text-[var(--text-main)]"
+          aria-expanded={howOpen}
         >
           <span>{t('sleepPlan.howTitle')}</span>
-          {howOpen ? <ChevronUp className="h-4 w-4 shrink-0 opacity-80" /> : <ChevronDown className="h-4 w-4 shrink-0 opacity-80" />}
+          {howOpen ? (
+            <ChevronUp className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden />
+          ) : (
+            <ChevronDown className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden />
+          )}
         </button>
 
-        {howOpen && (
-          <ul className="mt-3 list-disc space-y-1.5 pl-5 text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
-            {plan.calculationStepKeys.map((key) => (
-              <li key={key}>{t(key)}</li>
-            ))}
-          </ul>
-        )}
+        {howOpen ? (
+          <div className="mt-3 space-y-3 border-t border-[var(--border-subtle)] pt-3">
+            <p className="text-xs leading-relaxed text-[var(--text-soft)]">{t('sleepPlan.recoveryPage.howIntro')}</p>
+            <ul className="list-disc space-y-1.5 pl-5 text-[11px] leading-relaxed text-[var(--text-muted)]">
+              {plan.calculationStepKeys.map((key) => (
+                <li key={key}>{t(key)}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </div>
 
-      <p className="text-[10px] leading-relaxed text-slate-500 dark:text-slate-500">{t('sleepPlan.disclaimerShort')}</p>
-    </section>
+      <p className="px-0.5 text-[10px] leading-relaxed text-[var(--text-muted)]">{t('sleepPlan.disclaimerShort')}</p>
+    </div>
   )
 }

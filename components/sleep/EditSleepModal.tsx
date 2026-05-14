@@ -95,17 +95,19 @@ export function EditSleepModal({ entry, onClose, onUpdated }: EditSleepModalProp
     try {
       const startISO = new Date(`${startDate}T${startTime}`).toISOString()
       const endISO = new Date(`${endDate}T${endTime}`).toISOString()
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
 
-      const res = await fetch(`/api/sleep/log/${entry.id}`, {
-        method: 'PUT',
+      const res = await fetch(`/api/sleep/sessions/${entry.id}`, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          startTime: startISO,
-          endTime: endISO,
+          startAt: startISO,
+          endAt: endISO,
+          type: type === 'nap' ? 'nap' : 'main_sleep',
           quality,
-          naps: type === 'nap' ? 1 : 0,
+          timezone,
         }),
       })
 
@@ -117,9 +119,20 @@ export function EditSleepModal({ entry, onClose, onUpdated }: EditSleepModalProp
         return
       }
 
-      if (data.sleep_log) {
+      const updatedSession = data.session ?? data.sleep_log
+      if (updatedSession) {
         notifySleepLogsUpdated()
-        onUpdated(data.sleep_log)
+        onUpdated({
+          ...entry,
+          start_ts: updatedSession.start_at ?? startISO,
+          end_ts: updatedSession.end_at ?? endISO,
+          quality: updatedSession.quality ?? quality,
+          naps: updatedSession.type === 'nap' ? 1 : 0,
+          sleep_hours:
+            (new Date(updatedSession.end_at ?? endISO).getTime() -
+              new Date(updatedSession.start_at ?? startISO).getTime()) /
+            3600000,
+        })
       } else {
         notifySleepLogsUpdated()
         onUpdated({
@@ -148,7 +161,7 @@ export function EditSleepModal({ entry, onClose, onUpdated }: EditSleepModalProp
     setError(null)
 
     try {
-      const res = await fetch(`/api/sleep/log/${entry.id}`, {
+      const res = await fetch(`/api/sleep/sessions/${entry.id}`, {
         method: 'DELETE',
       })
 

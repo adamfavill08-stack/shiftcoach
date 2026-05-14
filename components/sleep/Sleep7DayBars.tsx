@@ -276,14 +276,16 @@ export function Sleep7DayBars({ onRefresh }: Sleep7DayBarsProps) {
           body: JSON.stringify(sessionData),
         })
       } else {
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
         // Create new
         res = await fetch('/api/sleep/log', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            type: sessionData.session_type === 'nap' ? 'nap' : 'sleep',
+            type: sessionData.session_type === 'nap' ? 'nap' : 'main_sleep',
             startAt: sessionData.start_time,
             endAt: sessionData.end_time,
+            timezone,
           }),
         })
       }

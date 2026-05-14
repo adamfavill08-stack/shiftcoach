@@ -5,6 +5,7 @@ import { rowCountsAsPrimarySleep } from '@/lib/sleep/utils'
 const MAX_COMMUTE_MIN = 45
 const WIND_DOWN_MIN = 30
 const MIN_MAIN_SLEEP_MIN = 240
+const POST_NIGHT_RECOVERY_PREVIEW_HORIZON_MS = 18 * 60 * 60 * 1000
 
 export type SleepSessionLike = {
   start_at: string
@@ -13,10 +14,9 @@ export type SleepSessionLike = {
 }
 
 /**
- * When the roster shows a night shift on `scopeYmd` that has not ended yet and the user has not
- * logged main sleep after that duty, synthesize a future main-sleep interval so `pickPrimarySleep`
- * picks it over older logs — the planner then anchors post-night recovery to **this** night’s end
- * and profile `post_night_sleep` (e.g. Tue ~08:00 after Mon night → Tue morning).
+ * When the roster shows an ongoing or recently ended night shift on `scopeYmd`, and the user has
+ * not logged main sleep after that duty, synthesize a future main-sleep interval so `pickPrimarySleep`
+ * anchors post-night recovery to this night's end and profile `post_night_sleep`.
  */
 export function buildForwardPostNightPreviewSession(params: {
   scopeYmd: string
@@ -58,7 +58,7 @@ export function buildForwardPostNightPreviewSession(params: {
   }
   if (!isNightLikeInstant(instant, timeZone)) return null
 
-  if (endMs <= nowMs) return null
+  if (nowMs - endMs > POST_NIGHT_RECOVERY_PREVIEW_HORIZON_MS) return null
 
   for (const s of existingSessionLikes) {
     if (!rowCountsAsPrimarySleep({ type: s.type, naps: (s as { naps?: number | null }).naps })) continue

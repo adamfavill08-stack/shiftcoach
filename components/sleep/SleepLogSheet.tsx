@@ -45,15 +45,17 @@ export default function SleepLogSheet({ type, onClose, onSaved }: Props) {
 
     setSaving(true)
     try {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
       const res = await fetch("/api/sleep/log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type,
+          type: type === "nap" ? "nap" : "main_sleep",
           startAt: new Date(start).toISOString(),
           endAt: new Date(end).toISOString(),
-          quality,
+          quality: quality === "Excellent" ? 5 : quality === "Good" ? 4 : quality === "Fair" ? 3 : 2,
           notes: notes || null,
+          timezone,
         }),
       })
 

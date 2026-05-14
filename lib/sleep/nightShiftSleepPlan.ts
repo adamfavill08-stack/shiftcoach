@@ -24,8 +24,13 @@ import {
   parsePostNightSleepToWallMinutes,
   resolvePostNightAsleepByUtcMs,
 } from '@/lib/sleep/postNightSleepHabit'
+import type { ShiftRelativeSleepAnalysis } from '@/lib/sleep/shiftRelativeSleepClassification'
 
 import { resolveForcedDayToNightPreNightNapWindow } from '@/lib/sleep/forcedDayToNightNap'
+import {
+  classifyNightShiftSleepWindowKind,
+  type SuggestedSleepWindowKind,
+} from '@/lib/sleep/suggestedSleepWindowKind'
 
 export { resolveForcedDayToNightPreNightNapWindow }
 
@@ -123,6 +128,8 @@ export type NightShiftSleepPlanInput = {
   postNightPreferredStartTomorrowUtcMs?: number | null
   /** Profile `post_night_sleep` raw string for duty resolve and outside-window copy. */
   postNightSleepRaw?: string | null
+  /** Shift-relative classification of logged primary sleep (nearest prev/next work blocks). */
+  shiftRelativeAnalysis?: ShiftRelativeSleepAnalysis | null
 }
 
 export type PlanFeedbackCode =
@@ -167,6 +174,15 @@ export type NightShiftSleepPlanResult = {
 
   /** Stable keys for i18n / “how calculated” */
   calculationStepKeys: string[]
+
+  /** Shift-relative classification + plain-English next step (when resolver supplied it). */
+  shiftRelative?: Pick<
+    ShiftRelativeSleepAnalysis,
+    'sleepClass' | 'recoveryState' | 'nextStepMessage' | 'features'
+  >
+
+  /** What this suggested main-sleep window represents (drives window-card copy). */
+  suggestedSleepWindowKind: SuggestedSleepWindowKind
 }
 
 function clampTargetMinutes(raw: number): number {
@@ -207,6 +223,7 @@ export function computeNightShiftSleepPlan(input: NightShiftSleepPlanInput): Nig
       napWindowEndMs: null,
       feedback: [{ code: 'none', severity: 'info' }],
       calculationStepKeys: ['sleepPlan.calc.noMainSleep'],
+      suggestedSleepWindowKind: 'none',
     }
   }
 
@@ -238,6 +255,7 @@ export function computeNightShiftSleepPlan(input: NightShiftSleepPlanInput): Nig
       napWindowEndMs: null,
       feedback,
       calculationStepKeys: ['sleepPlan.calc.needShiftBeforeSleep'],
+      suggestedSleepWindowKind: 'none',
     }
   }
 
@@ -482,7 +500,7 @@ export function computeNightShiftSleepPlan(input: NightShiftSleepPlanInput): Nig
     preferredPostNightStartMs <= shift.endMs + 18 * MS_H
 
   if (anchorWasNight && isPostNightTransition) {
-    const baseStartMs = preferredIsUsable
+    let baseStartMs = preferredIsUsable
       ? Math.max(preferredPostNightStartMs!, homeArrivalPlusWindDownMs)
       : homeArrivalPlusWindDownMs
 
@@ -674,6 +692,16 @@ export function computeNightShiftSleepPlan(input: NightShiftSleepPlanInput): Nig
     feedback.push({ code: 'none', severity: 'info' })
   }
 
+  const suggestedSleepWindowKind = classifyNightShiftSleepWindowKind({
+    transition,
+    napSuggested,
+    napWindowStartMs,
+    napWindowEndMs,
+    suggestedSleepStartMs,
+    suggestedSleepEndMs,
+    modelSleepMs,
+  })
+
   return {
     ok: true,
     transition,
@@ -689,5 +717,16 @@ export function computeNightShiftSleepPlan(input: NightShiftSleepPlanInput): Nig
     napWindowEndMs,
     feedback,
     calculationStepKeys: stepKeys,
+    suggestedSleepWindowKind,
+    shiftRelative: input.shiftRelativeAnalysis
+      ? {
+          sleepClass: input.shiftRelativeAnalysis.sleepClass,
+          recoveryState: input.shiftRelativeAnalysis.recoveryState,
+          nextStepMessage: input.shiftRelativeAnalysis.nextStepMessage,
+          features: input.shiftRelativeAnalysis.features,
+        }
+      : undefined,
   }
 }
+
+export type { SuggestedSleepWindowKind } from '@/lib/sleep/suggestedSleepWindowKind'

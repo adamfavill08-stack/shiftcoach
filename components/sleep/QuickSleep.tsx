@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { notifySleepLogsUpdated } from '@/lib/circadian/circadianAgent'
 import { useTranslation } from '@/components/providers/language-provider'
 
@@ -39,20 +38,28 @@ export function QuickSleep({ onSaved }: { onSaved: () => void }) {
 
   async function save() {
     setMsg(null)
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
     const startISO = toISO(date, start)
     let endISO = toISO(date, end)
     if (new Date(endISO) <= new Date(startISO)) {
       const e = new Date(endISO); e.setDate(e.getDate()+1); endISO = e.toISOString()
     }
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setMsg(t('quickSleep.notSignedIn'))
-      return
-    }
-    const { error } = await supabase.from('sleep_logs').insert({
-      user_id: user.id, start_ts: startISO, end_ts: endISO, quality, type
+    const res = await fetch('/api/sleep/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: type === 'nap' ? 'nap' : 'main_sleep',
+        startAt: startISO,
+        endAt: endISO,
+        quality,
+        source: 'manual',
+        timezone,
+      }),
     })
-    if (error) setMsg(error.message)
+    if (!res.ok) {
+      const error = await res.json().catch(() => null)
+      setMsg(error?.error || error?.message || t('quickSleep.notSignedIn'))
+    }
     else {
       setMsg(t('quickSleep.saved'))
       setOpen(false)

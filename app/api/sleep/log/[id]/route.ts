@@ -4,12 +4,21 @@ import { supabaseServer } from '@/lib/supabase-server'
 import { z } from 'zod'
 import { parseJsonBody } from '@/lib/api/validation'
 import { apiBadRequest, apiServerError } from '@/lib/api/response'
+import {
+  normalizeIanaTimeZone,
+  normalizeSleepQuality,
+  normalizeSleepType,
+} from '@/lib/sleep/normalizeSleepLogPayload'
 
 const SleepLogUpdateSchema = z.object({
   startTime: z.string(),
   endTime: z.string(),
-  quality: z.number().optional(),
+  quality: z.union([z.number(), z.string()]).nullable().optional(),
   naps: z.number().optional(),
+  type: z
+    .enum(['main_sleep', 'post_shift_sleep', 'recovery_sleep', 'nap', 'sleep', 'main', 'post_shift', 'recovery', 'pre_shift_nap'])
+    .optional(),
+  timezone: z.string().max(120).nullish(),
 })
 
 export async function PUT(
@@ -22,7 +31,7 @@ export async function PUT(
   try {
     const parsed = await parseJsonBody(req, SleepLogUpdateSchema)
     if (!parsed.ok) return parsed.response
-    const { startTime, endTime, quality, naps } = parsed.data
+    const { startTime, endTime, quality, naps, type, timezone } = parsed.data
 
     const startDate = new Date(startTime)
     const endDate = new Date(endTime)
@@ -38,27 +47,32 @@ export async function PUT(
       return apiBadRequest('invalid_date_range', 'endTime must be after startTime')
     }
 
-    // Get date from startDate (YYYY-MM-DD)
     const date = startDate.toISOString().slice(0, 10)
-
-    // Sanitize quality (1-5, default 3)
-    const qualityValue = quality != null ? Math.max(1, Math.min(5, Math.round(quality))) : 3
-
-    // Sanitize naps (>= 0, default 0)
+    const qualityValue = normalizeSleepQuality(quality) ?? 3
     const napsValue = naps != null ? Math.max(0, Math.round(naps)) : 0
+    const canonicalType = normalizeSleepType(type ?? (napsValue > 0 ? 'nap' : 'main_sleep'))
+    if (!canonicalType) {
+      return apiBadRequest('invalid_sleep_type', 'Invalid sleep type')
+    }
+    const clientTimeZone = normalizeIanaTimeZone(timezone ?? req.headers.get('x-time-zone'))
+    if ((timezone ?? req.headers.get('x-time-zone')) && !clientTimeZone) {
+      return apiBadRequest('invalid_timezone', 'timezone must be a valid IANA time zone')
+    }
 
     const { id } = await context.params
 
+    const updatePayload: Record<string, unknown> = {
+      start_at: startDate.toISOString(),
+      end_at: endDate.toISOString(),
+      type: canonicalType,
+      quality: qualityValue,
+      updated_at: new Date().toISOString(),
+    }
+    if (clientTimeZone) updatePayload.timezone = clientTimeZone
+
     const { data: updated, error } = await supabase
       .from('sleep_logs')
-      .update({
-        date,
-        start_ts: startDate.toISOString(),
-        end_ts: endDate.toISOString(),
-        sleep_hours: sleepHours,
-        quality: qualityValue,
-        naps: napsValue,
-      })
+      .update(updatePayload)
       .eq('id', id)
       .eq('user_id', userId)
       .select()
@@ -73,7 +87,17 @@ export async function PUT(
       return NextResponse.json({ ok: false, error: 'Log not found', code: 'not_found' }, { status: 404 })
     }
 
-    return NextResponse.json({ success: true, sleep_log: updated })
+    return NextResponse.json({
+      success: true,
+      sleep_log: {
+        ...updated,
+        date,
+        start_ts: updated.start_at ?? startDate.toISOString(),
+        end_ts: updated.end_at ?? endDate.toISOString(),
+        sleep_hours: sleepHours,
+        naps: canonicalType === 'nap' ? Math.max(1, napsValue) : 0,
+      },
+    })
   } catch (err: any) {
     console.error('[/api/sleep/log/:id PUT] FATAL ERROR:', {
       name: err?.name,
@@ -119,9 +143,10 @@ export async function DELETE(
 
     const { data, error } = await supabase
       .from('sleep_logs')
-      .delete()
+      .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', id)
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .select()
 
     if (error) {

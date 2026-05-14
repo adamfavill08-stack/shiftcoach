@@ -38,6 +38,7 @@ const sleepInsightEn: Record<string, string> = {
 export const sleepUiMessagesEn: Record<string, string> = {
   ...sleepInsightEn,
   'sleepSW.pageTitle': 'Sleep',
+  'sleepSW.tabLog': 'Log sleep',
   'sleepSW.backHome': 'Back to home',
   'sleepSW.loading': 'Loading sleep data...',
   'sleepSW.metricsTitle': 'Sleep metrics',
@@ -112,6 +113,29 @@ export const sleepUiMessagesEn: Record<string, string> = {
 
   'sleepPlan.tabOverview': 'Overview',
   'sleepPlan.tabYourPlan': 'Your plan',
+  'sleepPlan.recoveryPage.title': 'Sleep recovery plan',
+  'sleepPlan.recoveryPage.subtitle': 'Your personalised plan for today',
+  'sleepPlan.recoveryPage.todayPriority': "Today's priority",
+  'sleepPlan.recoveryPage.basedOnSleep': 'Based on your logged sleep',
+  'sleepPlan.recoveryPage.loggedInterval': 'Logged sleep',
+  'sleepPlan.recoveryPage.loggedDuration': 'Duration',
+  'sleepPlan.recoveryPage.loggedClassification': 'How we read it',
+  'sleepPlan.recoveryPage.planDetails': 'Your plan for today',
+  'sleepPlan.recoveryPage.suggestedWindowHeading': 'Suggested sleep window',
+  'sleepPlan.recoveryPage.noWindowTitle': 'No specific sleep window right now',
+  'sleepPlan.recoveryPage.noWindowBody':
+    'That usually means the next shift is outside the rota we can see, or the gap between wind-down and your next start is very tight. Check a few days ahead on your rota — we will fill this in when the schedule gives a clear slot.',
+  'sleepPlan.recoveryPage.napHeading': 'Nap guidance',
+  'sleepPlan.recoveryPage.napNotNeeded': "No extra nap is needed in today's plan.",
+  'sleepPlan.recoveryPage.napMainSleepFocus':
+    "Today's plan focuses on your main sleep opportunity instead — use that block first before adding naps.",
+  'sleepPlan.recoveryPage.caffeineWhy':
+    'Stopping caffeine by this time makes it easier to reach the suggested sleep window above.',
+  'sleepPlan.recoveryPage.caffeineWhyNoWindow':
+    'Cut-off time follows your sensitivity setting ahead of when you are likely to sleep next.',
+  'sleepPlan.recoveryPage.recoveryFocusHeading': 'Recovery focus',
+  'sleepPlan.recoveryPage.howIntro':
+    "This plan combines your logged sleep, the shift that just ended (when we can detect it), your next relevant shift from the rota, and ShiftCoach's sleep-window rules — for planning only, not a medical diagnosis.",
   'sleepPlan.title': 'Suggested plan',
   'sleepPlan.subtitle':
     'Educational only — not medical advice. Uses sleep logged for today (local calendar) and your rota, including the next shift after that sleep when available.',
@@ -133,6 +157,20 @@ export const sleepUiMessagesEn: Record<string, string> = {
   'sleepPlan.section.recovery': 'Recovery',
   'sleepPlan.windowExplainer':
     'Main sleep starts as soon as it is realistic after your shift (commute home and a short wind-down), for up to your sleep goal, and ends before you would need to be up for your next shift. Times use a 24-hour clock. Modelled block: {hours} h.',
+  'sleepPlan.windowIntent.post_shift_recovery':
+    'Main sleep starts as soon as it is realistic after your shift (commute home and a short wind-down), for up to your sleep goal, and ends before you would need to be up for your next shift. Times use a 24-hour clock. Modelled block: {hours} h.',
+  'sleepPlan.windowIntent.reset_after_final_night':
+    'After your last night block in this stretch (or with no next shift in range), this is an open recovery window: start after commute and wind-down, aim for about {hours} h where it still fits your body clock, without an artificial far wake cap.',
+  'sleepPlan.windowIntent.off_day_overnight_recovery':
+    'On consecutive rest days, this is a normal night-time sleep window (not a repeat of yesterday’s daytime recovery time). It targets about {hours} h and stays inside any wake time implied by your next shift. Times use a 24-hour clock.',
+  'sleepPlan.windowIntent.pre_next_shift_bedtime':
+    'Before your next day-type shift, this is a civil night sleep window: long enough for about {hours} h where the rota allows, so you wake with prep and commute time before work.',
+  'sleepPlan.windowIntent.pre_night_shift_preparation':
+    'Before a coming night block, this main sleep is placed in the evening window the model can defend (about {hours} h), sometimes alongside a separate pre-shift nap when timing allows.',
+  'sleepPlan.windowIntent.nap_only':
+    'No safe full main-sleep window was modelled in this gap; the plan may still suggest a short pre-shift nap below — use it as a bridge, not a full substitute for main sleep.',
+  'sleepPlan.windowIntent.none':
+    'No main sleep window was modelled for this state — see plan notes or log a clearer main sleep block.',
   'sleepPlan.windowExplainerNoWindow':
     'We could not draw a full sleep window yet — often because the next work shift is outside the loaded rota range, or the gap between wind-down and your next start is very tight. Check your rota ahead a few days.',
   'sleepPlan.light.body':
@@ -212,6 +250,8 @@ export const sleepUiMessagesEn: Record<string, string> = {
   'sleepPlan.calc.prepCommute': 'Subtract prep time and commute to work (capped) for latest wake.',
   'sleepPlan.calc.noNextShift': 'No next shift in range — cannot cap the sleep window.',
   'sleepPlan.calc.windowFit': 'Fit your sleep goal inside the available window (clamped to minimums where needed).',
+  'sleepPlan.calc.dayOffEveningAnchor':
+    'Later days off use a normal evening bed time (from your last night-style sleep if we have one, otherwise a typical 22:30 start) — not the clock time when daytime recovery sleep began.',
   'sleepPlan.calc.noRoom': 'Not enough time between realistic sleep start and next shift — modelled sleep may be very short.',
   'sleepPlan.calc.postNightProfileSavedTime':
     'Used your saved post-night sleep time from your profile.',
@@ -243,6 +283,12 @@ export const sleepUiMessagesEn: Record<string, string> = {
     'No upcoming work shift is in the loaded rota — the plan uses an open-ended recovery block after wind-down (educational only).',
   'sleepPlan.transition.other':
     'General shift spacing — standard commute, wind-down, and next-shift prep rules apply.',
+  'sleepPlan.transition.day_off_normal':
+    'Day off — aim for a normal night-time sleep block that fits your next shift, not another daytime recovery slot.',
+  'sleepPlan.transition.dayOffBeforeNight':
+    'Rest day — sleep window is sized for your goal before your next night shift (civil evening rhythm, not yesterday’s shift end).',
+  'sleepPlan.transition.dayOffBeforeWork':
+    'Rest day — sleep window is sized so you can wake with margin before your next day-type shift.',
   'sleepPlan.value.notApplicable': '—',
   'sleepPlan.disclaimerShort':
     'For education and wellbeing planning only. If you have a sleep disorder, pregnancy, or health concerns, speak with a qualified clinician.',
@@ -252,6 +298,58 @@ export const sleepUiMessagesEn: Record<string, string> = {
   'sleepPlan.rota.shiftEnded': 'Previous shift ({label}) ended {time}.',
   'sleepPlan.rota.nextShift': 'Next shift ({label}) starts {time}.',
   'sleepPlan.rota.nextShiftUnknown': 'Next shift not in loaded rota range.',
+
+  'sleepPlan.shiftRelative.class.pre_shift_sleep': 'Pre-shift main sleep',
+  'sleepPlan.shiftRelative.class.post_shift_recovery_sleep': 'Post-shift recovery sleep',
+  'sleepPlan.shiftRelative.class.pre_shift_nap': 'Pre-shift nap',
+  'sleepPlan.shiftRelative.class.recovery_nap': 'Recovery nap',
+  'sleepPlan.shiftRelative.class.off_day_main_sleep': 'Off-day main sleep',
+  'sleepPlan.shiftRelative.class.transition_sleep': 'Transition sleep',
+
+  'sleepPlan.shiftRelative.recovery.on_track': 'On track',
+  'sleepPlan.shiftRelative.recovery.a_little_short': 'A little short',
+  'sleepPlan.shiftRelative.recovery.recovery_needed': 'Recovery needed',
+  'sleepPlan.shiftRelative.recovery.reset_mode': 'Reset mode',
+
+  'sleepPlan.shiftRelative.recoveryExplainer.quickTurnaround':
+    'You had a tight turnaround between shifts, so your recovery window was limited.',
+  'sleepPlan.shiftRelative.recoveryExplainer.reset_mode':
+    'This looks like a longer catch-up sleep — useful for resetting, as long as your next start time still works for you.',
+  'sleepPlan.shiftRelative.recoveryExplainer.recovery_needed_next_night':
+    'Your sleep was shorter than ideal for your goal, and you have another night block coming up ({next}).',
+  'sleepPlan.shiftRelative.recoveryExplainer.recovery_needed_generic':
+    'Your sleep was shorter than ideal for your goal. Protect the next full sleep opportunity where you can.',
+  'sleepPlan.shiftRelative.recoveryExplainer.a_little_short':
+    'You are close to your sleep target. A small top-up (earlier bed or a short nap) can help before your next duty.',
+  'sleepPlan.shiftRelative.recoveryExplainer.on_track_next':
+    'Your sleep looks reasonably aligned with your schedule ahead of your next shift ({next}).',
+  'sleepPlan.shiftRelative.recoveryExplainer.on_track_generic':
+    'Your sleep looks reasonably aligned with your schedule for this block.',
+
+  'sleepPlan.shiftRelative.nextStep.post_shift_recovery_sleep_recovery_needed':
+    'Your main sleep is shorter than your target after your last shift. Protect a longer block before {next}, and keep wind-down and commute buffers realistic.',
+  'sleepPlan.shiftRelative.nextStep.post_shift_recovery_sleep_a_little_short':
+    'You are close to your sleep target after your last shift. A slightly earlier bedtime before {next} would shore this up.',
+  'sleepPlan.shiftRelative.nextStep.post_shift_recovery_sleep_on_track':
+    'Recovery sleep after your last shift looks on track relative to your target. Keep a steady wind-down routine ahead of {next}.',
+  'sleepPlan.shiftRelative.nextStep.pre_shift_nap':
+    'Treat this as a short nap before {next}: cap duration, wake well before duty, and avoid heavy caffeine close to the nap.',
+  'sleepPlan.shiftRelative.nextStep.pre_shift_sleep':
+    'This is main sleep ahead of {next}. Aim to finish waking with enough time for commute, meal, and mental prep before you clock on.',
+  'sleepPlan.shiftRelative.nextStep.recovery_nap':
+    'Short sleep window — use it as a recovery nap, not a full replacement for main sleep, especially with {next} coming up.',
+  'sleepPlan.shiftRelative.nextStep.off_day_main_sleep_reset_mode':
+    'Longer off-day sleep like this can help reset your clock. Keep your first shift after rest ({next}) in mind so you do not overshoot too far into the day.',
+  'sleepPlan.shiftRelative.nextStep.off_day_main_sleep_default':
+    'Off-day main sleep: keep it consistent with your usual duration so the return to {next} does not feel like a jet-lag day.',
+  'sleepPlan.shiftRelative.nextStep.transition_sleep_overlap':
+    'These times overlap scheduled work on your rota — double-check the log or your shift times before trusting recovery advice for {next}.',
+  'sleepPlan.shiftRelative.nextStep.transition_sleep_quick_turnaround':
+    'Tight turnaround between shifts — prioritise sleep quality and strict caffeine cutoffs before {next}.',
+  'sleepPlan.shiftRelative.nextStep.transition_sleep_default':
+    'Awkward gap between shifts — treat sleep as transitional: anchor routine to {next}, not only the calendar day.',
+  'sleepPlan.shiftRelative.nextStep.fallback':
+    'Use your logged sleep as context for pacing rest before {next}.',
 
   'sleepSW.motivate.title': 'A note for you',
   'sleepSW.motivate.noSleep':
@@ -369,7 +467,8 @@ export const sleepUiMessagesEn: Record<string, string> = {
   'sleepForm.saving': 'Saving...',
   'sleepForm.save': 'Save',
 
-  'sleepLog.title': 'Log sleep',
+  'sleepLog.title': 'Log Sleep',
+  'sleepLog.backAria': 'Back',
   'sleepLog.qualityLabel': 'QUALITY',
   'sleepLog.notesLabel': 'NOTES',
   'sleepLog.notesPlaceholder': 'Anything to remember about this sleep?',
@@ -378,6 +477,42 @@ export const sleepUiMessagesEn: Record<string, string> = {
   'sleepLog.errMin10': 'Sleep session must be at least 10 minutes',
   'sleepLog.errMax24': 'Sleep session cannot be longer than 24 hours',
   'sleepLog.errSave': 'Failed to save sleep',
+
+  'sleepLog.section.sleepBlock': 'Sleep Block',
+  'sleepLog.timeBlock.startLabel': 'Start',
+  'sleepLog.timeBlock.endLabel': 'End',
+  'sleepLog.timeBlock.dateFieldLabel': 'Date',
+  'sleepLog.timeBlock.timeFieldLabel': 'Time',
+  'sleepLog.timeBlock.datePlaceholder': 'Choose date',
+  'sleepLog.timeBlock.ariaChangeStartDate': 'Change start date',
+  'sleepLog.timeBlock.ariaChangeEndDate': 'Change end date',
+  'sleepLog.timeBlock.ariaChangeStartTime': 'Change start time',
+  'sleepLog.timeBlock.ariaChangeEndTime': 'Change end time',
+  'sleepLog.timeBlock.hintStartDateFirst': 'Enter the start date before choosing the start time.',
+  'sleepLog.timeBlock.hintEndDateFirst': 'Enter the end date before choosing the end time.',
+  'sleepLog.section.howFeel': 'How do you feel?',
+  'sleepLog.section.recoveryStatus': 'Recovery status',
+  'sleepLog.section.yourPlan': 'Your plan',
+  'sleepLog.section.details': 'Details',
+  'sleepLog.durationLabel': 'Duration',
+  'sleepLog.durationAutoCalculated': 'Duration (auto-calculated)',
+  'sleepLog.trendsAria': 'Weekly sleep overview',
+  'sleepLog.rotaAutoLink': 'Auto-linked to your rota',
+  'sleepLog.warning.offDayAfterNight':
+    'Wake day is marked OFF on your rota, but this sleep still follows your previous night shift.',
+  'sleepLog.saveSleep': 'Save sleep',
+  'sleepLog.addNap': 'Add nap',
+  'sleepLog.feeling.exhausted': 'Exhausted',
+  'sleepLog.feeling.tired': 'Tired',
+  'sleepLog.feeling.okay': 'Okay',
+  'sleepLog.feeling.refreshed': 'Refreshed',
+  'sleepLog.contextChip.dayOffRecovery': 'Day off recovery',
+  'sleepLog.contextChip.afterShift': 'After {label}',
+  'sleepLog.contextChip.beforeNightShift': 'Before night shift',
+  'sleepLog.contextChip.beforeEarlyShift': 'Before early shift',
+  'sleepLog.contextChip.betweenShifts': 'Between shifts',
+  'sleepLog.contextChip.shortWindow': 'Short sleep window',
+
   'sleepEdit.saveChanges': 'Save Changes',
   'sleepEdit.deleteSession': 'Delete session',
   'sleepEdit.confirmDelete': 'Confirm delete',

@@ -213,7 +213,7 @@ export default function SleepLogsPage() {
     try {
       console.log('[SleepLogsPage] Attempting to delete sleep log:', deletingLogId)
       
-      const res = await fetch(`/api/sleep/log/${deletingLogId}`, {
+      const res = await fetch(`/api/sleep/sessions/${deletingLogId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -556,4 +556,3 @@ export default function SleepLogsPage() {
     </div>
   )
 }
-

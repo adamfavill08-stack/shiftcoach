@@ -67,9 +67,28 @@ describe('buildForwardPostNightPreviewSession', () => {
     expect(out).toBeNull()
   })
 
-  it('returns null when duty already ended', () => {
+  it('returns synthetic main_sleep when duty recently ended and no post-duty log exists', () => {
     const { end } = estimateShiftRowBounds(nightRow, new Date(), TZ)
-    const nowMs = end.getTime() + 60 * 60 * 1000
+    const endMs = end.getTime()
+    const nowMs = endMs + 60 * 60 * 1000
+
+    const out = buildForwardPostNightPreviewSession({
+      scopeYmd: '2026-05-11',
+      shifts: [nightRow],
+      timeZone: TZ,
+      nowMs,
+      commuteMinutes: 25,
+      targetSleepMinutes: 420,
+      rosterNightOnScope: true,
+      existingSessionLikes: [],
+    })
+    expect(out).not.toBeNull()
+    expect(Date.parse(out!.start_at)).toBe(endMs + 25 * 60 * 1000 + 30 * 60 * 1000 + 1)
+  })
+
+  it('returns null when duty ended outside the recovery preview horizon', () => {
+    const { end } = estimateShiftRowBounds(nightRow, new Date(), TZ)
+    const nowMs = end.getTime() + 19 * 60 * 60 * 1000
 
     const out = buildForwardPostNightPreviewSession({
       scopeYmd: '2026-05-11',

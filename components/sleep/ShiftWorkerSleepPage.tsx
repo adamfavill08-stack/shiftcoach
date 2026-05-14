@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { ChevronDown, ChevronLeft, ChevronUp } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/providers/language-provider'
-import { LogSleepModal } from './LogSleepModal'
+import { LogSleepFormExperience } from './log-sleep/LogSleepFormExperience'
 import { SleepEditModal } from './SleepEditModal'
 import { DeleteSleepConfirmModal } from './DeleteSleepConfirmModal'
 import { LastWorkBlockCard } from './LastWorkBlockCard'
@@ -26,8 +26,11 @@ import {
   coercePostNightSleepString,
   resolvePostNightPreferredStartForSleepPlan,
 } from '@/lib/sleep/postNightSleepHabit'
+import { buildMinimalConsecutiveOffSleepPlan, buildNormalDayOffSleepPlan, shouldUseNormalDayOffSleepPlan } from '@/lib/sleep/dayOffSleepPlan'
 import { buildForwardPostNightPreviewSession } from '@/lib/sleep/forwardPostNightPlanPreview'
+import { pickSleepPlanSessionsForCivilYmd } from '@/lib/sleep/pickSleepPlanSessions'
 import { resolveRotaContextForSleepPlan } from '@/lib/sleep/resolveRotaForSleepPlan'
+import { shouldKeepPreviousNightRecoveryScope } from '@/lib/sleep/sleepPlanScope'
 import {
   pickDefaultShiftedDay,
   formatYmdInTimeZone,
@@ -89,6 +92,18 @@ function rosterNightNearSleepSession(
   return false
 }
 
+function shiftLabelForSleepSession(
+  shiftByDate: Map<string, string>,
+  session: Pick<SleepSession, 'start_at' | 'end_at'> | null,
+  fallbackYmd: string,
+  timeZone: string,
+): string {
+  if (session && rosterNightNearSleepSession(shiftByDate, session.start_at, session.end_at, timeZone)) {
+    return 'NIGHT'
+  }
+  return shiftByDate.get(fallbackYmd) || 'OFF'
+}
+
 function extractApiErrorMessage(errorData: any, fallback: string): string {
   if (!errorData) return fallback
   if (typeof errorData.error === 'string' && errorData.error.trim()) return errorData.error
@@ -144,61 +159,6 @@ function getShiftAdjustedTargetMinutes(baseTargetMinutes: number, shiftLabel: st
 /** After civil midnight, keep “Your plan” on yesterday until this long after yesterday’s suggested main sleep start. */
 const SLEEP_PLAN_SCOPE_PIN_MS = 3 * 60 * 60 * 1000
 
-/**
- * Sessions fed into the sleep plan for a given civil `ymd`. Same rules as the former “today-only”
- * picker: widen to prior days when the calendar row has no primary sleep (post–night shift).
- */
-function pickPlanSessionsForCivilYmd(
-  ymd: string,
-  sevenDayCalendarDays: Array<{ date: string; totalMinutes: number; sessions?: SleepSession[] }>,
-  shiftedDays: ShiftedDay[],
-): SleepSession[] {
-  const fromWeek = sevenDayCalendarDays.find((d) => d.date === ymd)
-
-  const hasPrimary = (list: SleepSession[]) =>
-    list.some(
-      (s) =>
-        !!s?.start_at &&
-        !!s?.end_at &&
-        rowCountsAsPrimarySleep({ type: s.type }),
-    )
-
-  const dedupeSessions = (lists: SleepSession[][]) => {
-    const byKey = new Map<string, SleepSession>()
-    for (const list of lists) {
-      for (const s of list) {
-        if (!s?.start_at || !s?.end_at) continue
-        const key =
-          s.id != null && String(s.id).trim() !== '' ? String(s.id) : `${s.start_at}|${s.end_at}`
-        byKey.set(key, s)
-      }
-    }
-    return [...byKey.values()]
-  }
-
-  if (sevenDayCalendarDays.length > 0) {
-    const todaySess = fromWeek !== undefined ? (fromWeek.sessions ?? []) : []
-    if (hasPrimary(todaySess)) return todaySess
-
-    const y1 = addCalendarDaysToYmd(ymd, -1)
-    const y2 = addCalendarDaysToYmd(ymd, -2)
-    const row1 = sevenDayCalendarDays.find((d) => d.date === y1)
-    const row2 = sevenDayCalendarDays.find((d) => d.date === y2)
-    const mergedBack = dedupeSessions([row2?.sessions ?? [], row1?.sessions ?? [], todaySess])
-    if (hasPrimary(mergedBack)) return mergedBack
-
-    const allWeek = sevenDayCalendarDays.flatMap((d) => d.sessions ?? [])
-    const allShifted = shiftedDays.flatMap((d) => d.sessions ?? [])
-    const wide = dedupeSessions([allShifted, allWeek])
-    if (hasPrimary(wide)) return wide
-
-    return mergedBack.length > 0 ? mergedBack : todaySess
-  }
-
-  const shifted = shiftedDays.find((d) => d.date === ymd)
-  return shifted?.sessions ?? []
-}
-
 export function ShiftWorkerSleepPage() {
   const router = useRouter()
   const { t } = useTranslation()
@@ -209,16 +169,14 @@ export function ShiftWorkerSleepPage() {
   >([])
   const [loading, setLoading] = useState(true)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
-  const [isLogModalOpen, setIsLogModalOpen] = useState(false)
-  const [logModalStart, setLogModalStart] = useState<Date | null>(null)
-  const [logModalEnd, setLogModalEnd] = useState<Date | null>(null)
+  const [sleepTab, setSleepTab] = useState<'log' | 'overview' | 'plan'>('log')
+  const [logFormNonce, setLogFormNonce] = useState(0)
   const [editingSession, setEditingSession] = useState<SleepSession | null>(null)
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
   const [shiftByDate, setShiftByDate] = useState<Map<string, string>>(new Map())
   const [shiftPlanRows, setShiftPlanRows] = useState<ShiftRowInput[]>([])
-  const [sleepTab, setSleepTab] = useState<'overview' | 'plan'>('overview')
   /** Collapsible sleep entries — default open so the list matches prior always-visible behaviour. */
   const [sleepEntriesOpen, setSleepEntriesOpen] = useState(true)
   const [planCommuteMinutes, setPlanCommuteMinutes] = useState<number | null>(null)
@@ -638,11 +596,8 @@ export function ShiftWorkerSleepPage() {
 
       notifySleepLogsUpdated()
 
-      setIsLogModalOpen(false)
-      setLogModalStart(null)
-      setLogModalEnd(null)
-
       await refreshSleepPageData()
+      setLogFormNonce((n) => n + 1)
     } catch (error) {
       console.error('[ShiftWorkerSleepPage] Error logging sleep:', error)
       throw error
@@ -696,15 +651,20 @@ export function ShiftWorkerSleepPage() {
   const useCalendarOverview = sevenDayCalendarDays.length > 0
   const calendarOverviewRow = sevenDayCalendarDays.find((d) => d.date === calendarFocusYmd)
 
-  const shiftForDay = useCalendarOverview
-    ? shiftByDate.get(calendarFocusYmd) || 'OFF'
-    : selectedDayData?.date
-      ? shiftByDate.get(selectedDayData.date) || 'OFF'
-      : 'OFF'
-
   const sessions = useCalendarOverview
     ? (calendarOverviewRow?.sessions ?? [])
     : (selectedDayData?.sessions ?? [])
+  const primarySessionForShift = useMemo(() => {
+    const primary = sessions.filter((s) => rowCountsAsPrimarySleep({ type: s.type }))
+    const pool = primary.length > 0 ? primary : sessions
+    return [...pool].sort((a, b) => b.durationHours - a.durationHours)[0] ?? null
+  }, [sessions])
+  const shiftForDay = shiftLabelForSleepSession(
+    shiftByDate,
+    primarySessionForShift,
+    useCalendarOverview ? calendarFocusYmd : selectedDayData?.date ?? calendarFocusYmd,
+    userTimeZone,
+  )
   const baseTargetMinutes = sleepGoalHours ? Math.round(sleepGoalHours * 60) : 0
   const adjustedTargetMinutes = getShiftAdjustedTargetMinutes(baseTargetMinutes, shiftForDay)
 
@@ -807,28 +767,61 @@ export function ShiftWorkerSleepPage() {
       const rosterLab = String(shiftByDate.get(scopeYmd) ?? '').toUpperCase()
       const rosterNightOnScope =
         rosterLab.includes('NIGHT') || toShiftType(shiftByDate.get(scopeYmd), null) === 'night'
+      const nowMs = Date.now()
       const rawCommute =
         typeof planCommuteMinutes === 'number' && Number.isFinite(planCommuteMinutes) && planCommuteMinutes > 0
           ? Math.round(planCommuteMinutes)
           : 25
-      const forwardPreview = buildForwardPostNightPreviewSession({
+      /** Synthetic post-night preview must not run on consecutive civil days off — it becomes "latest" primary and anchors bed to the morning. */
+      const skipForwardPostNightPreview = shouldUseNormalDayOffSleepPlan(
         scopeYmd,
-        shifts: shiftPlanRows,
-        timeZone: sleepPlanTimeZone,
-        nowMs: Date.now(),
-        commuteMinutes: rawCommute,
-        targetSleepMinutes,
-        rosterNightOnScope,
-        existingSessionLikes: sessionLikesBase,
-      })
+        shiftByDate,
+        shiftPlanRows,
+        sleepPlanTimeZone,
+      )
+      const forwardPreview = skipForwardPostNightPreview
+        ? null
+        : buildForwardPostNightPreviewSession({
+            scopeYmd,
+            shifts: shiftPlanRows,
+            timeZone: sleepPlanTimeZone,
+            nowMs,
+            commuteMinutes: rawCommute,
+            targetSleepMinutes,
+            rosterNightOnScope,
+            existingSessionLikes: sessionLikesBase,
+          })
       const sessionLikes = forwardPreview ? [forwardPreview, ...sessionLikesBase] : sessionLikesBase
       const rota = resolveRotaContextForSleepPlan(sessionLikes, shiftPlanRows, {
         commuteMinutes: planCommuteMinutes,
         timeZone: sleepPlanTimeZone,
         postNightSleepRaw,
+        targetSleepMinutes: targetSleepMinutes,
       })
       if (rota.state !== 'ok') {
         return { rota, plan: null as ReturnType<typeof computeNightShiftSleepPlan> | null }
+      }
+      if (shouldUseNormalDayOffSleepPlan(scopeYmd, shiftByDate, shiftPlanRows, sleepPlanTimeZone)) {
+        const dayOffPlan =
+          buildNormalDayOffSleepPlan({
+            scopeYmd,
+            sessions: sessionLikes,
+            targetSleepMinutes,
+            caffeineSensitivity: planCaffeineSensitivity,
+            timeZone: sleepPlanTimeZone,
+            nextShift: rota.nextShift,
+            commuteMinutes: rota.commuteMinutes,
+          }) ??
+          buildMinimalConsecutiveOffSleepPlan({
+            scopeYmd,
+            targetSleepMinutes,
+            caffeineSensitivity: planCaffeineSensitivity,
+            timeZone: sleepPlanTimeZone,
+            nextShift: rota.nextShift,
+            commuteMinutes: rota.commuteMinutes,
+            nowMs: Date.now(),
+          })
+        return { rota, plan: dayOffPlan }
       }
       const forcedLatestWakeMs = forcedLatestWakeBeforeTonightsNight(
         rota.primarySleep.endMs,
@@ -858,23 +851,28 @@ export function ShiftWorkerSleepPage() {
         forcedLatestWakeMs,
         postNightPreferredStartUtcMs,
         postNightSleepRaw: coercePostNightSleepString(postNightSleepRaw ?? null),
+        shiftRelativeAnalysis: rota.shiftRelative,
       })
       return { rota, plan }
     },
     [
       shiftPlanRows,
+      shiftByDate,
       planCommuteMinutes,
       planCaffeineSensitivity,
       sleepPlanTimeZone,
       sleepDebtMinutes,
       postNightSleepRaw,
-      shiftByDate,
     ],
   )
 
   const planSessionsYesterday = useMemo(
-    () => pickPlanSessionsForCivilYmd(yesterdayPlanAnchorYmd, sevenDayCalendarDays, shiftedDays),
-    [yesterdayPlanAnchorYmd, sevenDayCalendarDays, shiftedDays],
+    () =>
+      pickSleepPlanSessionsForCivilYmd(yesterdayPlanAnchorYmd, sevenDayCalendarDays, shiftedDays, {
+        shiftByDate,
+        timeZone: sleepPlanTimeZone,
+      }),
+    [yesterdayPlanAnchorYmd, sevenDayCalendarDays, shiftedDays, shiftByDate, sleepPlanTimeZone],
   )
 
   const planTargetYesterdayMinutes = useMemo(() => {
@@ -901,26 +899,35 @@ export function ShiftWorkerSleepPage() {
 
   const sleepPlanScopeYmd = useMemo(() => {
     void sleepPlanClockTick
+    const nowMs = Date.now()
     const p = yesterdaySleepPlanPayload.plan
-    if (
-      p?.ok &&
-      p.suggestedSleepStartMs != null &&
-      Number.isFinite(p.suggestedSleepStartMs) &&
-      Date.now() < p.suggestedSleepStartMs + SLEEP_PLAN_SCOPE_PIN_MS
-    ) {
+    if (shouldKeepPreviousNightRecoveryScope({
+      nowMs,
+      currentShiftLabel: shiftByDate.get(chartHighlightYmd),
+      previousPlan: p,
+      previousRota: yesterdaySleepPlanPayload.rota,
+      timeZone: sleepPlanTimeZone,
+      shortPinMs: SLEEP_PLAN_SCOPE_PIN_MS,
+    })) {
       return yesterdayPlanAnchorYmd
     }
     return chartHighlightYmd
   }, [
     chartHighlightYmd,
+    shiftByDate,
+    sleepPlanTimeZone,
     yesterdayPlanAnchorYmd,
     yesterdaySleepPlanPayload,
     sleepPlanClockTick,
   ])
 
   const planSessionsForSleepPlan = useMemo(
-    () => pickPlanSessionsForCivilYmd(sleepPlanScopeYmd, sevenDayCalendarDays, shiftedDays),
-    [sleepPlanScopeYmd, sevenDayCalendarDays, shiftedDays],
+    () =>
+      pickSleepPlanSessionsForCivilYmd(sleepPlanScopeYmd, sevenDayCalendarDays, shiftedDays, {
+        shiftByDate,
+        timeZone: sleepPlanTimeZone,
+      }),
+    [sleepPlanScopeYmd, sevenDayCalendarDays, shiftedDays, shiftByDate, sleepPlanTimeZone],
   )
 
   const planTargetSleepMinutes = useMemo(() => {
@@ -940,77 +947,133 @@ export function ShiftWorkerSleepPage() {
     [computeSleepPlanForScope, sleepPlanScopeYmd, planSessionsForSleepPlan, planTargetSleepMinutes],
   )
 
+  const sleepPlanDisplayYmd = useMemo(() => {
+    const plan = sleepPlanPayload.plan
+    if (
+      plan?.ok &&
+      (
+        plan.transition === 'night_to_off' ||
+        plan.transition === 'night_to_day' ||
+        plan.transition === 'night_to_night' ||
+        plan.transition === 'no_next_shift'
+      ) &&
+      plan.suggestedSleepStartMs != null &&
+      Number.isFinite(plan.suggestedSleepStartMs)
+    ) {
+      return formatYmdInTimeZone(new Date(plan.suggestedSleepStartMs), sleepPlanTimeZone)
+    }
+    return sleepPlanScopeYmd
+  }, [sleepPlanPayload, sleepPlanScopeYmd, sleepPlanTimeZone])
+
   const sleepListLoading = loading && shiftedDays.length === 0
 
+  const goToLogTab = useCallback(() => {
+    setHeroActionError(null)
+    setSleepTab('log')
+  }, [])
+
   return (
-    <div className="w-full max-w-md mx-auto px-4 py-6 space-y-6">
-      {/* Page header with back arrow */}
-      <div className="flex items-center gap-3">
-        <Link
-          href="/dashboard"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--card)] text-[var(--text-soft)] transition hover:bg-[var(--card-subtle)] hover:text-[var(--text-main)]"
-          aria-label={t('sleepSW.backHome')}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Link>
-        <h1 className="text-sm font-semibold tracking-tight text-[var(--text-main)]">
-          {t('sleepSW.pageTitle')}
-        </h1>
-      </div>
+    <div className="min-h-[100dvh] w-full bg-[var(--bg)]">
+      <div className="mx-auto w-full max-w-md space-y-5 px-4 pb-12 pt-5">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--card)] text-[var(--text-soft)] shadow-sm transition hover:bg-[var(--card-subtle)] hover:text-[var(--text-main)]"
+            aria-label={t('sleepSW.backHome')}
+          >
+            <ChevronLeft className="h-5 w-5" strokeWidth={2} />
+          </Link>
+          <h1 className="text-lg font-bold tracking-tight text-[var(--text-main)]">{t('sleepSW.pageTitle')}</h1>
+        </div>
 
-      {sleepListLoading ? (
-        <p className="rounded-lg border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-3 py-2 text-xs text-[var(--text-muted)]">
-          {t('sleepSW.loading')}
-        </p>
+        {sleepListLoading ? (
+          <p className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-subtle)] px-4 py-3 text-sm text-[var(--text-muted)]">
+            {t('sleepSW.loading')}
+          </p>
+        ) : null}
+
+        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--card)] p-1 shadow-sm">
+          <div className="flex rounded-xl bg-[var(--card-subtle)] p-0.5 text-[11px] font-semibold sm:text-xs">
+            <button
+              type="button"
+              onClick={() => setSleepTab('log')}
+              className={`flex-1 rounded-lg px-2 py-2.5 transition sm:px-3 ${
+                sleepTab === 'log'
+                  ? 'bg-[var(--card)] text-[var(--text-main)] shadow-sm ring-1 ring-[var(--border-subtle)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+              }`}
+            >
+              {t('sleepSW.tabLog')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSleepTab('overview')}
+              className={`flex-1 rounded-lg px-2 py-2.5 transition sm:px-3 ${
+                sleepTab === 'overview'
+                  ? 'bg-[var(--card)] text-[var(--text-main)] shadow-sm ring-1 ring-[var(--border-subtle)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+              }`}
+            >
+              {t('sleepPlan.tabOverview')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSleepTab('plan')}
+              className={`flex-1 rounded-lg px-2 py-2.5 transition sm:px-3 ${
+                sleepTab === 'plan'
+                  ? 'bg-[var(--card)] text-[var(--text-main)] shadow-sm ring-1 ring-[var(--border-subtle)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+              }`}
+            >
+              {t('sleepPlan.tabYourPlan')}
+            </button>
+          </div>
+        </div>
+
+      {sleepTab === 'log' ? (
+        <LogSleepFormExperience
+          variant="page"
+          active={sleepTab === 'log'}
+          onSubmit={handleLogSleep}
+          initNonce={logFormNonce}
+          shiftRows={shiftPlanRows}
+          timeZone={sleepPlanTimeZone}
+          targetSleepMinutes={planTargetSleepMinutes}
+          homeHref="/dashboard"
+          onOpenTrends={() => setSleepTab('overview')}
+        />
       ) : null}
-
-      <div className="flex rounded-full border border-[var(--border-subtle)] bg-[var(--card-subtle)] p-0.5 text-xs font-medium">
-        <button
-          type="button"
-          onClick={() => setSleepTab('overview')}
-          className={`flex-1 rounded-full px-3 py-1.5 transition ${
-            sleepTab === 'overview'
-              ? 'bg-[var(--card)] text-[var(--text-main)] shadow-sm'
-              : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-          }`}
-        >
-          {t('sleepPlan.tabOverview')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setSleepTab('plan')}
-          className={`flex-1 rounded-full px-3 py-1.5 transition ${
-            sleepTab === 'plan'
-              ? 'bg-[var(--card)] text-[var(--text-main)] shadow-sm'
-              : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-          }`}
-        >
-          {t('sleepPlan.tabYourPlan')}
-        </button>
-      </div>
 
       {sleepTab === 'plan' ? (
         <div className="space-y-4">
           {sleepPlanPayload.rota.state !== 'ok' ? (
-            <section className="rounded-xl border border-sky-200/60 bg-gradient-to-b from-sky-50 via-white to-slate-50/90 px-5 py-5 shadow-sm dark:border-slate-700/80 dark:from-slate-900/70 dark:via-[var(--card)] dark:to-slate-950/60">
-              <h2 className="text-xl font-bold tracking-tight text-[var(--text-main)]">{t('sleepPlan.title')}</h2>
-              <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                {t('sleepPlan.scopeLine', { ymd: sleepPlanScopeYmd })}
-              </p>
-              <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                {sleepPlanPayload.rota.reason === 'no_main_sleep'
-                  ? t('sleepPlan.insufficient.noMain')
-                  : sleepPlanPayload.rota.reason === 'no_shift_anchor'
-                    ? t('sleepPlan.insufficient.noShift')
-                    : t('sleepPlan.insufficient.noSessions')}
-              </p>
+            <section className="space-y-4">
+              <header className="space-y-1 px-0.5">
+                <h2 className="text-lg font-bold tracking-tight text-[var(--text-main)] sm:text-xl">
+                  {t('sleepPlan.recoveryPage.title')}
+                </h2>
+                <p className="text-sm text-[var(--text-soft)]">{t('sleepPlan.recoveryPage.subtitle')}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                  {t('sleepPlan.scopeLine', { ymd: sleepPlanDisplayYmd })}
+                </p>
+              </header>
+              <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--card)] p-4 shadow-[var(--shadow-soft)] sm:p-5">
+                <p className="text-sm leading-relaxed text-[var(--text-soft)]">
+                  {sleepPlanPayload.rota.reason === 'no_main_sleep'
+                    ? t('sleepPlan.insufficient.noMain')
+                    : sleepPlanPayload.rota.reason === 'no_shift_anchor'
+                      ? t('sleepPlan.insufficient.noShift')
+                      : t('sleepPlan.insufficient.noSessions')}
+                </p>
+              </section>
             </section>
           ) : sleepPlanPayload.plan ? (
             <SuggestedSleepPlanCard
               timeZone={sleepPlanTimeZone}
-              todayYmd={sleepPlanScopeYmd}
+              todayYmd={sleepPlanDisplayYmd}
               rota={sleepPlanPayload.rota}
               plan={sleepPlanPayload.plan}
+              shiftRows={shiftPlanRows}
               targetSleepMinutes={planTargetSleepMinutes}
               caffeineSensitivity={planCaffeineSensitivity}
               onCaffeineSensitivityChange={handleCaffeineSensitivityChange}
@@ -1041,12 +1104,7 @@ export function ShiftWorkerSleepPage() {
         sleepDebtMinutes={sleepDebtMinutes}
         circadianAlignment={circadianAlignment}
         actionError={heroActionError}
-        onLogSleep={() => {
-          setHeroActionError(null)
-          setLogModalStart(null)
-          setLogModalEnd(null)
-          setIsLogModalOpen(true)
-        }}
+        onLogSleep={goToLogTab}
         onSyncWearable={handleSyncWearable}
         editLogsHref="/sleep/history"
         sevenDayBars={sevenDayChartBars}
@@ -1116,18 +1174,6 @@ export function ShiftWorkerSleepPage() {
         </p>
       </footer>
 
-      {/* Log Sleep Modal */}
-      <LogSleepModal
-        open={isLogModalOpen}
-        onClose={() => {
-          setIsLogModalOpen(false)
-          setLogModalStart(null)
-          setLogModalEnd(null)
-        }}
-        onSubmit={handleLogSleep}
-        defaultStart={logModalStart}
-        defaultEnd={logModalEnd}
-      />
 
       {/* Edit Session Modal */}
       {editingSession && (
@@ -1160,6 +1206,6 @@ export function ShiftWorkerSleepPage() {
         />
       )}
     </div>
+    </div>
   )
 }
-
